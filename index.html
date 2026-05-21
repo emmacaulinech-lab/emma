@@ -652,7 +652,8 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('app').classList.add('visible');
     document.getElementById('userEmail').textContent = user.email;
-    await loadAll();
+  await userRef.set({ createdAt: new Date().toISOString() }, { merge: true });
+  await loadAll();
     renderAll();
   } else {
     currentUser = null;
