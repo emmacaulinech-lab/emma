@@ -679,7 +679,10 @@ let PARAMS = {
 };
 
 async function loadAll() {
-  if(!userRef) return;
+  if(!userRef) {
+  toast('⚠️ Firebase pas encore prêt');
+  throw new Error('Firebase non connecté');
+}
   try {
     // Load params
     const paramsDoc = await userRef.collection('settings').doc('params').get();
@@ -716,7 +719,10 @@ function applyParamsToUI() {
 }
 
 async function saveParams() {
-  if(!userRef) return;
+  if(!userRef) {
+  toast('⚠️ Firebase pas connecté, paramètre non sauvegardé');
+  throw new Error('Firebase non connecté');
+}
   try { await userRef.collection('settings').doc('params').set(PARAMS); }
   catch(e) { toast('Erreur sauvegarde paramètres'); }
 }
@@ -731,7 +737,10 @@ async function updateParam(key, val) {
 
 // Save a single entry to Firestore
 async function saveEntry_fb(col, entry) {
-  if(!userRef) return entry;
+  if(!userRef) {
+  toast('⚠️ Firebase pas connecté, donnée non sauvegardée');
+  throw new Error('Firebase non connecté');
+}
   try {
     const { id, ...data } = entry;
     if(id && typeof id === 'string' && id.length > 5) {
@@ -748,13 +757,19 @@ async function saveEntry_fb(col, entry) {
 }
 
 async function deleteEntry_fb(col, id) {
-  if(!userRef) return;
+  if(!userRef) {
+  toast('⚠️ Firebase pas connecté, suppression non effectuée');
+  throw new Error('Firebase non connecté');
+}
   try { await userRef.collection(col).doc(String(id)).delete(); }
   catch(e) { toast('Erreur suppression: ' + e.message); }
 }
 
 async function savePrestations() {
-  if(!userRef) return;
+  if(!userRef) {
+  toast('⚠️ Firebase pas connecté, prestation non sauvegardée');
+  throw new Error('Firebase non connecté');
+}
   await userRef.collection('settings').doc('prestations').set({ list: DB.prestations });
 }
 
