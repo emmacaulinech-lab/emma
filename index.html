@@ -1417,11 +1417,11 @@ function renderRecap(){
     const tvaReel=tvaVarEntry?tvaVarEntry.montant:0;
 
     // Total estimé = fixes prévues + variables prévues + redevance estimée + TVA estimée
-    const totalEstim=fixEstim+varEstim+redevEstim+tvaEstim;
+    const totalEstim=fixEstim+varEstim;
     const chargeParSemaine=nw>0?totalEstim/nw:0;
 
     // Total réel = fixes réelles + variables réelles + redevance réelle + TVA réelle
-    const totalReel=fixReel+varReel+redevReel+tvaReel;
+    const totalReel=fixReel+varReel;
 
     const caisseM=DB.caisse.filter(t=>inM(t.date,mois));
     const redevTotale=redevDue(caisseM);
