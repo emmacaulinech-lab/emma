@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMMA — Comptabilité</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+/* ═══════════════════════════════════════
+   DESIGN SYSTEM — Style Journal Doux
+═══════════════════════════════════════ */
+:root {
+  --bg: #fff5f7;
+  --bg2: #fff0f3;
+  --sur: #ffffff;
+  --sur2: #fdf0f3;
+  --brd: #f5d0d8;
+  --brd2: #e8b4be;
+  --acc: #7d2d3e;
+  --acc2: #a0384c;
+  --rose: #e8a0b0;
+  --rose2: #f5c8d2;
+  --gold: #c9956a;
+  --gold2: #e8b890;
+  --rec: #3a8a5c;
+  --rec2: #edf7f2;
+  --dep: #c03030;
+  --dep2: #fdf0f0;
+  --pla: #4060a8;
+  --pla2: #eef2fb;
+  --warn: #d4820a;
+  --txt: #2d1820;
+  --mut: #9a7880;
+  --mut2: #c8b0b8;
+  --marie: #c0392b;
+  --giulia: #8B6914;
+  --shadow: 0 2px 12px rgba(180,80,100,.08);
+  --shadow2: 0 4px 20px rgba(180,80,100,.14);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--txt); font-size: 13px; min-height: 100vh; }
+
+/* ── LOGIN ── */
+.login-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #fff0f3 0%, #fde8ef 50%, #f5e0f0 100%);
+}
+.login-card {
+  background: white; border-radius: 24px; padding: 40px 36px;
+  width: 380px; max-width: 95vw;
+  box-shadow: 0 8px 40px rgba(180,80,100,.18);
+  border: 1px solid var(--brd);
+}
+.login-logo { font-family: 'Playfair Display', serif; font-size: 28px; color: var(--acc); text-align: center; margin-bottom: 6px; letter-spacing: .04em; }
+.login-sub { text-align: center; font-size: 12px; color: var(--mut); margin-bottom: 28px; }
+.login-field { margin-bottom: 16px; }
+.login-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 5px; font-weight: 600; }
+.login-field input {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--brd2);
+  border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+  color: var(--txt); background: var(--bg); outline: none; transition: border-color .2s;
+}
+.login-field input:focus { border-color: var(--rose); }
+.login-btn {
+  width: 100%; padding: 13px; background: var(--acc); color: white;
+  border: none; border-radius: 12px; font-family: 'Playfair Display', serif;
+  font-size: 15px; cursor: pointer; margin-top: 6px;
+  transition: all .2s; letter-spacing: .04em;
+}
+.login-btn:hover { background: var(--acc2); transform: translateY(-1px); box-shadow: var(--shadow2); }
+.login-error { color: var(--dep); font-size: 12px; text-align: center; margin-top: 10px; }
+
+/* ── APP ── */
+.app { display: none; }
+.app.visible { display: block; }
+
+/* ── HEADER ── */
+.hdr {
+  background: white; border-bottom: 1.5px solid var(--brd);
+  padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+  height: 52px; position: sticky; top: 0; z-index: 300;
+  box-shadow: 0 2px 8px rgba(180,80,100,.06);
+}
+.hdr-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--acc); font-weight: 700; letter-spacing: .04em; }
+.hdr-title span { color: var(--mut); font-weight: 400; font-size: 13px; margin-left: 8px; font-family: 'DM Sans', sans-serif; }
+.hdr-right { display: flex; align-items: center; gap: 12px; }
+.hdr-user { font-size: 11px; color: var(--mut); }
+.logout-btn { background: var(--bg2); border: 1px solid var(--brd2); color: var(--acc); border-radius: 20px; padding: 5px 13px; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 600; transition: all .15s; }
+.logout-btn:hover { background: var(--rose2); }
+.hdr-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--mut2); }
+
+/* ── TABS ── */
+.tabs {
+  background: white; border-bottom: 2px solid var(--brd);
+  display: flex; padding: 0 16px; overflow-x: auto;
+  position: sticky; top: 52px; z-index: 200;
+  box-shadow: 0 1px 4px rgba(180,80,100,.04);
+}
+.tab {
+  padding: 11px 15px; border: none; background: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--mut); border-bottom: 3px solid transparent; margin-bottom: -2px;
+  white-space: nowrap; transition: all .15s;
+}
+.tab:hover { color: var(--acc); }
+.tab.active { color: var(--acc); border-bottom-color: var(--rose); }
+
+/* ── VIEWS ── */
+.view { display: none; padding: 20px 22px; }
+.view.active { display: block; }
+
+/* ── SECTION ── */
+.sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.st { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--acc); }
+.ss { font-size: 11px; color: var(--mut); margin-top: 2px; }
+
+/* ── CARDS ── */
+.card {
+  background: white; border: 1.5px solid var(--brd);
+  border-radius: 16px; overflow: hidden;
+  box-shadow: var(--shadow); margin-bottom: 16px;
+}
+.card-hdr {
+  background: linear-gradient(135deg, var(--bg2), var(--rose2));
+  padding: 11px 16px; font-weight: 700; font-size: 12px;
+  color: var(--acc); display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--brd);
+}
+
+/* ── BUTTONS ── */
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 600; transition: all .15s; }
+.bd { background: var(--acc); color: white; }
+.bd:hover { background: var(--acc2); transform: translateY(-1px); box-shadow: var(--shadow); }
+.bg { background: white; border: 1.5px solid var(--brd2); color: var(--mut); }
+.bg:hover { border-color: var(--acc); color: var(--acc); }
+.br { background: white; border: 1.5px solid var(--dep); color: var(--dep); }
+.br:hover { background: var(--dep); color: white; }
+.bgrn { background: var(--rec); color: white; }
+.bgrn:hover { background: #2d7048; }
+.bo { background: var(--warn); color: white; }
+.bsm { padding: 3px 9px; font-size: 11px; border-radius: 12px; }
+
+/* ── TABLE ── */
+.tw { background: white; border: 1.5px solid var(--brd); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
+thead th { padding: 9px 11px; text-align: left; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--rose2); font-weight: 600; white-space: nowrap; }
+tbody tr { border-bottom: 1px solid var(--brd); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg2); }
+td { padding: 9px 11px; vertical-align: middle; }
+.tm { font-family: 'DM Mono', monospace; font-size: 12px; }
+.tdt { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--mut); white-space: nowrap; }
+.tp { color: var(--rec); font-family: 'DM Mono', monospace; font-weight: 600; }
+.tn { color: var(--dep); font-family: 'DM Mono', monospace; font-weight: 600; }
+.tmu { color: var(--mut); font-family: 'DM Mono', monospace; font-size: 11px; }
+.trm td { background: var(--sur2); font-weight: 700; font-size: 12px; color: var(--acc); border-top: 2px solid var(--brd2); }
+.trt td { background: var(--sur2); font-weight: 700; border-top: 2px solid var(--brd2); }
+
+/* ── BADGE ── */
+.bdg { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.esp { background: #fef3cd; color: #856404; border: 1px solid #f0c040; }
+.vir { background: var(--pla2); color: var(--pla); border: 1px solid #b3c6ef; }
+.chq { background: #f3e8ff; color: #6f2da8; border: 1px solid #c9a8e0; }
+.planity { background: var(--pla2); color: var(--pla); border: 1px solid #b3c6ef; }
+.chfix { background: var(--dep2); color: var(--dep); border: 1px solid #f5b8b8; }
+.chvar { background: #fff8e1; color: #856404; border: 1px solid #f0c040; }
+.ca { background: var(--rec2); color: var(--rec); border: 1px solid #a5d6a7; }
+.achat { background: #fce4d6; color: #c0390b; border: 1px solid #f5a888; }
+
+/* ── STATUS ── */
+.sok { color: var(--rec); cursor: pointer; }
+.sq { color: var(--warn); cursor: pointer; }
+.sno { color: var(--mut2); }
+
+/* ── TAGS ── */
+.tm-tag { background: #fce8e8; color: var(--marie); border-radius: 8px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+.tg-tag { background: #fdf6e3; color: var(--giulia); border-radius: 8px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+
+/* ── FILTERS ── */
+.flt { display: flex; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.fi { background: white; border: 1.5px solid var(--brd2); color: var(--txt); border-radius: 20px; padding: 6px 12px; font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none; }
+.fi:focus { border-color: var(--rose); }
+
+/* ── KPI ── */
+.kg { display: grid; grid-template-columns: repeat(4,1fr); gap: 13px; margin-bottom: 18px; }
+.kc {
+  background: white; border: 1.5px solid var(--brd); border-radius: 18px;
+  padding: 18px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+}
+.kc::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: 18px 18px 0 0; }
+.kca::before { background: linear-gradient(90deg, var(--rec), #6fc49a); }
+.kob::before { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+.kpr::before { background: linear-gradient(90deg, var(--pla), #8090d0); }
+.kpa::before { background: linear-gradient(90deg, var(--rose), var(--acc)); }
+.kl { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 8px; }
+.kv { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--acc); line-height: 1; }
+.ks { font-size: 11px; color: var(--mut); margin-top: 5px; }
+.pt2 { flex: 1; height: 8px; background: var(--bg2); border-radius: 99px; overflow: hidden; border: 1px solid var(--brd); margin-top: 8px; }
+.pf { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--rec), var(--gold)); transition: width .6s; }
+
+/* ── MODAL ── */
+.mo { display: none; position: fixed; inset: 0; background: rgba(80,20,30,.4); z-index: 500; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.mo.open { display: flex; }
+.mb {
+  background: white; border: 1.5px solid var(--brd); border-radius: 20px;
+  padding: 26px 28px; width: 520px; max-width: 96vw;
+  box-shadow: 0 20px 60px rgba(180,80,100,.2); max-height: 90vh; overflow-y: auto;
+}
+.mb h2 { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--acc); margin-bottom: 18px; }
+.fr { margin-bottom: 13px; }
+.fr label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 5px; font-weight: 600; }
+.fr input, .fr select, .fr textarea {
+  width: 100%; background: var(--bg); border: 1.5px solid var(--brd2); color: var(--txt);
+  border-radius: 10px; padding: 9px 12px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  outline: none; transition: border-color .15s;
+}
+.fr input:focus, .fr select:focus { border-color: var(--rose); }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.ma { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+.pt { display: flex; border-radius: 20px; overflow: hidden; border: 1.5px solid var(--brd2); }
+.pt button { flex: 1; padding: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; background: var(--bg); color: var(--mut); transition: all .15s; }
+.pt button.pte { background: var(--acc); color: white; }
+.pt button.ptm { background: var(--marie); color: white; }
+.pt button.ptg { background: var(--giulia); color: white; }
+
+/* ── AUTO ── */
+.ab { background: white; border: 1.5px solid var(--brd); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 16px; }
+.ahm { background: linear-gradient(135deg, #fce8e8, #f8d0d0); color: var(--marie); padding: 13px 16px; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; border-bottom: 2px solid #f5b8b8; }
+.ahg { background: linear-gradient(135deg, #fdf6e3, #f8ead0); color: var(--giulia); padding: 13px 16px; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; border-bottom: 2px solid #e8d090; }
+
+/* ── FIXES ── */
+.fb { background: white; border: 1.5px solid var(--brd); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 14px; }
+.fh { background: linear-gradient(135deg, var(--bg2), var(--rose2)); padding: 10px 14px; font-weight: 700; font-size: 12px; color: var(--acc); border-bottom: 1px solid var(--brd); display: flex; justify-content: space-between; align-items: center; }
+
+/* ── TOOLTIP ── */
+.tt-wrap { position: relative; cursor: help; }
+.tt-wrap:hover .tt { display: block; }
+.tt { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--acc); color: white; padding: 8px 12px; border-radius: 10px; font-size: 11px; white-space: pre; z-index: 100; min-width: 180px; box-shadow: var(--shadow2); line-height: 1.6; font-family: 'DM Mono', monospace; }
+.tt::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--acc); }
+
+/* ── DEPOT ── */
+.dl { max-height: 240px; overflow-y: auto; margin-bottom: 10px; }
+.di { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 10px; cursor: pointer; transition: background .1s; }
+.di:hover { background: var(--bg2); }
+.di input { accent-color: var(--rec); width: 15px; height: 15px; cursor: pointer; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--acc); color: white; padding: 10px 18px; border-radius: 20px; font-size: 12px; z-index: 600; transform: translateY(60px); opacity: 0; transition: all .3s; pointer-events: none; box-shadow: var(--shadow2); }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── INFO BOXES ── */
+.ib { background: var(--pla2); border: 1px solid #b3c6ef; border-radius: 10px; padding: 9px 13px; font-size: 11px; color: var(--pla); margin-bottom: 12px; }
+.wb { background: #fff8e1; border: 1px solid #f0c040; border-radius: 10px; padding: 9px 13px; font-size: 11px; color: #856404; margin-bottom: 12px; }
+.rb { background: var(--bg2); border: 1px solid var(--brd2); border-radius: 10px; padding: 9px 13px; font-size: 11px; color: var(--acc); margin-bottom: 12px; }
+.empty { text-align: center; padding: 36px; color: var(--mut); }
+
+/* ── SETTINGS ── */
+.set-block { background: white; border: 1.5px solid var(--brd); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.set-block h3 { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--acc); margin-bottom: 14px; }
+.set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--brd); }
+.set-row:last-child { border-bottom: none; }
+.set-row label { flex: 1; font-size: 13px; color: var(--txt); }
+.set-row input { width: 120px; padding: 7px 10px; border: 1.5px solid var(--brd2); border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 13px; background: var(--bg); color: var(--txt); outline: none; }
+.set-row input:focus { border-color: var(--rose); }
+.set-row .unit { font-size: 12px; color: var(--mut); min-width: 20px; }
+
+/* ── VERIFICATION ── */
+.veri-card { background: white; border: 1.5px solid var(--brd); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 12px; }
+.veri-card h4 { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--acc); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.veri-formula { background: var(--bg2); border: 1px solid var(--brd2); border-radius: 10px; padding: 12px 14px; font-family: 'DM Mono', monospace; font-size: 12px; line-height: 1.8; color: var(--txt); }
+.veri-formula .highlight { color: var(--acc); font-weight: 700; }
+.veri-formula .green { color: var(--rec); font-weight: 700; }
+.veri-formula .red { color: var(--dep); font-weight: 700; }
+.veri-formula .blue { color: var(--pla); font-weight: 700; }
+.veri-select { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.veri-month-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--brd2); background: white; color: var(--mut); font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; }
+.veri-month-btn.active { background: var(--acc); color: white; border-color: var(--acc); }
+
+/* ── LOADING ── */
+.loading { display: flex; align-items: center; justify-content: center; min-height: 200px; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--brd); border-top-color: var(--acc); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--brd2); border-radius: 99px; }
+
+@media (max-width: 768px) {
+  .kg { grid-template-columns: 1fr 1fr; }
+  .hdr-date { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="login-logo">✦ EMMA</div>
+    <div class="login-sub">Comptabilité · Accès privé</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="ton@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Se connecter</button>
+    <div class="login-error" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP ═══════════════ -->
+<div class="app" id="app">
+
+  <header class="hdr">
+    <div class="hdr-title">✦ EMMA <span>Comptabilité</span></div>
+    <div class="hdr-right">
+      <div class="hdr-date" id="todayLbl"></div>
+      <div class="hdr-user" id="userEmail"></div>
+      <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" onclick="goTab('dashboard',this)">🏠 Dashboard</button>
+    <button class="tab" onclick="goTab('caisse',this)">🧳 Caisse</button>
+    <button class="tab" onclick="goTab('banque',this)">🏦 Banque</button>
+    <button class="tab" onclick="goTab('fixes',this)">✏️ Ch. Fixes</button>
+    <button class="tab" onclick="goTab('variables',this)">📊 Ch. Variables</button>
+    <button class="tab" onclick="goTab('auto',this)">🎭 Auto</button>
+    <button class="tab" onclick="goTab('recap',this)">✅ Récap</button>
+    <button class="tab" onclick="goTab('clients',this)">👥 Clients</button>
+    <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
+    <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
+    <button class="tab" onclick="goTab('settings',this)">⚙️ Paramètres</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div style="max-width:800px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:8px">
+        <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:900;color:var(--acc);letter-spacing:.04em">BUSINESS DASHBOARD</div>
+        <div style="font-size:11px;color:var(--mut)">(automatique)</div>
+      </div>
+      <div style="display:flex;justify-content:center;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;background:white;border:1.5px solid var(--brd);border-radius:20px;padding:10px 18px;box-shadow:var(--shadow)">
+          <button onclick="dashD(-1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">‹</button>
+          <div id="dml" style="font-family:'Playfair Display',serif;font-size:18px;color:var(--acc);min-width:130px;text-align:center"></div>
+          <button onclick="dashD(1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">›</button>
+        </div>
+      </div>
+      <div class="kg">
+        <div class="kc kca"><div class="kl">💰 CA net société</div><div class="kv" id="d-ca">—</div><div class="ks" id="d-ca-sub"></div></div>
+        <div class="kc kob">
+          <div class="kl">🎯 Objectif</div><div class="kv" id="d-obj">—</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:7px">
+            <span style="font-size:11px;color:var(--mut)">€</span>
+            <input type="number" id="objI" value="6000" onchange="PARAMS.objectif=parseFloat(this.value);saveParams();renderDash()" style="width:80px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg)">
+          </div>
+        </div>
+        <div class="kc kpr">
+          <div class="kl">📈 Progression</div><div class="kv" id="d-pr">—</div>
+          <div class="pt2"><div class="pf" id="d-pb" style="width:0%"></div></div>
+          <div class="ks" id="d-re"></div>
+        </div>
+        <div class="kc kpa"><div class="kl">🛍 Panier moyen</div><div class="kv" id="d-pan">—</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+        <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)">👥 Nb clients</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--acc);margin-top:4px" id="d-nb">—</div></div>
+        <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)">🎯 Objectif clients</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--acc);margin-top:4px" id="d-oc">—</div></div>
+        <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)">💫 Projection fin de mois</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--acc);margin-top:4px" id="d-pj">—</div></div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:12px;font-weight:600">Ventilation CA net par mode</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="d-modes"></div>
+      </div>
+      <div style="background:white;border:1.5px solid #f5c8b8;border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);margin-top:14px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);margin-bottom:12px;font-weight:600">⏳ Virements en attente</div>
+        <div id="d-nonpayees"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAISSE -->
+  <div class="view" id="view-caisse">
+    <div class="sh">
+      <div><div class="st">🧳 Caisse</div><div class="ss">VIR/CHQ/PLANITY = Payé+Déposé auto · ESP = dépôt via Banque</div></div>
+      <button class="btn bd" onclick="openModal('caisse')">+ Ajouter</button>
+    </div>
+    <div class="flt">
+      <input class="fi" id="cs" placeholder="🔍 Rechercher..." oninput="renderCaisse()" style="min-width:180px">
+      <select class="fi" id="cm" onchange="renderCaisse()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="cp" onchange="renderCaisse()">
+        <option value="ALL">Tous praticiens</option><option value="">Emma</option>
+        <option value="MARIE">MARIE</option><option value="GIULIA">GIULIA</option>
+      </select>
+      <select class="fi" id="cmo" onchange="renderCaisse()">
+        <option value="">Tous modes</option><option>ESP</option><option>VIR</option><option>CHQ</option><option>PLANITY</option>
+      </select>
+      <select class="fi" id="cpy" onchange="renderCaisse()">
+        <option value="">Tous statuts</option><option value="1">✅ Payé</option><option value="0">❓ Non payé</option>
+      </select>
+    </div>
+    <div class="tw" id="caisseTable"></div>
+  </div>
+
+  <!-- BANQUE -->
+  <div class="view" id="view-banque">
+    <div class="sh">
+      <div><div class="st">🏦 Banque</div><div class="ss">Mouvements réels · TVA auto sur VIR/CA · Dépôts depuis ici</div></div>
+      <button class="btn bd" onclick="openModal('banque')">+ Ajouter</button>
+    </div>
+    <div class="rb">💡 Pour un <strong>dépôt espèces ou chèques</strong> : saisis l'opération normalement, une fenêtre de sélection s'ouvrira automatiquement.</div>
+    <div class="flt">
+      <input class="fi" id="bs" placeholder="🔍 Rechercher..." oninput="renderBanque()" style="min-width:180px">
+      <select class="fi" id="bm" onchange="renderBanque()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="bc" onchange="renderBanque()"><option value="">Toutes catégories</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start">
+      <div class="tw" id="banqueTable"></div>
+      <div style="background:white;border:1.5px solid #c9a8e0;border-radius:16px;padding:15px;box-shadow:var(--shadow)">
+        <div style="font-family:'Playfair Display',serif;font-size:13px;color:#6f2da8;margin-bottom:10px;font-weight:700">📝 CHQ à déposer</div>
+        <div id="chqList"></div>
+        <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:#6f2da8" id="chqTot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CH. FIXES -->
+  <div class="view" id="view-fixes">
+    <div class="sh">
+      <div><div class="st">✏️ Charges Fixes</div><div class="ss">Rapprochement auto Banque · Prévu = mois précédent</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bg" onclick="dupFixes()">📋 Dupliquer → mois suivant</button>
+        <button class="btn bd" onclick="openModal('fixes')">+ Ajouter</button>
+      </div>
+    </div>
+    <div id="fixesC"></div>
+  </div>
+
+  <!-- CH. VARIABLES -->
+  <div class="view" id="view-variables">
+    <div class="sh">
+      <div><div class="st">📊 Charges Variables</div><div class="ss">REDEVANCE & TVA : réel = Banque · Prévu = mois précédent auto</div></div>
+      <button class="btn bd" onclick="openModal('variables')">+ Ajouter</button>
+    </div>
+    <div id="variablesC"></div>
+  </div>
+
+  <!-- AUTO -->
+  <div class="view" id="view-auto">
+    <div class="sh">
+      <div><div class="st">🎭 Auto — Praticiens</div><div class="ss">Semaines lun→dim · Part société <span id="tauxSocDisplay">40%</span></div></div>
+    </div>
+    <div class="ib">💡 CA auto × <span id="tauxSocIb">40%</span> = part société. Déjà encaissé = PLANITY+CHQ+VIR. ESP due = part soc − déjà enc. (négatif = société rembourse)</div>
+    <div id="autoC"></div>
+  </div>
+
+  <!-- RECAP -->
+  <div class="view" id="view-recap">
+    <div class="sh">
+      <div><div class="st">✅ Récap</div><div class="ss">Par semaine · Survoler les chiffres pour le détail</div></div>
+    </div>
+    <div id="recapC"></div>
+  </div>
+
+  <!-- CLIENTS -->
+  <div class="view" id="view-clients">
+    <div class="sh">
+      <div><div class="st">👥 Clients</div><div class="ss">Historique · Alimenté depuis Caisse</div></div>
+    </div>
+    <div class="flt">
+      <input class="fi" id="clis" placeholder="🔍 Rechercher..." oninput="renderClients()" style="min-width:200px">
+    </div>
+    <div id="clientsC"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="sh"><div><div class="st">⚙️ Paramètres & Vérification</div></div></div>
+
+    <!-- Paramètres de calcul -->
+    <div class="set-block">
+      <h3>🧮 Paramètres de calcul</h3>
+      <div class="set-row">
+        <label>Taux société (part sur CA des autos)</label>
+        <input type="number" id="pTauxSoc" value="40" step="1" min="0" max="100" onchange="updateParam('tauxSoc',this.value/100)">
+        <span class="unit">%</span>
+      </div>
+      <div class="set-row">
+        <label>Taux redevance</label>
+        <input type="number" id="pRedev" value="10" step="1" min="0" max="100" onchange="updateParam('redev',this.value/100)">
+        <span class="unit">%</span>
+      </div>
+      <div class="set-row">
+        <label>Taux TVA</label>
+        <input type="number" id="pTva" value="20" step="1" min="0" max="100" onchange="updateParam('tva',this.value/100)">
+        <span class="unit">%</span>
+      </div>
+      <div class="set-row">
+        <label>Objectif mensuel CA</label>
+        <input type="number" id="pObj" value="6000" step="100" onchange="updateParam('objectif',parseFloat(this.value))">
+        <span class="unit">€</span>
+      </div>
+      <div class="set-row">
+        <label>Solde initial banque</label>
+        <input type="number" id="pSolde" value="3161.58" step="0.01" onchange="updateParam('soldeInit',parseFloat(this.value))">
+        <span class="unit">€</span>
+      </div>
+    </div>
+
+    <!-- Prestations -->
+    <div class="set-block">
+      <h3>💅 Prestations</h3>
+      <div id="prestList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input class="fi" id="newPrest" placeholder="Nouvelle prestation..." style="flex:1;border-radius:10px">
+        <button class="btn bd" onclick="addPrest()">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- Mode vérification -->
+    <div class="set-block">
+      <h3>🔍 Mode vérification des formules</h3>
+      <div class="veri-select" id="veriMonths"></div>
+      <div id="veriContent"></div>
+    </div>
+
+    <!-- Données -->
+    <div class="set-block">
+      <h3>💾 Données</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bg" onclick="exportData()">📥 Exporter JSON</button>
+        <label class="btn bgrn" style="cursor:pointer">📤 Importer JSON<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:8px">💡 Tes données sont synchronisées en temps réel sur Firebase.</div>
+    </div>
+  </div>
+
+  <!-- COMPTA DÉPOSÉE -->
+  <div class="view" id="view-compta">
+    <div class="sh">
+      <div><div class="st">📂 Compta déposée</div><div class="ss">Uniquement les règlements déposés ✅ — vue officielle</div></div>
+    </div>
+    <div class="flt">
+      <select class="fi" id="comptaMois" onchange="renderCompta()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="comptaPrat" onchange="renderCompta()">
+        <option value="ALL">Tous praticiens</option><option value="">Emma</option>
+        <option value="MARIE">MARIE</option><option value="GIULIA">GIULIA</option>
+      </select>
+    </div>
+    <div class="tw" id="comptaTable"></div>
+  </div>
+
+  <!-- COMPTA DÉPOSÉE -->
+  <div class="view" id="view-compta">
+    <div class="sh">
+      <div><div class="st">📂 Compta déposée</div><div class="ss">Uniquement les règlements déposés ✅</div></div>
+    </div>
+    <div class="flt">
+      <select class="fi" id="comptaMois" onchange="renderCompta()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="comptaPrat" onchange="renderCompta()">
+        <option value="ALL">Tous praticiens</option><option value="">Emma</option>
+        <option value="MARIE">MARIE</option><option value="GIULIA">GIULIA</option>
+      </select>
+    </div>
+    <div class="tw" id="comptaTable"></div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- MODALS -->
+<div class="mo" id="mainModal">
+  <div class="mb">
+    <h2 id="mTitle">—</h2>
+    <div id="mBody"></div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+      <button class="btn bd" onclick="saveEntry()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="depotModal">
+  <div class="mb">
+    <h2 id="depTitle">💵 Dépôt</h2>
+    <div class="rb" style="margin-bottom:12px">Sélectionne les clientes dont les règlements sont inclus dans ce dépôt.</div>
+    <div class="dl" id="depList"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--brd)">
+      <span style="font-size:12px;color:var(--mut)">Total sélectionné :</span>
+      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--rec)" id="depSel">0,00 €</span>
+    </div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('depotModal')">Passer</button>
+      <button class="btn bgrn" onclick="valDepot()">✅ Valider</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="clientModal">
+  <div class="mb">
+    <h2 id="cliMT">Fiche cliente</h2>
+    <div id="cliMB"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('clientModal')">Fermer</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// FIREBASE CONFIG
+// ═══════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyBaw29Os1wREiWr_qq2zASAQsb0h-3dTw8",
+  authDomain: "emma-31a56.firebaseapp.com",
+  projectId: "emma-31a56",
+  storageBucket: "emma-31a56.firebasestorage.app",
+  messagingSenderId: "707692265678",
+  appId: "1:707692265678:web:6162eae186f40444d6d09f"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+let userRef = null;
+
+// ═══════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd = document.getElementById('loginPwd').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+  try {
+    await auth.signInWithEmailAndPassword(email, pwd);
+  } catch(e) {
+    errEl.textContent = 'Email ou mot de passe incorrect.';
+  }
+}
+
+function doLogout() {
+  auth.signOut();
+}
+
+document.getElementById('loginPwd').addEventListener('keydown', e => {
+  if(e.key === 'Enter') doLogin();
+});
+
+auth.onAuthStateChanged(async user => {
+  if(user) {
+    currentUser = user;
+    userRef = db.collection('users').doc(user.uid);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+    document.getElementById('userEmail').textContent = user.email;
+    await loadAll();
+    renderAll();
+  } else {
+    currentUser = null;
+    userRef = null;
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('app').classList.remove('visible');
+  }
+});
+
+// ═══════════════════════════════════════
+// DATA — Firebase Firestore
+// ═══════════════════════════════════════
+let DB = {
+  caisse: [], banque: [], fixes: [], variables: [],
+  prestations: ['Pose complète - Volume Russe','Remplissage 4 semaines','Remplissage 3 semaines','Remplissage 2 semaines','Retouche','Browlift','Lashlift coréen','Rehaussement cils','Acompte','Autre'],
+};
+
+let PARAMS = {
+  tauxSoc: 0.40,
+  redev: 0.10,
+  tva: 0.20,
+  objectif: 6000,
+  soldeInit: 3161.58,
+};
+
+async function loadAll() {
+  if(!userRef) return;
+  try {
+    // Essai nouveau format (document unique)
+    const snap = await userRef.collection('data').doc('main').get();
+    if(snap.exists) {
+      const d = snap.data();
+      if(d.caisse)      DB.caisse      = JSON.parse(d.caisse);
+      if(d.banque)      DB.banque      = JSON.parse(d.banque);
+      if(d.fixes)       DB.fixes       = JSON.parse(d.fixes);
+      if(d.variables)   DB.variables   = JSON.parse(d.variables);
+      if(d.prestations) DB.prestations = JSON.parse(d.prestations);
+      if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
+    } else {
+      // Fallback : ancien format sous-collections
+      const paramsDoc = await userRef.collection('settings').doc('params').get();
+      if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
+      const prestDoc = await userRef.collection('settings').doc('prestations').get();
+      if(prestDoc.exists && prestDoc.data().list) DB.prestations = prestDoc.data().list;
+      for(const col of ['caisse','banque','fixes','variables']) {
+        const s = await userRef.collection(col).get();
+        DB[col] = s.docs.map(d => ({id: d.id, ...d.data()}));
+      }
+      // Migrer vers nouveau format
+      await saveAll();
+      toast('✓ Données migrées vers nouveau format');
+    }
+    applyParamsToUI();
+  } catch(e) {
+    console.error('Load error:', e);
+    toast('Erreur de chargement: ' + e.message);
+  }
+}
+
+async function saveAll() {
+  if(!userRef) return;
+  try {
+    await userRef.collection('data').doc('main').set({
+      caisse:      JSON.stringify(DB.caisse),
+      banque:      JSON.stringify(DB.banque),
+      fixes:       JSON.stringify(DB.fixes),
+      variables:   JSON.stringify(DB.variables),
+      prestations: JSON.stringify(DB.prestations),
+      params:      JSON.stringify(PARAMS),
+      updatedAt:   new Date().toISOString()
+    });
+    toast('✓ Enregistré');
+  } catch(e) {
+    console.error('Save error:', e);
+    toast('⚠ Erreur sauvegarde: ' + e.message);
+  }
+}
+
+function applyParamsToUI() {
+  const fields = {pTauxSoc: PARAMS.tauxSoc*100, pRedev: PARAMS.redev*100, pTva: PARAMS.tva*100, pObj: PARAMS.objectif, pSolde: PARAMS.soldeInit, objI: PARAMS.objectif};
+  for(const [id, val] of Object.entries(fields)) {
+    const el = document.getElementById(id);
+    if(el) el.value = val;
+  }
+  const ts = document.getElementById('tauxSocDisplay');
+  const tsIb = document.getElementById('tauxSocIb');
+  if(ts) ts.textContent = (PARAMS.tauxSoc*100)+'%';
+  if(tsIb) tsIb.textContent = (PARAMS.tauxSoc*100)+'%';
+}
+
+async function saveParams() {
+  await saveAll();
+}
+
+async function updateParam(key, val) {
+  PARAMS[key] = val;
+  await saveAll();
+  applyParamsToUI();
+  renderAll();
+  toast('✓ Paramètre mis à jour');
+}
+
+// Stub kept for compatibility — saveAll persists everything
+async function saveEntry_fb(col, entry) {
+  await saveAll();
+  return entry;
+}
+
+async function deleteEntry_fb(col, id) {
+  await saveAll();
+}
+
+async function savePrestations() {
+  await saveAll();
+}
+
+// ═══════════════════════════════════════
+// CONSTANTES & HELPERS
+// ═══════════════════════════════════════
+const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MC = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const CAT_BANQUE = ['CH. Fixe','CH. Variable','CA','VIR','ACHATS'];
+const NOW = new Date();
+let dashM = NOW.getMonth(), dashY = NOW.getFullYear();
+
+function fa(n){ if(n==null||isNaN(n))return'—'; return Math.abs(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
+function fm(n,sign=false){ if(n==null||isNaN(n))return'—'; const a=fa(n); if(sign&&n>0)return'+'+a; return(n<0?'-':'')+a; }
+function dlbl(d){ return new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}); }
+function dm(d){ return d.slice(0,7); }
+function mf(m){ const[y,mo]=m.split('-'); return MOIS[+mo-1]+' '+y; }
+function mc(m){ const[y,mo]=m.split('-'); return MC[+mo-1]+' '+y.slice(2); }
+function inM(d,m){ return d.slice(0,7)===m; }
+function prevMois(m){ const[y,mo]=m.split('-').map(Number); let pm=mo-1,py=y; if(pm<1){pm=12;py--;} return`${py}-${String(pm).padStart(2,'0')}`; }
+function nextMoisStr(m){ const[y,mo]=m.split('-').map(Number); let nm=mo+1,ny=y; if(nm>12){nm=1;ny++;} return`${ny}-${String(nm).padStart(2,'0')}`; }
+function genId(){ return Date.now()+'-'+Math.random().toString(36).slice(2,8); }
+
+function bdg(m){
+  const map={ESP:'esp',VIR:'vir',CHQ:'chq',PLANITY:'planity',CB:'cb','CH. Fixe':'chfix','CH. Variable':'chvar','CA':'ca','ACHATS':'achat'};
+  return`<span class="bdg ${map[m]||'esp'}">${m}</span>`;
+}
+function ptag(p){ if(p==='MARIE')return'<span class="tm-tag">MARIE</span>'; if(p==='GIULIA')return'<span class="tg-tag">GIULIA</span>'; return ''; }
+function tooltip(val, formula){ return`<div class="tt-wrap"><span style="font-family:'DM Mono',monospace">${val}</span><div class="tt">${formula}</div></div>`; }
+
+// ═══════════════════════════════════════
+// SEMAINES CALENDAIRES
+// ═══════════════════════════════════════
+function semainesDuMois(y, m) {
+  const lastDay = new Date(y, m, 0).getDate();
+  const weeks = [];
+  for(let day = 1; day <= lastDay;) {
+    const date = new Date(y, m-1, day);
+    const dow = date.getDay();
+    const daysToSun = dow===0 ? 0 : 7-dow;
+    const endDay = Math.min(day+daysToSun, lastDay);
+    weeks.push({s:day, e:endDay});
+    day = endDay+1;
+  }
+  return weeks;
+}
+function inSem(date, y, m, s, e){
+  const d=new Date(date+'T12:00:00');
+  if(d.getFullYear()!==y||d.getMonth()+1!==m)return false;
+  const day=d.getDate(); return day>=s&&day<=e;
+}
+
+// ═══════════════════════════════════════
+// CALCULS CENTRAUX
+// ═══════════════════════════════════════
+function caNet(rows){
+  let ca=0;
+  for(const t of rows){
+    if(t.montant<=0) continue;
+    if(t.praticien==='MARIE'||t.praticien==='GIULIA'){
+      const esp=t.reglement==='ESP'?t.montant:0;
+      const planChqVir=['PLANITY','CHQ','VIR'].includes(t.reglement)?t.montant:0;
+      const partSoc=t.montant*PARAMS.tauxSoc;
+      const espDueSoc=Math.max(0,partSoc-planChqVir);
+      ca+=t.montant-Math.max(0,esp-espDueSoc);
+    } else { ca+=t.montant; }
+  }
+  return ca;
+}
+
+function redevDue(rows){
+  let r=0;
+  for(const t of rows){
+    if(t.montant<=0) continue;
+    if(t.praticien==='MARIE'||t.praticien==='GIULIA') r+=t.montant*PARAMS.tauxSoc*PARAMS.redev;
+    else r+=t.montant*PARAMS.redev;
+  }
+  return r;
+}
+
+function redevDeposee(rows){
+  let r=0;
+  for(const t of rows){
+    if(t.montant<=0||!t.depose) continue;
+    if(t.praticien==='MARIE'||t.praticien==='GIULIA') r+=t.montant*PARAMS.tauxSoc*PARAMS.redev;
+    else r+=t.montant*PARAMS.redev;
+  }
+  return r;
+}
+
+function tvaCollectee(mois){
+  return DB.banque
+    .filter(b=>inM(b.date,mois)&&['CA','VIR'].includes(b.categorie)&&b.montant>0)
+    .reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
+}
+function tvaDed(mois){
+  return DB.banque
+    .filter(b=>inM(b.date,mois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0)
+    .reduce((s,b)=>s+Math.abs(b.tva||0),0);
+}
+function tvaNette(mois){ return tvaCollectee(mois)-tvaDed(mois); }
+
+// ═══════════════════════════════════════
+// AUTO-RAPPROCHEMENT
+// ═══════════════════════════════════════
+async function autoRapproch(){
+  let changed=false;
+  // VIR Caisse ↔ Banque
+  for(const c of DB.caisse){
+    if(c.paye||c.reglement!=='VIR') continue;
+    const match=DB.banque.find(b=>{
+      if(b.montant<=0||b.categorie!=='VIR') return false;
+      const nomMatch=b.nom.toLowerCase().includes(c.nom.toLowerCase().split(' ')[0]);
+      const mntMatch=Math.abs(b.montant-c.montant)<0.01;
+      const dc=new Date(c.date+'T12:00:00'),db_=new Date(b.date+'T12:00:00');
+      return nomMatch&&mntMatch&&Math.abs(dc-db_)<=7*86400000;
+    });
+    if(match){ c.paye=true; changed=true; await saveEntry_fb('caisse',c); }
+  }
+  // Fixes ↔ Banque
+  for(const f of DB.fixes){
+    const bMatch=DB.banque.filter(b=>dm(b.date)===f.mois&&b.nom===f.nom&&b.montant<0);
+    if(bMatch.length){
+      const tot=bMatch.reduce((s,b)=>s+b.montant,0);
+      if(!f.paye||Math.abs(tot-f.montant)>0.01){ f.montant=tot; f.paye=true; changed=true; await saveEntry_fb('fixes',f); }
+    }
+  }
+  // Variables ↔ Banque
+  for(const v of DB.variables){
+    if(['REDEVANCE','TVA','ACHAT'].includes(v.nom)) continue;
+    const bMatch=DB.banque.filter(b=>dm(b.date)===v.mois&&b.nom===v.nom&&b.montant<0);
+    if(bMatch.length){
+      const tot=bMatch.reduce((s,b)=>s+b.montant,0);
+      if(Math.abs(tot-(v.montant||0))>0.01){ v.montant=tot; changed=true; await saveEntry_fb('variables',v); }
+    }
+  }
+  // ACHAT ← Banque ACHATS
+  const achatMois=[...new Set(DB.banque.filter(b=>b.categorie==='ACHATS'&&b.montant<0).map(b=>dm(b.date)))];
+  for(const mois of achatMois){
+    const totAchat=DB.banque.filter(b=>dm(b.date)===mois&&b.categorie==='ACHATS'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+    let entry=DB.variables.find(v=>v.mois===mois&&v.nom==='ACHAT');
+    if(entry){
+      if(Math.abs(totAchat-entry.montant)>0.01){ entry.montant=totAchat; changed=true; await saveEntry_fb('variables',entry); }
+    } else {
+      const newEntry={id:genId(),mois,nom:'ACHAT',montant:totAchat,prev:0};
+      DB.variables.push(newEntry);
+      changed=true;
+      await saveEntry_fb('variables',newEntry);
+    }
+  }
+}
+
+// ═══════════════════════════════════════
+// TABS & RENDER
+// ═══════════════════════════════════════
+function goTab(name,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+function renderAll(){
+  autoRapproch();
+  popSelects();
+  renderDash();
+  renderCaisse();
+  renderBanque();
+  renderFixes();
+  renderVariables();
+  renderAuto();
+  renderRecap();
+  renderClients();
+  renderCompta();
+  renderSettings();
+}
+
+function popSelects(){
+  const cM=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse();
+  const bM=[...new Set(DB.banque.map(t=>dm(t.date)))].sort().reverse();
+  const fill=(id,list)=>{
+    const el=document.getElementById(id);if(!el)return;
+    const cur=el.value;
+    el.innerHTML='<option value="">Tous les mois</option>'+list.map(m=>`<option value="${m}">${mf(m)}</option>`).join('');
+    if(cur)el.value=cur;
+  };
+  fill('cm',cM);fill('bm',bM);
+  const cats=[...new Set(DB.banque.map(t=>t.categorie).filter(Boolean))];
+  const bc=document.getElementById('bc');
+  if(bc){const cur=bc.value;bc.innerHTML='<option value="">Toutes catégories</option>'+cats.map(c=>`<option>${c}</option>`).join('');if(cur)bc.value=cur;}
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function dashD(d){ dashM+=d; if(dashM>11){dashM=0;dashY++;} if(dashM<0){dashM=11;dashY--;} renderDash(); }
+
+function renderDash(){
+  const mois=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
+  document.getElementById('dml').textContent=MOIS[dashM]+' '+dashY;
+  const cM=DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0);
+  const ca=caNet(cM);
+  const caTotal=cM.reduce((s,t)=>s+t.montant,0);
+  const nbCli=cM.filter(t=>t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT')).length;
+  const obj=PARAMS.objectif;
+  const panier=nbCli?ca/nbCli:0;
+  const pct=Math.min(100,ca/obj*100);
+  const dInM=new Date(dashY,dashM+1,0).getDate();
+  const dayN=(NOW.getMonth()===dashM&&NOW.getFullYear()===dashY)?NOW.getDate():dInM;
+  const proj=dayN?ca/dayN*dInM:0;
+
+  document.getElementById('d-ca').textContent=fa(ca);
+  document.getElementById('d-ca-sub').textContent=`CA brut: ${fa(caTotal)}`;
+  document.getElementById('d-obj').textContent=fa(obj);
+  document.getElementById('d-pr').textContent=pct.toFixed(1)+' %';
+  document.getElementById('d-pb').style.width=pct+'%';
+  document.getElementById('d-re').textContent='Reste: '+fa(Math.max(0,obj-ca));
+  document.getElementById('d-pan').textContent=fa(panier);
+  document.getElementById('d-nb').textContent=nbCli;
+  document.getElementById('d-oc').textContent=(obj/(panier||1)).toFixed(0)+' clientes';
+  document.getElementById('d-pj').textContent=fa(proj);
+  if(document.getElementById('objI')) document.getElementById('objI').value=obj;
+
+  // Utilise exactement la même logique que le Récap pour la ventilation par mode
+  const modes=['ESP','VIR','CHQ','PLANITY'];
+  const[y,m]=mois.split('-').map(Number);
+
+  // Calcul ESP net société = même formule que Récap
+  let espNet=0;
+  for(const prat of ['MARIE','GIULIA']){
+    const pratRows=cM.filter(t=>t.praticien===prat);
+    if(!pratRows.length) continue;
+    const ca=pratRows.reduce((s,t)=>s+t.montant,0);
+    const plan=pratRows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+    const chqvir=pratRows.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+    espNet+=Math.max(0,ca*PARAMS.tauxSoc-(plan+chqvir));
+  }
+  // ESP Emma = 100%
+  espNet+=cM.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+
+  // CA Net total = ESP net + VIR + CHQ + PLANITY
+  const virTot=cM.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0);
+  const chqTot=cM.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0);
+  const planTot=cM.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+  const caNetRecap=espNet+virTot+chqTot+planTot;
+
+  // Mettre à jour le CA Net avec la même valeur que le Récap
+  document.getElementById('d-ca').textContent=fa(caNetRecap);
+  document.getElementById('d-ca-sub').textContent=`CA brut: ${fa(caTotal)}`;
+  const pct2=Math.min(100,caNetRecap/obj*100);
+  document.getElementById('d-pr').textContent=pct2.toFixed(1)+' %';
+  document.getElementById('d-pb').style.width=pct2+'%';
+  document.getElementById('d-re').textContent='Reste: '+fa(Math.max(0,obj-caNetRecap));
+  const panier2=nbCli?caNetRecap/nbCli:0;
+  document.getElementById('d-pan').textContent=fa(panier2);
+  document.getElementById('d-oc').textContent=(obj/(panier2||1)).toFixed(0)+' clientes';
+  const proj2=dayN?caNetRecap/dayN*dInM:0;
+  document.getElementById('d-pj').textContent=fa(proj2);
+
+  const modeVals={ESP:espNet,VIR:virTot,CHQ:chqTot,PLANITY:planTot};
+  document.getElementById('d-modes').innerHTML=modes.map(mo=>{
+    const v=modeVals[mo]||0;
+    return`<div style="background:var(--bg2);border:1.5px solid var(--brd);border-radius:12px;padding:11px;text-align:center;box-shadow:var(--shadow)">
+      <div style="margin-bottom:5px">${bdg(mo)}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--acc)">${fa(v)}</div>
+    </div>`;
+  }).join('');
+
+  // Clientes non payées (VIR en attente)
+  const nonPayees=DB.caisse.filter(t=>t.reglement==='VIR'&&!t.paye&&t.montant>0&&inM(t.date,mois));
+  const npEl=document.getElementById('d-nonpayees');
+  if(npEl){
+    if(!nonPayees.length){
+      npEl.innerHTML='<div style="color:var(--rec);font-size:12px">✅ Tous les virements ont été reçus</div>';
+    } else {
+      const tot=nonPayees.reduce((s,t)=>s+t.montant,0);
+      npEl.innerHTML=`<div style="font-size:11px;color:var(--warn);margin-bottom:8px;font-weight:600">⏳ ${nonPayees.length} virement(s) en attente — ${fa(tot)}</div>`+
+        nonPayees.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd);font-size:12px">
+          <div>
+            <span style="font-weight:600;color:var(--txt)">${t.nom}</span>
+            <span style="color:var(--mut);margin-left:6px;font-size:11px">${t.prestation||''}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="tdt">${dlbl(t.date)}</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--warn)">${fa(t.montant)}</span>
+          </div>
+        </div>`).join('');
+    }
+  }
+}
+
+// ═══════════════════════════════════════
+// CAISSE
+// ═══════════════════════════════════════
+function renderCaisse(){
+  const s=(document.getElementById('cs')?.value||'').toLowerCase();
+  const fm_=document.getElementById('cm')?.value||'';
+  const fp=document.getElementById('cp')?.value;
+  const fmo=document.getElementById('cmo')?.value||'';
+  const fpy=document.getElementById('cpy')?.value;
+  let rows=[...DB.caisse].sort((a,b)=>b.date.localeCompare(a.date));
+  if(s) rows=rows.filter(t=>t.nom.toLowerCase().includes(s)||(t.prestation||'').toLowerCase().includes(s));
+  if(fm_) rows=rows.filter(t=>inM(t.date,fm_));
+  if(fp!==undefined&&fp!==null&&fp!=='ALL') rows=rows.filter(t=>t.praticien===(fp||''));
+  if(fmo) rows=rows.filter(t=>t.reglement===fmo);
+  if(fpy==='1') rows=rows.filter(t=>t.paye);
+  if(fpy==='0') rows=rows.filter(t=>!t.paye);
+
+  const byM={};
+  for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
+
+  let html=`<table><thead><tr>
+    <th>Date</th><th>Prat.</th><th>Nom</th><th>Prestation</th>
+    <th style="text-align:right">Montant</th><th>Règlement</th>
+    <th style="text-align:center">Payé</th><th style="text-align:center">Déposé</th><th></th>
+  </tr></thead><tbody>`;
+
+  if(!Object.keys(byM).length) html+=`<tr><td colspan="9"><div class="empty">Aucune prestation</div></td></tr>`;
+
+  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>a[0].localeCompare(b[0]))){
+    const tot=mrows.reduce((s,t)=>s+t.montant,0);
+    html+=`<tr class="trm"><td colspan="5" style="padding:8px 11px">▾ ${mf(mois)} <span style="font-weight:400;color:var(--mut);font-size:11px">${mrows.filter(t=>t.montant>0).length} prestations</span></td>
+      <td colspan="4" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:var(--rec)">${fa(tot)}</td></tr>`;
+    for(const t of mrows){
+      const neg=t.montant<0;
+      html+=`<tr>
+        <td class="tdt">${dlbl(t.date)}</td>
+        <td>${ptag(t.praticien)}</td>
+        <td><span style="font-weight:500;cursor:pointer;color:var(--pla);text-decoration:underline dotted" onclick="openClient('${t.nom.replace(/'/g,"\\'")}')">${t.nom}</span></td>
+        <td style="color:var(--mut);font-size:12px">${t.prestation||''}</td>
+        <td class="${neg?'tn':'tp'}" style="text-align:right">${fm(t.montant,!neg)}</td>
+        <td>${bdg(t.reglement)}</td>
+        <td style="text-align:center">${
+          t.reglement==='ESP'
+            ?`<span class="${t.paye?'sok':'sq'}" onclick="togC('${t.id}','paye')">${t.paye?'✅':'❓'}</span>`
+            :t.reglement==='VIR'
+              ?`<span class="${t.paye?'sok':'sno'}">${t.paye?'✅':'⏳'}</span>`
+              :`<span class="sok">✅</span>`
+        }</td>
+        <td style="text-align:center">${
+          t.reglement==='ESP'
+            ?`<span class="${t.depose?'sok':'sno'}">${t.depose?'✅':'⬜'}</span>`
+            :`<span class="sok">✅</span>`
+        }</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg bsm" onclick="editEntry('caisse','${t.id}')">✏️</button>
+          <button class="btn br bsm" onclick="delEntry('caisse','${t.id}')">✕</button>
+        </td>
+      </tr>`;
+    }
+  }
+  html+='</tbody></table>';
+  document.getElementById('caisseTable').innerHTML=html;
+}
+
+async function togC(id, field){
+  const t=DB.caisse.find(x=>x.id===id);
+  if(t){ t[field]=!t[field]; await saveEntry_fb('caisse',t); renderCaisse(); }
+}
+
+// ═══════════════════════════════════════
+// BANQUE
+// ═══════════════════════════════════════
+function renderBanque(){
+  const s=(document.getElementById('bs')?.value||'').toLowerCase();
+  const fm_=document.getElementById('bm')?.value||'';
+  const fc=document.getElementById('bc')?.value||'';
+  const si=PARAMS.soldeInit;
+
+  let all=[...DB.banque].sort((a,b)=>b.date.localeCompare(a.date));
+  let running=si;
+  const sm={};
+  for(const t of all){running+=t.montant;sm[t.id]=running;}
+
+  let rows=[...all];
+  if(s) rows=rows.filter(t=>t.nom.toLowerCase().includes(s));
+  if(fm_) rows=rows.filter(t=>inM(t.date,fm_));
+  if(fc) rows=rows.filter(t=>t.categorie===fc);
+
+  const byM={};
+  for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
+
+  let html=`<table><thead><tr>
+    <th>Date</th><th>Nom</th><th>Catégorie</th>
+    <th style="text-align:right">TVA</th><th style="text-align:right">Montant</th>
+    <th style="text-align:right">Solde</th><th></th>
+  </tr></thead><tbody>`;
+
+  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>a[0].localeCompare(b[0]))){
+    const tot=mrows.reduce((s,t)=>s+t.montant,0);
+    html+=`<tr class="trm"><td colspan="4" style="padding:8px 11px">▾ ${mf(mois)}</td>
+      <td colspan="3" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:${tot>=0?'var(--rec)':'var(--dep)'}">${fm(tot,true)}</td></tr>`;
+    for(const t of mrows){
+      html+=`<tr>
+        <td class="tdt">${dlbl(t.date)}</td>
+        <td style="font-weight:500">${t.nom}</td>
+        <td>${bdg(t.categorie||'?')}</td>
+        <td class="tmu" style="text-align:right">${t.tva!=null&&t.tva!==0?fm(t.tva):'—'}</td>
+        <td class="${t.montant>=0?'tp':'tn'}" style="text-align:right">${fm(t.montant,t.montant>0)}</td>
+        <td class="tmu" style="text-align:right">${fa(sm[t.id]||0)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg bsm" onclick="editEntry('banque','${t.id}')">✏️</button>
+          <button class="btn br bsm" onclick="delEntry('banque','${t.id}')">✕</button>
+        </td>
+      </tr>`;
+    }
+  }
+  if(!Object.keys(byM).length) html+=`<tr><td colspan="7"><div class="empty">Aucun mouvement</div></td></tr>`;
+  html+='</tbody></table>';
+  document.getElementById('banqueTable').innerHTML=html;
+
+  // CHQ à déposer
+  const chqLines=DB.caisse.filter(t=>t.reglement==='CHQ'&&t.montant>0&&!t.chqDepose);
+  let chqH=chqLines.length?'':'<div style="color:var(--mut2);font-size:12px">Aucun chèque en attente</div>';
+  let chqT=0;
+  for(const c of chqLines){chqT+=c.montant;chqH+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e0d0f0;font-size:12px"><span>${dlbl(c.date)} — ${c.nom}</span><span style="font-family:'DM Mono',monospace;font-weight:600;color:#6f2da8">${fa(c.montant)}</span></div>`;}
+  document.getElementById('chqList').innerHTML=chqH;
+  document.getElementById('chqTot').textContent=chqLines.length?'Total : '+fa(chqT):'';
+}
+
+// ═══════════════════════════════════════
+// CH. FIXES
+// ═══════════════════════════════════════
+function renderFixes(){
+  const ml=[...new Set(DB.fixes.map(f=>f.mois))].sort().reverse();
+  let html='';
+  for(const mois of ml){
+    const rows=DB.fixes.filter(f=>f.mois===mois);
+    const tR=rows.reduce((s,f)=>s+f.montant,0);
+    const tP=rows.reduce((s,f)=>s+f.prev,0);
+    const diff=tR-tP;
+    html+=`<div class="fb"><div class="fh">
+      <span>${mf(mois)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px">Payé <span style="color:var(--dep)">${fa(Math.abs(tR))}</span> / Prévu ${fa(Math.abs(tP))} / Diff <span style="color:${diff>0?'var(--rec)':diff<0?'var(--dep)':'var(--mut)'}">${fm(diff,true)}</span></span>
+    </div>
+    <table><thead><tr>
+      <th>Nom</th><th style="text-align:center">Payé</th>
+      <th style="text-align:right">Réel</th><th style="text-align:right">Prévu</th><th style="text-align:right">Diff</th><th></th>
+    </tr></thead><tbody>`;
+    for(const f of rows){
+      const d=f.montant-f.prev;
+      html+=`<tr>
+        <td style="font-weight:600">${f.nom}</td>
+        <td style="text-align:center"><span class="${f.paye?'sok':'sno'}" style="cursor:pointer" onclick="togF('${f.id}')">${f.paye?'✅':'⬜'}</span></td>
+        <td class="${f.montant<0?'tn':'tmu'}" style="text-align:right">${f.montant?fm(f.montant):'—'}</td>
+        <td class="tmu" style="text-align:right">${fm(f.prev)}</td>
+        <td class="tm" style="text-align:right;color:${d>0?'var(--rec)':d<0?'var(--dep)':'var(--mut)'}">${d?fm(d,true):'0'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bg bsm" onclick="editEntry('fixes','${f.id}')">✏️</button>
+          <button class="btn br bsm" onclick="delEntry('fixes','${f.id}')">✕</button>
+        </td>
+      </tr>`;
+    }
+    html+=`<tr class="trt"><td>TOTAL</td><td></td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--dep)">${fm(tR)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--mut)">${fm(tP)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:${diff>0?'var(--rec)':diff<0?'var(--dep)':'var(--mut)'}">${fm(diff,true)}</td>
+      <td></td>
+    </tr></tbody></table></div>`;
+  }
+  document.getElementById('fixesC').innerHTML=html||'<div class="empty">Aucune charge fixe</div>';
+}
+
+async function togF(id){
+  const f=DB.fixes.find(x=>x.id===id);
+  if(f){ f.paye=!f.paye; await saveEntry_fb('fixes',f); renderFixes(); }
+}
+
+async function dupFixes(){
+  const ml=[...new Set(DB.fixes.map(f=>f.mois))].sort();
+  if(!ml.length){toast('Aucune charge à dupliquer');return;}
+  const last=ml[ml.length-1];
+  const nm=nextMoisStr(last);
+  if(DB.fixes.some(f=>f.mois===nm)){toast('Charges '+mf(nm)+' existent déjà');return;}
+  for(const f of DB.fixes.filter(f=>f.mois===last)){
+    const newF={id:genId(),mois:nm,nom:f.nom,paye:false,montant:0,prev:f.montant};
+    DB.fixes.push(newF);
+    await saveEntry_fb('fixes',newF);
+  }
+  renderFixes();
+  toast('✓ Dupliqué vers '+mf(nm));
+}
+
+// ═══════════════════════════════════════
+// CH. VARIABLES
+// ═══════════════════════════════════════
+function renderVariables(){
+  const ml=[...new Set(DB.variables.map(f=>f.mois))].sort().reverse();
+  let html='';
+  for(const mois of ml){
+    const pm=prevMois(mois);
+    const redevPrev=redevDeposee(DB.caisse.filter(t=>inM(t.date,pm)));
+    const redevReel=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+    const tvaPrev=tvaNette(pm);
+    const tvaReel=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+
+    let rows=DB.variables.filter(f=>f.mois===mois);
+    const autoRows=[
+      {nom:'REDEVANCE',montant:redevReel||0,prev:-redevPrev,auto:true,mois,formula:`Prévu = redevance déposée de ${mc(pm)}`},
+      {nom:'TVA',montant:tvaReel||0,prev:-tvaPrev,auto:true,mois,formula:`Prévu = TVA nette de ${mc(pm)}`},
+    ];
+
+    const rowsD=rows.filter(f=>f.nom!=='REDEVANCE'&&f.nom!=='TVA').map(f=>({...f,auto:false}));
+    for(const a of autoRows) rowsD.push({id:null,...a});
+
+    const tot=rowsD.reduce((s,f)=>s+(f.montant||0),0);
+
+    html+=`<div class="fb"><div class="fh">
+      <span>${mf(mois)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px">Total : <span style="color:var(--dep)">${fm(tot)}</span></span>
+    </div>
+    <table><thead><tr>
+      <th>Catégorie</th><th style="text-align:right">Montant réel</th>
+      <th style="text-align:right">Prévu</th><th style="text-align:right">Diff</th><th></th>
+    </tr></thead><tbody>`;
+    for(const f of rowsD){
+      const d=(f.montant||0)-(f.prev||0);
+      html+=`<tr>
+        <td style="font-weight:600">${f.nom} ${f.auto?`<span style="font-size:10px;color:var(--pla);background:var(--pla2);padding:1px 6px;border-radius:8px" title="${f.formula||''}">auto</span>`:''}</td>
+        <td class="${(f.montant||0)<0?'tn':'tp'}" style="text-align:right">${(f.montant||0)?fm(f.montant):'0 €'}</td>
+        <td class="tmu" style="text-align:right">${(f.prev||0)?fm(f.prev):'0 €'}</td>
+        <td class="tm" style="text-align:right;color:${d>0?'var(--rec)':d<0?'var(--dep)':'var(--mut)'}">${fm(d,true)}</td>
+        <td style="white-space:nowrap">
+          ${f.id?`<button class="btn bg bsm" onclick="editEntry('variables','${f.id}')">✏️</button><button class="btn br bsm" onclick="delEntry('variables','${f.id}')">✕</button>`:''}
+          ${f.auto?`<button class="btn bg bsm" onclick="editPrevAuto('${f.nom}','${f.mois}',${f.prev||0})">✏️ Prévu</button>`:''}
+        </td>
+      </tr>`;
+    }
+    html+=`<tr class="trt"><td>TOTAL</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--dep)">${fm(tot)}</td>
+      <td></td><td></td><td></td>
+    </tr></tbody></table></div>`;
+  }
+  document.getElementById('variablesC').innerHTML=html||'<div class="empty">Aucune charge variable</div>';
+}
+
+async function editPrevAuto(nom, mois, currentPrev){
+  const val=prompt(`Modifier la prévision pour ${nom} (${mc(mois)}) :`,currentPrev);
+  if(val===null) return;
+  const n=parseFloat(val);
+  if(isNaN(n)){toast('Valeur invalide');return;}
+  let entry=DB.variables.find(v=>v.mois===mois&&v.nom===nom);
+  if(entry){ entry.prev=n; await saveEntry_fb('variables',entry); }
+  else { const newV={id:genId(),mois,nom,montant:0,prev:n}; DB.variables.push(newV); await saveEntry_fb('variables',newV); }
+  renderVariables();
+  toast('✓ Prévision mise à jour');
+}
+
+// ═══════════════════════════════════════
+// AUTO
+// ═══════════════════════════════════════
+function renderAuto(){
+  const prats=['MARIE','GIULIA'];
+  const allMois=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort();
+  let html='';
+
+  for(const prat of prats){
+    const isMarie=prat==='MARIE';
+    html+=`<div class="ab">
+      <div class="${isMarie?'ahm':'ahg'}">${isMarie?'👩‍🎨':'✨'} ${prat} <span style="font-size:11px;font-family:'DM Sans',sans-serif;font-weight:400;opacity:.7">— Part société ${PARAMS.tauxSoc*100}%</span></div>
+      <div style="overflow-x:auto"><table><thead><tr style="background:${isMarie?'var(--marie)':'var(--giulia)'}">
+        <th style="color:#fff;min-width:130px">Semaine</th>
+        <th style="color:#fff;text-align:right">CA</th>
+        <th style="color:#fff;text-align:right">ESP</th>
+        <th style="color:#fff;text-align:right">PLANITY</th>
+        <th style="color:#fff;text-align:right">CHQ+VIR</th>
+        <th style="color:#fff;text-align:right">Part soc. (${PARAMS.tauxSoc*100}%)</th>
+        <th style="color:#fff;text-align:right">Déjà enc.</th>
+        <th style="color:#fff;text-align:right">ESP due soc.</th>
+        <th style="color:#fff;text-align:right">ESP auto</th>
+      </tr></thead><tbody>`;
+
+    let gCA=0,gESP=0,gPLAN=0,gCHQVIR=0,gPS=0,gDE=0,gED=0,gEA=0;
+
+    for(const mois of allMois){
+      const[y,m]=mois.split('-').map(Number);
+      const mRows=DB.caisse.filter(t=>t.praticien===prat&&inM(t.date,mois)&&t.montant>0);
+      if(!mRows.length) continue;
+
+      const calc=rows=>{
+        const ca=rows.reduce((s,t)=>s+t.montant,0);
+        const esp=rows.filter(t=>t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+        const plan=rows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+        const chqvir=rows.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+        const partSoc=ca*PARAMS.tauxSoc;
+        const dejaEnc=plan+chqvir;
+        const espDue=partSoc-dejaEnc;
+        const espAuto=esp-Math.max(0,espDue);
+        return{ca,esp,plan,chqvir,partSoc,dejaEnc,espDue,espAuto};
+      };
+
+      const mV=calc(mRows);
+      gCA+=mV.ca;gESP+=mV.esp;gPLAN+=mV.plan;gCHQVIR+=mV.chqvir;gPS+=mV.partSoc;gDE+=mV.dejaEnc;gED+=mV.espDue;gEA+=mV.espAuto;
+
+      html+=`<tr style="background:${isMarie?'#fdf5f5':'#fdfbf0'};font-weight:700;font-size:12px">
+        <td style="padding-left:10px">${mc(mois)}</td>
+        ${[mV.ca,mV.esp,mV.plan,mV.chqvir,mV.partSoc,mV.dejaEnc].map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace">${fa(v)}</td>`).join('')}
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:${mV.espDue<0?'var(--dep)':'var(--txt)'};font-weight:${mV.espDue<0?900:700}">${fm(mV.espDue,mV.espDue>0)}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:${mV.espAuto<0?'var(--dep)':'var(--rec)'}">${fm(mV.espAuto,mV.espAuto>0)}</td>
+      </tr>`;
+
+      const weeks=semainesDuMois(y,m);
+      for(const wk of weeks){
+        const wRows=mRows.filter(t=>inSem(t.date,y,m,wk.s,wk.e));
+        if(!wRows.length) continue;
+        const wV=calc(wRows);
+        html+=`<tr style="color:var(--mut);font-size:11px">
+          <td style="padding-left:22px">${String(wk.s).padStart(2,'0')}/${String(m).padStart(2,'0')} → ${String(wk.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</td>
+          ${[wV.ca,wV.esp,wV.plan,wV.chqvir,wV.partSoc,wV.dejaEnc].map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace;font-size:11px">${v?fa(v):'—'}</td>`).join('')}
+          <td style="text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${wV.espDue<0?'var(--dep)':''}">${fm(wV.espDue,wV.espDue>0)}</td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${wV.espAuto<0?'var(--dep)':'var(--rec)'}">${fm(wV.espAuto,wV.espAuto>0)}</td>
+        </tr>`;
+      }
+    }
+
+    html+=`<tr class="trt">
+      <td>TOTAL</td>
+      ${[gCA,gESP,gPLAN,gCHQVIR,gPS,gDE].map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace">${fa(v)}</td>`).join('')}
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:${gED<0?'var(--dep)':''}">${fm(gED,gED>0)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:${gEA<0?'var(--dep)':'var(--rec)'}">${fm(gEA,gEA>0)}</td>
+    </tr></tbody></table></div></div>`;
+  }
+  document.getElementById('autoC').innerHTML=html||'<div class="empty">Aucune donnée praticiens</div>';
+}
+
+// ═══════════════════════════════════════
+// RÉCAP
+// ═══════════════════════════════════════
+function renderRecap(){
+  const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date))])].sort().reverse();
+  let html='';
+
+  for(const mois of allMois){
+    const[y,m]=mois.split('-').map(Number);
+    const weeks=semainesDuMois(y,m);
+    const nw=weeks.length;
+
+    const fixRows=DB.fixes.filter(f=>f.mois===mois);
+    const fixEstim=fixRows.reduce((s,f)=>s+(f.prev||0),0);   // prévues uniquement
+    const fixReel=fixRows.reduce((s,f)=>s+f.montant,0);       // réelles pour S finale
+
+    // Variables : exclure ACHAT (compté séparément en temps réel)
+    // Inclure uniquement les lignes avec prev saisi (hors REDEVANCE/TVA si prev=0)
+    // Variables : exclure ACHAT (ligne séparée dans récap)
+    // REDEVANCE/TVA : incluses dans estimation seulement si prev != 0
+    const varRows=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT');
+    // Estimation : hors REDEVANCE/TVA si prev=0
+    const varEstim=varRows.reduce((s,f)=>{
+      if((f.nom==='REDEVANCE'||f.nom==='TVA')&&!(f.prev)) return s;
+      return s+(f.prev||0);
+    },0);
+    const varReel=varRows.reduce((s,f)=>s+(f.montant||0),0);
+
+    const pm=prevMois(mois);
+
+    // Total estimé = fixes prévues + variables prévues
+    // (REDEVANCE/TVA comptées seulement si prev saisi)
+    const totalEstim=fixEstim+varEstim;
+    const chargeParSemaine=nw>0?totalEstim/nw:0;
+
+    // Total réel = fixes réelles + variables réelles (hors ACHAT)
+    const totalReel=fixReel+varReel;
+
+    const caisseM=DB.caisse.filter(t=>inM(t.date,mois));
+    const redevTotale=redevDue(caisseM);
+    const redevDep=redevDeposee(caisseM);
+    const redevEcart=redevTotale-redevDep;
+
+    let cumulEspADeposer=0;
+
+    html+=`<div class="card">
+      <div class="card-hdr"><span>${mf(mois)}</span><span style="font-size:11px;font-weight:400;color:var(--mut)">${nw} semaines</span></div>
+      <div style="overflow-x:auto">
+      <table><thead><tr>
+        <th style="min-width:170px"></th>
+        ${weeks.map((w,i)=>`<th style="text-align:right;min-width:105px">S${i+1}<br><span style="font-size:9px;opacity:.7">${String(w.s).padStart(2,'0')}→${String(w.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</span></th>`).join('')}
+        <th style="text-align:right;min-width:105px">TOTAL</th>
+      </tr></thead><tbody>`;
+
+    const row=(label,vals,tot,colFn,ttFn)=>`<tr>
+      <td style="font-size:11px;font-weight:600;padding:8px 10px;color:var(--acc)">${label}</td>
+      ${vals.map((v,i)=>`<td style="text-align:right;padding:8px 9px">${tooltip(v!=null?fm(v,v>0):'—',ttFn?ttFn(i,v):'')}</td>`).join('')}
+      <td style="text-align:right;padding:8px 9px;font-weight:700">${tooltip(tot!=null?fm(tot,tot>0):'—',ttFn?ttFn(-1,tot):'')}</td>
+    </tr>`;
+
+    html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">CA NET SOCIÉTÉ</td></tr>`;
+
+    const modes=['ESP','VIR','CHQ','PLANITY'];
+    let caNetWeeks=weeks.map(()=>0);
+    for(const mo of modes){
+      const vals=weeks.map((wk,i)=>{
+        const wRows=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement===mo&&t.montant>0);
+        if(mo==='ESP'){
+          let v=0;
+          for(const prat of ['MARIE','GIULIA']){
+            const pratRows=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===prat&&t.montant>0);
+            if(!pratRows.length) continue;
+            const ca=pratRows.reduce((s,t)=>s+t.montant,0);
+            const plan=pratRows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+            const chqvir=pratRows.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+            v+=Math.max(0,ca*PARAMS.tauxSoc-(plan+chqvir));
+          }
+          v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===''&&t.reglement==='ESP'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+          caNetWeeks[i]+=v; return v;
+        } else {
+          const v=wRows.reduce((s,t)=>s+t.montant,0);
+          caNetWeeks[i]+=v; return v;
+        }
+      });
+      const tot=vals.reduce((s,v)=>s+v,0);
+      html+=row(`→ ${mo==='ESP'?'ESP (net)':mo}`,vals,tot,
+        v=>v>0?'var(--rec)':'var(--mut)',
+        (i,v)=>i>=0?`S${i+1} — ${mo}\n${DB.caisse.filter(t=>inSem(t.date,y,m,weeks[i].s,weeks[i].e)&&t.reglement===mo&&t.montant>0).map(t=>`${t.nom}: ${fa(t.montant)}`).join('\n')||'—'}`:`Total ${mo}: ${fa(tot)}`
+      );
+    }
+
+    const caNetTot=caNetWeeks.reduce((s,v)=>s+v,0);
+    html+=`<tr style="background:var(--rec2)"><td style="font-weight:700;padding:8px 10px;color:var(--rec)">✅ CA NET TOTAL</td>
+      ${caNetWeeks.map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--rec);padding:8px 9px">${fa(v)}</td>`).join('')}
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:900;color:var(--rec);padding:8px 9px">${fa(caNetTot)}</td>
+    </tr>`;
+
+    html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">CHARGES</td></tr>`;
+
+    const achatsW=weeks.map(wk=>DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='ACHATS'&&t.montant<0).reduce((s,t)=>s+t.montant,0));
+    const achatsTot=achatsW.reduce((s,v)=>s+v,0);
+
+    const estW=weeks.map((wk,i)=>{
+      if(i<nw-1) return chargeParSemaine;
+      // Dernière semaine : total réel − ce qui a déjà été comptabilisé
+      return totalReel - chargeParSemaine*(nw-1);
+    });
+
+    const chargesW=weeks.map((wk,i)=>estW[i]+achatsW[i]);
+    // Total charges = total réel (fixes+variables) + achats réels
+    const achatsTotReel=achatsW.reduce((s,v)=>s+v,0);
+    const chargesTot=totalReel+achatsTotReel;
+
+    html+=row('📋 Ch. fixes+var. estimées',estW,totalReel,
+      v=>v<0?'var(--dep)':'var(--mut)',
+      (i,v)=>i>=0?`S${i+1} — ${i<nw-1?'Estimation':'Ajustement réel'}
+Estimé/sem: ${fm(chargeParSemaine)}
+Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Total RÉEL: ${fm(totalReel)}`
+    );
+        html+=row('🛒 Achats réels',achatsW,achatsTotReel,
+      v=>v<0?'var(--dep)':'var(--mut)',
+      (i,v)=>i>=0?`Achats S${i+1}:\n${DB.banque.filter(t=>inSem(t.date,y,m,weeks[i].s,weeks[i].e)&&t.categorie==='ACHATS').map(t=>`${t.nom}: ${fm(t.montant)}`).join('\n')||'Aucun'}`:`Total achats: ${fm(achatsTot)}`
+    );
+
+    html+=`<tr style="background:var(--dep2)"><td style="font-weight:700;padding:8px 10px;color:var(--dep)">💸 CHARGES TOTALES</td>
+      ${chargesW.map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--dep);padding:8px 9px">${fm(v)}</td>`).join('')}
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:900;color:var(--dep);padding:8px 9px">${fm(totalReel+achatsTotReel)}</td>
+    </tr>`;
+
+    html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">TRÉSORERIE</td></tr>`;
+
+    // ESP à déposer : CHQ + VIR + PLANITY + charges (négatives) + écart redevance (négatif)
+    // = ce que tu dois déposer pour couvrir les charges et la redevance
+    const redevEcartSem=weeks.map(wk=>redevDue(DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)))-redevDeposee(DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e))));
+
+    const espW=weeks.map((wk,i)=>{
+      const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      // Formule : CHQ + VIR + PLANITY + charges (neg) + écart redevance (neg)
+      const esp2dep=chq+vir+plan+chargesW[i];
+      const cumul=cumulEspADeposer+esp2dep;
+      // ESP déposées = uniquement DÉPÔT ESPÈCES (pas chèques)
+      const deposes=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHÈQUE')).reduce((s,t)=>s+t.montant,0);
+      cumulEspADeposer=Math.max(0,cumul-deposes);
+      return cumul;
+    });
+
+    // ESP déposées = uniquement DÉPÔT ESPÈCES (exclure DÉPÔT CHÈQUES)
+    const espDeposeesW=weeks.map(wk=>
+      DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHÈQUE')).reduce((s,t)=>s+t.montant,0)
+    );
+    const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
+
+    // Écart ESP = ESP à déposer cumulatif − ESP déposées
+    const espEcartW=espW.map((v,i)=>v-espDeposeesW[i]);
+    const espEcartTot=espW[espW.length-1]-espDeposesTot;
+
+    html+=row('💰 ESP à déposer (cumulatif)',espW,espW[espW.length-1],
+      v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
+      (i,v)=>i>=0?`S${i+1}: CHQ(${fa(DB.caisse.filter(t=>inSem(t.date,y,m,weeks[i].s,weeks[i].e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0))}) + VIR + PLANITY\n+ charges(${fm(chargesW[i])})\n+ cumul précédent`:`Cumul fin de mois`
+    );
+    html+=row('→ ESP déposées',espDeposeesW,espDeposesTot,
+      v=>v>0?'var(--rec)':'var(--mut)',
+      (i,v)=>i>=0?`Dépôts espèces S${i+1} (hors chèques):\n${DB.banque.filter(t=>inSem(t.date,y,m,weeks[i].s,weeks[i].e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHÈQUE')).map(t=>`${t.nom}: ${fa(t.montant)}`).join('\n')||'Aucun dépôt'}`:`Total ESP déposées`
+    );
+    html+=row('→ Écart ESP',espEcartW,espEcartTot,
+      v=>Math.abs(v)<0.01?'var(--mut)':v>0?'var(--warn)':'var(--rec)',
+      (i,v)=>i>=0?`À déposer: ${fa(espW[i])}\nDéposé: ${fa(espDeposeesW[i])}\nÉcart: ${fm(v,true)}`:`Reste à déposer fin de mois`
+    );
+
+    html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">REDEVANCE (${PARAMS.redev*100}%)</td></tr>`;
+
+    const redevDepW=weeks.map(wk=>redevDeposee(DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e))));
+    const redevDueW=weeks.map(wk=>redevDue(DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e))));
+    const redevEcartW=redevDueW.map((v,i)=>v-redevDepW[i]);
+
+    html+=row('→ Redevance déposée',redevDepW,redevDep,
+      v=>v>0?'var(--rec)':'var(--mut)',
+      (i,v)=>i>=0?`10% × montants Déposé ✅ S${i+1}\nEmma: ${PARAMS.redev*100}% CA\nAuto: ${PARAMS.redev*100}% × ${PARAMS.tauxSoc*100}% CA`:`Total redevance déposée`
+    );
+    html+=row('→ Écart redevance',redevEcartW,redevEcart,
+      v=>Math.abs(v)<0.01?'var(--mut)':v>0?'var(--warn)':'var(--rec)',
+      (i,v)=>i>=0?`Due: ${fa(redevDueW[i])}\nDéposée: ${fa(redevDepW[i])}\nÉcart: ${fm(v,true)}`:`Due totale: ${fa(redevTotale)}\nDéposée totale: ${fa(redevDep)}`
+    );
+
+    const resultatW=caNetWeeks.map((ca,i)=>ca+chargesW[i]);
+    const resultatTot=resultatW.reduce((s,v)=>s+v,0);
+    html+=`<tr style="background:${resultatTot>=0?'var(--rec2)':'var(--dep2)'}">
+      <td style="font-weight:700;padding:8px 10px;color:${resultatTot>=0?'var(--rec)':'var(--dep)'}">${resultatTot>=0?'✅':'⚠️'} RÉSULTAT NET</td>
+      ${resultatW.map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;padding:8px 9px;color:${v>=0?'var(--rec)':'var(--dep)'}">${fm(v,v>=0)}</td>`).join('')}
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:900;padding:8px 9px;color:${resultatTot>=0?'var(--rec)':'var(--dep)'}">${fm(resultatTot,resultatTot>=0)}</td>
+    </tr>`;
+
+    html+=`<tr><td colspan="${nw+2}" style="padding:7px 11px;font-size:11px;color:var(--mut);background:var(--bg2);border-top:1px solid var(--brd)">
+      ℹ️ S${nw} ajustée : réel (${fm(totalReel)}) − déjà comptabilisé (${fm(chargeParSemaine*(nw-1))}) = <strong style="color:${estW[nw-1]<0?'var(--dep)':'var(--rec)'}">${fm(estW[nw-1])}</strong>
+    </td></tr>`;
+
+    html+='</tbody></table></div></div>';
+  }
+  document.getElementById('recapC').innerHTML=html||'<div class="empty">Aucune donnée</div>';
+}
+
+// ═══════════════════════════════════════
+// COMPTA DÉPOSÉE
+// ═══════════════════════════════════════
+function renderCompta(){
+  const filtM=document.getElementById('comptaMois')?.value||'';
+  const filtP=document.getElementById('comptaPrat')?.value;
+
+  // Lignes déposées = ESP déposée OU VIR/CHQ/PLANITY (auto déposé)
+  let rows=DB.caisse.filter(t=>{
+    if(t.montant<=0) return false;
+    if(t.reglement==='ESP') return t.depose===true;
+    return ['VIR','CHQ','PLANITY'].includes(t.reglement);
+  }).sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(filtM) rows=rows.filter(t=>inM(t.date,filtM));
+  if(filtP!==undefined&&filtP!==null&&filtP!=='ALL') rows=rows.filter(t=>t.praticien===(filtP||''));
+
+  const byM={};
+  for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
+
+  let html=`<table><thead><tr>
+    <th>Date</th><th>Prat.</th><th>Nom</th><th>Prestation</th>
+    <th style="text-align:right">Montant</th><th>Règlement</th>
+  </tr></thead><tbody>`;
+
+  if(!Object.keys(byM).length) html+=`<tr><td colspan="6"><div class="empty">Aucune opération déposée</div></td></tr>`;
+
+  let grandTotal=0;
+  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
+    const tot=mrows.reduce((s,t)=>s+t.montant,0);
+    grandTotal+=tot;
+    // Ventilation par mode
+    const modes={ESP:0,VIR:0,CHQ:0,PLANITY:0};
+    for(const t of mrows) if(modes[t.reglement]!==undefined) modes[t.reglement]+=t.montant;
+    html+=`<tr class="trm">
+      <td colspan="4" style="padding:8px 11px">▾ ${mf(mois)} <span style="font-weight:400;color:var(--mut);font-size:11px">${mrows.length} opérations</span></td>
+      <td colspan="2" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:var(--rec)">${fa(tot)}</td>
+    </tr>
+    <tr style="background:var(--bg2)">
+      <td colspan="6" style="padding:5px 11px">
+        <div style="display:flex;gap:14px;font-size:11px">
+          ${Object.entries(modes).filter(([,v])=>v>0).map(([mo,v])=>`${bdg(mo)} <span style="font-family:'DM Mono',monospace;font-weight:600">${fa(v)}</span>`).join('  ')}
+        </div>
+      </td>
+    </tr>`;
+    for(const t of mrows){
+      html+=`<tr>
+        <td class="tdt">${dlbl(t.date)}</td>
+        <td>${ptag(t.praticien)}</td>
+        <td style="font-weight:500">${t.nom}</td>
+        <td style="color:var(--mut);font-size:12px">${t.prestation||''}</td>
+        <td class="tp" style="text-align:right">${fa(t.montant)}</td>
+        <td>${bdg(t.reglement)}</td>
+      </tr>`;
+    }
+  }
+  html+=`<tr class="trt"><td colspan="4" style="font-size:13px">TOTAL DÉPOSÉ</td>
+    <td class="tp" style="text-align:right;font-size:14px">${fa(grandTotal)}</td><td></td>
+  </tr>`;
+  html+='</tbody></table>';
+  document.getElementById('comptaTable').innerHTML=html;
+
+  // Populate filter mois
+  const cMois=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse();
+  const comptaMoisEl=document.getElementById('comptaMois');
+  if(comptaMoisEl){
+    const cur=comptaMoisEl.value;
+    comptaMoisEl.innerHTML='<option value="">Tous les mois</option>'+cMois.map(m=>`<option value="${m}">${mf(m)}</option>`).join('');
+    if(cur)comptaMoisEl.value=cur;
+  }
+}
+
+// ═══════════════════════════════════════
+// COMPTA DÉPOSÉE
+// ═══════════════════════════════════════
+function renderCompta(){
+  const filtM=document.getElementById('comptaMois')?.value||'';
+  const filtP=document.getElementById('comptaPrat')?.value;
+  let rows=DB.caisse.filter(t=>{
+    if(t.montant<=0) return false;
+    if(t.reglement==='ESP') return t.depose===true;
+    return ['VIR','CHQ','PLANITY'].includes(t.reglement);
+  }).sort((a,b)=>b.date.localeCompare(a.date));
+  if(filtM) rows=rows.filter(t=>inM(t.date,filtM));
+  if(filtP!==undefined&&filtP!==null&&filtP!=='ALL') rows=rows.filter(t=>t.praticien===(filtP||''));
+  const byM={};
+  for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
+  let html=`<table><thead><tr>
+    <th>Date</th><th>Prat.</th><th>Nom</th><th>Prestation</th>
+    <th style="text-align:right">Montant</th><th>Règlement</th>
+  </tr></thead><tbody>`;
+  if(!Object.keys(byM).length) html+=`<tr><td colspan="6"><div class="empty">Aucune opération déposée</div></td></tr>`;
+  let grandTotal=0;
+  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
+    const tot=mrows.reduce((s,t)=>s+t.montant,0);grandTotal+=tot;
+    const modes={ESP:0,VIR:0,CHQ:0,PLANITY:0};
+    for(const t of mrows) if(modes[t.reglement]!==undefined) modes[t.reglement]+=t.montant;
+    html+=`<tr class="trm"><td colspan="4" style="padding:8px 11px">▾ ${mf(mois)} <span style="font-weight:400;color:var(--mut);font-size:11px">${mrows.length} opérations</span></td>
+      <td colspan="2" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:var(--rec)">${fa(tot)}</td></tr>
+    <tr style="background:var(--bg2)"><td colspan="6" style="padding:5px 11px">
+      <div style="display:flex;gap:14px;font-size:11px">
+        ${Object.entries(modes).filter(([,v])=>v>0).map(([mo,v])=>`${bdg(mo)} <span style="font-family:'DM Mono',monospace;font-weight:600">${fa(v)}</span>`).join('&nbsp;&nbsp;')}
+      </div></td></tr>`;
+    for(const t of mrows){
+      html+=`<tr>
+        <td class="tdt">${dlbl(t.date)}</td><td>${ptag(t.praticien)}</td>
+        <td style="font-weight:500">${t.nom}</td>
+        <td style="color:var(--mut);font-size:12px">${t.prestation||''}</td>
+        <td class="tp" style="text-align:right">${fa(t.montant)}</td>
+        <td>${bdg(t.reglement)}</td>
+      </tr>`;
+    }
+  }
+  html+=`<tr class="trt"><td colspan="4">TOTAL DÉPOSÉ</td>
+    <td class="tp" style="text-align:right;font-size:14px">${fa(grandTotal)}</td><td></td></tr>`;
+  html+='</tbody></table>';
+  document.getElementById('comptaTable').innerHTML=html;
+  const cMois=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse();
+  const el=document.getElementById('comptaMois');
+  if(el){const cur=el.value;el.innerHTML='<option value="">Tous les mois</option>'+cMois.map(m=>`<option value="${m}">${mf(m)}</option>`).join('');if(cur)el.value=cur;}
+}
+
+// ═══════════════════════════════════════
+// CLIENTS
+// ═══════════════════════════════════════
+function renderClients(){
+  const s=(document.getElementById('clis')?.value||'').toLowerCase();
+  const map={};
+  for(const t of DB.caisse){
+    if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) continue;
+    if(!map[t.nom]) map[t.nom]={nom:t.nom,visites:[],total:0,last:''};
+    map[t.nom].visites.push(t);
+    map[t.nom].total+=t.montant;
+    if(!map[t.nom].last||t.date>map[t.nom].last) map[t.nom].last=t.date;
+  }
+  let clients=Object.values(map).sort((a,b)=>b.last.localeCompare(a.last));
+  if(s) clients=clients.filter(c=>c.nom.toLowerCase().includes(s));
+
+  let html=`<div class="tw"><table><thead><tr>
+    <th>Nom</th><th style="text-align:center">Visites</th>
+    <th style="text-align:right">CA total</th><th style="text-align:right">Panier moyen</th>
+    <th>Dernière visite</th><th>Mode favori</th><th></th>
+  </tr></thead><tbody>`;
+
+  for(const c of clients){
+    const nb=c.visites.filter(v=>v.montant>0).length;
+    const pan=nb?c.total/nb:0;
+    const modes={};
+    for(const v of c.visites) modes[v.reglement]=(modes[v.reglement]||0)+1;
+    const fav=Object.entries(modes).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
+    html+=`<tr>
+      <td style="font-weight:600;cursor:pointer;color:var(--pla);text-decoration:underline dotted" onclick="openClient('${c.nom.replace(/'/g,"\\'")}')">${c.nom}</td>
+      <td style="text-align:center">${nb}</td>
+      <td class="tp" style="text-align:right">${fa(c.total)}</td>
+      <td class="tmu" style="text-align:right">${fa(pan)}</td>
+      <td class="tdt">${dlbl(c.last)}</td>
+      <td>${bdg(fav)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn bg bsm" onclick="editClient('${c.nom.replace(/'/g,"\\'")}')">✏️</button>
+        <button class="btn bg bsm" onclick="openClient('${c.nom.replace(/'/g,"\\'")}')">Fiche</button>
+        <button class="btn br bsm" onclick="delClient('${c.nom.replace(/'/g,"\\'")}')">✕</button>
+      </td>
+    </tr>`;
+  }
+  if(!clients.length) html+=`<tr><td colspan="7"><div class="empty">Aucune cliente</div></td></tr>`;
+  html+='</tbody></table></div>';
+  document.getElementById('clientsC').innerHTML=html;
+}
+
+function openClient(nom){
+  const visites=DB.caisse.filter(t=>t.nom===nom).sort((a,b)=>b.date.localeCompare(a.date));
+  const total=visites.filter(v=>v.montant>0).reduce((s,t)=>s+t.montant,0);
+  const nb=visites.filter(v=>v.montant>0).length;
+  let html=`<div style="display:flex;gap:12px;margin-bottom:14px">
+    <div style="background:var(--rec2);border-radius:12px;padding:10px 14px;text-align:center;min-width:80px"><div style="font-size:10px;text-transform:uppercase;color:var(--mut)">Visites</div><div style="font-size:20px;font-weight:700;color:var(--rec)">${nb}</div></div>
+    <div style="background:var(--rec2);border-radius:12px;padding:10px 14px;text-align:center;min-width:100px"><div style="font-size:10px;text-transform:uppercase;color:var(--mut)">CA total</div><div style="font-size:18px;font-weight:700;color:var(--rec)">${fa(total)}</div></div>
+    <div style="background:var(--bg2);border-radius:12px;padding:10px 14px;text-align:center;min-width:100px"><div style="font-size:10px;text-transform:uppercase;color:var(--mut)">Panier moy.</div><div style="font-size:18px;font-weight:700;color:var(--acc)">${nb?fa(total/nb):'—'}</div></div>
+  </div>
+  <div style="max-height:300px;overflow-y:auto"><table width="100%" style="border-collapse:collapse">
+    <thead><tr style="background:var(--bg2)">
+      <th style="padding:7px 9px;text-align:left;font-size:11px;color:var(--mut)">Date</th>
+      <th style="padding:7px 9px;text-align:left;font-size:11px;color:var(--mut)">Prestation</th>
+      <th style="padding:7px 9px;text-align:right;font-size:11px;color:var(--mut)">Montant</th>
+      <th style="padding:7px 9px;text-align:left;font-size:11px;color:var(--mut)">Mode</th>
+      <th style="padding:7px 9px;text-align:center;font-size:11px;color:var(--mut)">Payé</th>
+    </tr></thead><tbody>`;
+  for(const v of visites){
+    html+=`<tr style="border-bottom:1px solid var(--brd)">
+      <td style="padding:7px 9px" class="tdt">${dlbl(v.date)}</td>
+      <td style="padding:7px 9px;font-size:12px">${v.prestation||'—'}</td>
+      <td style="padding:7px 9px;text-align:right" class="${v.montant>=0?'tp':'tn'}">${fm(v.montant,v.montant>0)}</td>
+      <td style="padding:7px 9px">${bdg(v.reglement)}</td>
+      <td style="padding:7px 9px;text-align:center">${v.paye?'✅':'❓'}</td>
+    </tr>`;
+  }
+  html+='</tbody></table></div>';
+  document.getElementById('cliMT').textContent='👤 '+nom;
+  document.getElementById('cliMB').innerHTML=html;
+  document.getElementById('clientModal').classList.add('open');
+}
+
+function editClient(nom){
+  const newNom=prompt('Nouveau nom pour '+nom+' :', nom);
+  if(!newNom||newNom===nom) return;
+  DB.caisse.forEach(async t=>{ if(t.nom===nom){ t.nom=newNom; await saveEntry_fb('caisse',t); }});
+  renderAll(); toast('✓ Cliente renommée');
+}
+
+async function delClient(nom){
+  if(!confirm('Supprimer toutes les prestations de '+nom+' ?')) return;
+  const toDelete=DB.caisse.filter(t=>t.nom===nom);
+  for(const t of toDelete) await deleteEntry_fb('caisse',t.id);
+  DB.caisse=DB.caisse.filter(t=>t.nom!==nom);
+  renderAll(); toast('Supprimé');
+}
+
+// ═══════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════
+function renderSettings(){
+  // Prestations
+  const pl=document.getElementById('prestList');
+  if(pl) pl.innerHTML=DB.prestations.map((p,i)=>`
+    <div class="set-row">
+      <span>${p}</span>
+      <button class="btn bg bsm" onclick="editPrest(${i})">✏️</button>
+      <button class="btn br bsm" onclick="delPrest(${i})">✕</button>
+    </div>`).join('');
+
+  // Vérification — liste des mois
+  const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date))])].sort().reverse();
+  const vm=document.getElementById('veriMonths');
+  if(vm&&allMois.length){
+    const activeMois=vm.querySelector('.active')?.dataset?.mois||allMois[0];
+    vm.innerHTML=allMois.map(m=>`<button class="veri-month-btn${m===activeMois?' active':''}" data-mois="${m}" onclick="showVeri('${m}',this)">${mc(m)}</button>`).join('');
+    showVeri(activeMois);
+  }
+}
+
+function showVeri(mois, el){
+  document.querySelectorAll('.veri-month-btn').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const [y2,m2]=mois.split('-').map(Number);
+
+  const cM=DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0);
+  const caTotal=cM.reduce((s,t)=>s+t.montant,0);
+  const caN=caNet(cM);
+  const fixRows=DB.fixes.filter(f=>f.mois===mois);
+  const fixEstim=fixRows.reduce((s,f)=>s+(f.prev||0),0);
+  const fixReel=fixRows.reduce((s,f)=>s+f.montant,0);
+  const pm=prevMois(mois);
+  const redevDepM=redevDeposee(cM);
+  const redevDueM=redevDue(cM);
+  const tvaC=tvaCollectee(mois);
+  const tvaD=tvaDed(mois);
+  const tvaN=tvaNette(mois);
+  const resultat=caN+fixEstim;
+
+  const autoMarie=cM.filter(t=>t.praticien==='MARIE');
+  const autoGiulia=cM.filter(t=>t.praticien==='GIULIA');
+  const emmaRows=cM.filter(t=>t.praticien==='');
+
+  document.getElementById('veriContent').innerHTML=`
+    <div class="veri-card">
+      <h4>💰 CA Net Société — ${mf(mois)}</h4>
+      <div class="veri-formula">
+CA Total Caisse = <span class="highlight">${fa(caTotal)}</span>
+
+<span style="color:var(--mut)">Décomposition par praticien :</span>
+  Emma : ${fa(emmaRows.reduce((s,t)=>s+t.montant,0))} → <span class="green">100% = ${fa(emmaRows.reduce((s,t)=>s+t.montant,0))}</span>
+  MARIE : CA=${fa(autoMarie.reduce((s,t)=>s+t.montant,0))} → société garde <span class="highlight">${PARAMS.tauxSoc*100}%</span> = ${fa(autoMarie.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc)}
+  GIULIA : CA=${fa(autoGiulia.reduce((s,t)=>s+t.montant,0))} → société garde <span class="highlight">${PARAMS.tauxSoc*100}%</span> = ${fa(autoGiulia.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc)}
+
+CA Net Société = <span class="green">${fa(caN)}</span>
+      </div>
+    </div>
+    <div class="veri-card">
+      <h4>🧮 Redevance — ${mf(mois)}</h4>
+      <div class="veri-formula">
+Taux redevance = <span class="highlight">${PARAMS.redev*100}%</span>
+
+Emma : ${fa(emmaRows.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.redev*100}% = <span class="blue">${fa(emmaRows.reduce((s,t)=>s+t.montant,0)*PARAMS.redev)}</span>
+MARIE : ${fa(autoMarie.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.tauxSoc*100}% × ${PARAMS.redev*100}% = <span class="blue">${fa(autoMarie.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc*PARAMS.redev)}</span>
+GIULIA : ${fa(autoGiulia.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.tauxSoc*100}% × ${PARAMS.redev*100}% = <span class="blue">${fa(autoGiulia.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc*PARAMS.redev)}</span>
+
+Redevance totale due = <span class="highlight">${fa(redevDueM)}</span>
+Redevance déposée = <span class="green">${fa(redevDepM)}</span>
+Écart = <span class="${redevDueM-redevDepM>0.01?'red':'green'}">${fa(redevDueM-redevDepM)}</span>
+      </div>
+    </div>
+    <div class="veri-card">
+      <h4>🧾 TVA — ${mf(mois)}</h4>
+      <div class="veri-formula">
+TVA collectée (CA+VIR Banque ÷ 1,${PARAMS.tva*100} × 0,${PARAMS.tva*100}) = <span class="highlight">${fa(tvaC)}</span>
+TVA déductible (sur ACHATS/CH.Variable Banque) = <span class="red">−${fa(tvaD)}</span>
+
+TVA nette due = <span class="highlight">${fa(tvaN)}</span>
+→ Cette TVA apparaîtra en charge prévue de <span class="blue">${mc(nextMoisStr(mois))}</span>
+      </div>
+    </div>
+    <div class="veri-card">
+      <h4>💰 ESP à déposer — ${mf(mois)}</h4>
+      <div class="veri-formula">
+${(()=>{
+  const weeks=semainesDuMois(y2,m2);
+  const fixRowsV=DB.fixes.filter(f=>f.mois===mois);
+  const varRowsV=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT');
+  const fixEstimV=fixRowsV.reduce((s,f)=>s+(f.prev||0),0);
+  const varEstimV=varRowsV.reduce((s,f)=>s+(f.prev||0),0);
+  const redevEstimV=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,prevMois(mois)))));
+  const tvaEstimV=-(tvaNette(prevMois(mois)));
+  const totalEstimV=fixEstimV+varEstimV+redevEstimV+tvaEstimV;
+  const chargeParSemV=weeks.length>0?totalEstimV/weeks.length:0;
+  let lines=`Formule : CHQ + VIR + PLANITY + charges estimées/sem
+
+`;
+  lines+=`Charges estimées totales : ${fm(totalEstimV)}
+`;
+  lines+=`Charges par semaine : ${fm(totalEstimV)} ÷ ${weeks.length} = <span class="red">${fm(chargeParSemV)}</span>
+
+`;
+  for(let i=0;i<Math.min(weeks.length,2);i++){
+    const wk=weeks[i];
+    const chq=DB.caisse.filter(t=>inSem(t.date,y2,m2,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+    const vir=DB.caisse.filter(t=>inSem(t.date,y2,m2,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+    const plan=DB.caisse.filter(t=>inSem(t.date,y2,m2,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+    const espBrut=chq+vir+plan+chargeParSemV;
+    lines+=`S${i+1} : CHQ(${fa(chq)}) + VIR(${fa(vir)}) + PLANITY(${fa(plan)}) + charges(${fm(chargeParSemV)}) = <span class="${espBrut>=0?'green':'red'}">${fm(espBrut)}</span>
+`;
+  }
+  return lines;
+})()}
+      </div>
+    </div>
+    <div class="veri-card">
+      <h4>💰 ESP à déposer — formule</h4>
+      <div class="veri-formula">
+Formule : CHQ + VIR + PLANITY + charges estimées/semaine
+
+${(()=>{
+  const fixRowsV=DB.fixes.filter(f=>f.mois===mois);
+  const varRowsV=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT');
+  const fixEstimV=fixRowsV.reduce((s,f)=>s+(f.prev||0),0);
+  const varEstimV=varRowsV.reduce((s,f)=>s+(f.prev||0),0);
+  const redevEstimV=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,prevMois(mois)))));
+  const tvaEstimV=-(tvaNette(prevMois(mois)));
+  const totalEstimV=fixEstimV+varEstimV+redevEstimV+tvaEstimV;
+  const weeksV=semainesDuMois(y2,m2);
+  const chargeParSemV=weeksV.length>0?totalEstimV/weeksV.length:0;
+  return `Fixes prévues : ${fm(fixEstimV)}\nVariables prévues : ${fm(varEstimV+redevEstimV+tvaEstimV)}\nTotal estimé : ${fm(totalEstimV)}\nNb semaines : ${weeksV.length}\nCharge/semaine : <span class="red">${fm(chargeParSemV)}</span>`;
+})()}
+      </div>
+    </div>
+    <div class="veri-card">
+      <h4>📊 Résultat estimé — ${mf(mois)}</h4>
+      <div class="veri-formula">
+CA Net = <span class="green">${fa(caN)}</span>
+Charges fixes estimées = <span class="red">${fm(fixEstim)}</span>
+
+Résultat estimé = <span class="${resultat>=0?'green':'red'}">${fm(resultat,resultat>=0)}</span>
+      </div>
+    </div>`;
+}
+
+async function addPrest(){
+  const v=document.getElementById('newPrest').value.trim();
+  if(!v) return;
+  DB.prestations.push(v);
+  document.getElementById('newPrest').value='';
+  await savePrestations();
+  renderSettings();
+  toast('✓ Prestation ajoutée');
+}
+
+async function editPrest(i){
+  const n=prompt('Modifier la prestation :',DB.prestations[i]);
+  if(n===null) return;
+  DB.prestations[i]=n;
+  await savePrestations();
+  renderSettings();
+}
+
+async function delPrest(i){
+  if(!confirm('Supprimer "'+DB.prestations[i]+'" ?')) return;
+  DB.prestations.splice(i,1);
+  await savePrestations();
+  renderSettings();
+}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify({DB,PARAMS},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='emma_data.json';a.click();
+}
+
+async function importData(event){
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const raw=JSON.parse(e.target.result);
+      // Accepte les deux formats : {DB,PARAMS} ou directement {caisse,banque,...}
+      const importedDB = raw.DB || raw;
+      const importedParams = raw.PARAMS || null;
+      if(!importedDB.caisse){toast('Fichier invalide');return;}
+      if(!confirm('Importer ces données ? Tes données Firebase seront remplacées.')) return;
+      
+      // Mapper les ids numériques en strings pour Firebase
+      for(const col of ['caisse','banque','fixes','variables']){
+        if(!importedDB[col]) continue;
+        importedDB[col] = importedDB[col].map(entry => ({
+          ...entry,
+          id: String(entry.id || genId())
+        }));
+      }
+      
+      DB = {
+        caisse: importedDB.caisse || [],
+        banque: importedDB.banque || [],
+        fixes: importedDB.fixes || [],
+        variables: importedDB.variables || [],
+        prestations: importedDB.prestations || DB.prestations,
+      };
+      
+      if(importedParams) PARAMS = {...PARAMS, ...importedParams};
+      if(importedDB.objectif) PARAMS.objectif = importedDB.objectif;
+      if(importedDB.soldeInit) PARAMS.soldeInit = importedDB.soldeInit;
+      
+      // Push to Firebase
+      toast('⏳ Import en cours...');
+      for(const col of ['caisse','banque','fixes','variables']){
+        for(const entry of DB[col]){
+          await saveEntry_fb(col, entry);
+        }
+      }
+      await saveParams();
+      await savePrestations();
+      renderAll();
+      toast('✓ ' + DB.caisse.length + ' prestations importées !');
+    }catch(err){toast('Erreur import: '+err.message); console.error(err);}
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════
+// DÉPÔT
+// ═══════════════════════════════════════
+let currentDepotType='ESP', currentDepotBanqueId=null;
+
+function openSelDepot(type, banqueId){
+  currentDepotType=type;
+  currentDepotBanqueId=banqueId;
+  document.getElementById('depTitle').textContent=type==='ESP'?'💵 Clientes — dépôt espèces':'📝 Clientes — dépôt chèques';
+  const rows=type==='ESP'
+    ?DB.caisse.filter(t=>t.reglement==='ESP'&&t.montant>0&&!t.depose)
+    :DB.caisse.filter(t=>t.reglement==='CHQ'&&t.montant>0&&!t.chqDepose);
+  let html=rows.length
+    ?`<div style="font-size:11px;color:var(--mut);margin-bottom:8px">${rows.length} cliente(s) en attente</div>`
+    :'<div style="color:var(--mut2);font-size:12px;padding:10px 0">Aucune cliente en attente</div>';
+  for(const t of rows){
+    html+=`<div class="di">
+      <input type="checkbox" id="dep-${t.id}" value="${t.id}" data-mnt="${t.montant}" onchange="updDepot()">
+      <label for="dep-${t.id}" style="cursor:pointer;flex:1;font-size:12px">
+        ${dlbl(t.date)} — <strong>${t.nom}</strong> — ${t.prestation||''} — <span style="font-family:'DM Mono',monospace;color:var(--rec)">${fa(t.montant)}</span>
+      </label>
+    </div>`;
+  }
+  document.getElementById('depList').innerHTML=html;
+  document.getElementById('depSel').textContent='0,00 €';
+  document.getElementById('depotModal').classList.add('open');
+}
+
+function updDepot(){
+  const tot=[...document.querySelectorAll('#depList input:checked')].reduce((s,c)=>s+parseFloat(c.dataset.mnt),0);
+  document.getElementById('depSel').textContent=tot.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+}
+
+async function valDepot(){
+  const checks=document.querySelectorAll('#depList input:checked');
+  if(!checks.length){closeMo('depotModal');toast('✓ Enregistré');return;}
+  for(const cb of checks){
+    const t=DB.caisse.find(x=>x.id===cb.value);
+    if(!t) continue;
+    if(currentDepotType==='ESP') t.depose=true;
+    else t.chqDepose=true;
+    await saveEntry_fb('caisse',t);
+  }
+  closeMo('depotModal');renderAll();
+  toast('✓ Dépôt enregistré');
+}
+
+// ═══════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════
+let mCtx='', mEditId=null;
+
+function openModal(ctx, editId=null){
+  mCtx=ctx; mEditId=editId;
+  const titles={caisse:editId?'Modifier prestation':'Nouvelle prestation',banque:editId?'Modifier mouvement':'Nouveau mouvement',fixes:editId?'Modifier charge fixe':'Nouvelle charge fixe',variables:editId?'Modifier charge variable':'Nouvelle charge variable'};
+  document.getElementById('mTitle').textContent=titles[ctx]||'Nouvelle entrée';
+  document.getElementById('mBody').innerHTML=buildForm(ctx,editId);
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function buildForm(ctx, editId=null){
+  const today=new Date().toISOString().split('T')[0];
+  const thisMonth=today.slice(0,7);
+  const clients=[...new Set(DB.caisse.map(t=>t.nom).filter(n=>n&&n!=='PLANITY'&&!n.startsWith('DÉPÔT')))].sort();
+  const dl=`<datalist id="cliDL">${clients.map(c=>`<option value="${c}">`).join('')}</datalist>`;
+
+  if(ctx==='caisse'){
+    const t=editId?DB.caisse.find(x=>x.id===editId):null;
+    return`${dl}
+      <div class="fr"><label>Praticien</label>
+        <div class="pt">
+          <button id="pt0" onclick="setPrat('')" class="${!t||t.praticien===''?'pte':''}">Emma</button>
+          <button id="pt1" onclick="setPrat('MARIE')" class="${t&&t.praticien==='MARIE'?'ptm':''}">MARIE</button>
+          <button id="pt2" onclick="setPrat('GIULIA')" class="${t&&t.praticien==='GIULIA'?'ptg':''}">GIULIA</button>
+        </div><input type="hidden" id="fPrat" value="${t?t.praticien:''}">
+      </div>
+      <div class="g2">
+        <div class="fr"><label>Date</label><input type="date" id="fDate" value="${t?t.date:today}"></div>
+        <div class="fr"><label>Montant (€)</label><input type="number" id="fMnt" value="${t?t.montant:''}" placeholder="0" step="0.01" min="0"></div>
+      </div>
+      <div class="fr"><label>Nom cliente</label><input type="text" id="fNom" value="${t?t.nom:''}" placeholder="Manon Vouriot" list="cliDL" autocomplete="off"></div>
+      <div class="fr"><label>Prestation</label>
+        <select id="fPrest">${DB.prestations.map(p=>`<option${t&&t.prestation===p?' selected':''}>${p}</option>`).join('')}</select>
+      </div>
+      <div class="g2">
+        <div class="fr"><label>Mode règlement</label>
+          <select id="fMode">${['ESP','VIR','CHQ','PLANITY'].map(mo=>`<option${t&&t.reglement===mo?' selected':''}>${mo}</option>`).join('')}</select>
+        </div>
+        <div class="fr"><label>Payé ?</label>
+          <select id="fPaye"><option value="1"${t&&t.paye?' selected':''}>✅ Oui</option><option value="0"${t&&!t.paye?' selected':''}>❓ Non</option></select>
+        </div>
+      </div>`;
+  }
+
+  if(ctx==='banque'){
+    const t=editId?DB.banque.find(x=>x.id===editId):null;
+    const allNoms=[...new Set([
+      ...DB.caisse.map(x=>x.nom).filter(n=>n&&n!=='PLANITY'&&!n.startsWith('DÉPÔT')),
+      ...DB.fixes.map(x=>x.nom),
+      ...DB.variables.map(x=>x.nom),
+      'LOYER','SALAIRE EMMA','URSSAF','AG2R','COMPTABLE','FREE','MAAF','PLANITY PRO','PREDICA','EDF','BUREAU VALLÉE','PLANITY','REDEVANCE','TVA','DÉPÔT ESPÈCES','DÉPÔT CHÈQUES'
+    ])].sort();
+    return`
+    <datalist id="bNomDL">${allNoms.map(n=>`<option value="${n}">`).join('')}</datalist>
+    <div class="g2">
+      <div class="fr"><label>Date</label><input type="date" id="fDate" value="${t?t.date:today}"></div>
+      <div class="fr"><label>Montant (€)</label><input type="number" id="fMnt" value="${t?t.montant:''}" placeholder="ex: -1200 ou +500" step="0.01" oninput="calcTvaAuto()"></div>
+    </div>
+    <div class="fr"><label>Nom / Libellé</label>
+      <input type="text" id="fNom" value="${t?t.nom:''}" placeholder="LOYER, Manon Vouriot..." list="bNomDL" autocomplete="off">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Catégorie</label>
+        <select id="fCat" onchange="calcTvaAuto()">${CAT_BANQUE.map(c=>`<option${t&&t.categorie===c?' selected':''}>${c}</option>`).join('')}</select>
+      </div>
+      <div class="fr"><label>TVA (€) <span style="font-size:10px;color:var(--pla)">(auto VIR/CA)</span></label>
+        <input type="number" id="fTva" value="${t?t.tva:0}" placeholder="0.00" step="0.01">
+      </div>
+    </div>`;
+  }
+
+  if(ctx==='fixes'){
+    const t=editId?DB.fixes.find(x=>x.id===editId):null;
+    const fixNoms=[...new Set([...DB.fixes.map(f=>f.nom),'LOYER','SALAIRE EMMA','PREDICA','OFFRE À COMPOSER PRO','URSSAF','AG2R','COMPTABLE','FREE','MAAF','PLANITY PRO','IMPÔTS'])].sort();
+    return`
+    <datalist id="fixNomDL">${fixNoms.map(n=>`<option value="${n}">`).join('')}</datalist>
+    <div class="g2">
+      <div class="fr"><label>Mois</label><input type="month" id="fMois" value="${t?t.mois:thisMonth}"></div>
+      <div class="fr"><label>Montant réel (€)</label><input type="number" id="fMnt" value="${t?t.montant:''}" placeholder="-1200" step="0.01"></div>
+    </div>
+    <div class="fr"><label>Nom</label>
+      <input type="text" id="fNom" value="${t?t.nom:''}" list="fixNomDL" placeholder="LOYER, URSSAF..." autocomplete="off">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Prévu (€)</label><input type="number" id="fPrev" value="${t?t.prev:''}" placeholder="-1200" step="0.01"></div>
+      <div class="fr"><label>Payé ?</label>
+        <select id="fPaye"><option value="1"${t&&t.paye?' selected':''}>✅ Oui</option><option value="0"${t&&!t.paye?' selected':''}>Non</option></select>
+      </div>
+    </div>`;
+  }
+
+  if(ctx==='variables'){
+    const t=editId?DB.variables.find(x=>x.id===editId):null;
+    const varNoms=[...new Set([...DB.variables.map(v=>v.nom),'EDF','PLANITY PRO','FRAIS','AUTRE'])].filter(n=>!['REDEVANCE','TVA'].includes(n)).sort();
+    return`
+    <datalist id="varNomDL">${varNoms.map(n=>`<option value="${n}">`).join('')}</datalist>
+    <div class="g2">
+      <div class="fr"><label>Mois</label><input type="month" id="fMois" value="${t?t.mois:thisMonth}"></div>
+      <div class="fr"><label>Montant (€)</label><input type="number" id="fMnt" value="${t?t.montant:''}" step="0.01"></div>
+    </div>
+    <div class="fr"><label>Catégorie</label>
+      <input type="text" id="fNom" value="${t?t.nom:''}" list="varNomDL" placeholder="EDF, ACHAT..." autocomplete="off">
+    </div>
+    <div class="fr"><label>Prévu (€)</label><input type="number" id="fPrev" value="${t?t.prev:0}" step="0.01"></div>`;
+  }
+  return '';
+}
+
+function calcTvaAuto(){
+  const catEl=document.getElementById('fCat');
+  const mntEl=document.getElementById('fMnt');
+  const tvaEl=document.getElementById('fTva');
+  if(!catEl||!mntEl||!tvaEl) return;
+  const cat=catEl.value;
+  const mnt=parseFloat(mntEl.value)||0;
+  if(['VIR','CA'].includes(cat)){
+    if(mnt>0) tvaEl.value=(mnt/(1+PARAMS.tva)*PARAMS.tva).toFixed(2);
+    else if(mnt<0) tvaEl.value=(-Math.abs(mnt)/(1+PARAMS.tva)*PARAMS.tva).toFixed(2);
+    else tvaEl.value='0';
+  }
+}
+
+function setPrat(p){
+  document.getElementById('fPrat').value=p;
+  document.getElementById('pt0').className=p===''?'pte':'';
+  document.getElementById('pt1').className=p==='MARIE'?'ptm':'';
+  document.getElementById('pt2').className=p==='GIULIA'?'ptg':'';
+}
+
+function g(id){ const el=document.getElementById(id); return el?el.value:''; }
+
+async function saveEntry(){
+  const id=mEditId||genId();
+  try{
+    if(mCtx==='caisse'){
+      const mode=g('fMode');
+      const t={
+        id,date:g('fDate'),praticien:g('fPrat'),nom:g('fNom'),
+        prestation:g('fPrest'),montant:parseFloat(g('fMnt')),
+        reglement:mode,
+        paye:['CHQ','PLANITY'].includes(mode)?true:mode==='VIR'?false:g('fPaye')==='1',
+        depose:['CHQ','PLANITY','VIR'].includes(mode)?true:false,
+        chqDepose:mode==='CHQ'?false:undefined
+      };
+      if(!t.date||isNaN(t.montant)||!t.nom){toast('⚠ Remplis tous les champs');return;}
+      if(mEditId){ const i=DB.caisse.findIndex(x=>x.id===mEditId); DB.caisse[i]=t; }
+      else DB.caisse.push(t);
+      await saveEntry_fb('caisse',t);
+
+    } else if(mCtx==='banque'){
+      const t={id,date:g('fDate'),nom:g('fNom'),montant:parseFloat(g('fMnt')),categorie:g('fCat'),tva:parseFloat(g('fTva'))||0};
+      if(!t.date||isNaN(t.montant)||!t.nom){toast('⚠ Remplis tous les champs');return;}
+      if(mEditId){ const i=DB.banque.findIndex(x=>x.id===mEditId); DB.banque[i]=t; }
+      else DB.banque.push(t);
+      await saveEntry_fb('banque',t);
+      closeMo('mainModal');renderAll();
+      // Détecter dépôt
+      const nomUp=t.nom.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if(nomUp.includes('DEPOT ESP')||nomUp.includes('ESPECE')){openSelDepot('ESP',t.id);return;}
+      if(nomUp.includes('DEPOT CH')||nomUp.includes('CHEQUE')||nomUp.includes('CHQ')){openSelDepot('CHQ',t.id);return;}
+      toast('✓ Enregistré');return;
+
+    } else if(mCtx==='fixes'){
+      const t={id,mois:g('fMois'),nom:g('fNom'),montant:parseFloat(g('fMnt'))||0,prev:parseFloat(g('fPrev'))||0,paye:g('fPaye')==='1'};
+      if(mEditId){ const i=DB.fixes.findIndex(x=>x.id===mEditId); DB.fixes[i]=t; }
+      else DB.fixes.push(t);
+      await saveEntry_fb('fixes',t);
+
+    } else if(mCtx==='variables'){
+      const t={id,mois:g('fMois'),nom:g('fNom'),montant:parseFloat(g('fMnt'))||0,prev:parseFloat(g('fPrev'))||0};
+      if(mEditId){ const i=DB.variables.findIndex(x=>x.id===mEditId); DB.variables[i]=t; }
+      else DB.variables.push(t);
+      await saveEntry_fb('variables',t);
+    }
+
+    closeMo('mainModal');renderAll();toast('✓ Enregistré');
+  }catch(e){toast('⚠ Erreur: '+e.message);}
+}
+
+function editEntry(table, id){ openModal(table, id); }
+
+async function delEntry(table, id){
+  if(!confirm('Supprimer ?')) return;
+  await deleteEntry_fb(table, id);
+  DB[table]=DB[table].filter(t=>t.id!==id);
+  renderAll(); toast('Supprimé');
+}
+
+function closeMo(id){ document.getElementById(id).classList.remove('open'); }
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeMo('mainModal');closeMo('depotModal');closeMo('clientModal');}
+  if(e.key==='Enter'&&document.getElementById('loginPage').style.display!=='none') doLogin();
+});
+['mainModal','depotModal','clientModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id)closeMo(id);});
+});
+
+document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+</script>
+</body>
+</html>
