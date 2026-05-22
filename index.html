@@ -1444,7 +1444,7 @@ function renderRecap(){
     const chargeParSemaine=nw>0?totalEstim/nw:0;
 
     // Total réel = fixes réelles + variables réelles (hors ACHAT)
-    const totalReel=fixReel+varReel;
+    const varReelAll=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT').reduce((s,f)=>s+(f.montant||0),0); const totalReel=fixReel+varReelAll;
 
     const caisseM=DB.caisse.filter(t=>inM(t.date,mois));
     const redevTotale=redevDue(caisseM);
@@ -1563,8 +1563,8 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
 
     // Écart ESP = ESP à déposer cumulatif − ESP déposées
-    const espEcartW=espW.map((v,i)=>v-espDeposeesW[i]);
-    const espEcartTot=espW[espW.length-1]-espDeposesTot;
+    const espEcartW=espW.map((v,i)=>v+espDeposeesW[i]);
+    const espEcartTot=espW[espW.length-1]+espDeposesTot;
 
     html+=row('💰 ESP à déposer (cumulatif)',espW,espW[espW.length-1],
       v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
