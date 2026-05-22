@@ -1925,7 +1925,7 @@ ${(()=>{
   const varEstimV=varRowsV.reduce((s,f)=>s+(f.prev||0),0);
   const redevEstimV=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,prevMois(mois)))));
   const tvaEstimV=-(tvaNette(prevMois(mois)));
-  const totalEstimV=fixEstimV+varEstimV+redevEstimV+tvaEstimV;
+  const achatEstimV=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0); const totalEstimV=fixEstimV+varEstimV-achatEstimV;
   const chargeParSemV=weeks.length>0?totalEstimV/weeks.length:0;
   let lines=`Formule : CHQ + VIR + PLANITY + charges estimées/sem
 
@@ -1960,7 +1960,7 @@ ${(()=>{
   const varEstimV=varRowsV.reduce((s,f)=>s+(f.prev||0),0);
   const redevEstimV=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,prevMois(mois)))));
   const tvaEstimV=-(tvaNette(prevMois(mois)));
-  const totalEstimV=fixEstimV+varEstimV+redevEstimV+tvaEstimV;
+  const achatEstimV=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0); const totalEstimV=fixEstimV+varEstimV-achatEstimV;
   const weeksV=semainesDuMois(y2,m2);
   const chargeParSemV=weeksV.length>0?totalEstimV/weeksV.length:0;
   return `Fixes prévues : ${fm(fixEstimV)}\nVariables prévues : ${fm(varEstimV+redevEstimV+tvaEstimV)}\nTotal estimé : ${fm(totalEstimV)}\nNb semaines : ${weeksV.length}\nCharge/semaine : <span class="red">${fm(chargeParSemV)}</span>`;
