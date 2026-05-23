@@ -1542,7 +1542,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
 
     // ESP déposées par semaine (hors chèques)
     const espDeposeesW=weeks.map(wk=>
-      DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHEQUE')).reduce((s,t)=>s+t.montant,0)
+      DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHÈQUES')).reduce((s,t)=>s+t.montant,0)
     );
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
     // Écart ESP = ESP à déposer + ESP déposées (addition car dépôts sont positifs)
