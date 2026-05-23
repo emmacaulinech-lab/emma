@@ -2320,7 +2320,7 @@ function exportComptaPDF(){
     <h1>✦ LIMAGE CILS BY LA VALENTINE - Comptabilité</h1>
     <table><thead><tr><th>Date</th><th>Nom</th><th>Prestation</th><th style="text-align:right">Montant</th><th>Règlement</th></tr></thead>
     <tbody>${body}</tbody></table>
-    <div class="total">TOTAL DÉPOSÉ : ${fa(grandTotal)}</div>
+    <div class="total">TOTAL COMPTABILITÉ : ${fa(grandTotal)}</div>
   </body></html>`;
   const w=window.open('','_blank');
   w.document.write(html);
