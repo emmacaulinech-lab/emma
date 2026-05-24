@@ -587,7 +587,8 @@ td { padding: 9px 11px; vertical-align: middle; }
     <div id="mBody"></div>
     <div class="ma">
       <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
-      <button class="btn bd" onclick="saveEntry()">Enregistrer</button>
+      <button class="btn bg" onclick="saveEntry()">Enregistrer</button> 
+      <button class="btn bd" onclick="saveEntry(true)">Enregistrer + Ajouter</button>
     </div>
   </div>
 </div>
@@ -2229,7 +2230,7 @@ function setPrat(p){
 
 function g(id){ const el=document.getElementById(id); return el?el.value:''; }
 
-async function saveEntry(){
+async function saveEntry(addAnother=false){
   const id=mEditId||genId();
   try{
     if(mCtx==='caisse'){
@@ -2273,7 +2274,8 @@ async function saveEntry(){
       await saveEntry_fb('variables',t);
     }
 
-    closeMo('mainModal');renderAll();toast('✓ Enregistré');
+    if(addAnother&&mCtx==='caisse'){   
+    const lastDate=document.getElementById('fDate')?.value||'';   renderAll();   toast('✓ Enregistré');   mEditId=null;   document.getElementById('mBody').innerHTML=buildForm('caisse');   if(lastDate) document.getElementById('fDate').value=lastDate; } else {   closeMo('mainModal');renderAll();toast('✓ Enregistré'); }
   }catch(e){toast('⚠ Erreur: '+e.message);}
 }
 
