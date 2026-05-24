@@ -1577,8 +1577,8 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       v=>Math.abs(v)<0.01?'var(--mut)':v>0?'var(--warn)':'var(--rec)',
       (i,v)=>i>=0?`Due: ${fa(redevDueW[i])}\nDéposée: ${fa(redevDepW[i])}\nÉcart: ${fm(v,true)}`:`Due totale: ${fa(redevTotale)}\nDéposée totale: ${fa(redevDep)}`
     );
-     const redevTotW=redevDepW.map((v,i)=>v-redevEcartW[i]);
-const redevTotTotal=redevDep-redevEcart;
+     const redevTotW=redevDepW.map((v,i)=>v+redevEcartW[i]);
+const redevTotTotal=redevDep+redevEcart;
 html+=row('💰 Total redevance due',redevTotW,redevTotTotal,
   v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
   (i,v)=>i>=0?`Déposée: ${fa(redevDepW[i])}\nÉcart: ${fa(redevEcartW[i])}\nTotal: ${fm(v)}`:`Total redevance due`
