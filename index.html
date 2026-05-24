@@ -2255,6 +2255,14 @@ async function saveEntry(addAnother=false){
       if(mEditId){ const i=DB.banque.findIndex(x=>x.id===mEditId); DB.banque[i]=t; }
       else DB.banque.push(t);
       await saveEntry_fb('banque',t);
+      if(addAnother){
+        const lastDate=document.getElementById('fDate')?.value||'';
+        renderAll();toast('✓ Enregistré');
+        mEditId=null;
+        document.getElementById('mBody').innerHTML=buildForm('banque');
+        if(lastDate) document.getElementById('fDate').value=lastDate;
+        return;
+      }
       closeMo('mainModal');renderAll();
       // Détecter dépôt
       const nomUp=t.nom.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
