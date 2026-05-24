@@ -2354,7 +2354,11 @@ function exportComptaPDF(){
 
 function openTVA(){
   const rows=DB.banque.filter(b=>
-    ['VIR','CA'].includes(b.categorie)&&b.montant>0&&(!b.tva||b.tva===0)&&!noTVAList.includes(b.nom)
+    (!b.tva||b.tva===0)&&
+    !noTVAList.includes(b.nom)&&
+    !b.nom.toUpperCase().includes('DÉPÔT')&&
+    !b.nom.toUpperCase().includes('DEPOT')&&
+    ['VIR','CA','ACHATS','CH. Fixe','CH. Variable'].includes(b.categorie)
   ).sort((a,b)=>b.date.localeCompare(a.date));
   let html=`<div style="max-height:60vh;overflow-y:auto">`;
   if(!rows.length){
@@ -2369,7 +2373,7 @@ function openTVA(){
       <th style="padding:8px 10px;font-size:11px"></th>
     </tr></thead><tbody>`;
     for(const b of rows){
-      const tva=(b.montant/(1+PARAMS.tva)*PARAMS.tva).toFixed(2);
+      const tva=(Math.abs(b.montant)/(1+PARAMS.tva)*PARAMS.tva*(b.montant<0?-1:1)).toFixed(2);
       html+=`<tr style="border-bottom:1px solid var(--brd)">
         <td style="padding:7px 10px" class="tdt">${dlbl(b.date)}</td>
         <td style="padding:7px 10px;font-weight:500">${b.nom}</td>
