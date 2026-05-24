@@ -1578,7 +1578,11 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       (i,v)=>i>=0?`Due: ${fa(redevDueW[i])}\nDéposée: ${fa(redevDepW[i])}\nÉcart: ${fm(v,true)}`:`Due totale: ${fa(redevTotale)}\nDéposée totale: ${fa(redevDep)}`
     );
 
-    const resultatW=caNetWeeks.map((ca,i)=>ca+chargesW[i]);
+    const resultatW=weeks.map((wk,i)=>{   
+    const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);   
+    const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);   
+    const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);   
+    return vir+chq+plan+chargesW[i]+espDeposeesW[i]; });
     const resultatTot=resultatW.reduce((s,v)=>s+v,0);
     html+=`<tr style="background:${resultatTot>=0?'var(--rec2)':'var(--dep2)'}">
       <td style="font-weight:700;padding:8px 10px;color:${resultatTot>=0?'var(--rec)':'var(--dep)'}">${resultatTot>=0?'✅':'⚠️'} RÉSULTAT NET</td>
