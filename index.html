@@ -1147,11 +1147,12 @@ function renderBanque(){
   const fc=document.getElementById('bc')?.value||'';
   const si=PARAMS.soldeInit;
 
-  let all=[...DB.banque].sort((a,b)=>b.date.localeCompare(a.date));
-  let running=si;
-  const sm={};
-  for(const t of all){running+=t.montant;sm[t.id]=running;}
-
+  let all=[...DB.banque].sort((a,b)=>a.date.localeCompare(b.date));
+let running=si;
+const sm={};
+for(const t of all){running+=t.montant;sm[t.id]=running;}
+all.sort((a,b)=>b.date.localeCompare(a.date));
+   
   let rows=[...all];
   if(s) rows=rows.filter(t=>t.nom.toLowerCase().includes(s));
   if(fm_) rows=rows.filter(t=>inM(t.date,fm_));
