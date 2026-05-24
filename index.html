@@ -418,6 +418,7 @@ td { padding: 9px 11px; vertical-align: middle; }
   <div class="view" id="view-banque">
     <div class="sh">
       <div><div class="st">🏦 Banque</div><div class="ss">Mouvements réels · TVA auto sur VIR/CA · Dépôts depuis ici</div></div>
+      <button class="btn bg" onclick="openTVA()">🧾 Calcul TVA</button> 
       <button class="btn bd" onclick="openModal('banque')">+ Ajouter</button>
     </div>
     <div class="rb">💡 Pour un <strong>dépôt espèces ou chèques</strong> : saisis l'opération normalement, une fenêtre de sélection s'ouvrira automatiquement.</div>
@@ -2297,7 +2298,8 @@ async function delEntry(table, id){
   renderAll(); toast('Supprimé');
 }
 
-function closeMo(id){ document.getElementById(id).classList.remove('open'); }
+function closeMo(id){   document.getElementById(id).classList.remove('open');   
+const ma=document.querySelector('#mainModal .ma');   if(ma) ma.style.display=''; }
 
 function toast(msg){
   const el=document.getElementById('toast');
@@ -2347,6 +2349,72 @@ function exportComptaPDF(){
   w.document.write(html);
   w.document.close();
   w.print();
+}
+   let noTVAList=JSON.parse(localStorage.getItem('noTVAList')||'[]');
+
+function openTVA(){
+  const rows=DB.banque.filter(b=>
+    ['VIR','CA'].includes(b.categorie)&&b.montant>0&&(!b.tva||b.tva===0)&&!noTVAList.includes(b.nom)
+  ).sort((a,b)=>b.date.localeCompare(a.date));
+  let html=`<div style="max-height:60vh;overflow-y:auto">`;
+  if(!rows.length){
+    html+=`<div class="empty">✅ Toutes les TVA sont saisies !</div>`;
+  } else {
+    html+=`<table width="100%" style="border-collapse:collapse">
+    <thead><tr style="background:var(--acc);color:white">
+      <th style="padding:8px 10px;text-align:left;font-size:11px">Date</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11px">Nom</th>
+      <th style="padding:8px 10px;text-align:right;font-size:11px">Montant</th>
+      <th style="padding:8px 10px;text-align:right;font-size:11px">TVA calculée</th>
+      <th style="padding:8px 10px;font-size:11px"></th>
+    </tr></thead><tbody>`;
+    for(const b of rows){
+      const tva=(b.montant/(1+PARAMS.tva)*PARAMS.tva).toFixed(2);
+      html+=`<tr style="border-bottom:1px solid var(--brd)">
+        <td style="padding:7px 10px" class="tdt">${dlbl(b.date)}</td>
+        <td style="padding:7px 10px;font-weight:500">${b.nom}</td>
+        <td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--rec)">${fa(b.montant)}</td>
+        <td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--acc);font-weight:700">${fa(parseFloat(tva))}</td>
+        <td style="padding:7px 10px;white-space:nowrap">
+          <button class="btn bgrn bsm" onclick="saveTVA('${b.id}',${tva})">✓ Saisir</button>
+          <button class="btn bg bsm" onclick="addNoTVA('${b.nom}')">🚫 Jamais</button>
+        </td>
+      </tr>`;
+    }
+    html+=`</tbody></table>`;
+  }
+  html+=`</div>`;
+  if(noTVAList.length){
+    html+=`<div style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:10px;font-size:11px;color:var(--mut)">
+      🚫 Jamais : ${noTVAList.join(', ')}
+      <button class="btn bg bsm" style="margin-left:8px" onclick="clearNoTVA()">Réinitialiser</button>
+    </div>`;
+  }
+  document.getElementById('mTitle').textContent='🧾 TVA manquante';
+  document.getElementById('mBody').innerHTML=html;
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function saveTVA(id,tva){
+  const b=DB.banque.find(x=>x.id===id);
+  if(!b) return;
+  b.tva=parseFloat(tva);
+  await saveEntry_fb('banque',b);
+  renderAll();openTVA();
+  toast('✓ TVA enregistrée');
+}
+
+function addNoTVA(nom){
+  if(!noTVAList.includes(nom)) noTVAList.push(nom);
+  localStorage.setItem('noTVAList',JSON.stringify(noTVAList));
+  openTVA();toast('🚫 '+nom+' — jamais de TVA');
+}
+
+function clearNoTVA(){
+  noTVAList=[];
+  localStorage.setItem('noTVAList',JSON.stringify(noTVAList));
+  openTVA();
 }
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
