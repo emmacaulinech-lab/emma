@@ -2378,9 +2378,11 @@ function openTVA(){
         <td style="padding:7px 10px" class="tdt">${dlbl(b.date)}</td>
         <td style="padding:7px 10px;font-weight:500">${b.nom}</td>
         <td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--rec)">${fa(b.montant)}</td>
-        <td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--acc);font-weight:700">${fa(parseFloat(tva))}</td>
+<td style="padding:7px 10px;text-align:right">
+          <input type="number" id="tva-${b.id}" value="${tva}" step="0.01" style="width:90px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg);text-align:right">
+        </td>
         <td style="padding:7px 10px;white-space:nowrap">
-          <button class="btn bgrn bsm" onclick="saveTVA('${b.id}',${tva})">✓ Saisir</button>
+          <button class="btn bgrn bsm" onclick="saveTVA('${b.id}',document.getElementById('tva-${b.id}').value)">✓ Saisir</button>
           <button class="btn bg bsm" onclick="addNoTVA('${b.nom}')">🚫 Jamais</button>
         </td>
       </tr>`;
