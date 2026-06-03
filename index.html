@@ -2428,10 +2428,13 @@ function openSemaine(mois, idx){
   const[y,m]=mois.split('-').map(Number);
   const weeks=semainesDuMois(y,m);
   const wk=weeks[idx];
+  const nw=weeks.length;
   const label=`S${idx+1} — ${String(wk.s).padStart(2,'0')}/${String(m).padStart(2,'0')} → ${String(wk.e).padStart(2,'0')}/${String(m).padStart(2,'0')}`;
 
-  // CA par mode
+  const pm=prevMois(mois);
   const caisseW=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.montant>0);
+
+  // CA par mode
   const espNet=(()=>{
     let v=0;
     for(const prat of ['MARIE','GIULIA']){
@@ -2450,10 +2453,8 @@ function openSemaine(mois, idx){
   const planW=caisseW.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
   const caTotal=espNet+virW+chqW+planW;
 
-  // Charges
-  const pm=prevMois(mois);
-  const fixRows=DB.fixes.filter(f=>f.mois===mois);
-  const fixEstim=fixRows.reduce((s,f)=>s+(f.prev||0),0);
+  // Charges estimation
+  const fixEstim=DB.fixes.filter(f=>f.mois===mois).reduce((s,f)=>s+(f.prev||0),0);
   const varEstim=DB.variables.filter(f=>f.mois===mois).reduce((s,f)=>s+(f.prev||0),0);
   const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
   const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
@@ -2462,24 +2463,36 @@ function openSemaine(mois, idx){
   const chargeParSem=totalEstim/4;
   const achatsW=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='ACHATS'&&t.montant<0).reduce((s,t)=>s+t.montant,0);
 
+  // Charges réelles (pour dernière semaine)
+  const fixReelW=DB.fixes.filter(f=>f.mois===mois).reduce((s,f)=>s+f.montant,0);
+  const varReelHorsRedevTva=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT'&&f.nom!=='REDEVANCE'&&f.nom!=='TVA').reduce((s,f)=>s+(f.montant||0),0);
+  const redevReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+  const tvaReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+  const totalReel=fixReelW+varReelHorsRedevTva+redevReelBanque+tvaReelBanque;
+  const isLastWeek=idx===nw-1;
+  const chargeAffichee=isLastWeek?totalReel-chargeParSem*3:chargeParSem;
+
   // Redevance
   const redevDueW=redevDue(caisseW);
   const redevDepW=redevDeposee(caisseW);
 
-  // Prestations détail
+  // ESP
+  const deposes=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHEQUE')).reduce((s,t)=>s+t.montant,0);
+  const espADeposer=chqW+virW+planW+chargeAffichee+achatsW-deposes;
+
   const prestations=caisseW.filter(t=>t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT')).sort((a,b)=>b.montant-a.montant);
 
-  const card=(icon,label,val,color='var(--acc)')=>`
+  const card=(icon,lbl,val,color='var(--acc)')=>`
     <div style="background:var(--bg2);border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:6px">${icon} ${label}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:6px">${icon} ${lbl}</div>
       <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:${color}">${val}</div>
     </div>`;
 
   let html=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
       ${card('💰','CA Net',fa(caTotal),'var(--rec)')}
-      ${card('📋','Charges est.',fm(chargeParSem),'var(--dep)')}
-      ${card('🛒','Achats réels',fm(achatsW),'var(--dep)')}
+      ${card('📋','Charges '+(isLastWeek?'réelles':'estimées'),fm(chargeAffichee),'var(--dep)')}
+      ${card('🛒','Achats réels',achatsW?fm(achatsW):'0,00 €','var(--dep)')}
       ${card('💎','Redevance due',fa(redevDueW),'var(--gold)')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
@@ -2488,8 +2501,29 @@ function openSemaine(mois, idx){
       ${card('📝','CHQ',fa(chqW))}
       ${card('📱','PLANITY',fa(planW))}
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut);margin-bottom:10px;letter-spacing:.08em">📊 Détail charges</div>
+        <div style="font-size:12px;line-height:2;font-family:'DM Mono',monospace">
+          <div style="display:flex;justify-content:space-between"><span>Fixes prévues /4</span><span style="color:var(--dep)">${fm(fixEstim/4)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Variables prévues /4</span><span style="color:var(--dep)">${fm((varEstim+redevAutoEstim+tvaAutoEstim-achatEstim)/4)}</span></div>
+          ${isLastWeek?`<div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px"><span style="color:var(--warn)">⚡ Régule S${nw}</span><span style="color:${chargeAffichee>=0?'var(--rec)':'var(--dep)'}">${fm(chargeAffichee)}</span></div>`:''}
+          <div style="display:flex;justify-content:space-between"><span>Achats réels</span><span style="color:var(--dep)">${achatsW?fm(achatsW):'—'}</span></div>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px;font-weight:700"><span>TOTAL</span><span style="color:var(--dep)">${fm(chargeAffichee+achatsW)}</span></div>
+        </div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut);margin-bottom:10px;letter-spacing:.08em">💰 Trésorerie</div>
+        <div style="font-size:12px;line-height:2;font-family:'DM Mono',monospace">
+          <div style="display:flex;justify-content:space-between"><span>CHQ + VIR + PLANITY</span><span style="color:var(--rec)">${fa(chqW+virW+planW)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Charges semaine</span><span style="color:var(--dep)">${fm(chargeAffichee+achatsW)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>ESP déposées</span><span style="color:var(--rec)">${deposes?fa(deposes):'—'}</span></div>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px;font-weight:700"><span>ESP à déposer</span><span style="color:${espADeposer>=0?'var(--rec)':'var(--dep)'}">${fm(espADeposer,true)}</span></div>
+        </div>
+      </div>
+    </div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut);margin-bottom:8px;letter-spacing:.08em">👥 Prestations (${prestations.length})</div>
-    <div style="max-height:300px;overflow-y:auto;background:white;border:1.5px solid var(--brd);border-radius:12px;overflow:hidden">
+    <div style="max-height:260px;overflow-y:auto;background:white;border:1.5px solid var(--brd);border-radius:12px;overflow:hidden">
       <table width="100%" style="border-collapse:collapse">
         <thead><tr style="background:var(--acc)">
           <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--rose2)">Nom</th>
