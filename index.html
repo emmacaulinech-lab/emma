@@ -1452,7 +1452,7 @@ function renderRecap(){
       <div style="overflow-x:auto">
       <table><thead><tr>
         <th style="min-width:170px"></th>
-        ${weeks.map((w,i)=>`<th style="text-align:right;min-width:105px">S${i+1}<br><span style="font-size:9px;opacity:.7">${String(w.s).padStart(2,'0')}→${String(w.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</span></th>`).join('')}
+        ${weeks.map((w,i)=>`<th style="text-align:right;min-width:105px;cursor:pointer" onclick="openSemaine('${mois}',${i})" title="Voir détail S${i+1}">S${i+1}<br><span style="font-size:9px;opacity:.7">${String(w.s).padStart(2,'0')}→${String(w.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</span></th>`).join('')}
         <th style="text-align:right;min-width:105px">TOTAL</th>
       </tr></thead><tbody>`;
 
@@ -2422,6 +2422,95 @@ function clearNoTVA(){
   noTVAList=[];
   localStorage.setItem('noTVAList',JSON.stringify(noTVAList));
   openTVA();
+}
+
+function openSemaine(mois, idx){
+  const[y,m]=mois.split('-').map(Number);
+  const weeks=semainesDuMois(y,m);
+  const wk=weeks[idx];
+  const label=`S${idx+1} — ${String(wk.s).padStart(2,'0')}/${String(m).padStart(2,'0')} → ${String(wk.e).padStart(2,'0')}/${String(m).padStart(2,'0')}`;
+
+  // CA par mode
+  const caisseW=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.montant>0);
+  const espNet=(()=>{
+    let v=0;
+    for(const prat of ['MARIE','GIULIA']){
+      const pr=caisseW.filter(t=>t.praticien===prat);
+      if(!pr.length) continue;
+      const ca=pr.reduce((s,t)=>s+t.montant,0);
+      const plan=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+      const chqvir=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+      v+=Math.max(0,ca*PARAMS.tauxSoc-(plan+chqvir));
+    }
+    v+=caisseW.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+    return v;
+  })();
+  const virW=caisseW.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0);
+  const chqW=caisseW.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0);
+  const planW=caisseW.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+  const caTotal=espNet+virW+chqW+planW;
+
+  // Charges
+  const pm=prevMois(mois);
+  const fixRows=DB.fixes.filter(f=>f.mois===mois);
+  const fixEstim=fixRows.reduce((s,f)=>s+(f.prev||0),0);
+  const varEstim=DB.variables.filter(f=>f.mois===mois).reduce((s,f)=>s+(f.prev||0),0);
+  const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
+  const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
+  const tvaAutoEstim=-(tvaNette(pm));
+  const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
+  const chargeParSem=totalEstim/4;
+  const achatsW=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='ACHATS'&&t.montant<0).reduce((s,t)=>s+t.montant,0);
+
+  // Redevance
+  const redevDueW=redevDue(caisseW);
+  const redevDepW=redevDeposee(caisseW);
+
+  // Prestations détail
+  const prestations=caisseW.filter(t=>t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT')).sort((a,b)=>b.montant-a.montant);
+
+  const card=(icon,label,val,color='var(--acc)')=>`
+    <div style="background:var(--bg2);border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:6px">${icon} ${label}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:${color}">${val}</div>
+    </div>`;
+
+  let html=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      ${card('💰','CA Net',fa(caTotal),'var(--rec)')}
+      ${card('📋','Charges est.',fm(chargeParSem),'var(--dep)')}
+      ${card('🛒','Achats réels',fm(achatsW),'var(--dep)')}
+      ${card('💎','Redevance due',fa(redevDueW),'var(--gold)')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      ${card('💵','ESP net',fa(espNet))}
+      ${card('🏦','VIR',fa(virW))}
+      ${card('📝','CHQ',fa(chqW))}
+      ${card('📱','PLANITY',fa(planW))}
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut);margin-bottom:8px;letter-spacing:.08em">👥 Prestations (${prestations.length})</div>
+    <div style="max-height:300px;overflow-y:auto;background:white;border:1.5px solid var(--brd);border-radius:12px;overflow:hidden">
+      <table width="100%" style="border-collapse:collapse">
+        <thead><tr style="background:var(--acc)">
+          <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--rose2)">Nom</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--rose2)">Prestation</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--rose2)">Mode</th>
+          <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--rose2)">Montant</th>
+        </tr></thead><tbody>
+        ${prestations.length?prestations.map(t=>`<tr style="border-bottom:1px solid var(--brd)">
+          <td style="padding:7px 10px;font-weight:500;font-size:12px">${t.nom} ${ptag(t.praticien)}</td>
+          <td style="padding:7px 10px;font-size:11px;color:var(--mut)">${t.prestation||'—'}</td>
+          <td style="padding:7px 10px">${bdg(t.reglement)}</td>
+          <td style="padding:7px 10px;text-align:right" class="tp">${fa(t.montant)}</td>
+        </tr>`).join(''):'<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--mut)">Aucune prestation</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('mTitle').textContent=label;
+  document.getElementById('mBody').innerHTML=html;
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
 }
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
