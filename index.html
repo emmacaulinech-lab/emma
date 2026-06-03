@@ -1426,9 +1426,13 @@ function renderRecap(){
     // varEstim : TOUTES variables prévues (EDF + REDEVANCE + TVA + ACHAT)
     // achatEstim soustrait séparément → formule: (fix + var - achat) / nw
     const varEstim=DB.variables.filter(f=>f.mois===mois).reduce((s,f)=>s+(f.prev||0),0);
-    const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
-    const totalEstim=fixEstim+varEstim-achatEstim;
-    const chargeParSemaine=nw>0?totalEstim/nw:0;
+const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
+// Ajouter REDEVANCE et TVA auto (calculées depuis mois précédent)
+const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
+const tvaAutoEstim=-(tvaNette(pm));
+const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
+// Toujours diviser par 4 (S4 = régulateur)
+const chargeParSemaine=totalEstim/4;
 
     const pm=prevMois(mois);
 
@@ -1506,7 +1510,7 @@ function renderRecap(){
     const estW=weeks.map((wk,i)=>{
       if(i<nw-1) return chargeParSemaine;
       // Dernière semaine : total réel − ce qui a déjà été comptabilisé
-      return totalReel - chargeParSemaine*(nw-1);
+      return totalReel - chargeParSemaine*3;
     });
 
     const chargesW=weeks.map((wk,i)=>estW[i]+achatsW[i]);
