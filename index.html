@@ -1425,16 +1425,13 @@ function renderRecap(){
     // Inclure uniquement les lignes avec prev saisi (hors REDEVANCE/TVA si prev=0)
     // varEstim : TOUTES variables prévues (EDF + REDEVANCE + TVA + ACHAT)
     // achatEstim soustrait séparément → formule: (fix + var - achat) / nw
-    const varEstim=DB.variables.filter(f=>f.mois===mois).reduce((s,f)=>s+(f.prev||0),0);
-const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
-// Ajouter REDEVANCE et TVA auto (calculées depuis mois précédent)
-const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
-const tvaAutoEstim=-(tvaNette(pm));
-const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
-// Toujours diviser par 4 (S4 = régulateur)
-const chargeParSemaine=totalEstim/4;
-
     const pm=prevMois(mois);
+    const varEstim=DB.variables.filter(f=>f.mois===mois).reduce((s,f)=>s+(f.prev||0),0);
+    const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
+    const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
+    const tvaAutoEstim=-(tvaNette(pm));
+    const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
+    const chargeParSemaine=totalEstim/4;
 
     // totalReel : fixes réelles + variables réelles HORS ACHAT
     // REDEVANCE et TVA réelles = depuis banque (pas DB.variables dont montant=0)
