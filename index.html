@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EMMA — Comptabilité</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -45,7 +45,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--txt); font-size: 13px; min-height: 100vh; }
+body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--txt); font-size: 13px; min-height: 100vh; }
 
 /* ── LOGIN ── */
 .login-page {
@@ -58,7 +58,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   box-shadow: 0 8px 40px rgba(180,80,100,.18);
   border: 1px solid var(--brd);
 }
-.login-logo { font-family: 'Playfair Display', serif; font-size: 28px; color: var(--acc); text-align: center; margin-bottom: 6px; letter-spacing: .04em; }
+.login-logo { font-family: 'Cormorant Garant', serif; font-size: 28px; color: var(--acc); text-align: center; margin-bottom: 6px; letter-spacing: .04em; }
 .login-sub { text-align: center; font-size: 12px; color: var(--mut); margin-bottom: 28px; }
 .login-field { margin-bottom: 16px; }
 .login-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 5px; font-weight: 600; }
@@ -70,7 +70,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .login-field input:focus { border-color: var(--rose); }
 .login-btn {
   width: 100%; padding: 13px; background: var(--acc); color: white;
-  border: none; border-radius: 12px; font-family: 'Playfair Display', serif;
+  border: none; border-radius: 12px; font-family: 'Cormorant Garant', serif;
   font-size: 15px; cursor: pointer; margin-top: 6px;
   transition: all .2s; letter-spacing: .04em;
 }
@@ -88,7 +88,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   height: 52px; position: sticky; top: 0; z-index: 300;
   box-shadow: 0 2px 8px rgba(180,80,100,.06);
 }
-.hdr-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--acc); font-weight: 700; letter-spacing: .04em; }
+.hdr-title { font-family: 'Cormorant Garant', serif; font-size: 18px; color: var(--acc); font-weight: 700; letter-spacing: .04em; }
 .hdr-title span { color: var(--mut); font-weight: 400; font-size: 13px; margin-left: 8px; font-family: 'DM Sans', sans-serif; }
 .hdr-right { display: flex; align-items: center; gap: 12px; }
 .hdr-user { font-size: 11px; color: var(--mut); }
@@ -118,7 +118,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 /* ── SECTION ── */
 .sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.st { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--acc); }
+.st { font-family: 'Cormorant Garant', serif; font-size: 17px; color: var(--acc); }
 .ss { font-size: 11px; color: var(--mut); margin-top: 2px; }
 
 /* ── CARDS ── */
@@ -201,7 +201,7 @@ td { padding: 9px 11px; vertical-align: middle; }
 .kpr::before { background: linear-gradient(90deg, var(--pla), #8090d0); }
 .kpa::before { background: linear-gradient(90deg, var(--rose), var(--acc)); }
 .kl { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 8px; }
-.kv { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--acc); line-height: 1; }
+.kv { font-family: 'Cormorant Garant', serif; font-size: 26px; font-weight: 700; color: var(--acc); line-height: 1; }
 .ks { font-size: 11px; color: var(--mut); margin-top: 5px; }
 .pt2 { flex: 1; height: 8px; background: var(--bg2); border-radius: 99px; overflow: hidden; border: 1px solid var(--brd); margin-top: 8px; }
 .pf { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--rec), var(--gold)); transition: width .6s; }
@@ -214,7 +214,7 @@ td { padding: 9px 11px; vertical-align: middle; }
   padding: 26px 28px; width: 520px; max-width: 96vw;
   box-shadow: 0 20px 60px rgba(180,80,100,.2); max-height: 90vh; overflow-y: auto;
 }
-.mb h2 { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--acc); margin-bottom: 18px; }
+.mb h2 { font-family: 'Cormorant Garant', serif; font-size: 17px; color: var(--acc); margin-bottom: 18px; }
 .fr { margin-bottom: 13px; }
 .fr label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 5px; font-weight: 600; }
 .fr input, .fr select, .fr textarea {
@@ -233,8 +233,8 @@ td { padding: 9px 11px; vertical-align: middle; }
 
 /* ── AUTO ── */
 .ab { background: white; border: 1.5px solid var(--brd); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 16px; }
-.ahm { background: linear-gradient(135deg, #fce8e8, #f8d0d0); color: var(--marie); padding: 13px 16px; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; border-bottom: 2px solid #f5b8b8; }
-.ahg { background: linear-gradient(135deg, #fdf6e3, #f8ead0); color: var(--giulia); padding: 13px 16px; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; border-bottom: 2px solid #e8d090; }
+.ahm { background: linear-gradient(135deg, #fce8e8, #f8d0d0); color: var(--marie); padding: 13px 16px; font-family: 'Cormorant Garant', serif; font-size: 15px; font-weight: 700; border-bottom: 2px solid #f5b8b8; }
+.ahg { background: linear-gradient(135deg, #fdf6e3, #f8ead0); color: var(--giulia); padding: 13px 16px; font-family: 'Cormorant Garant', serif; font-size: 15px; font-weight: 700; border-bottom: 2px solid #e8d090; }
 
 /* ── FIXES ── */
 .fb { background: white; border: 1.5px solid var(--brd); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 14px; }
@@ -264,7 +264,7 @@ td { padding: 9px 11px; vertical-align: middle; }
 
 /* ── SETTINGS ── */
 .set-block { background: white; border: 1.5px solid var(--brd); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
-.set-block h3 { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--acc); margin-bottom: 14px; }
+.set-block h3 { font-family: 'Cormorant Garant', serif; font-size: 15px; color: var(--acc); margin-bottom: 14px; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--brd); }
 .set-row:last-child { border-bottom: none; }
 .set-row label { flex: 1; font-size: 13px; color: var(--txt); }
@@ -274,7 +274,7 @@ td { padding: 9px 11px; vertical-align: middle; }
 
 /* ── VERIFICATION ── */
 .veri-card { background: white; border: 1.5px solid var(--brd); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 12px; }
-.veri-card h4 { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--acc); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.veri-card h4 { font-family: 'Cormorant Garant', serif; font-size: 14px; color: var(--acc); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 .veri-formula { background: var(--bg2); border: 1px solid var(--brd2); border-radius: 10px; padding: 12px 14px; font-family: 'DM Mono', monospace; font-size: 12px; line-height: 1.8; color: var(--txt); }
 .veri-formula .highlight { color: var(--acc); font-weight: 700; }
 .veri-formula .green { color: var(--rec); font-weight: 700; }
@@ -349,13 +349,13 @@ td { padding: 9px 11px; vertical-align: middle; }
   <div class="view active" id="view-dashboard">
     <div style="max-width:800px;margin:0 auto">
       <div style="text-align:center;margin-bottom:8px">
-        <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:900;color:var(--acc);letter-spacing:.04em">BUSINESS DASHBOARD</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:900;color:var(--acc);letter-spacing:.04em">BUSINESS DASHBOARD</div>
         <div style="font-size:11px;color:var(--mut)">(automatique)</div>
       </div>
       <div style="display:flex;justify-content:center;margin-bottom:20px">
         <div style="display:flex;align-items:center;gap:12px;background:white;border:1.5px solid var(--brd);border-radius:20px;padding:10px 18px;box-shadow:var(--shadow)">
           <button onclick="dashD(-1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">‹</button>
-          <div id="dml" style="font-family:'Playfair Display',serif;font-size:18px;color:var(--acc);min-width:130px;text-align:center"></div>
+          <div id="dml" style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc);min-width:130px;text-align:center"></div>
           <button onclick="dashD(1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">›</button>
         </div>
       </div>
@@ -430,7 +430,7 @@ td { padding: 9px 11px; vertical-align: middle; }
     <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start">
       <div class="tw" id="banqueTable"></div>
       <div style="background:white;border:1.5px solid #c9a8e0;border-radius:16px;padding:15px;box-shadow:var(--shadow)">
-        <div style="font-family:'Playfair Display',serif;font-size:13px;color:#6f2da8;margin-bottom:10px;font-weight:700">📝 CHQ à déposer</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:13px;color:#6f2da8;margin-bottom:10px;font-weight:700">📝 CHQ à déposer</div>
         <div id="chqList"></div>
         <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:#6f2da8" id="chqTot"></div>
       </div>
@@ -2485,7 +2485,7 @@ function openSemaine(mois, idx){
   const card=(icon,lbl,val,color='var(--acc)')=>`
     <div style="background:var(--bg2);border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:6px">${icon} ${lbl}</div>
-      <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:${color}">${val}</div>
+      <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:${color}">${val}</div>
     </div>`;
 
   let html=`
