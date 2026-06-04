@@ -1098,7 +1098,7 @@ function renderCaisse(){
 
   if(!Object.keys(byM).length) html+=`<tr><td colspan="9"><div class="empty">Aucune prestation</div></td></tr>`;
 
-  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>a[0].localeCompare(b[0]))){
+  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
     const tot=mrows.reduce((s,t)=>s+t.montant,0);
     html+=`<tr class="trm"><td colspan="5" style="padding:8px 11px">▾ ${mf(mois)} <span style="font-weight:400;color:var(--mut);font-size:11px">${mrows.filter(t=>t.montant>0).length} prestations</span></td>
       <td colspan="4" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:var(--rec)">${fa(tot)}</td></tr>`;
@@ -1168,7 +1168,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
     <th style="text-align:right">Solde</th><th></th>
   </tr></thead><tbody>`;
 
-  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>a[0].localeCompare(b[0]))){
+  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
     const tot=mrows.reduce((s,t)=>s+t.montant,0);
     html+=`<tr class="trm"><td colspan="4" style="padding:8px 11px">▾ ${mf(mois)}</td>
       <td colspan="3" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:${tot>=0?'var(--rec)':'var(--dep)'}">${fm(tot,true)}</td></tr>`;
