@@ -1687,14 +1687,14 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
     // Écart ESP = ESP à déposer - ESP déposées (addition car dépôts sont positifs)
     // Recalcul du cumul en tenant compte des dépôts
-    let cumul=0;
+    let reportPrec=0;
     const espWCorr=weeks.map((wk,i)=>{
       const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
       const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
       const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      const ecartSem=chq+vir+plan+chargesW[i];
-      cumul=cumul+ecartSem-espDeposeesW[i];
-      return cumul+espDeposeesW[i];
+      const val=reportPrec+chq+vir+plan+chargesW[i];
+      reportPrec=val+espDeposeesW[i];
+      return val;
     });
     const espBrutW=weeks.map((wk,i)=>{
       const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
