@@ -1129,7 +1129,7 @@ function renderDash(){
     if(!map[t.nom]) map[t.nom]={nom:t.nom,total:0,nb:0};
     map[t.nom].total+=t.montant; map[t.nom].nb++;
   }
-  const top=Object.values(map).sort((a,b)=>b.total-a.total).slice(0,5);
+  const top=Object.values(map).sort((a,b)=>b.total-a.total).slice(0,10);
   const colors=['#ffd8e8','#d8e8ff','#fff3d0','#d8f5e8','#f0d8ff'];
   const tcEl=document.getElementById('d-topclientes');
   if(tcEl) tcEl.innerHTML=top.length?top.map((c,i)=>`
