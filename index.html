@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EMMA — Comptabilité</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -16,32 +16,32 @@
    DESIGN SYSTEM — Style Journal Doux
 ═══════════════════════════════════════ */
 :root {
-  --bg: #fdf8f4;
-  --bg2: #f9f2ec;
+  --bg: #fff0f8;
+  --bg2: #f0f4ff;
   --sur: #ffffff;
-  --sur2: #fef3ee;
-  --brd: #edddd4;
-  --brd2: #e0c8bc;
-  --acc: #c4726a;
-  --acc2: #d4827a;
-  --rose: #f0c4b8;
-  --rose2: #fde8e0;
-  --gold: #e8c878;
-  --gold2: #f5dfa0;
-  --rec: #8ec4a4;
-  --rec2: #e8f7ee;
-  --dep: #c07068;
-  --dep2: #fdecea;
-  --pla: #88a8c8;
-  --pla2: #eaf2fa;
-  --warn: #d4a020;
-  --txt: #3d2820;
+  --sur2: #f0fff8;
+  --brd: #f0d0e0;
+  --brd2: #e0b8cc;
+  --acc: #c45878;
+  --acc2: #e87a9a;
+  --rose: #f0a0c0;
+  --rose2: #ffd8e8;
+  --gold: #c89040;
+  --gold2: #ffe8a0;
+  --rec: #4aaa78;
+  --rec2: #d8f5e8;
+  --dep: #c45858;
+  --dep2: #ffd8d8;
+  --pla: #4a78c8;
+  --pla2: #d8e8ff;
+  --warn: #c89040;
+  --txt: #2d1820;
   --mut: #b09888;
-  --mut2: #d4c0b0;
+  --mut2: #d8c0b0;
   --marie: #c0392b;
   --giulia: #8B6914;
-  --shadow: 0 2px 16px rgba(160,80,60,.06);
-  --shadow2: 0 4px 24px rgba(160,80,60,.10);
+  --shadow: 0 2px 16px rgba(196,88,120,.08);
+  --shadow2: 0 4px 24px rgba(196,88,120,.14);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,7 +64,7 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
 .login-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 5px; font-weight: 600; }
 .login-field input {
   width: 100%; padding: 12px 14px; border: 1.5px solid var(--brd2);
-  border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+  border-radius: 12px; font-family: 'Nunito', sans-serif; font-size: 14px;
   color: var(--txt); background: var(--bg); outline: none; transition: border-color .2s;
 }
 .login-field input:focus { border-color: var(--rose); }
@@ -89,10 +89,10 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
   box-shadow: 0 2px 8px rgba(180,80,100,.06);
 }
 .hdr-title { font-family: 'Cormorant Garant', serif; font-size: 18px; color: var(--acc); font-weight: 700; letter-spacing: .04em; }
-.hdr-title span { color: var(--mut); font-weight: 400; font-size: 13px; margin-left: 8px; font-family: 'DM Sans', sans-serif; }
+.hdr-title span { color: var(--mut); font-weight: 400; font-size: 13px; margin-left: 8px; font-family: 'Nunito', sans-serif; }
 .hdr-right { display: flex; align-items: center; gap: 12px; }
 .hdr-user { font-size: 11px; color: var(--mut); }
-.logout-btn { background: var(--bg2); border: 1px solid var(--brd2); color: var(--acc); border-radius: 20px; padding: 5px 13px; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 600; transition: all .15s; }
+.logout-btn { background: var(--bg2); border: 1px solid var(--brd2); color: var(--acc); border-radius: 20px; padding: 5px 13px; font-size: 11px; cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 600; transition: all .15s; }
 .logout-btn:hover { background: var(--rose2); }
 .hdr-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--mut2); }
 
@@ -105,7 +105,7 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
 }
 .tab {
   padding: 11px 15px; border: none; background: none; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+  font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600;
   color: var(--mut); border-bottom: 3px solid transparent; margin-bottom: -2px;
   white-space: nowrap; transition: all .15s;
 }
@@ -135,7 +135,7 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
 }
 
 /* ── BUTTONS ── */
-.btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 600; transition: all .15s; }
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; font-family: 'Nunito', sans-serif; font-weight: 600; transition: all .15s; }
 .bd { background: var(--acc); color: white; }
 .bd:hover { background: var(--acc2); transform: translateY(-1px); box-shadow: var(--shadow); }
 .bg { background: white; border: 1.5px solid var(--brd2); color: var(--mut); }
@@ -186,7 +186,7 @@ td { padding: 9px 11px; vertical-align: middle; }
 
 /* ── FILTERS ── */
 .flt { display: flex; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-.fi { background: white; border: 1.5px solid var(--brd2); color: var(--txt); border-radius: 20px; padding: 6px 12px; font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none; }
+.fi { background: white; border: 1.5px solid var(--brd2); color: var(--txt); border-radius: 20px; padding: 6px 12px; font-size: 12px; font-family: 'Nunito', sans-serif; outline: none; }
 .fi:focus { border-color: var(--rose); }
 
 /* ── KPI ── */
@@ -219,14 +219,14 @@ td { padding: 9px 11px; vertical-align: middle; }
 .fr label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); margin-bottom: 5px; font-weight: 600; }
 .fr input, .fr select, .fr textarea {
   width: 100%; background: var(--bg); border: 1.5px solid var(--brd2); color: var(--txt);
-  border-radius: 10px; padding: 9px 12px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  border-radius: 10px; padding: 9px 12px; font-family: 'Nunito', sans-serif; font-size: 13px;
   outline: none; transition: border-color .15s;
 }
 .fr input:focus, .fr select:focus { border-color: var(--rose); }
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .ma { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
 .pt { display: flex; border-radius: 20px; overflow: hidden; border: 1.5px solid var(--brd2); }
-.pt button { flex: 1; padding: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; background: var(--bg); color: var(--mut); transition: all .15s; }
+.pt button { flex: 1; padding: 8px; border: none; cursor: pointer; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600; background: var(--bg); color: var(--mut); transition: all .15s; }
 .pt button.pte { background: var(--acc); color: white; }
 .pt button.ptm { background: var(--marie); color: white; }
 .pt button.ptg { background: var(--giulia); color: white; }
@@ -281,7 +281,7 @@ td { padding: 9px 11px; vertical-align: middle; }
 .veri-formula .red { color: var(--dep); font-weight: 700; }
 .veri-formula .blue { color: var(--pla); font-weight: 700; }
 .veri-select { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.veri-month-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--brd2); background: white; color: var(--mut); font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; }
+.veri-month-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--brd2); background: white; color: var(--mut); font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Nunito', sans-serif; transition: all .15s; }
 .veri-month-btn.active { background: var(--acc); color: white; border-color: var(--acc); }
 
 /* ── LOADING ── */
@@ -297,6 +297,27 @@ td { padding: 9px 11px; vertical-align: middle; }
   .kg { grid-template-columns: 1fr 1fr; }
   .hdr-date { display: none; }
 }
+
+body { background: linear-gradient(135deg, #fff0f8 0%, #f0f4ff 50%, #f0fff8 100%) !important; background-attachment: fixed !important; }
+.hdr { background: white; }
+.tabs { background: white; }
+thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !important; }
+.btn.bd { background: linear-gradient(135deg, var(--acc), var(--acc2)); border: none; }
+.kc::before { display: none; }
+.kca { background: linear-gradient(135deg, #e87a9a, #c45878) !important; color: white !important; }
+.kca .kl, .kca .kv, .kca .ks { color: white !important; }
+.kob { background: linear-gradient(135deg, #e8c070, #c89040) !important; color: white !important; }
+.kob .kl, .kob .kv, .kob .ks { color: white !important; }
+.kob input { background: rgba(255,255,255,.2) !important; color: white !important; border-color: rgba(255,255,255,.4) !important; }
+.kpr { background: linear-gradient(135deg, #7ab8e8, #4a88c8) !important; color: white !important; }
+.kpr .kl, .kpr .kv, .kpr .ks { color: white !important; }
+.kpa { background: linear-gradient(135deg, #7ad4a8, #4aaa78) !important; color: white !important; }
+.kpa .kl, .kpa .kv { color: white !important; }
+.pt2 { background: rgba(255,255,255,.3) !important; }
+.pf { background: white !important; }
+.card { border-radius: 20px !important; }
+.fb, .ab, .tw { border-radius: 18px !important; }
+.login-page { background: linear-gradient(135deg, #fff0f8, #f0f4ff, #f0fff8) !important; }
 </style>
 </head>
 <body>
