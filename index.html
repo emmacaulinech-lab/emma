@@ -1702,7 +1702,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
       return chq+vir+plan+chargesW[i];
     });
-    const espEcartW=espBrutW.map((v,i)=>v+espDeposeesW[i]);
+    const espEcartW=espWCorr.map((v,i)=>v+espDeposeesW[i]);
     const espEcartTot=espWCorr[espWCorr.length-1]+espDeposesTot;
 
     html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espWCorr[espWCorr.length-1],
