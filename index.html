@@ -366,51 +366,111 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <button class="tab" onclick="goTab('settings',this)">⚙️ Paramètres</button>
   </nav>
 
-  <!-- DASHBOARD -->
-  <div class="view active" id="view-dashboard">
-    <div style="max-width:800px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:8px">
-        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:900;color:var(--acc);letter-spacing:.04em">BUSINESS DASHBOARD</div>
-        <div style="font-size:11px;color:var(--mut)">(automatique)</div>
-      </div>
-      <div style="display:flex;justify-content:center;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:12px;background:white;border:1.5px solid var(--brd);border-radius:20px;padding:10px 18px;box-shadow:var(--shadow)">
-          <button onclick="dashD(-1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">‹</button>
-          <div id="dml" style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc);min-width:130px;text-align:center"></div>
-          <button onclick="dashD(1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">›</button>
-        </div>
-      </div>
-      <div class="kg">
-        <div class="kc kca"><div class="kl">💰 CA net société</div><div class="kv" id="d-ca">—</div><div class="ks" id="d-ca-sub"></div></div>
-        <div class="kc kob">
-          <div class="kl">🎯 Objectif</div><div class="kv" id="d-obj">—</div>
-          <div style="display:flex;align-items:center;gap:5px;margin-top:7px">
-            <span style="font-size:11px;color:var(--mut)">€</span>
-            <input type="number" id="objI" value="6000" onchange="PARAMS.objectif=parseFloat(this.value);saveParams();renderDash()" style="width:80px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg)">
-          </div>
-        </div>
-        <div class="kc kpr">
-          <div class="kl">📈 Progression</div><div class="kv" id="d-pr">—</div>
-          <div class="pt2"><div class="pf" id="d-pb" style="width:0%"></div></div>
-          <div class="ks" id="d-re"></div>
-        </div>
-        <div class="kc kpa"><div class="kl">🛍 Panier moyen</div><div class="kv" id="d-pan">—</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-        <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)">👥 Nb clients</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--acc);margin-top:4px" id="d-nb">—</div></div>
-        <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)">🎯 Objectif clients</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--acc);margin-top:4px" id="d-oc">—</div></div>
-        <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)">💫 Projection fin de mois</div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--acc);margin-top:4px" id="d-pj">—</div></div>
-      </div>
-      <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:12px;font-weight:600">Ventilation CA net par mode</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="d-modes"></div>
-      </div>
-      <div style="background:white;border:1.5px solid #f5c8b8;border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);margin-top:14px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);margin-bottom:12px;font-weight:600">⏳ Virements en attente</div>
-        <div id="d-nonpayees"></div>
+<!-- DASHBOARD -->
+<div class="view active" id="view-dashboard">
+  <div style="max-width:860px;margin:0 auto">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div style="font-family:'Cormorant Garant',serif;font-size:26px;font-weight:700;color:var(--acc)">✦ Dashboard</div>
+      <div style="display:flex;align-items:center;gap:12px;background:white;border:1.5px solid var(--brd);border-radius:20px;padding:8px 16px;box-shadow:var(--shadow)">
+        <button onclick="dashD(-1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">‹</button>
+        <div id="dml" style="font-family:'Cormorant Garant',serif;font-size:17px;color:var(--acc);min-width:130px;text-align:center"></div>
+        <button onclick="dashD(1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">›</button>
       </div>
     </div>
+
+    <!-- Actions rapides -->
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">⚡ Actions rapides</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      <div onclick="goTab('caisse',document.querySelector('[onclick*=caisse]'));openModal('caisse')" style="background:linear-gradient(135deg,#fff0f8,#ffe0f0);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">🧳</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">+ Prestation</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">Ajouter en caisse</div>
+      </div>
+      <div onclick="goTab('banque',document.querySelector('[onclick*=banque]'));openModal('banque')" style="background:linear-gradient(135deg,#f0f4ff,#e0eaff);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">🏦</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">+ Opération</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">Ajouter en banque</div>
+      </div>
+      <div onclick="goTab('recap',document.querySelector('[onclick*=recap]'))" style="background:linear-gradient(135deg,#f0fff8,#d8f5e8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">✅</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Voir Récap</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">Semaines du mois</div>
+      </div>
+      <div onclick="goTab('clients',document.querySelector('[onclick*=clients]'))" style="background:linear-gradient(135deg,#fffbf0,#fff0c8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">👥</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Clientes</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">Voir toutes</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">💰 Chiffres clés</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+      <div style="background:linear-gradient(135deg,#e87a9a,#c45878);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">CA net société</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700" id="d-ca">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px" id="d-ca-sub"></div>
+        <div style="height:5px;background:rgba(255,255,255,.3);border-radius:99px;margin-top:8px;overflow:hidden">
+          <div id="d-pb" style="height:100%;background:white;border-radius:99px;width:0%;transition:width .6s"></div>
+        </div>
+        <div style="font-size:11px;opacity:.8;margin-top:5px" id="d-re"></div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7ab8e8,#4a88c8);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">Solde CB</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700" id="d-solde">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px">Banque en temps réel</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7ad4a8,#4aaa78);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">Projection fin de mois</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700" id="d-pj">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px">Sur tendance actuelle</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#e8c070,#c89040);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">Panier moyen</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700" id="d-pan">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px" id="d-nb">—</div>
+      </div>
+    </div>
+
+    <!-- Objectif + modes -->
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:20px">
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:8px;font-weight:700">🎯 Objectif</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700;color:var(--acc)" id="d-obj">—</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:8px">
+          <span style="font-size:11px;color:var(--mut)">€</span>
+          <input type="number" id="objI" value="6000" onchange="PARAMS.objectif=parseFloat(this.value);saveParams();renderDash()" style="width:90px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg)">
+        </div>
+        <div style="font-size:11px;color:var(--mut);margin-top:6px" id="d-pr">—</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px" id="d-oc">—</div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:12px;font-weight:700">💳 CA par mode</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="d-modes"></div>
+      </div>
+    </div>
+
+    <!-- Top clientes + À relancer -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">🏆 Top clientes</div>
+        <div id="d-topclientes"></div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📬 À relancer</div>
+        <div id="d-relancer"></div>
+      </div>
+    </div>
+
+    <!-- Virements en attente -->
+    <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:12px">⏳ Virements en attente</div>
+      <div id="d-nonpayees"></div>
+    </div>
+
   </div>
+</div>
 
   <!-- CAISSE -->
   <div class="view" id="view-caisse">
@@ -1054,6 +1114,51 @@ function renderDash(){
   document.getElementById('d-re').textContent='Reste: '+fa(Math.max(0,obj-caNetRecap));
   const panier2=nbCli?caNetRecap/nbCli:0;
   document.getElementById('d-pan').textContent=fa(panier2);
+  // Solde CB
+  const soldeEl=document.getElementById('d-solde');
+  if(soldeEl){
+    const si=PARAMS.soldeInit;
+    const soldeCB=DB.banque.reduce((s,b)=>s+b.montant,si);
+    soldeEl.textContent=fa(soldeCB);
+  }
+
+  // Top clientes
+  const map={};
+  for(const t of DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0)){
+    if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) continue;
+    if(!map[t.nom]) map[t.nom]={nom:t.nom,total:0,nb:0};
+    map[t.nom].total+=t.montant; map[t.nom].nb++;
+  }
+  const top=Object.values(map).sort((a,b)=>b.total-a.total).slice(0,5);
+  const colors=['#ffd8e8','#d8e8ff','#fff3d0','#d8f5e8','#f0d8ff'];
+  const tcEl=document.getElementById('d-topclientes');
+  if(tcEl) tcEl.innerHTML=top.length?top.map((c,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:32px;height:32px;border-radius:50%;background:${colors[i]};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc)">${c.nom.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--txt)">${c.nom}</div>
+        <div style="font-size:11px;color:var(--mut)">${c.nb} visite${c.nb>1?'s':''}</div></div>
+      </div>
+      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--acc);font-size:13px">${fa(c.total)}</span>
+    </div>`).join(''):'<div style="color:var(--mut);font-size:12px">Aucune prestation ce mois</div>';
+
+  // À relancer — clientes sans visite depuis 30j+
+  const aujourdhui=new Date();
+  const allClientes={};
+  for(const t of DB.caisse.filter(t=>t.montant>0)){
+    if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) continue;
+    if(!allClientes[t.nom]||t.date>allClientes[t.nom]) allClientes[t.nom]=t.date;
+  }
+  const relancer=Object.entries(allClientes)
+    .map(([nom,last])=>({nom,last,jours:Math.floor((aujourdhui-new Date(last+'T12:00:00'))/86400000)}))
+    .filter(c=>c.jours>=30).sort((a,b)=>b.jours-a.jours).slice(0,5);
+  const rEl=document.getElementById('d-relancer');
+  if(rEl) rEl.innerHTML=relancer.length?relancer.map(c=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-size:13px;font-weight:700;color:var(--txt)">${c.nom}</div>
+      <div style="font-size:11px;color:var(--mut)">${dlbl(c.last)}</div></div>
+      <span style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${c.jours>45?'#ffd8d8':'#fff3d0'};color:${c.jours>45?'#c45858':'#c89040'}">${c.jours>45?'⚠️':'🟠'} ${c.jours}j</span>
+    </div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>';
   document.getElementById('d-oc').textContent=(obj/(panier2||1)).toFixed(0)+' clientes';
   const proj2=dayN?caNetRecap/dayN*dInM:0;
   document.getElementById('d-pj').textContent=fa(proj2);
