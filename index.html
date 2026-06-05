@@ -1703,9 +1703,9 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       return chq+vir+plan+chargesW[i];
     });
     const espEcartW=espBrutW.map((v,i)=>v+espDeposeesW[i]);
-    const espEcartTot=espEcartW.reduce((s,v)=>s+v,0);
+    const espEcartTot=espWCorr[espWCorr.length-1]+espDeposesTot;
 
-    html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espEcartTot,
+    html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espWCorr[espWCorr.length-1],
       v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
       (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente`:`Cumul fin de mois`
     );
