@@ -594,6 +594,10 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
         <input type="number" id="pObj" value="6000" step="100" onchange="updateParam('objectif',parseFloat(this.value))">
         <span class="unit">€</span>
       </div>
+       <div class="set-row">
+  <label>Mon numéro pro (relances)</label>
+  <input type="tel" id="pTelPro" value="${PARAMS.telPro||''}" placeholder="+33612345678" onchange="updateParam('telPro',this.value)">
+</div>
       <div class="set-row">
         <label>Solde initial banque</label>
         <input type="number" id="pSolde" value="3161.58" step="0.01" onchange="updateParam('soldeInit',parseFloat(this.value))">
@@ -827,7 +831,7 @@ async function saveAll() {
 }
 
 function applyParamsToUI() {
-  const fields = {pTauxSoc: PARAMS.tauxSoc*100, pRedev: PARAMS.redev*100, pTva: PARAMS.tva*100, pObj: PARAMS.objectif, pSolde: PARAMS.soldeInit, objI: PARAMS.objectif};
+  const fields = {pTauxSoc: PARAMS.tauxSoc*100, pRedev: PARAMS.redev*100, pTva: PARAMS.tva*100, pObj: PARAMS.objectif, pSolde: PARAMS.soldeInit, objI: PARAMS.objectif, pTelPro: PARAMS.telPro||''};
   for(const [id, val] of Object.entries(fields)) {
     const el = document.getElementById(id);
     if(el) el.value = val;
@@ -1136,7 +1140,7 @@ function renderDash(){
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
       <div style="display:flex;align-items:center;gap:8px">
         <div style="width:32px;height:32px;border-radius:50%;background:${colors[i]};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc)">${c.nom.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
-        <div><div style="font-size:13px;font-weight:700;color:var(--txt)">${c.nom}</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--pla);cursor:pointer;text-decoration:underline dotted" onclick="openClient('${c.nom.replace(/'/g,"\'")}')">${c.nom}</div>
         <div style="font-size:11px;color:var(--mut)">${c.nb} visite${c.nb>1?'s':''}</div></div>
       </div>
       <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--acc);font-size:13px">${fa(c.total)}</span>
@@ -1155,11 +1159,11 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   const rEl=document.getElementById('d-relancer');
   if(rEl) rEl.innerHTML=relancer.length?relancer.map(c=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
-      <div><div style="font-size:13px;font-weight:700;color:var(--txt)">${c.nom}</div>
+      <div><div style="font-size:13px;font-weight:700;color:var(--pla);cursor:pointer;text-decoration:underline dotted" onclick="openClient('${c.nom.replace(/'/g,"\'")}')">${c.nom}</div>
       <div style="font-size:11px;color:var(--mut)">${dlbl(c.last)} · ${c.prestation||'—'}</div></div>
 <div style="display:flex;align-items:center;gap:6px">
   <span style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${c.jours>45?'#ffd8d8':'#fff3d0'};color:${c.jours>45?'#c45858':'#c89040'}">${c.jours>45?'⚠️':'🟠'} ${c.jours}j</span>
-  ${c.tel?`<a href="sms:${c.tel}&body=Bonjour ${c.nom.split(' ')[0]}, cela fait un moment qu'on ne vous a pas vue au salon ! On serait ravies de vous retrouver 💕 Bises, Emma" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#d8e8ff;color:#4a78c8;text-decoration:none">📱 Relancer</a>`:''}
+  ${PARAMS.telPro&&c.tel?`<a href="sms:${PARAMS.telPro}&body=${encodeURIComponent('Relancer : '+c.nom+' — '+c.tel+' — Dernière visite : '+dlbl(c.last)+' ('+c.jours+'j) — '+c.prestation)}" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#d8e8ff;color:#4a78c8;text-decoration:none">📱 Relancer</a>`:c.tel?`<span style="font-size:10px;color:var(--mut)">⚙️ numéro pro manquant</span>`:''}
 </div>    
 </div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>';
   document.getElementById('d-oc').textContent=(obj/(panier2||1)).toFixed(0)+' clientes';
@@ -1903,7 +1907,6 @@ function renderClients(){
     </tr>`;
   }
   if(!clients.length) html+=`<tr><td colspan="7"><div class="empty">Aucune cliente</div></td></tr>`;
-  html+='</tbody></table></div>';
   document.getElementById('clientsC').innerHTML=html;
 }
 
@@ -1933,7 +1936,13 @@ function openClient(nom){
       <td style="padding:7px 9px;text-align:center">${v.paye?'✅':'❓'}</td>
     </tr>`;
   }
-  html+='</tbody></table></div>';
+  const telExist=DB.caisse.filter(x=>x.nom===nom&&x.tel).map(x=>x.tel)[0]||'';
+  html+=`</tbody></table></div>
+<div style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:12px;display:flex;align-items:center;gap:10px">
+  <span style="font-size:12px;color:var(--mut);font-weight:600">📱 Téléphone :</span>
+  <input type="tel" id="cliTel" value="${telExist}" placeholder="+33612345678" style="flex:1;padding:7px 10px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;background:white">
+  <button class="btn bgrn bsm" onclick="saveTelClient('${nom.replace(/'/g,"\\'")}')">✓ Sauvegarder</button>
+</div>`;
   document.getElementById('cliMT').textContent='👤 '+nom;
   document.getElementById('cliMB').innerHTML=html;
   document.getElementById('clientModal').classList.add('open');
@@ -2675,6 +2684,13 @@ function openSemaine(mois, idx){
   document.getElementById('mBody').innerHTML=html;
   document.querySelector('#mainModal .ma').style.display='none';
   document.getElementById('mainModal').classList.add('open');
+}
+async function saveTelClient(nom){
+  const tel=document.getElementById('cliTel')?.value||'';
+  const rows=DB.caisse.filter(t=>t.nom===nom);
+  for(const t of rows){ t.tel=tel||undefined; await saveEntry_fb('caisse',t); }
+  toast('✓ Numéro enregistré');
+  renderDash();
 }
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
