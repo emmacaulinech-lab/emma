@@ -1470,7 +1470,52 @@ function renderAuto(){
   const prats=['MARIE','GIULIA'];
   const allMois=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort();
   let html='';
-
+// Tableau Emma
+  html+=`<div class="ab">
+    <div class="card-hdr">✦ Emma — 100% CA</div>
+    <div style="overflow-x:auto"><table><thead><tr style="background:var(--acc)">
+      <th style="color:#fff;min-width:130px">Semaine</th>
+      <th style="color:#fff;text-align:right">CA</th>
+      <th style="color:#fff;text-align:right">ESP</th>
+      <th style="color:#fff;text-align:right">VIR</th>
+      <th style="color:#fff;text-align:right">CHQ</th>
+      <th style="color:#fff;text-align:right">PLANITY</th>
+    </tr></thead><tbody>`;
+  let gCAe=0,gESPe=0,gVIRe=0,gCHQe=0,gPLANe=0;
+  const allMoisEmma=[...new Set(DB.caisse.filter(t=>t.praticien==='').map(t=>dm(t.date)))].sort();
+  for(const mois of allMoisEmma){
+    const[y,m]=mois.split('-').map(Number);
+    const mRows=DB.caisse.filter(t=>t.praticien===''&&inM(t.date,mois)&&t.montant>0);
+    if(!mRows.length) continue;
+    const ca=mRows.reduce((s,t)=>s+t.montant,0);
+    const esp=mRows.filter(t=>t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+    const vir=mRows.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0);
+    const chq=mRows.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0);
+    const plan=mRows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+    gCAe+=ca;gESPe+=esp;gVIRe+=vir;gCHQe+=chq;gPLANe+=plan;
+    html+=`<tr style="background:#fff0f8;font-weight:700;font-size:12px">
+      <td style="padding-left:10px">${mc(mois)}</td>
+      ${[ca,esp,vir,chq,plan].map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace">${fa(v)}</td>`).join('')}
+    </tr>`;
+    const weeks=semainesDuMois(y,m);
+    for(const wk of weeks){
+      const wRows=mRows.filter(t=>inSem(t.date,y,m,wk.s,wk.e));
+      if(!wRows.length) continue;
+      const wca=wRows.reduce((s,t)=>s+t.montant,0);
+      const wesp=wRows.filter(t=>t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+      const wvir=wRows.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0);
+      const wchq=wRows.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0);
+      const wplan=wRows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+      html+=`<tr style="color:var(--mut);font-size:11px">
+        <td style="padding-left:22px">${String(wk.s).padStart(2,'0')}/${String(m).padStart(2,'0')} → ${String(wk.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</td>
+        ${[wca,wesp,wvir,wchq,wplan].map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace;font-size:11px">${v?fa(v):'—'}</td>`).join('')}
+      </tr>`;
+    }
+  }
+  html+=`<tr class="trt"><td>TOTAL</td>
+    ${[gCAe,gESPe,gVIRe,gCHQe,gPLANe].map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace">${fa(v)}</td>`).join('')}
+  </tr></tbody></table></div></div>`;
+   
   for(const prat of prats){
     const isMarie=prat==='MARIE';
     html+=`<div class="ab">
