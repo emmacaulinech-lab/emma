@@ -1124,7 +1124,7 @@ function renderDash(){
 
   // Top clientes
   const map={};
-  for(const t of DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0)){
+  for(const t of DB.caisse.filter(t=>t.montant>0)){
     if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) continue;
     if(!map[t.nom]) map[t.nom]={nom:t.nom,total:0,nb:0};
     map[t.nom].total+=t.montant; map[t.nom].nb++;
