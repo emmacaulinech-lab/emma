@@ -1675,7 +1675,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       // ESP déposées cette semaine = DÉPÔT ESPÈCES uniquement (pas chèques)
       const deposes=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHEQUE')).reduce((s,t)=>s+t.montant,0);
       // Cumul = écart semaine s'accumule (sans Math.max)
-      const ecartSem=chq+vir+plan+chargesW[i]+deposes;
+      const ecartSem=chq+vir+plan+chargesW[i];
       cumulEspADeposer=cumulEspADeposer+ecartSem;
       return cumulEspADeposer;
     });
@@ -1686,8 +1686,8 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     );
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
     // Écart ESP = ESP à déposer - ESP déposées (addition car dépôts sont positifs)
-    const espEcartW=espW.map((v,i)=>v-espDeposeesW[i]);
-    const espEcartTot=espW[espW.length-1]-espDeposesTot;
+    const espEcartW=espW.map((v,i)=>v+espDeposeesW[i]);
+    const espEcartTot=espW[espW.length-1]+espDeposesTot;
 
     html+=row('💰 ESP à déposer (cumulatif)',espW,espW[espW.length-1],
       v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
