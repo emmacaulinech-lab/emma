@@ -1147,18 +1147,21 @@ function renderDash(){
   const allClientes={};
   for(const t of DB.caisse.filter(t=>t.montant>0)){
     if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) continue;
-    if(!allClientes[t.nom]||t.date>allClientes[t.nom]) allClientes[t.nom]=t.date;
-  }
+const tel=DB.caisse.filter(x=>x.nom===t.nom&&x.tel).map(x=>x.tel)[0]||'';
+if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date:t.date,prestation:t.prestation||'—',tel};  }
   const relancer=Object.entries(allClientes)
-    .map(([nom,last])=>({nom,last,jours:Math.floor((aujourdhui-new Date(last+'T12:00:00'))/86400000)}))
-    .filter(c=>c.jours>=30).sort((a,b)=>b.jours-a.jours).slice(0,5);
+    .map(([nom,d])=>({nom,last:d.date,prestation:d.prestation,tel:d.tel,jours:Math.floor((aujourdhui-new Date(d.date+'T12:00:00'))/86400000)}))
+    .filter(c=>c.jours>=30).sort((a,b)=>b.jours-a.jours);
   const rEl=document.getElementById('d-relancer');
   if(rEl) rEl.innerHTML=relancer.length?relancer.map(c=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
       <div><div style="font-size:13px;font-weight:700;color:var(--txt)">${c.nom}</div>
-      <div style="font-size:11px;color:var(--mut)">${dlbl(c.last)}</div></div>
-      <span style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${c.jours>45?'#ffd8d8':'#fff3d0'};color:${c.jours>45?'#c45858':'#c89040'}">${c.jours>45?'⚠️':'🟠'} ${c.jours}j</span>
-    </div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>';
+      <div style="font-size:11px;color:var(--mut)">${dlbl(c.last)} · ${c.prestation||'—'}</div></div>
+<div style="display:flex;align-items:center;gap:6px">
+  <span style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${c.jours>45?'#ffd8d8':'#fff3d0'};color:${c.jours>45?'#c45858':'#c89040'}">${c.jours>45?'⚠️':'🟠'} ${c.jours}j</span>
+  ${c.tel?`<a href="sms:${c.tel}&body=Bonjour ${c.nom.split(' ')[0]}, cela fait un moment qu'on ne vous a pas vue au salon ! On serait ravies de vous retrouver 💕 Bises, Emma" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#d8e8ff;color:#4a78c8;text-decoration:none">📱 Relancer</a>`:''}
+</div>    
+</div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>';
   document.getElementById('d-oc').textContent=(obj/(panier2||1)).toFixed(0)+' clientes';
   const proj2=dayN?caNetRecap/dayN*dInM:0;
   document.getElementById('d-pj').textContent=fa(proj2);
@@ -2259,6 +2262,7 @@ function buildForm(ctx, editId=null){
         <div class="fr"><label>Montant (€)</label><input type="number" id="fMnt" value="${t?t.montant:''}" placeholder="0" step="0.01" min="0"></div>
       </div>
       <div class="fr"><label>Nom cliente</label><input type="text" id="fNom" value="${t?t.nom:''}" placeholder="Manon Vouriot" list="cliDL" autocomplete="off"></div>
+      <div class="fr"><label>Téléphone <span style="font-size:10px;color:var(--mut)">(optionnel)</span></label><input type="tel" id="fTel" value="${t?t.tel||'':''}" placeholder="+33612345678"></div>
       <div class="fr"><label>Prestation</label>
         <select id="fPrest">${DB.prestations.map(p=>`<option${t&&t.prestation===p?' selected':''}>${p}</option>`).join('')}</select>
       </div>
@@ -2365,7 +2369,7 @@ async function saveEntry(addAnother=false){
     if(mCtx==='caisse'){
       const mode=g('fMode');
       const t={
-        id,date:g('fDate'),praticien:g('fPrat'),nom:g('fNom'),
+        id,date:g('fDate'),praticien:g('fPrat'),nom:g('fNom'),tel:g('fTel')||undefined,
         prestation:g('fPrest'),montant:parseFloat(g('fMnt')),
         reglement:mode,
         paye:['CHQ','PLANITY'].includes(mode)?true:mode==='VIR'?false:g('fPaye')==='1',
