@@ -1686,12 +1686,22 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     );
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
     // Écart ESP = ESP à déposer - ESP déposées (addition car dépôts sont positifs)
-    const espEcartW=espW.map((v,i)=>v+espDeposeesW[i]);
-    const espEcartTot=espW[espW.length-1]+espDeposesTot;
+    // Recalcul du cumul en tenant compte des dépôts
+    let cumul=0;
+    const espWCorr=weeks.map((wk,i)=>{
+      const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      const ecartSem=chq+vir+plan+chargesW[i];
+      cumul=cumul+ecartSem-espDeposeesW[i];
+      return cumul+espDeposeesW[i];
+    });
+    const espEcartW=espWCorr.map((v,i)=>v-espDeposeesW[i]);
+    const espEcartTot=espEcartW[espEcartW.length-1];
 
-    html+=row('💰 ESP à déposer (cumulatif)',espW,espW[espW.length-1],
+    html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espEcartTot,
       v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
-      (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+dépôts+cumul précédent`:`Cumul fin de mois`
+      (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente`:`Cumul fin de mois`
     );
     html+=row('→ ESP déposées',espDeposeesW,espDeposesTot,
       v=>v>0?'var(--rec)':'var(--mut)',
@@ -1699,7 +1709,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     );
     html+=row('→ Écart ESP',espEcartW,espEcartTot,
       v=>Math.abs(v)<0.01?'var(--mut)':v>0?'var(--warn)':'var(--rec)',
-      (i,v)=>i>=0?`À déposer: ${fa(espW[i])}\nDéposé: ${fa(espDeposeesW[i])}\nÉcart: ${fm(v,true)}`:`Reste à déposer fin de mois`
+      (i,v)=>i>=0?`À déposer: ${fa(espWCorr[i])}\nDéposé: ${fa(espDeposeesW[i])}\nÉcart: ${fm(v,true)}`:`Reste à déposer fin de mois`
     );
 
     html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">REDEVANCE (${PARAMS.redev*100}%)</td></tr>`;
