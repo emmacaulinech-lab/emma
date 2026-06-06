@@ -379,6 +379,22 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       </div>
     </div>
 
+   <!-- Agenda du jour -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">📅 Agenda du jour</div>
+        <label style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:white;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif">
+          📸 Importer Planity
+          <input type="file" accept="image/*" onchange="importerPlanity(event)" style="display:none">
+        </label>
+      </div>
+      <div id="agenda-widget">
+        <div style="text-align:center;padding:20px;color:var(--mut);font-size:12px">
+          📸 Importe ta capture Planity pour voir l'agenda du jour
+        </div>
+      </div>
+    </div>
+     
     <!-- Actions rapides -->
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">⚡ Actions rapides</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
@@ -4763,6 +4779,123 @@ async function updatePrixPrestation(nom, val){
   PARAMS.prixPrestations[nom]=parseFloat(val)||0;
   await saveParams();
   toast('✓ Prix mis à jour');
+}
+
+// ═══════════════════════════════════════
+// AGENDA PLANITY
+// ═══════════════════════════════════════
+let agendaData=null;
+
+async function importerPlanity(event){
+  const file=event.target.files[0];
+  if(!file) return;
+
+  const el=document.getElementById('agenda-widget');
+  el.innerHTML=`<div style="text-align:center;padding:20px">
+    <div class="spinner" style="margin:0 auto 12px"></div>
+    <div style="font-size:12px;color:var(--mut)">Claude analyse ton agenda Planity...</div>
+  </div>`;
+
+  try {
+    // Convertir image en base64
+    const base64=await new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload=()=>res(reader.result.split(',')[1]);
+      reader.onerror=rej;
+      reader.readAsDataURL(file);
+    });
+
+    const mediaType=file.type||'image/png';
+    const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+
+    const response=await fetch('/.netlify/functions/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{
+          role:'user',
+          content:[
+            {
+              type:'image',
+              source:{type:'base64',media_type:mediaType,data:base64}
+            },
+            {
+              type:'text',
+              text:`Analyse cet agenda Planity et extrais tous les RDV visibles.
+Pour chaque RDV, donne : praticien (Emma/MARIE/GIULIA), heure_debut, heure_fin, nom_cliente, prestation.
+Ignore les blocs gris (indisponible/repos) et les blocs sans nom de cliente.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+[{"praticien":"GIULIA","heure_debut":"10:00","heure_fin":"11:30","nom":"Julie Pizzo","prestation":"Remplissage 3 semaines"}]`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data=await response.json();
+    const text=data.content.map(i=>i.text||'').join('');
+    const clean=text.replace(/```json/g,'').replace(/```/g,'').trim();
+    agendaData=JSON.parse(clean);
+    renderAgenda();
+
+  } catch(e) {
+    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur — réessaie</div>`;
+    console.error(e);
+  }
+
+  // Reset input
+  event.target.value='';
+}
+
+function renderAgenda(){
+  const el=document.getElementById('agenda-widget');
+  if(!agendaData||!agendaData.length){
+    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--mut);font-size:12px">Aucun RDV trouvé</div>`;
+    return;
+  }
+
+  const prats=['Emma','MARIE','GIULIA'];
+  const cols={Emma:[],MARIE:[],GIULIA:[]};
+  for(const rdv of agendaData){
+    const p=rdv.praticien==='Emma'?'Emma':rdv.praticien==='MARIE'?'MARIE':'GIULIA';
+    if(cols[p]) cols[p].push(rdv);
+  }
+
+  // CA estimé par praticien
+  const caEstime=(rdvs)=>rdvs.reduce((s,r)=>{
+    const prix=PARAMS.prixPrestations?.[r.prestation]||0;
+    return s+prix;
+  },0);
+
+  const couleurs={Emma:'var(--acc)',MARIE:'var(--marie)',GIULIA:'var(--giulia)'};
+  const totalCA=prats.reduce((s,p)=>s+caEstime(cols[p]),0);
+
+  let html=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      ${prats.map(p=>`
+        <div>
+          <div style="font-size:11px;font-weight:700;color:${couleurs[p]};margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid ${couleurs[p]}">${p}</div>
+          ${cols[p].length?cols[p].sort((a,b)=>a.heure_debut.localeCompare(b.heure_debut)).map(r=>`
+            <div style="background:${couleurs[p]}15;border-left:3px solid ${couleurs[p]};border-radius:0 8px 8px 0;padding:7px 9px;margin-bottom:6px">
+              <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--mut)">${r.heure_debut} → ${r.heure_fin}</div>
+              <div style="font-size:12px;font-weight:700;color:var(--txt);margin-top:2px">${r.nom}</div>
+              <div style="font-size:11px;color:var(--mut);margin-top:1px">${r.prestation||'—'}</div>
+              ${PARAMS.prixPrestations?.[r.prestation]?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(PARAMS.prixPrestations[r.prestation])}</div>`:''}
+            </div>`).join('')
+          :`<div style="font-size:11px;color:var(--mut);font-style:italic">Repos 😴</div>`}
+          ${cols[p].length?`<div style="font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:${couleurs[p]};margin-top:8px;text-align:right">~${fa(caEstime(cols[p]))}</div>`:''}
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--rec2);border-radius:12px">
+      <span style="font-size:12px;font-weight:700;color:var(--rec)">💰 CA estimé total</span>
+      <span style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:var(--rec)">${fa(totalCA)}</span>
+    </div>
+    <div style="font-size:10px;color:var(--mut);margin-top:8px;text-align:right">${agendaData.length} RDV importés · <span style="cursor:pointer;text-decoration:underline" onclick="agendaData=null;renderAgenda()">Effacer</span></div>
+  `;
+
+  el.innerHTML=html;
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
