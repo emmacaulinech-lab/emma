@@ -389,6 +389,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
         </label>
       </div>
       <div id="agenda-widget">
+      <div id="agenda-nouvelles-prests"></div>
         <div style="text-align:center;padding:20px;color:var(--mut);font-size:12px">
           📸 Importe ta capture Planity pour voir l'agenda du jour
         </div>
@@ -4916,6 +4917,10 @@ function renderAgenda(){
               <div style="font-size:12px;font-weight:700;color:var(--txt);margin-top:2px">${r.nom}</div>
               <div style="font-size:11px;color:var(--mut);margin-top:1px">${r.prestation||'—'}</div>
               ${PARAMS.prixPrestations?.[r.prestation]?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(PARAMS.prixPrestations[r.prestation])}</div>`:''}
+              <button onclick="prefillFromAgenda('${r.nom.replace(/'/g,"\\'")}','${(r.prestation||'').replace(/'/g,"\\'")}','${r.praticien}')" 
+                style="margin-top:5px;padding:3px 9px;border-radius:20px;border:1.5px solid var(--acc);background:white;color:var(--acc);font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+                + Caisse
+              </button>
             </div>`).join('')
           :`<div style="font-size:11px;color:var(--mut);font-style:italic">Repos 😴</div>`}
           ${cols[p].length?`<div style="font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:${couleurs[p]};margin-top:8px;text-align:right">~${fa(caEstime(cols[p],p))}</div>`:''}
@@ -4929,6 +4934,100 @@ function renderAgenda(){
   `;
 
   el.innerHTML=html;
+  // Vérifier les nouvelles prestations après le rendu
+  setTimeout(checkNouvellesPrestations, 100);
+}
+
+   function prefillFromAgenda(nom, prestation, praticien){
+  // Ouvrir saisie rapide pré-remplie
+  openRapide();
+  // Attendre que le modal soit ouvert puis pré-remplir
+  setTimeout(()=>{
+    // Nom cliente
+    const nomEl=document.getElementById('rNom');
+    if(nomEl) nomEl.value=nom;
+
+    // Praticien
+    if(praticien==='MARIE') setRPrat('MARIE');
+    else if(praticien==='GIULIA') setRPrat('GIULIA');
+    else setRPrat('');
+
+    // Prestation — chercher dans les boutons top5 d'abord
+    const btns=document.querySelectorAll('#rPrestBtns button');
+    let found=false;
+    btns.forEach(btn=>{
+      if(btn.textContent.trim()===prestation){
+        btn.click();
+        found=true;
+      }
+    });
+    // Si pas dans top5, chercher dans le select
+    if(!found){
+      const sel=document.getElementById('rPrest');
+      if(sel){
+        for(const opt of sel.options){
+          if(opt.value===prestation){
+            sel.value=prestation;
+            setRPrestSel(prestation);
+            break;
+          }
+        }
+      }
+    }
+
+    // Focus sur le montant
+    const mntEl=document.getElementById('rMnt');
+    if(mntEl){
+      // Pré-remplir avec le prix si configuré
+      const prix=PARAMS.prixPrestations?.[prestation];
+      if(prix) mntEl.value=prix;
+      mntEl.focus();
+    }
+  }, 200);
+}
+
+function checkNouvellesPrestations(){
+  if(!agendaData||!agendaData.length) return;
+
+  // Trouver les prestations détectées non présentes dans la liste
+  const prestationsAgenda=[...new Set(agendaData.map(r=>r.prestation).filter(Boolean))];
+  const nouvelles=prestationsAgenda.filter(p=>
+    p&&!DB.prestations.some(dp=>dp.toLowerCase()===p.toLowerCase())
+  );
+
+  if(!nouvelles.length) return;
+
+  // Afficher une alerte dans l'agenda
+  const el=document.getElementById('agenda-nouvelles-prests');
+  if(!el) return;
+
+  el.innerHTML=`
+    <div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:12px;padding:12px 14px;margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:#856404;margin-bottom:8px">✨ Nouvelles prestations détectées</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${nouvelles.map(p=>`
+          <div style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #f0c040;border-radius:20px;padding:4px 10px">
+            <span style="font-size:12px">${p}</span>
+            <button onclick="ajouterPrestationAgenda('${p.replace(/'/g,"\\'")}',this)" 
+              style="background:var(--acc);color:white;border:none;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+              + Ajouter
+            </button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+async function ajouterPrestationAgenda(prestation, btn){
+  if(DB.prestations.some(p=>p.toLowerCase()===prestation.toLowerCase())){
+    toast('Déjà dans ta liste !');
+    return;
+  }
+  DB.prestations.push(prestation);
+  await savePrestations();
+  // Remplacer le bouton par un check
+  btn.parentElement.innerHTML=`<span style="font-size:12px">${prestation}</span><span style="color:var(--rec);font-size:12px">✅</span>`;
+  toast('✓ Prestation ajoutée !');
+  renderSettings();
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
