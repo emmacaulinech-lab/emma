@@ -3602,7 +3602,218 @@ function renderBoutique(){
   goBTab(bTabActive);
 }
 
-function renderBProduits(){ document.getElementById('bview-produits').innerHTML='<div class="empty">Chargement...</div>'; }
+function renderBProduits(){
+  const produits=DB.boutique.produits;
+  const accessoires=produits.filter(p=>p.type==='accessoire');
+  const franchise=produits.filter(p=>p.type==='franchise');
+
+  let html=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:linear-gradient(135deg,#fff0f8,#ffe0f0);border-radius:16px;padding:14px 16px;border:1.5px solid var(--brd)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:6px">Mes accessoires</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--acc)">${accessoires.reduce((s,p)=>s+p.stock,0)} pièces</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">${accessoires.length} produits</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#f0f4ff,#e0eaff);border-radius:16px;padding:14px 16px;border:1.5px solid var(--brd)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:6px">Produits franchise</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--pla)">${franchise.reduce((s,p)=>s+p.stock,0)} pièces</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">${franchise.length} produits</div>
+      </div>
+    </div>
+
+    <!-- Mes accessoires -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🎀 Mes accessoires</div>
+      <button class="btn bd bsm" onclick="openAddProduit('accessoire')">+ Ajouter</button>
+    </div>
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;margin-bottom:20px">
+      <table width="100%" style="border-collapse:collapse">
+        <thead><tr style="background:linear-gradient(135deg,var(--acc),var(--acc2))">
+          <th style="padding:9px 11px;text-align:left;font-size:10px;color:var(--rose2);letter-spacing:.08em">Produit</th>
+          <th style="padding:9px 11px;text-align:center;font-size:10px;color:var(--rose2);letter-spacing:.08em">Stock</th>
+          <th style="padding:9px 11px;text-align:right;font-size:10px;color:var(--rose2);letter-spacing:.08em">P.U achat</th>
+          <th style="padding:9px 11px;text-align:right;font-size:10px;color:var(--rose2);letter-spacing:.08em">Prix vente</th>
+          <th style="padding:9px 11px;font-size:10px;color:var(--rose2)"></th>
+        </tr></thead><tbody>
+        ${accessoires.length?accessoires.map(p=>`
+          <tr style="border-bottom:1px solid var(--brd)">
+            <td style="padding:9px 11px;font-weight:600">${p.nom}
+              ${p.stock<=p.stockMin?`<span style="background:var(--dep2);color:var(--dep);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">⚠️ Stock bas</span>`:''}
+            </td>
+            <td style="padding:9px 11px;text-align:center">
+              <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+                <button onclick="adjStock('${p.id}',-1)" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--brd2);background:white;cursor:pointer;font-size:13px;color:var(--mut)">−</button>
+                <span style="font-family:'DM Mono',monospace;font-weight:700;color:${p.stock<=p.stockMin?'var(--dep)':'var(--txt)'}">${p.stock}</span>
+                <button onclick="adjStock('${p.id}',1)" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--rec);background:var(--rec);cursor:pointer;font-size:13px;color:white">+</button>
+              </div>
+            </td>
+            <td style="padding:9px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--mut)">${fa(p.prixAchat)}</td>
+            <td style="padding:9px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--rec);font-weight:600">${p.prixVente?fa(p.prixVente):'—'}</td>
+            <td style="padding:9px 11px;white-space:nowrap">
+              <button class="btn bg bsm" onclick="openEditProduit('${p.id}')">✏️</button>
+              <button class="btn br bsm" onclick="delProduit('${p.id}')">✕</button>
+            </td>
+          </tr>`).join(''):`<tr><td colspan="5"><div class="empty">Aucun accessoire — ajoute ton stock !</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Produits franchise -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🏪 Produits franchise</div>
+      <button class="btn bd bsm" onclick="openAddProduit('franchise')">+ Ajouter</button>
+    </div>
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;margin-bottom:20px">
+      <table width="100%" style="border-collapse:collapse">
+        <thead><tr style="background:linear-gradient(135deg,var(--pla),#6090e0)">
+          <th style="padding:9px 11px;text-align:left;font-size:10px;color:white;letter-spacing:.08em">Produit</th>
+          <th style="padding:9px 11px;text-align:center;font-size:10px;color:white;letter-spacing:.08em">Stock</th>
+          <th style="padding:9px 11px;text-align:right;font-size:10px;color:white;letter-spacing:.08em">Prix vente</th>
+          <th style="padding:9px 11px;text-align:right;font-size:10px;color:white;letter-spacing:.08em">Redev. franchise</th>
+          <th style="padding:9px 11px;text-align:right;font-size:10px;color:white;letter-spacing:.08em">Ta marge</th>
+          <th style="padding:9px 11px;font-size:10px;color:white"></th>
+        </tr></thead><tbody>
+        ${franchise.length?franchise.map(p=>`
+          <tr style="border-bottom:1px solid var(--brd)">
+            <td style="padding:9px 11px;font-weight:600">${p.nom}
+              ${p.ref?`<span style="font-size:10px;color:var(--mut);margin-left:4px">${p.ref}</span>`:''}
+              ${p.stock<=p.stockMin?`<span style="background:var(--dep2);color:var(--dep);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">⚠️ Stock bas</span>`:''}
+            </td>
+            <td style="padding:9px 11px;text-align:center">
+              <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+                <button onclick="adjStock('${p.id}',-1)" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--brd2);background:white;cursor:pointer;font-size:13px;color:var(--mut)">−</button>
+                <span style="font-family:'DM Mono',monospace;font-weight:700;color:${p.stock<=p.stockMin?'var(--dep)':'var(--txt)'}">${p.stock}</span>
+                <button onclick="adjStock('${p.id}',1)" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--rec);background:var(--rec);cursor:pointer;font-size:13px;color:white">+</button>
+              </div>
+            </td>
+            <td style="padding:9px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--rec);font-weight:600">${fa(p.prixVente)}</td>
+            <td style="padding:9px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--dep)">${fa(p.redevFranchise)}</td>
+            <td style="padding:9px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--rec);font-weight:700">${fa(p.prixVente-p.redevFranchise)}</td>
+            <td style="padding:9px 11px;white-space:nowrap">
+              <button class="btn bg bsm" onclick="openEditProduit('${p.id}')">✏️</button>
+              <button class="btn br bsm" onclick="delProduit('${p.id}')">✕</button>
+            </td>
+          </tr>`).join(''):`<tr><td colspan="6"><div class="empty">Aucun produit franchise</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('bview-produits').innerHTML=html;
+}
+
+function openAddProduit(type){
+  document.getElementById('mTitle').textContent=type==='accessoire'?'🎀 Nouvel accessoire':'🏪 Nouveau produit franchise';
+  document.getElementById('mBody').innerHTML=buildFormProduit(type);
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="saveProduit('${type}')">Enregistrer</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function openEditProduit(id){
+  const p=DB.boutique.produits.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('mTitle').textContent=p.type==='accessoire'?'🎀 Modifier accessoire':'🏪 Modifier produit franchise';
+  document.getElementById('mBody').innerHTML=buildFormProduit(p.type,p);
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="saveProduit('${p.type}','${id}')">Enregistrer</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function buildFormProduit(type, p=null){
+  if(type==='accessoire') return`
+    <div class="fr"><label>Nom du produit</label>
+      <input type="text" id="fpNom" value="${p?p.nom:''}" placeholder="ex: Pince licorne">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Stock actuel</label>
+        <input type="number" id="fpStock" value="${p?p.stock:0}" min="0" step="1">
+      </div>
+      <div class="fr"><label>Alerte stock min</label>
+        <input type="number" id="fpStockMin" value="${p?p.stockMin:2}" min="0" step="1">
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Prix unitaire achat (€)</label>
+        <input type="number" id="fpAchat" value="${p?p.prixAchat:''}" step="0.01" placeholder="0,00">
+      </div>
+      <div class="fr"><label>Prix de vente (€) <span style="font-size:10px;color:var(--mut)">(optionnel)</span></label>
+        <input type="number" id="fpVente" value="${p?p.prixVente||'':''}" step="0.01" placeholder="0,00">
+      </div>
+    </div>`;
+
+  return`
+    <div class="fr"><label>Référence</label>
+      <input type="text" id="fpRef" value="${p?p.ref||'':''}" placeholder="ex: PVA00001">
+    </div>
+    <div class="fr"><label>Nom du produit</label>
+      <input type="text" id="fpNom" value="${p?p.nom:''}" placeholder="ex: Sérum croissance">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Stock actuel</label>
+        <input type="number" id="fpStock" value="${p?p.stock:0}" min="0" step="1">
+      </div>
+      <div class="fr"><label>Alerte stock min</label>
+        <input type="number" id="fpStockMin" value="${p?p.stockMin:1}" min="0" step="1">
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Prix de vente TTC (€)</label>
+        <input type="number" id="fpVente" value="${p?p.prixVente:''}" step="0.01" placeholder="0,00">
+      </div>
+      <div class="fr"><label>Redevance franchise TTC (€)</label>
+        <input type="number" id="fpRedev" value="${p?p.redevFranchise:''}" step="0.01" placeholder="0,00">
+      </div>
+    </div>`;
+}
+
+async function saveProduit(type, editId=null){
+  const nom=document.getElementById('fpNom')?.value?.trim();
+  const stock=parseInt(document.getElementById('fpStock')?.value)||0;
+  const stockMin=parseInt(document.getElementById('fpStockMin')?.value)||0;
+  const prixVente=parseFloat(document.getElementById('fpVente')?.value)||0;
+
+  if(!nom){toast('⚠ Nom requis');return;}
+
+  if(type==='accessoire'){
+    const prixAchat=parseFloat(document.getElementById('fpAchat')?.value)||0;
+    const p={id:editId||genId(),type,nom,stock,stockMin,prixAchat,prixVente};
+    if(editId){const i=DB.boutique.produits.findIndex(x=>x.id===editId);DB.boutique.produits[i]=p;}
+    else DB.boutique.produits.push(p);
+  } else {
+    const ref=document.getElementById('fpRef')?.value?.trim()||'';
+    const redevFranchise=parseFloat(document.getElementById('fpRedev')?.value)||0;
+    const p={id:editId||genId(),type,ref,nom,stock,stockMin,prixVente,redevFranchise};
+    if(editId){const i=DB.boutique.produits.findIndex(x=>x.id===editId);DB.boutique.produits[i]=p;}
+    else DB.boutique.produits.push(p);
+  }
+
+  await saveAll();
+  closeMo('mainModal');
+  renderBProduits();
+  toast('✓ Produit enregistré');
+}
+
+async function adjStock(id, delta){
+  const p=DB.boutique.produits.find(x=>x.id===id);
+  if(!p) return;
+  p.stock=Math.max(0,p.stock+delta);
+  await saveAll();
+  renderBProduits();
+}
+
+async function delProduit(id){
+  if(!confirm('Supprimer ce produit ?')) return;
+  DB.boutique.produits=DB.boutique.produits.filter(x=>x.id!==id);
+  await saveAll();
+  renderBProduits();
+  toast('Supprimé');
+}
 function renderBLots(){ document.getElementById('bview-lots').innerHTML='<div class="empty">Chargement...</div>'; }
 function renderBVentes(){ document.getElementById('bview-ventes').innerHTML='<div class="empty">Chargement...</div>'; }
    
