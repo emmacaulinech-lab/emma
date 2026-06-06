@@ -4329,7 +4329,7 @@ function renderBVentes(){
       return`<div style="background:var(--pla2);border:1.5px solid #b3c6ef;border-radius:14px;padding:13px 16px;margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:var(--pla);margin-bottom:10px">🏪 Redevances franchise à reverser</div>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:13px;color:var(--txt)">${redevNonVersees.length} vente${redevNonVersees.length>1?'s':<br>''} en attente</span>
+          <span style="font-size:13px;color:var(--txt)">${redevNonVersees.length} vente${redevNonVersees.length>1?'s':''} en attente</span>
           <div style="display:flex;align-items:center;gap:10px">
             <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--pla)">${fa(tot)}</span>
             <button class="btn bd bsm" onclick="marquerRedevVersee()">✓ Reversée</button>
