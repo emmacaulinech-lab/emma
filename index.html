@@ -4135,7 +4135,9 @@ Réponds UNIQUEMENT en JSON valide, sans backticks, sans commentaires, exactemen
 
     const data = await response.json();
     const text = data.content.map(i=>i.text||'').join('');
-    const suggestions = JSON.parse(text);
+    console.log('IA response:', text); // debug
+    const clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    const suggestions = JSON.parse(clean);
 
     // Mapper les noms aux IDs
     const sugg=suggestions.map(s=>({
