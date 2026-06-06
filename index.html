@@ -655,7 +655,9 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
     <div class="tw" id="comptaTable"></div>
   </div>
-
+   
+<!-- SAISIE RAPIDE -->
+<button onclick="openRapide()" style="position:fixed;bottom:24px;right:24px;z-index:400;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;box-shadow:var(--shadow2);cursor:pointer;font-size:22px;color:white;display:flex;align-items:center;justify-content:center;">⚡</button>
   
 </div><!-- /app -->
 
@@ -2745,6 +2747,146 @@ async function saveTelClient(nom){
   for(const t of rows){ t.tel=tel||undefined; await saveEntry_fb('caisse',t); }
   toast('✓ Numéro enregistré');
   renderDash();
+}
+// ═══════════════════════════════════════
+// SAISIE RAPIDE
+// ═══════════════════════════════════════
+function openRapide(){
+  const today=new Date().toISOString().split('T')[0];
+  const clients=[...new Set(DB.caisse.map(t=>t.nom).filter(n=>n&&n!=='PLANITY'&&!n.startsWith('DÉPÔT')))].sort();
+
+  // Top 5 prestations
+  const prestCount={};
+  for(const t of DB.caisse) if(t.prestation) prestCount[t.prestation]=(prestCount[t.prestation]||0)+1;
+  const top5=Object.entries(prestCount).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([p])=>p);
+  const autresPrest=DB.prestations.filter(p=>!top5.includes(p));
+
+  document.getElementById('mTitle').textContent='⚡ Saisie rapide';
+  document.getElementById('mBody').innerHTML=`
+    <datalist id="rCliDL">${clients.map(c=>`<option value="${c}">`).join('')}</datalist>
+
+    <div class="fr"><label>Praticien</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <button id="rpt0" onclick="setRPrat('')" style="padding:12px;border-radius:12px;border:2px solid var(--acc);background:var(--acc);color:white;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✦ Emma</button>
+        <button id="rpt1" onclick="setRPrat('MARIE')" style="padding:12px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">👩‍🎨 Marie</button>
+        <button id="rpt2" onclick="setRPrat('GIULIA')" style="padding:12px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✨ Giulia</button>
+      </div>
+      <input type="hidden" id="rPrat" value="">
+    </div>
+
+    <div class="g2">
+      <div class="fr"><label>Nom cliente</label>
+        <input type="text" id="rNom" placeholder="Manon Vouriot" list="rCliDL" autocomplete="off" style="font-size:15px;padding:12px">
+      </div>
+      <div class="fr"><label>Montant (€)</label>
+        <input type="number" id="rMnt" placeholder="0" step="0.01" min="0" inputmode="decimal" style="font-size:15px;padding:12px">
+      </div>
+    </div>
+
+    <div class="fr"><label>Prestation</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px" id="rPrestBtns">
+        ${top5.map(p=>`<button onclick="setRPrest(this,'${p.replace(/'/g,"\\'")}')" style="padding:10px 8px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--txt);font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-align:center;line-height:1.3">${p}</button>`).join('')}
+      </div>
+      <select id="rPrest" onchange="setRPrestSel(this.value)" style="font-size:13px;padding:10px">
+        <option value="">— Autre prestation —</option>
+        ${autresPrest.map(p=>`<option value="${p}">${p}</option>`).join('')}
+      </select>
+      <input type="hidden" id="rPrestVal" value="${top5[0]||''}">
+    </div>
+
+    <div class="fr"><label>Mode règlement</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+        <button id="rmo0" onclick="setRMode('ESP')" style="padding:12px 6px;border-radius:12px;border:2px solid var(--acc);background:var(--acc);color:white;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">💵 ESP</button>
+        <button id="rmo1" onclick="setRMode('VIR')" style="padding:12px 6px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">🏦 VIR</button>
+        <button id="rmo2" onclick="setRMode('CHQ')" style="padding:12px 6px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">📝 CHQ</button>
+        <button id="rmo3" onclick="setRMode('PLANITY')" style="padding:12px 6px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">📱 PLAN</button>
+      </div>
+      <input type="hidden" id="rMode" value="ESP">
+    </div>
+
+    <div class="fr"><label>Date</label>
+      <input type="date" id="rDate" value="${today}" style="font-size:15px;padding:12px">
+    </div>
+  `;
+
+  // Init top5 — sélectionner le premier par défaut
+  if(top5.length){
+    const btn=document.querySelector('#rPrestBtns button');
+    if(btn){ btn.style.border='2px solid var(--acc)'; btn.style.background='var(--rose2)'; btn.style.color='var(--acc)'; }
+  }
+
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="saveRapide()" style="flex:1;font-size:15px;padding:13px">✓ Enregistrer</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function setRPrat(p){
+  document.getElementById('rPrat').value=p;
+  const styles=[
+    {id:'rpt0',match:'',bg:'var(--acc)',color:'white',border:'var(--acc)'},
+    {id:'rpt1',match:'MARIE',bg:'var(--marie)',color:'white',border:'var(--marie)'},
+    {id:'rpt2',match:'GIULIA',bg:'var(--giulia)',color:'white',border:'var(--giulia)'},
+  ];
+  for(const s of styles){
+    const el=document.getElementById(s.id); if(!el) continue;
+    if(s.match===p){ el.style.background=s.bg; el.style.color=s.color; el.style.borderColor=s.border; }
+    else { el.style.background='white'; el.style.color='var(--mut)'; el.style.borderColor='var(--brd2)'; }
+  }
+}
+
+function setRMode(m){
+  document.getElementById('rMode').value=m;
+  const ids=['rmo0','rmo1','rmo2','rmo3'];
+  const modes=['ESP','VIR','CHQ','PLANITY'];
+  ids.forEach((id,i)=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(modes[i]===m){ el.style.background='var(--acc)'; el.style.color='white'; el.style.borderColor='var(--acc)'; }
+    else { el.style.background='white'; el.style.color='var(--mut)'; el.style.borderColor='var(--brd2)'; }
+  });
+}
+
+function setRPrest(btn,p){
+  document.getElementById('rPrestVal').value=p;
+  document.getElementById('rPrest').value='';
+  document.querySelectorAll('#rPrestBtns button').forEach(b=>{
+    b.style.border='2px solid var(--brd2)'; b.style.background='white'; b.style.color='var(--txt)';
+  });
+  btn.style.border='2px solid var(--acc)'; btn.style.background='var(--rose2)'; btn.style.color='var(--acc)';
+}
+
+function setRPrestSel(p){
+  if(!p) return;
+  document.getElementById('rPrestVal').value=p;
+  document.querySelectorAll('#rPrestBtns button').forEach(b=>{
+    b.style.border='2px solid var(--brd2)'; b.style.background='white'; b.style.color='var(--txt)';
+  });
+}
+
+async function saveRapide(){
+  const nom=document.getElementById('rNom')?.value?.trim();
+  const mnt=parseFloat(document.getElementById('rMnt')?.value);
+  const mode=document.getElementById('rMode')?.value||'ESP';
+  const prat=document.getElementById('rPrat')?.value||'';
+  const prest=document.getElementById('rPrestVal')?.value||DB.prestations[0]||'';
+  const date=document.getElementById('rDate')?.value||new Date().toISOString().split('T')[0];
+
+  if(!nom||isNaN(mnt)||mnt<=0){ toast('⚠ Nom et montant requis'); return; }
+
+  const t={
+    id:genId(), date, praticien:prat, nom, prestation:prest,
+    montant:mnt, reglement:mode,
+    paye:['CHQ','PLANITY'].includes(mode)?true:mode==='VIR'?false:true,
+    depose:['CHQ','PLANITY','VIR'].includes(mode)?true:false,
+    chqDepose:mode==='CHQ'?false:undefined
+  };
+  DB.caisse.push(t);
+  await saveEntry_fb('caisse',t);
+  closeMo('mainModal');
+  renderAll();
+  toast('✓ Prestation ajoutée !');
 }
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
