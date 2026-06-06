@@ -4785,6 +4785,18 @@ async function updatePrixPrestation(nom, val){
 // AGENDA PLANITY
 // ═══════════════════════════════════════
 let agendaData=null;
+// Charger l'agenda sauvegardé si c'est aujourd'hui
+(()=>{
+  try{
+    const saved=localStorage.getItem('agendaData');
+    if(saved){
+      const {date,rdvs}=JSON.parse(saved);
+      const today=new Date().toISOString().split('T')[0];
+      if(date===today) agendaData=rdvs;
+      else localStorage.removeItem('agendaData'); // Effacer si c'est un autre jour
+    }
+  }catch(e){}
+})();
 
 async function importerPlanity(event){
   const file=event.target.files[0];
@@ -4854,6 +4866,9 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     if(!match) throw new Error('Pas de JSON trouvé dans: '+clean);
     
     agendaData=JSON.parse(match[0]);
+    // Sauvegarder avec la date du jour
+    const today=new Date().toISOString().split('T')[0];
+    localStorage.setItem('agendaData', JSON.stringify({date:today, rdvs:agendaData}));
     renderAgenda();
 
   } catch(e) {
