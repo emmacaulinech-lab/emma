@@ -4793,8 +4793,12 @@ let agendaData=null;
     if(saved){
       const {date,rdvs}=JSON.parse(saved);
       const today=new Date().toISOString().split('T')[0];
-      if(date===today) agendaData=rdvs;
-      else localStorage.removeItem('agendaData'); // Effacer si c'est un autre jour
+      if(date===today){
+        agendaData=rdvs;
+        // Render après que le DOM soit prêt
+        window.addEventListener('load',()=>renderAgenda());
+      }
+      else localStorage.removeItem('agendaData');
     }
   }catch(e){}
 })();
