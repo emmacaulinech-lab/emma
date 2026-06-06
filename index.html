@@ -476,6 +476,12 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">💵 Caisse espèces</div>
   <div id="cv-widget"></div>
 </div>
+
+     <!-- Fidélité -->
+<div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">🏆 Programme fidélité</div>
+  <div id="fidelite-widget"></div>
+</div>
      
     <!-- Virements en attente -->
     <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
@@ -794,7 +800,8 @@ let DB = {
   boutique: {
     produits: [],
     lots: [],
-    ventes: []
+    ventes: [],
+    cadeaux: []
   }
 };
 
@@ -818,7 +825,10 @@ async function loadAll() {
       if(d.variables)   DB.variables   = JSON.parse(d.variables);
       if(d.prestations) DB.prestations = JSON.parse(d.prestations);
       if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
-      if(d.boutique)    DB.boutique = JSON.parse(d.boutique);
+      if(d.boutique){
+        const b=JSON.parse(d.boutique);
+        DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
+      }
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1304,6 +1314,8 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   const nbNouvelles=Object.values(firstV).filter(d=>inM(d,moisCourant)).length;
   const countEl=document.getElementById('d-nouvelles-count');
   if(countEl) countEl.textContent=`${nbNouvelles} ce mois`;
+
+   renderFidelite();
 }
 
 // ═══════════════════════════════════════
@@ -4571,6 +4583,173 @@ async function delVente(id){
   renderBLots();
   renderBProduits();
   toast('Supprimé');
+}
+
+   // ═══════════════════════════════════════
+// PROGRAMME FIDÉLITÉ
+// ═══════════════════════════════════════
+const PALIERS=[
+  {id:'petite_douceur', nom:'🌸 Petite Douceur', seuil:100, type:'mensuel', couleur:'var(--acc)'},
+  {id:'chouchou',       nom:'💜 Chouchou du Mois', seuil:300, type:'cumul', couleur:'#7c3aed'},
+  {id:'vip',            nom:'⭐ VIP La Valentine',  seuil:500, type:'cumul', couleur:'#d97706'},
+];
+
+function caPalier(nom, mois){
+  // CA mensuel pour Petite Douceur, cumulé pour les autres
+  return DB.caisse.filter(t=>
+    t.nom===nom&&t.montant>0&&
+    (mois?inM(t.date,mois):true)&&
+    !t.nom.startsWith('DÉPÔT')
+  ).reduce((s,t)=>s+t.montant,0);
+}
+
+function caClienteCumul(nom){
+  return DB.caisse.filter(t=>t.nom===nom&&t.montant>0&&!t.nom.startsWith('DÉPÔT'))
+    .reduce((s,t)=>s+t.montant,0);
+}
+
+function dernierCadeau(nom, palierId){
+  const cadeaux=(DB.boutique.cadeaux||[])
+    .filter(c=>c.clienteNom===nom&&c.palier===palierId)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  return cadeaux.length?cadeaux[0].date:null;
+}
+
+function moisDepuisCadeau(date){
+  if(!date) return 999;
+  const d=new Date(date+'T12:00:00');
+  const now=new Date();
+  return(now.getFullYear()-d.getFullYear())*12+(now.getMonth()-d.getMonth());
+}
+
+function estEligible(nom, palierId){
+  const last=dernierCadeau(nom,palierId);
+  return moisDepuisCadeau(last)>=3;
+}
+
+function renderFidelite(){
+  const el=document.getElementById('fidelite-widget');
+  if(!el) return;
+
+  const moisCourant=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
+
+  // Toutes les clientes connues
+  const toutesClientes=[...new Set(DB.caisse
+    .filter(t=>t.montant>0&&t.nom&&t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT'))
+    .map(t=>t.nom))];
+
+  let html='';
+
+  for(const palier of PALIERS){
+    const isMensuel=palier.type==='mensuel';
+
+    // Calculer CA selon type
+    const candidates=toutesClientes.map(nom=>({
+      nom,
+      ca: isMensuel?caPalier(nom,moisCourant):caClienteCumul(nom),
+      eligible: estEligible(nom,palier.id)
+    }))
+    .filter(c=>c.ca>=palier.seuil)
+    .sort((a,b)=>{
+      // Priorité : éligibles d'abord, puis par CA décroissant
+      if(a.eligible&&!b.eligible) return -1;
+      if(!a.eligible&&b.eligible) return 1;
+      return b.ca-a.ca;
+    });
+
+    const eligibles=candidates.filter(c=>c.eligible);
+    const nonEligibles=candidates.filter(c=>!c.eligible);
+
+    // Lot dispo ?
+    const lot=DB.boutique.lots.find(l=>l.nom===palier.nom);
+    const lotDispo=lot&&lot.stock>0;
+
+    html+=`<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--brd)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:${palier.couleur}">${palier.nom}</div>
+          <div style="font-size:11px;color:var(--mut)">${isMensuel?'≥'+palier.seuil+'€ ce mois':'≥'+palier.seuil+'€ cumulés'} · exclusion 3 mois</div>
+        </div>
+        <div style="text-align:right">
+          ${lotDispo
+            ?`<span style="background:var(--rec2);color:var(--rec);font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600">✅ ${lot.stock} lot${lot.stock>1?'s':''} dispo</span>`
+            :`<span style="background:var(--dep2);color:var(--dep);font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600">⚠️ Pas de lot</span>`}
+        </div>
+      </div>
+
+      ${!candidates.length
+        ?`<div style="font-size:12px;color:var(--mut);font-style:italic">Aucune cliente n'a atteint ce seuil</div>`
+        :`<div style="display:flex;flex-direction:column;gap:6px">
+          ${candidates.slice(0,5).map((c,i)=>{
+            const isTop=i===0&&c.eligible;
+            return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:12px;background:${isTop?'linear-gradient(135deg,'+palier.couleur+'15,'+palier.couleur+'08)':'var(--bg2)'};border:1.5px solid ${isTop?palier.couleur:'var(--brd)'}">
+              <div style="display:flex;align-items:center;gap:8px">
+                ${isTop?`<span style="font-size:16px">🎁</span>`:`<span style="font-size:12px;color:var(--mut)">${i+1}.</span>`}
+                <div>
+                  <div style="font-weight:700;font-size:13px;color:${c.eligible?'var(--txt)':'var(--mut)'}">${c.nom}</div>
+                  <div style="font-size:11px;color:var(--mut)">${fa(c.ca)} ${isMensuel?'ce mois':'cumulés'}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                ${!c.eligible
+                  ?`<span style="font-size:11px;color:var(--mut)">⏳ ${3-moisDepuisCadeau(dernierCadeau(c.nom,palier.id))} mois restants</span>`
+                  :isTop&&lotDispo
+                    ?`<button class="btn bd bsm" style="background:${palier.couleur};border-color:${palier.couleur}" onclick="offrirCadeau('${c.nom.replace(/'/g,"\\'")}','${palier.id}','${moisCourant}')">🎁 Offrir</button>`
+                    :`<span style="font-size:11px;color:var(--rec)">✅ Éligible</span>`}
+              </div>
+            </div>`;
+          }).join('')}
+          ${candidates.length>5?`<div style="font-size:11px;color:var(--mut);text-align:center">+${candidates.length-5} autres clientes éligibles</div>`:''}
+        </div>`}
+    </div>`;
+  }
+
+  // Historique des derniers cadeaux offerts
+  const historique=(DB.boutique.cadeaux||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  if(historique.length){
+    html+=`<div style="margin-top:4px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">🕐 Derniers cadeaux offerts</div>
+      ${historique.map(c=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--brd);font-size:12px">
+          <div>
+            <span style="font-weight:600">${c.clienteNom}</span>
+            <span style="color:var(--mut);margin-left:6px">${c.lotNom}</span>
+          </div>
+          <span class="tdt">${dlbl(c.date)}</span>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  el.innerHTML=html||'<div style="color:var(--mut);font-size:12px">Aucune donnée</div>';
+}
+
+async function offrirCadeau(nom, palierId, moisRef){
+  const palier=PALIERS.find(p=>p.id===palierId);
+  if(!palier){toast('Palier introuvable');return;}
+
+  const lot=DB.boutique.lots.find(l=>l.nom===palier.nom);
+  if(!lot||lot.stock<=0){toast('⚠ Pas de lot disponible');return;}
+
+  if(!confirm(`Offrir le lot "${palier.nom}" à ${nom} ?`)) return;
+
+  // Décrémenter stock lot
+  lot.stock=Math.max(0,lot.stock-1);
+
+  // Enregistrer cadeau
+  if(!DB.boutique.cadeaux) DB.boutique.cadeaux=[];
+  DB.boutique.cadeaux.push({
+    id:genId(),
+    clienteNom:nom,
+    palier:palierId,
+    lotNom:palier.nom,
+    date:new Date().toISOString().split('T')[0],
+    moisRef
+  });
+
+  await saveAll();
+  renderFidelite();
+  renderBLots();
+  toast(`🎁 Cadeau offert à ${nom} !`);
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
