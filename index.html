@@ -3015,6 +3015,204 @@ async function validerCaisseESP(){
 }
 
    // ═══════════════════════════════════════
+// DÉPÔT AUTO — MARIE / GIULIA
+// ═══════════════════════════════════════
+let depotAutoState={prat:null,jours:[],billets:{},pieces:{}};
+
+function openDepotAuto(){
+  depotAutoState={prat:null,jours:[],billets:{},pieces:{}};
+  document.getElementById('mTitle').textContent='🎭 Dépôt auto';
+  renderDepotAutoModal();
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function renderDepotAutoModal(){
+  const step=depotAutoState.prat===null?1:depotAutoState.jours.length===0?2:3;
+
+  // ── ÉTAPE 1 : choix praticien ──
+  if(step===1){
+    document.getElementById('mBody').innerHTML=`
+      <div style="font-size:12px;color:var(--mut);margin-bottom:16px">Qui fait son dépôt ?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <button onclick="depotAutoSetPrat('MARIE')" style="padding:20px;border-radius:16px;border:2px solid var(--marie);background:var(--dep2);color:var(--marie);font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;cursor:pointer">👩‍🎨 MARIE</button>
+        <button onclick="depotAutoSetPrat('GIULIA')" style="padding:20px;border-radius:16px;border:2px solid var(--giulia);background:#fdf6e3;color:var(--giulia);font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;cursor:pointer">✨ GIULIA</button>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn bg" onclick="closeMo('mainModal')" style="width:100%">Annuler</button>
+      </div>`;
+    return;
+  }
+
+  // ── ÉTAPE 2 : sélection des jours ──
+  if(step===2){
+    const prat=depotAutoState.prat;
+    // Trouver tous les jours où ce praticien a travaillé
+    const joursMap={};
+    for(const t of DB.caisse.filter(t=>t.praticien===prat&&t.montant>0)){
+      if(!joursMap[t.date]) joursMap[t.date]=0;
+      joursMap[t.date]+=t.montant;
+    }
+    const jours=Object.entries(joursMap).sort((a,b)=>b[0].localeCompare(a[0]));
+
+    if(!jours.length){
+      document.getElementById('mBody').innerHTML=`
+        <div style="text-align:center;padding:24px;color:var(--mut)">Aucune journée trouvée pour ${prat}</div>
+        <button class="btn bg" onclick="closeMo('mainModal')" style="width:100%;margin-top:12px">Fermer</button>`;
+      return;
+    }
+
+    document.getElementById('mBody').innerHTML=`
+      <div style="font-size:12px;color:var(--mut);margin-bottom:12px">Sélectionne les jours concernés par ce dépôt :</div>
+      <div style="max-height:300px;overflow-y:auto;margin-bottom:16px">
+        ${jours.map(([date,total])=>`
+          <div onclick="depotAutoToggleJour('${date}')" id="jour-${date}" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:12px;margin-bottom:6px;border:2px solid var(--brd);background:white;cursor:pointer;transition:all .15s">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div id="jour-check-${date}" style="width:22px;height:22px;border-radius:50%;border:2px solid var(--brd2);background:white;display:flex;align-items:center;justify-content:center;font-size:13px"></div>
+              <span style="font-weight:600">${dlbl(date)}</span>
+            </div>
+            <span style="font-family:'DM Mono',monospace;color:var(--acc);font-weight:600">${fa(total)}</span>
+          </div>`).join('')}
+      </div>
+      <div style="background:var(--bg2);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--mut)">Total à déposer</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--acc)" id="depot-total-label">0,00 €</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bg" onclick="depotAutoState.prat=null;renderDepotAutoModal()">← Retour</button>
+        <button class="btn bd" onclick="depotAutoValiderJours()" style="flex:1">Continuer →</button>
+      </div>`;
+    return;
+  }
+
+  // ── ÉTAPE 3 : saisie billets ──
+  const montantDu=depotAutoCalcMontant();
+  const totalDepose=Object.entries(depotAutoState.billets).reduce((s,[c,n])=>s+parseFloat(c)*n,0)+
+    Object.entries(depotAutoState.pieces).reduce((s,[c,n])=>s+parseFloat(c)*n,0);
+  const diff=Math.round((totalDepose-montantDu)*100)/100;
+
+  const btnStyle=(c,store)=>{
+    const qty=store[c]||0;
+    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="display:flex;align-items:center;gap:4px">
+        <button onclick="depotAutoAjuster('${c}',-1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--brd2);background:white;font-size:16px;cursor:pointer;color:var(--mut)">−</button>
+        <div style="background:${qty>0?'var(--rec2)':'var(--bg2)'};border:1.5px solid ${qty>0?'var(--rec)':'var(--brd)'};border-radius:10px;padding:6px 10px;text-align:center;min-width:52px;cursor:pointer" onclick="depotAutoAjuster('${c}',1)">
+          <div style="font-size:10px;font-weight:700;color:var(--acc)">${parseFloat(c)<1?parseFloat(c)*100+'c':c+'€'}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${qty>0?'var(--rec)':'var(--mut)'}">${qty}</div>
+        </div>
+        <button onclick="depotAutoAjuster('${c}',1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--rec);background:var(--rec);font-size:16px;cursor:pointer;color:white">+</button>
+      </div>
+    </div>`;
+  };
+
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--bg2);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--mut)">${depotAutoState.prat} doit déposer</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--acc)">${fa(montantDu)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--mut)">Déposé</div>
+        <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:${diff>=0?'var(--rec)':'var(--dep)'}">${fa(totalDepose)}</div>
+      </div>
+    </div>
+
+    ${diff!==0?`<div style="background:${diff>0?'var(--rec2)':'var(--dep2)'};border-radius:10px;padding:8px 14px;margin-bottom:12px;font-size:12px;font-weight:600;color:${diff>0?'var(--rec)':'var(--dep)'}">
+      ${diff>0?`✅ Excédent de ${fa(diff)}`:`⚠️ Manque ${fa(Math.abs(diff))}`}
+    </div>`:''}
+
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">Billets déposés</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      ${BILLETS.map(b=>btnStyle(String(b),depotAutoState.billets)).join('')}
+    </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">Pièces déposées</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      ${PIECES.map(p=>btnStyle(String(p),depotAutoState.pieces)).join('')}
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn bg" onclick="depotAutoState.jours=[];renderDepotAutoModal()">← Retour</button>
+      <button class="btn bd" onclick="validerDepotAuto()" style="flex:1;font-size:15px;padding:13px">✓ Valider le dépôt</button>
+    </div>`;
+}
+
+function depotAutoSetPrat(prat){
+  depotAutoState.prat=prat;
+  depotAutoState.jours=[];
+  renderDepotAutoModal();
+}
+
+function depotAutoToggleJour(date){
+  const idx=depotAutoState.jours.indexOf(date);
+  if(idx>=0) depotAutoState.jours.splice(idx,1);
+  else depotAutoState.jours.push(date);
+
+  // Update visuel
+  const el=document.getElementById(`jour-${date}`);
+  const check=document.getElementById(`jour-check-${date}`);
+  const selected=depotAutoState.jours.includes(date);
+  if(el){ el.style.borderColor=selected?'var(--acc)':'var(--brd)'; el.style.background=selected?'var(--rose2)':'white'; }
+  if(check){ check.style.background=selected?'var(--acc)':'white'; check.style.borderColor=selected?'var(--acc)':'var(--brd2)'; check.innerHTML=selected?'✓':''; check.style.color='white'; }
+
+  // Recalc total
+  const tot=depotAutoCalcMontant();
+  const lbl=document.getElementById('depot-total-label');
+  if(lbl) lbl.textContent=fa(tot);
+}
+
+function depotAutoCalcMontant(){
+  const prat=depotAutoState.prat;
+  let total=0;
+  for(const date of depotAutoState.jours){
+    for(const t of DB.caisse.filter(t=>t.praticien===prat&&t.date===date&&t.montant>0)){
+      const ca=DB.caisse.filter(x=>x.praticien===prat&&x.date===date&&x.montant>0).reduce((s,x)=>s+x.montant,0);
+      const plan=DB.caisse.filter(x=>x.praticien===prat&&x.date===date&&x.reglement==='PLANITY').reduce((s,x)=>s+x.montant,0);
+      const chqvir=DB.caisse.filter(x=>x.praticien===prat&&x.date===date&&['CHQ','VIR'].includes(x.reglement)).reduce((s,x)=>s+x.montant,0);
+      const espDue=Math.max(0,ca*PARAMS.tauxSoc-(plan+chqvir));
+      total+=espDue;
+      break; // on calcule une fois par date
+    }
+  }
+  return Math.round(total*100)/100;
+}
+
+function depotAutoValiderJours(){
+  if(!depotAutoState.jours.length){ toast('⚠ Sélectionne au moins un jour'); return; }
+  renderDepotAutoModal();
+}
+
+function depotAutoAjuster(coupure, delta){
+  const val=parseFloat(coupure);
+  const store=BILLETS.includes(val)?depotAutoState.billets:depotAutoState.pieces;
+  const current=store[coupure]||0;
+  const newVal=Math.max(0,current+delta);
+  if(newVal===0) delete store[coupure];
+  else store[coupure]=newVal;
+  renderDepotAutoModal();
+}
+
+async function validerDepotAuto(){
+  const montantDu=depotAutoCalcMontant();
+  const totalDepose=Object.entries(depotAutoState.billets).reduce((s,[c,n])=>s+parseFloat(c)*n,0)+
+    Object.entries(depotAutoState.pieces).reduce((s,[c,n])=>s+parseFloat(c)*n,0);
+
+  if(totalDepose<=0){ toast('⚠ Saisis les billets déposés'); return; }
+
+  // Ajouter à la caisse virtuelle
+  for(const [c,n] of Object.entries(depotAutoState.billets)){
+    CV.billets[parseFloat(c)]=(CV.billets[parseFloat(c)]||0)+n;
+  }
+  for(const [c,n] of Object.entries(depotAutoState.pieces)){
+    CV.pieces[parseFloat(c)]=(CV.pieces[parseFloat(c)]||0)+n;
+  }
+
+  await saveCV();
+  closeMo('mainModal');
+  renderAll();
+  toast(`✓ Dépôt ${depotAutoState.prat} enregistré — ${fa(totalDepose)} ajoutés à la caisse`);
+}
+
+   // ═══════════════════════════════════════
 // CAISSE VIRTUELLE
 // ═══════════════════════════════════════
 const BILLETS=[500,200,100,50,20,10,5];
