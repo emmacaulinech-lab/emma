@@ -391,15 +391,15 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
         <div style="font-size:13px;font-weight:700;color:var(--txt)">+ Opération</div>
         <div style="font-size:11px;color:var(--mut);margin-top:3px">Ajouter en banque</div>
       </div>
-      <div onclick="goTab('recap',document.querySelector('[onclick*=recap]'))" style="background:linear-gradient(135deg,#f0fff8,#d8f5e8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
-        <div style="font-size:22px;margin-bottom:7px">✅</div>
-        <div style="font-size:13px;font-weight:700;color:var(--txt)">Voir Récap</div>
-        <div style="font-size:11px;color:var(--mut);margin-top:3px">Semaines du mois</div>
+      <div onclick="openStatsPrestations()" style="background:linear-gradient(135deg,#f0fff8,#d8f5e8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">📊</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Stats prestations</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">CA par prestation</div>
       </div>
-      <div onclick="goTab('clients',document.querySelector('[onclick*=clients]'))" style="background:linear-gradient(135deg,#fffbf0,#fff0c8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
-        <div style="font-size:22px;margin-bottom:7px">👥</div>
-        <div style="font-size:13px;font-weight:700;color:var(--txt)">Clientes</div>
-        <div style="font-size:11px;color:var(--mut);margin-top:3px">Voir toutes</div>
+      <div onclick="openNouvellesClientes()" style="background:linear-gradient(135deg,#fffbf0,#fff0c8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">🆕</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Nouvelles clientes</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px" id="d-nouvelles-count">Ce mois</div>
       </div>
     </div>
 
@@ -3308,6 +3308,139 @@ async function confirmCloture(){
   await saveCV();
   renderCaisseVirtuelle();
   toast('✓ Caisse clôturée — récap sauvegardé');
+}
+
+   // ═══════════════════════════════════════
+// STATS PRESTATIONS
+// ═══════════════════════════════════════
+let statsPrestVue='mois'; // 'mois' ou 'tout'
+
+function openStatsPrestations(){
+  document.getElementById('mTitle').textContent='📊 Stats prestations';
+  renderStatsPrest();
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function renderStatsPrest(){
+  const mois=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
+  const rows=statsPrestVue==='mois'
+    ?DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0&&t.prestation)
+    :DB.caisse.filter(t=>t.montant>0&&t.prestation);
+
+  // Calcul par prestation
+  const map={};
+  for(const t of rows){
+    if(!map[t.prestation]) map[t.prestation]={nom:t.prestation,ca:0,nb:0};
+    map[t.prestation].ca+=t.montant;
+    map[t.prestation].nb++;
+  }
+  const stats=Object.values(map).sort((a,b)=>b.ca-a.ca);
+  const maxCA=stats.length?stats[0].ca:1;
+  const totalCA=stats.reduce((s,p)=>s+p.ca,0);
+  const totalNb=stats.reduce((s,p)=>s+p.nb,0);
+
+  document.getElementById('mBody').innerHTML=`
+    <!-- Toggle vue -->
+    <div style="display:flex;background:var(--bg2);border-radius:12px;padding:3px;margin-bottom:16px;gap:3px">
+      <button onclick="statsPrestVue='mois';renderStatsPrest()" style="flex:1;padding:8px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:${statsPrestVue==='mois'?'white':'transparent'};color:${statsPrestVue==='mois'?'var(--acc)':'var(--mut)'};box-shadow:${statsPrestVue==='mois'?'var(--shadow)':'none'}">${MOIS[dashM]} ${dashY}</button>
+      <button onclick="statsPrestVue='tout';renderStatsPrest()" style="flex:1;padding:8px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:${statsPrestVue==='tout'?'white':'transparent'};color:${statsPrestVue==='tout'?'var(--acc)':'var(--mut)'};box-shadow:${statsPrestVue==='tout'?'var(--shadow)':'none'}">Toutes données</button>
+    </div>
+
+    <!-- Résumé -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:var(--rec2);border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">CA total</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:18px;font-weight:700;color:var(--rec)">${fa(totalCA)}</div>
+      </div>
+      <div style="background:var(--pla2);border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Prestations</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:18px;font-weight:700;color:var(--pla)">${totalNb}</div>
+      </div>
+      <div style="background:var(--rose2);border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Types</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:18px;font-weight:700;color:var(--acc)">${stats.length}</div>
+      </div>
+    </div>
+
+    <!-- Liste -->
+    ${stats.length?stats.map((p,i)=>{
+      const pct=Math.round(p.ca/maxCA*100);
+      const pctTotal=totalCA?Math.round(p.ca/totalCA*100):0;
+      const panier=p.nb?p.ca/p.nb:0;
+      const colors=['var(--acc)','var(--rec)','var(--pla)','var(--gold)','var(--warn)'];
+      const col=colors[i%colors.length];
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${col}"></div>
+            <span style="font-weight:700;font-size:13px">${p.nom}</span>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-weight:700;color:${col};font-size:13px">${fa(p.ca)}</span>
+        </div>
+        <div style="height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;margin-bottom:8px">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:99px;transition:width .4s"></div>
+        </div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--mut)">
+          <span>🔢 ${p.nb} fois</span>
+          <span>💰 ${fa(panier)} /presta</span>
+          <span>📊 ${pctTotal}% du CA</span>
+        </div>
+      </div>`;
+    }).join(''):`<div class="empty">Aucune prestation ${statsPrestVue==='mois'?'ce mois':''}</div>`}
+
+    <button class="btn bg" onclick="closeMo('mainModal')" style="width:100%;margin-top:8px">Fermer</button>
+  `;
+}
+
+// ═══════════════════════════════════════
+// NOUVELLES CLIENTES
+// ═══════════════════════════════════════
+function openNouvellesClientes(){
+  const mois=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
+
+  // Clientes dont la PREMIÈRE visite est ce mois
+  const firstVisit={};
+  for(const t of DB.caisse.filter(t=>t.montant>0&&t.nom&&t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT'))){
+    if(!firstVisit[t.nom]||t.date<firstVisit[t.nom]) firstVisit[t.nom]=t.date;
+  }
+  const nouvelles=Object.entries(firstVisit)
+    .filter(([,date])=>inM(date,mois))
+    .map(([nom,date])=>{
+      const visites=DB.caisse.filter(t=>t.nom===nom&&t.montant>0);
+      const ca=visites.reduce((s,t)=>s+t.montant,0);
+      const prest=visites[visites.length-1]?.prestation||'—';
+      return{nom,date,ca,prest,nb:visites.length};
+    })
+    .sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Mettre à jour le sous-titre du bouton
+  const countEl=document.getElementById('d-nouvelles-count');
+  if(countEl) countEl.textContent=`${nouvelles.length} ce mois`;
+
+  document.getElementById('mTitle').textContent=`🆕 Nouvelles clientes — ${MOIS[dashM]}`;
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--rec2);border-radius:12px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--mut)">Nouvelles ce mois</span>
+      <span style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--rec)">${nouvelles.length}</span>
+    </div>
+    ${nouvelles.length?nouvelles.map(c=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--brd)">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:var(--pla);cursor:pointer;text-decoration:underline dotted" onclick="closeMo('mainModal');openClient('${c.nom.replace(/'/g,"\\'")}')">${c.nom}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">${dlbl(c.date)} · ${c.prest}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--acc)">${fa(c.ca)}</div>
+          <div style="font-size:11px;color:var(--mut)">${c.nb} visite${c.nb>1?'s':''}</div>
+        </div>
+      </div>`).join('')
+    :`<div class="empty">Aucune nouvelle cliente ce mois</div>`}
+    <button class="btn bg" onclick="closeMo('mainModal')" style="width:100%;margin-top:16px">Fermer</button>
+  `;
+
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
 }
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
