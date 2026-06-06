@@ -4185,7 +4185,7 @@ function openSuggestIA(){
         return p&&p.stock>=c.qte;
       });
       const dejaCree=DB.boutique.lots.some(l=>l.nom===s.nom);
-      return`<div style="background:white;border:1.5px solid ${dejaCree?'var(--rec)':stockOk?'var(--brd)':'var(--dep2)'};border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:${stockOk&&!dejaCree?'pointer':'default'};opacity:${dejaCree?0.6:1}" onclick="${stockOk&&!dejaCree?`useSuggPreconfig(${lotsPreconfig.indexOf(s)})`:''}">
+      return`<div style="background:white;border:1.5px solid ${dejaCree?'var(--rec)':stockOk?'var(--brd)':'var(--dep2)'};border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:${stockOk&&!dejaCree?'pointer':'default'};opacity:${dejaCree?0.6:1}" onclick="${stockOk&&!dejaCree?`useSuggPreconfig(${mapped.indexOf(s)})`:''}">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:14px">${s.nom}</div>
@@ -4224,7 +4224,7 @@ function openSuggestIA(){
         return p&&p.stock>=c.qte;
       });
       const dejaCree=DB.boutique.lots.some(l=>l.nom===s.nom);
-      return`<div style="background:white;border:1.5px solid ${dejaCree?'var(--rec)':stockOk?'var(--brd)':'var(--dep2)'};border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:${stockOk&&!dejaCree?'pointer':'default'};opacity:${dejaCree?0.6:1}" onclick="${stockOk&&!dejaCree?`useSuggPreconfig(${lotsPreconfig.indexOf(s)})`:''}">
+      return`<div style="background:white;border:1.5px solid ${dejaCree?'var(--rec)':stockOk?'var(--brd)':'var(--dep2)'};border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:${stockOk&&!dejaCree?'pointer':'default'};opacity:${dejaCree?0.6:1}" onclick="${stockOk&&!dejaCree?`useSuggPreconfig(${mapped.indexOf(s)})`:''}">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:14px">${s.nom}</div>
