@@ -469,6 +469,12 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📊 CA par semaine — <span id="chart-mois"></span></div>
       <div id="chart-semaines" style="display:flex;align-items:flex-end;gap:8px;height:80px"></div>
     </div>
+
+     <!-- Caisse virtuelle -->
+<div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">💵 Caisse espèces</div>
+  <div id="cv-widget"></div>
+</div>
      
     <!-- Virements en attente -->
     <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
@@ -800,6 +806,7 @@ async function loadAll() {
       await saveAll();
       toast('✓ Données migrées');
     }
+     await loadCV();
     applyParamsToUI();
   } catch(e) {
     console.error('Load error:', e);
@@ -1033,6 +1040,7 @@ function renderAll(){
   renderClients();
   renderCompta();
   renderSettings();
+  renderCaisseVirtuelle();
 }
 
 function popSelects(){
@@ -2887,6 +2895,104 @@ async function saveRapide(){
   closeMo('mainModal');
   renderAll();
   toast('✓ Prestation ajoutée !');
+}
+
+   // ═══════════════════════════════════════
+// CAISSE VIRTUELLE
+// ═══════════════════════════════════════
+const BILLETS=[500,200,100,50,20,10,5];
+const PIECES=[2,1,0.5,0.2,0.1,0.05];
+const COUPURES=[...BILLETS,...PIECES];
+
+let CV={billets:{},pieces:{},historique:[],lastCloture:null};
+
+async function loadCV(){
+  if(!userRef) return;
+  try{
+    const snap=await userRef.collection('data').doc('caisse_virtuelle').get();
+    if(snap.exists){
+      const d=snap.data();
+      CV={...CV,...d};
+      if(d.billets) CV.billets=d.billets;
+      if(d.pieces) CV.pieces=d.pieces;
+      if(d.historique) CV.historique=d.historique;
+      if(d.lastCloture) CV.lastCloture=d.lastCloture;
+    } else {
+      // Init
+      BILLETS.forEach(b=>CV.billets[b]=0);
+      PIECES.forEach(p=>CV.pieces[p]=0);
+      await saveCV();
+    }
+  }catch(e){ console.error('CV load error:',e); }
+}
+
+async function saveCV(){
+  if(!userRef) return;
+  try{
+    await userRef.collection('data').doc('caisse_virtuelle').set({
+      billets:CV.billets, pieces:CV.pieces,
+      historique:CV.historique||[], lastCloture:CV.lastCloture||null,
+      updatedAt:new Date().toISOString()
+    });
+  }catch(e){ console.error('CV save error:',e); }
+}
+
+function totalCV(){
+  let t=0;
+  BILLETS.forEach(b=>t+=(CV.billets[b]||0)*b);
+  PIECES.forEach(p=>t+=(CV.pieces[p]||0)*p);
+  return Math.round(t*100)/100;
+}
+
+function renderCaisseVirtuelle(){
+  const total=totalCV();
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--acc)">💵 ${fa(total)}</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bg bsm" onclick="openDepotAuto()">🎭 Dépôt auto</button>
+        <button class="btn br bsm" onclick="confirmCloture()">🔒 Clôture</button>
+      </div>
+    </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">Billets</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+      ${BILLETS.map(b=>`
+        <div style="background:${(CV.billets[b]||0)>0?'var(--rec2)':'var(--bg2)'};border:1.5px solid ${(CV.billets[b]||0)>0?'var(--rec)':'var(--brd)'};border-radius:10px;padding:8px 12px;text-align:center;min-width:60px">
+          <div style="font-size:11px;font-weight:700;color:var(--acc)">${b}€</div>
+          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${(CV.billets[b]||0)>0?'var(--rec)':'var(--mut)'}">${CV.billets[b]||0}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">Pièces</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+      ${PIECES.map(p=>`
+        <div style="background:${(CV.pieces[p]||0)>0?'var(--pla2)':'var(--bg2)'};border:1.5px solid ${(CV.pieces[p]||0)>0?'var(--pla)':'var(--brd)'};border-radius:10px;padding:8px 12px;text-align:center;min-width:60px">
+          <div style="font-size:11px;font-weight:700;color:var(--acc)">${p<1?p*100+'c':p+'€'}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${(CV.pieces[p]||0)>0?'var(--pla)':'var(--mut)'}">${CV.pieces[p]||0}</div>
+        </div>`).join('')}
+    </div>`;
+
+  if(CV.lastCloture){
+    html+=`<div style="font-size:11px;color:var(--mut)">Dernière clôture : ${dlbl(CV.lastCloture)}</div>`;
+  }
+  document.getElementById('cv-widget').innerHTML=html;
+}
+
+async function confirmCloture(){
+  if(!confirm('Clôturer la caisse ? Le récap sera sauvegardé et les compteurs remis à zéro.')) return;
+  const today=new Date().toISOString().split('T')[0];
+  const recap={
+    date:today, total:totalCV(),
+    billets:{...CV.billets}, pieces:{...CV.pieces}
+  };
+  if(!CV.historique) CV.historique=[];
+  CV.historique.push(recap);
+  // Remettre à zéro
+  BILLETS.forEach(b=>CV.billets[b]=0);
+  PIECES.forEach(p=>CV.pieces[p]=0);
+  CV.lastCloture=today;
+  await saveCV();
+  renderCaisseVirtuelle();
+  toast('✓ Caisse clôturée — récap sauvegardé');
 }
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
