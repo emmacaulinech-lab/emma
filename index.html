@@ -1268,6 +1268,15 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
       </div>`;
     }).join('');
   }
+// Màj compteur nouvelles clientes
+  const moisCourant=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
+  const firstV={};
+  for(const t of DB.caisse.filter(t=>t.montant>0&&t.nom&&t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT'))){
+    if(!firstV[t.nom]||t.date<firstV[t.nom]) firstV[t.nom]=t.date;
+  }
+  const nbNouvelles=Object.values(firstV).filter(d=>inM(d,moisCourant)).length;
+  const countEl=document.getElementById('d-nouvelles-count');
+  if(countEl) countEl.textContent=`${nbNouvelles} ce mois`;
 }
 
 // ═══════════════════════════════════════
