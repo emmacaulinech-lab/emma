@@ -4263,7 +4263,315 @@ function useSuggPreconfig(i){
   setTimeout(()=>openCreateLot(s),200);
 }
 
-function renderBVentes(){ document.getElementById('bview-ventes').innerHTML='<div class="empty">Chargement...</div>'; }
+function renderBVentes(){
+  const ventes=DB.boutique.ventes||[];
+  const allMois=[...new Set(ventes.map(v=>dm(v.date)))].sort().reverse();
+
+  // Totaux globaux
+  const caTotalBoutique=ventes.reduce((s,v)=>s+v.prixVente,0);
+  const commissionsTotales=ventes.filter(v=>v.praticien&&v.praticien!=='').reduce((s,v)=>s+v.commission,0);
+  const redevFranchiseTotale=ventes.filter(v=>v.typeP==='franchise').reduce((s,v)=>s+v.redevFranchise,0);
+  const netSociete=caTotalBoutique-commissionsTotales-redevFranchiseTotale;
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'Cormorant Garant',serif;font-size:20px;color:var(--acc)">${ventes.length} vente${ventes.length>1?'s':''}</div>
+      <button class="btn bd bsm" onclick="openAddVente()">+ Nouvelle vente</button>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      <div style="background:linear-gradient(135deg,#e87a9a,#c45878);border-radius:16px;padding:13px 14px;color:white">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">CA Boutique</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700">${fa(caTotalBoutique)}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7ad4a8,#4aaa78);border-radius:16px;padding:13px 14px;color:white">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Net société</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700">${fa(netSociete)}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#e8c070,#c89040);border-radius:16px;padding:13px 14px;color:white">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Commissions dues</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700">${fa(commissionsTotales)}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7ab8e8,#4a88c8);border-radius:16px;padding:13px 14px;color:white">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Redev. franchise</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700">${fa(redevFranchiseTotale)}</div>
+      </div>
+    </div>
+
+    <!-- Commissions à verser par auto -->
+    ${(()=>{
+      const prats=['MARIE','GIULIA'];
+      const commByPrat=prats.map(p=>({
+        prat:p,
+        total:ventes.filter(v=>v.praticien===p&&!v.commissionVersee).reduce((s,v)=>s+v.commission,0),
+        nb:ventes.filter(v=>v.praticien===p&&!v.commissionVersee).length
+      })).filter(p=>p.total>0);
+      if(!commByPrat.length) return '';
+      return`<div style="background:#fff8e1;border:1.5px solid #f0c040;border-radius:14px;padding:13px 16px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:#856404;margin-bottom:10px">⏳ Commissions à verser</div>
+        ${commByPrat.map(p=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0e060">
+            <span style="font-size:13px;font-weight:600">${p.prat} <span style="font-size:11px;color:var(--mut);font-weight:400">${p.nb} vente${p.nb>1?'s':''}</span></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-family:'DM Mono',monospace;font-weight:700;color:#856404">${fa(p.total)}</span>
+              <button class="btn bo bsm" onclick="marquerCommissionVersee('${p.prat}')">✓ Versée</button>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    })()}
+
+    <!-- Redevances franchise à reverser -->
+    ${(()=>{
+      const redevNonVersees=ventes.filter(v=>v.typeP==='franchise'&&!v.redevVersee);
+      if(!redevNonVersees.length) return '';
+      const tot=redevNonVersees.reduce((s,v)=>s+v.redevFranchise,0);
+      return`<div style="background:var(--pla2);border:1.5px solid #b3c6ef;border-radius:14px;padding:13px 16px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--pla);margin-bottom:10px">🏪 Redevances franchise à reverser</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;color:var(--txt)">${redevNonVersees.length} vente${redevNonVersees.length>1?'s':<br>''} en attente</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--pla)">${fa(tot)}</span>
+            <button class="btn bd bsm" onclick="marquerRedevVersee()">✓ Reversée</button>
+          </div>
+        </div>
+      </div>`;
+    })()}`;
+
+  // Historique par mois
+  if(!ventes.length){
+    html+=`<div class="empty">Aucune vente — enregistre ta première vente boutique !</div>`;
+  } else {
+    for(const mois of allMois){
+      const mv=ventes.filter(v=>inM(v.date,mois));
+      const caM=mv.reduce((s,v)=>s+v.prixVente,0);
+      html+=`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;margin-bottom:14px">
+        <div style="background:linear-gradient(135deg,var(--bg2),var(--rose2));padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--brd)">
+          <span style="font-weight:700;font-size:13px;color:var(--acc)">${mf(mois)}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--rec)">${fa(caM)}</span>
+        </div>
+        <table width="100%" style="border-collapse:collapse">
+          <thead><tr style="background:linear-gradient(135deg,var(--acc),var(--acc2))">
+            <th style="padding:8px 11px;text-align:left;font-size:10px;color:var(--rose2)">Date</th>
+            <th style="padding:8px 11px;text-align:left;font-size:10px;color:var(--rose2)">Produit / Lot</th>
+            <th style="padding:8px 11px;text-align:left;font-size:10px;color:var(--rose2)">Prat.</th>
+            <th style="padding:8px 11px;text-align:right;font-size:10px;color:var(--rose2)">Prix</th>
+            <th style="padding:8px 11px;text-align:right;font-size:10px;color:var(--rose2)">Commission</th>
+            <th style="padding:8px 11px;text-align:right;font-size:10px;color:var(--rose2)">Redev.</th>
+            <th style="padding:8px 11px;font-size:10px;color:var(--rose2)"></th>
+          </tr></thead><tbody>
+          ${mv.sort((a,b)=>b.date.localeCompare(a.date)).map(v=>`
+            <tr style="border-bottom:1px solid var(--brd)">
+              <td style="padding:8px 11px" class="tdt">${dlbl(v.date)}</td>
+              <td style="padding:8px 11px;font-weight:600;font-size:12px">${v.nomProduit}
+                <span style="font-size:10px;background:${v.typeP==='franchise'?'var(--pla2)':'var(--rose2)'};color:${v.typeP==='franchise'?'var(--pla)':'var(--acc)'};padding:1px 6px;border-radius:8px;margin-left:4px">${v.typeP==='franchise'?'Franchise':'Accessoire'}</span>
+              </td>
+              <td style="padding:8px 11px">${v.praticien?ptag(v.praticien):'<span style="font-size:11px;color:var(--mut)">Emma</span>'}</td>
+              <td style="padding:8px 11px;text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--rec)">${fa(v.prixVente)}</td>
+              <td style="padding:8px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${v.commission>0?(v.commissionVersee?'var(--mut)':'var(--warn)'):'var(--mut)'}">
+                ${v.commission>0?fa(v.commission)+'<br><span style="font-size:9px">'+(v.commissionVersee?'✅ versée':'⏳ à verser')+'</span>':'—'}
+              </td>
+              <td style="padding:8px 11px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:${v.redevFranchise>0?(v.redevVersee?'var(--mut)':'var(--pla)'):'var(--mut)'}">
+                ${v.redevFranchise>0?fa(v.redevFranchise)+'<br><span style="font-size:9px">'+(v.redevVersee?'✅ reversée':'⏳ à reverser')+'</span>':'—'}
+              </td>
+              <td style="padding:8px 11px;white-space:nowrap">
+                <button class="btn br bsm" onclick="delVente('${v.id}')">✕</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+  }
+
+  document.getElementById('bview-ventes').innerHTML=html;
+}
+
+function openAddVente(){
+  const today=new Date().toISOString().split('T')[0];
+  // Produits vendables : lots à vendre + produits franchise
+  const lotsVente=DB.boutique.lots.filter(l=>l.typeL==='vente'&&l.stock>0);
+  const franchise=DB.boutique.produits.filter(p=>p.type==='franchise'&&p.stock>0);
+
+  document.getElementById('mTitle').textContent='🛍️ Nouvelle vente boutique';
+  document.getElementById('mBody').innerHTML=`
+    <div class="fr"><label>Date</label>
+      <input type="date" id="fvDate" value="${today}" style="font-size:14px;padding:10px">
+    </div>
+
+    <div class="fr"><label>Praticien</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <button id="vpt0" onclick="setVPrat('')" style="padding:10px;border-radius:12px;border:2px solid var(--acc);background:var(--acc);color:white;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✦ Emma</button>
+        <button id="vpt1" onclick="setVPrat('MARIE')" style="padding:10px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">👩‍🎨 Marie</button>
+        <button id="vpt2" onclick="setVPrat('GIULIA')" style="padding:10px;border-radius:12px;border:2px solid var(--brd2);background:white;color:var(--mut);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✨ Giulia</button>
+      </div>
+      <input type="hidden" id="fvPrat" value="">
+    </div>
+
+    <div class="fr"><label>Produit vendu</label>
+      <select id="fvProduit" onchange="updateVentePrix()" style="font-size:14px;padding:10px">
+        <option value="">— Choisir —</option>
+        ${lotsVente.length?`<optgroup label="🎁 Lots accessoires">${lotsVente.map(l=>`<option value="lot-${l.id}" data-prix="${l.prixVente}" data-type="accessoire" data-nom="${l.nom}">${l.nom} — ${fa(l.prixVente)}</option>`).join('')}</optgroup>`:''}
+        ${franchise.length?`<optgroup label="🏪 Produits franchise">${franchise.map(p=>`<option value="prod-${p.id}" data-prix="${p.prixVente}" data-redev="${p.redevFranchise}" data-type="franchise" data-nom="${p.nom}">${p.nom} — ${fa(p.prixVente)}</option>`).join('')}</optgroup>`:''}
+      </select>
+    </div>
+
+    <div class="g2">
+      <div class="fr"><label>Prix de vente (€)</label>
+        <input type="number" id="fvPrix" step="0.01" placeholder="0,00" style="font-size:14px;padding:10px" oninput="updateVenteCommission()">
+      </div>
+      <div class="fr"><label>Mode règlement</label>
+        <select id="fvMode" style="font-size:14px;padding:10px">
+          <option>ESP</option><option>VIR</option><option>CHQ</option><option>CB</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 14px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+        <span style="color:var(--mut)">Commission auto (20%)</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--warn)" id="fvCommLabel">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+        <span style="color:var(--mut)">Redevance franchise</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--pla)" id="fvRedevLabel">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--brd);padding-top:8px;margin-top:4px">
+        <span style="color:var(--txt)">Net société</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--rec)" id="fvNetLabel">—</span>
+      </div>
+    </div>
+  `;
+
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="saveVente()" style="flex:1;font-size:15px;padding:13px">✓ Enregistrer</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function setVPrat(p){
+  document.getElementById('fvPrat').value=p;
+  const styles=[
+    {id:'vpt0',match:'',bg:'var(--acc)',color:'white',border:'var(--acc)'},
+    {id:'vpt1',match:'MARIE',bg:'var(--marie)',color:'white',border:'var(--marie)'},
+    {id:'vpt2',match:'GIULIA',bg:'var(--giulia)',color:'white',border:'var(--giulia)'},
+  ];
+  for(const s of styles){
+    const el=document.getElementById(s.id); if(!el) continue;
+    if(s.match===p){el.style.background=s.bg;el.style.color=s.color;el.style.borderColor=s.border;}
+    else{el.style.background='white';el.style.color='var(--mut)';el.style.borderColor='var(--brd2)';}
+  }
+  updateVenteCommission();
+}
+
+function updateVentePrix(){
+  const sel=document.getElementById('fvProduit');
+  const opt=sel.options[sel.selectedIndex];
+  const prix=opt.dataset.prix||'';
+  document.getElementById('fvPrix').value=prix;
+  updateVenteCommission();
+}
+
+function updateVenteCommission(){
+  const prix=parseFloat(document.getElementById('fvPrix')?.value)||0;
+  const prat=document.getElementById('fvPrat')?.value||'';
+  const sel=document.getElementById('fvProduit');
+  const opt=sel?.options[sel.selectedIndex];
+  const type=opt?.dataset.type||'accessoire';
+  const redev=parseFloat(opt?.dataset.redev||0);
+
+  const commission=prat!==''?Math.round(prix*0.20*100)/100:0;
+  const net=Math.round((prix-commission-redev)*100)/100;
+
+  const cl=document.getElementById('fvCommLabel');
+  const rl=document.getElementById('fvRedevLabel');
+  const nl=document.getElementById('fvNetLabel');
+  if(cl) cl.textContent=commission>0?fa(commission):'—';
+  if(rl) rl.textContent=redev>0?fa(redev):'—';
+  if(nl) nl.textContent=fa(net);
+}
+
+async function saveVente(){
+  const date=document.getElementById('fvDate')?.value;
+  const praticien=document.getElementById('fvPrat')?.value||'';
+  const prixVente=parseFloat(document.getElementById('fvPrix')?.value)||0;
+  const mode=document.getElementById('fvMode')?.value||'ESP';
+  const sel=document.getElementById('fvProduit');
+  const opt=sel?.options[sel.selectedIndex];
+
+  if(!date||!opt?.value||prixVente<=0){toast('⚠ Remplis tous les champs');return;}
+
+  const isLot=opt.value.startsWith('lot-');
+  const itemId=opt.value.replace('lot-','').replace('prod-','');
+  const typeP=opt.dataset.type||'accessoire';
+  const nomProduit=opt.dataset.nom||'';
+  const redevFranchise=parseFloat(opt.dataset.redev||0);
+  const commission=praticien!==''?Math.round(prixVente*0.20*100)/100:0;
+
+  // Décrémenter stock
+  if(isLot){
+    const l=DB.boutique.lots.find(x=>x.id===itemId);
+    if(l) l.stock=Math.max(0,l.stock-1);
+  } else {
+    const p=DB.boutique.produits.find(x=>x.id===itemId);
+    if(p) p.stock=Math.max(0,p.stock-1);
+  }
+
+  const vente={
+    id:genId(), date, praticien, nomProduit, typeP,
+    prixVente, mode, commission, redevFranchise,
+    commissionVersee:false, redevVersee:false,
+    isLot, itemId
+  };
+
+  if(!DB.boutique.ventes) DB.boutique.ventes=[];
+  DB.boutique.ventes.push(vente);
+  await saveAll();
+  closeMo('mainModal');
+  renderBVentes();
+  renderBProduits();
+  renderBLots();
+  toast('✓ Vente enregistrée !');
+}
+
+async function marquerCommissionVersee(prat){
+  if(!confirm(`Marquer toutes les commissions de ${prat} comme versées ?`)) return;
+  DB.boutique.ventes.filter(v=>v.praticien===prat&&!v.commissionVersee).forEach(v=>v.commissionVersee=true);
+  await saveAll();
+  renderBVentes();
+  toast(`✓ Commissions ${prat} marquées comme versées`);
+}
+
+async function marquerRedevVersee(){
+  if(!confirm('Marquer toutes les redevances franchise comme reversées ?')) return;
+  DB.boutique.ventes.filter(v=>v.typeP==='franchise'&&!v.redevVersee).forEach(v=>v.redevVersee=true);
+  await saveAll();
+  renderBVentes();
+  toast('✓ Redevances franchise marquées comme reversées');
+}
+
+async function delVente(id){
+  if(!confirm('Supprimer cette vente ?')) return;
+  const v=DB.boutique.ventes.find(x=>x.id===id);
+  if(v){
+    // Réincrémenter stock
+    if(v.isLot){
+      const l=DB.boutique.lots.find(x=>x.id===v.itemId);
+      if(l) l.stock=(l.stock||0)+1;
+    } else {
+      const p=DB.boutique.produits.find(x=>x.id===v.itemId);
+      if(p) p.stock=(p.stock||0)+1;
+    }
+  }
+  DB.boutique.ventes=DB.boutique.ventes.filter(x=>x.id!==id);
+  await saveAll();
+  renderBVentes();
+  renderBLots();
+  renderBProduits();
+  toast('Supprimé');
+}
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
