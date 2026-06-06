@@ -625,9 +625,10 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       </div>
     </div>
 
-    <!-- Prestations -->
+   <!-- Prestations -->
     <div class="set-block">
-      <h3>💅 Prestations</h3>
+      <h3>💅 Prestations & Prix</h3>
+      <div style="font-size:11px;color:var(--mut);margin-bottom:10px">💡 Les prix sont utilisés pour estimer le CA de l'agenda du jour</div>
       <div id="prestList"></div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <input class="fi" id="newPrest" placeholder="Nouvelle prestation..." style="flex:1;border-radius:10px">
@@ -811,6 +812,7 @@ let PARAMS = {
   tva: 0.20,
   objectif: 6000,
   soldeInit: 3161.58,
+  prixPrestations: {},
 };
 
 async function loadAll() {
@@ -2083,7 +2085,11 @@ function renderSettings(){
   const pl=document.getElementById('prestList');
   if(pl) pl.innerHTML=DB.prestations.map((p,i)=>`
     <div class="set-row">
-      <span>${p}</span>
+      <span style="flex:1">${p}</span>
+      <input type="number" placeholder="Prix €" value="${PARAMS.prixPrestations?.[p]||''}" 
+        onchange="updatePrixPrestation('${p.replace(/'/g,"\\'")}',this.value)"
+        style="width:80px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg);text-align:right">
+      <span style="font-size:11px;color:var(--mut)">€</span>
       <button class="btn bg bsm" onclick="editPrest(${i})">✏️</button>
       <button class="btn br bsm" onclick="delPrest(${i})">✕</button>
     </div>`).join('');
@@ -4750,6 +4756,13 @@ async function offrirCadeau(nom, palierId, moisRef){
   renderFidelite();
   renderBLots();
   toast(`🎁 Cadeau offert à ${nom} !`);
+}
+
+async function updatePrixPrestation(nom, val){
+  if(!PARAMS.prixPrestations) PARAMS.prixPrestations={};
+  PARAMS.prixPrestations[nom]=parseFloat(val)||0;
+  await saveParams();
+  toast('✓ Prix mis à jour');
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
