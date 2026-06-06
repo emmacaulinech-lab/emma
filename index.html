@@ -3814,7 +3814,391 @@ async function delProduit(id){
   renderBProduits();
   toast('Supprimé');
 }
-function renderBLots(){ document.getElementById('bview-lots').innerHTML='<div class="empty">Chargement...</div>'; }
+function renderBLots(){
+  const lots=DB.boutique.lots;
+  const accessoires=DB.boutique.produits.filter(p=>p.type==='accessoire');
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;color:var(--acc)">${lots.length} lot${lots.length>1?'s':''} créés</div>
+        <div style="font-size:11px;color:var(--mut)">${lots.reduce((s,l)=>s+l.stock,0)} disponibles en stock</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bg bsm" onclick="openSuggestIA()">✨ Suggérer avec IA</button>
+        <button class="btn bd bsm" onclick="openCreateLot()">+ Créer un lot</button>
+      </div>
+    </div>`;
+
+  if(!lots.length){
+    html+=`<div class="empty">Aucun lot créé — crée ton premier lot ou laisse l'IA suggérer !</div>`;
+  } else {
+    html+=lots.map(l=>{
+      const coutTotal=l.composition.reduce((s,c)=>{
+        const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+        return s+(p?p.prixAchat*c.qte:0);
+      },0);
+      const marge=l.prixVente-coutTotal;
+      const margeP=l.prixVente?Math.round(marge/l.prixVente*100):0;
+      const stockOk=l.composition.every(c=>{
+        const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+        return p&&p.stock>=c.qte;
+      });
+
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+          <div>
+            <div style="font-weight:700;font-size:14px;color:var(--txt)">${l.nom}</div>
+            <div style="font-size:11px;color:var(--mut);margin-top:2px">${l.description||''}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Cormorant Garant',serif;font-size:18px;font-weight:700;color:var(--acc)">${fa(l.prixVente)}</div>
+            <div style="font-size:10px;color:var(--rec)">marge ${margeP}%</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${l.composition.map(c=>{
+            const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+            return p?`<span style="background:var(--bg2);border:1px solid var(--brd2);border-radius:20px;padding:3px 10px;font-size:11px">${c.qte}× ${p.nom}</span>`:'';
+          }).join('')}
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--brd)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:12px;color:var(--mut)">Stock lots :</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button onclick="adjLotStock('${l.id}',-1)" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--brd2);background:white;cursor:pointer;font-size:13px;color:var(--mut)">−</button>
+              <span style="font-family:'DM Mono',monospace;font-weight:700;color:${l.stock<=0?'var(--dep)':'var(--txt)'}">${l.stock}</span>
+              <button onclick="adjLotStock('${l.id}',1)" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--rec);background:var(--rec);cursor:pointer;font-size:13px;color:white">+</button>
+            </div>
+            ${l.stock<=0?`<span style="background:var(--dep2);color:var(--dep);font-size:10px;padding:1px 6px;border-radius:8px">Rupture</span>`:''}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${stockOk&&l.stock<=0?`<button class="btn bgrn bsm" onclick="assemblerLot('${l.id}')">🔧 Assembler</button>`:''}
+            ${stockOk?`<span style="font-size:11px;color:var(--rec)">✅ Stock OK</span>`:`<span style="font-size:11px;color:var(--dep)">⚠️ Stock insuffisant</span>`}
+            <button class="btn bg bsm" onclick="openEditLot('${l.id}')">✏️</button>
+            <button class="btn br bsm" onclick="delLot('${l.id}')">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('bview-lots').innerHTML=html;
+}
+
+function openCreateLot(prefill=null){
+  const produits=DB.boutique.produits.filter(p=>p.type==='accessoire');
+  document.getElementById('mTitle').textContent='🎁 Créer un lot';
+  document.getElementById('mBody').innerHTML=buildFormLot(null, prefill);
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="saveLot()">Créer le lot</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function openEditLot(id){
+  const l=DB.boutique.lots.find(x=>x.id===id);
+  if(!l) return;
+  document.getElementById('mTitle').textContent='🎁 Modifier le lot';
+  document.getElementById('mBody').innerHTML=buildFormLot(l);
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="saveLot('${id}')">Enregistrer</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function buildFormLot(l=null, prefill=null){
+  const produits=DB.boutique.produits.filter(p=>p.type==='accessoire');
+  const comp=l?l.composition:prefill?prefill.composition:[];
+
+  return`
+    <div class="fr"><label>Nom du lot</label>
+      <input type="text" id="flNom" value="${l?l.nom:prefill?prefill.nom:''}" placeholder="ex: Lot Cosy 🌸">
+    </div>
+    <div class="fr"><label>Description <span style="font-size:10px;color:var(--mut)">(optionnel)</span></label>
+      <input type="text" id="flDesc" value="${l?l.description||'':prefill?prefill.description||'':''}" placeholder="ex: Parfait pour offrir">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Prix de vente (€)</label>
+        <input type="number" id="flPrix" value="${l?l.prixVente:prefill?prefill.prixVente:''}" step="0.01" placeholder="0,00" oninput="updateLotCout()">
+      </div>
+      <div class="fr"><label>Type</label>
+        <select id="flType">
+          <option value="vente"${(!l||l.typeL==='vente')?' selected':''}>🛍️ À vendre</option>
+          <option value="fidelite"${l&&l.typeL==='fidelite'?' selected':''}>🎁 Fidélité</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px;margin-top:4px">Composition</div>
+    <div id="flCompo">
+      ${produits.map(p=>{
+        const existing=comp.find(c=>c.produitId===p.id);
+        return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd)">
+          <span style="font-size:13px">${p.nom} <span style="font-size:11px;color:var(--mut)">(stock: ${p.stock})</span></span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" onclick="adjLotCompo('${p.id}',-1)" style="width:26px;height:26px;border-radius:50%;border:1.5px solid var(--brd2);background:white;cursor:pointer;font-size:14px;color:var(--mut)">−</button>
+            <span id="lcompo-${p.id}" style="font-family:'DM Mono',monospace;font-weight:700;min-width:20px;text-align:center">${existing?existing.qte:0}</span>
+            <button type="button" onclick="adjLotCompo('${p.id}',1)" style="width:26px;height:26px;border-radius:50%;border:1.5px solid var(--acc);background:var(--acc);cursor:pointer;font-size:14px;color:white">+</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:10px 14px;background:var(--bg2);border-radius:12px">
+      <span style="font-size:12px;color:var(--mut)">Coût de revient</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--acc)" id="flCout">0,00 €</span>
+    </div>`;
+}
+
+function adjLotCompo(produitId, delta){
+  const el=document.getElementById('lcompo-'+produitId);
+  if(!el) return;
+  const cur=parseInt(el.textContent)||0;
+  el.textContent=Math.max(0,cur+delta);
+  updateLotCout();
+}
+
+function updateLotCout(){
+  const produits=DB.boutique.produits.filter(p=>p.type==='accessoire');
+  let cout=0;
+  for(const p of produits){
+    const el=document.getElementById('lcompo-'+p.id);
+    if(el) cout+=(parseInt(el.textContent)||0)*p.prixAchat;
+  }
+  const coutEl=document.getElementById('flCout');
+  if(coutEl) coutEl.textContent=fa(cout);
+}
+
+async function saveLot(editId=null){
+  const nom=document.getElementById('flNom')?.value?.trim();
+  const description=document.getElementById('flDesc')?.value?.trim()||'';
+  const prixVente=parseFloat(document.getElementById('flPrix')?.value)||0;
+  const typeL=document.getElementById('flType')?.value||'vente';
+
+  if(!nom){toast('⚠ Nom requis');return;}
+
+  const produits=DB.boutique.produits.filter(p=>p.type==='accessoire');
+  const composition=[];
+  for(const p of produits){
+    const el=document.getElementById('lcompo-'+p.id);
+    const qte=parseInt(el?.textContent)||0;
+    if(qte>0) composition.push({produitId:p.id,qte});
+  }
+
+  if(!composition.length){toast('⚠ Ajoute au moins un produit');return;}
+
+  // Vérifier stock suffisant
+  for(const c of composition){
+    const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+    if(!p||p.stock<c.qte){
+      toast(`⚠ Stock insuffisant pour ${p?p.nom:'?'}`);return;
+    }
+  }
+
+  if(editId){
+    const i=DB.boutique.lots.findIndex(x=>x.id===editId);
+    DB.boutique.lots[i]={...DB.boutique.lots[i],nom,description,prixVente,typeL,composition};
+  } else {
+    // Décrémenter stock produits
+    for(const c of composition){
+      const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+      if(p) p.stock=Math.max(0,p.stock-c.qte);
+    }
+    DB.boutique.lots.push({id:genId(),nom,description,prixVente,typeL,composition,stock:1});
+  }
+
+  await saveAll();
+  closeMo('mainModal');
+  renderBLots();
+  renderBProduits();
+  toast('✓ Lot '+(editId?'modifié':'créé')+' !');
+}
+
+async function assemblerLot(id){
+  const l=DB.boutique.lots.find(x=>x.id===id);
+  if(!l) return;
+
+  // Vérifier stock
+  for(const c of l.composition){
+    const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+    if(!p||p.stock<c.qte){toast(`⚠ Stock insuffisant pour ${p?p.nom:'?'}`);return;}
+  }
+
+  // Décrémenter produits
+  for(const c of l.composition){
+    const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+    if(p) p.stock=Math.max(0,p.stock-c.qte);
+  }
+  l.stock=(l.stock||0)+1;
+
+  await saveAll();
+  renderBLots();
+  renderBProduits();
+  toast('✓ Lot assemblé !');
+}
+
+async function adjLotStock(id, delta){
+  const l=DB.boutique.lots.find(x=>x.id===id);
+  if(!l) return;
+  if(delta>0){
+    // Vérifier stock produits avant d'assembler
+    for(const c of l.composition){
+      const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+      if(!p||p.stock<c.qte){toast(`⚠ Stock insuffisant pour ${p?p.nom:'?'}`);return;}
+    }
+    for(const c of l.composition){
+      const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+      if(p) p.stock=Math.max(0,p.stock-c.qte);
+    }
+  }
+  l.stock=Math.max(0,(l.stock||0)+delta);
+  await saveAll();
+  renderBLots();
+  renderBProduits();
+}
+
+async function delLot(id){
+  if(!confirm('Supprimer ce lot ?')) return;
+  DB.boutique.lots=DB.boutique.lots.filter(x=>x.id!==id);
+  await saveAll();
+  renderBLots();
+  toast('Supprimé');
+}
+
+// ═══════════════════════════════════════
+// SUGGESTIONS IA
+// ═══════════════════════════════════════
+async function openSuggestIA(){
+  document.getElementById('mTitle').textContent='✨ Suggestions IA';
+  document.getElementById('mBody').innerHTML=`
+    <div style="text-align:center;padding:24px">
+      <div style="font-size:32px;margin-bottom:12px">✨</div>
+      <div style="font-size:14px;font-weight:600;color:var(--acc);margin-bottom:8px">L'IA analyse ton stock...</div>
+      <div style="font-size:12px;color:var(--mut)">Je prépare des suggestions de lots créatifs</div>
+      <div class="spinner" style="margin:20px auto"></div>
+    </div>`;
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
+
+  // Préparer le contexte stock
+  const stockDispo=DB.boutique.produits.filter(p=>p.type==='accessoire'&&p.stock>0)
+    .map(p=>`${p.nom}: ${p.stock} unités (coût unitaire ${fa(p.prixAchat)})`).join('\n');
+
+  const lotsExistants=DB.boutique.lots.map(l=>`${l.nom} (${fa(l.prixVente)})`).join(', ')||'aucun';
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{
+          role: "user",
+          content: `Tu es une consultante en salon de beauté spécialisée en vente d'accessoires. 
+          
+Voici le stock disponible dans le salon LIMAGE CILS BY LA VALENTINE :
+${stockDispo}
+
+Lots déjà créés : ${lotsExistants}
+
+Propose 3 nouveaux lots créatifs et originaux (différents des existants) adaptés à un salon de beauté spécialisé cils/brows. Pour chaque lot :
+- Un nom poétique et féminin avec emoji
+- Une courte description marketing (1 phrase)
+- La composition exacte (quels produits et en quelle quantité)
+- Un prix de vente suggéré (entre 4€ et 12€)
+- Le type : "vente" ou "fidelite"
+
+Réponds UNIQUEMENT en JSON valide, sans backticks, sans commentaires, exactement ce format :
+[
+  {
+    "nom": "Nom du lot",
+    "description": "Description courte",
+    "prixVente": 7,
+    "typeL": "vente",
+    "composition": [
+      {"nom": "Pince fleur", "qte": 2},
+      {"nom": "Houpette", "qte": 1}
+    ]
+  }
+]`
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content.map(i=>i.text||'').join('');
+    const suggestions = JSON.parse(text);
+
+    // Mapper les noms aux IDs
+    const sugg=suggestions.map(s=>({
+      ...s,
+      composition: s.composition.map(c=>{
+        const p=DB.boutique.produits.find(x=>x.nom.toLowerCase().includes(c.nom.toLowerCase().split(' ')[0].toLowerCase()));
+        return p?{produitId:p.id,qte:c.qte,nomOriginal:c.nom}:{produitId:null,qte:c.qte,nomOriginal:c.nom};
+      }).filter(c=>c.produitId)
+    }));
+
+    document.getElementById('mBody').innerHTML=`
+      <div style="font-size:12px;color:var(--mut);margin-bottom:14px">L'IA a analysé ton stock et propose ces lots — clique sur un pour le créer !</div>
+      ${sugg.map((s,i)=>{
+        const cout=s.composition.reduce((sum,c)=>{
+          const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+          return sum+(p?p.prixAchat*c.qte:0);
+        },0);
+        const stockOk=s.composition.every(c=>{
+          const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+          return p&&p.stock>=c.qte;
+        });
+        return`<div style="background:white;border:1.5px solid ${stockOk?'var(--brd)':'var(--dep2)'};border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:${stockOk?'pointer':'default'}" onclick="${stockOk?`useSuggIA(${i})`:''}">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div>
+              <div style="font-weight:700;font-size:14px">${s.nom}</div>
+              <div style="font-size:11px;color:var(--mut);margin-top:2px">${s.description}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-family:'Cormorant Garant',serif;font-size:18px;font-weight:700;color:var(--acc)">${fa(s.prixVente)}</div>
+              <div style="font-size:10px;color:var(--mut)">coût ~${fa(cout)}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+            ${s.composition.map(c=>{
+              const p=DB.boutique.produits.find(x=>x.id===c.produitId);
+              return`<span style="background:var(--bg2);border:1px solid var(--brd2);border-radius:20px;padding:2px 8px;font-size:11px">${c.qte}× ${p?p.nom:c.nomOriginal}</span>`;
+            }).join('')}
+          </div>
+          ${stockOk
+            ?`<div style="font-size:11px;color:var(--rec)">✅ Stock suffisant — clique pour créer</div>`
+            :`<div style="font-size:11px;color:var(--dep)">⚠️ Stock insuffisant pour ce lot</div>`}
+        </div>`;
+      }).join('')}`;
+
+    // Stocker les suggestions pour useSuggIA
+    window._iaSuggestions = sugg;
+    document.querySelector('#mainModal .ma').style.display='flex';
+    document.querySelector('#mainModal .ma').innerHTML=`<button class="btn bg" onclick="closeMo('mainModal')" style="width:100%">Fermer</button>`;
+
+  } catch(e) {
+    document.getElementById('mBody').innerHTML=`<div style="text-align:center;padding:24px;color:var(--dep)">⚠️ Erreur lors de la génération — réessaie</div>`;
+    document.querySelector('#mainModal .ma').style.display='flex';
+    document.querySelector('#mainModal .ma').innerHTML=`<button class="btn bg" onclick="closeMo('mainModal')">Fermer</button>`;
+    console.error(e);
+  }
+}
+
+function useSuggIA(i){
+  const s=window._iaSuggestions[i];
+  if(!s) return;
+  closeMo('mainModal');
+  setTimeout(()=>openCreateLot(s), 200);
+}
 function renderBVentes(){ document.getElementById('bview-ventes').innerHTML='<div class="empty">Chargement...</div>'; }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
