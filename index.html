@@ -2890,11 +2890,128 @@ async function saveRapide(){
     depose:['CHQ','PLANITY','VIR'].includes(mode)?true:false,
     chqDepose:mode==='CHQ'?false:undefined
   };
+
+  // Si Emma + ESP → ouvrir caisse virtuelle
+  if(prat===''&&mode==='ESP'){
+    closeMo('mainModal');
+    openCaisseESP(mnt, t);
+    return;
+  }
+
   DB.caisse.push(t);
   await saveEntry_fb('caisse',t);
   closeMo('mainModal');
   renderAll();
   toast('✓ Prestation ajoutée !');
+}
+
+   // ═══════════════════════════════════════
+// MODAL CAISSE VIRTUELLE — SAISIE ESP
+// ═══════════════════════════════════════
+let cvTransaction={montant:0,donnes:{},rendus:{},entry:null};
+
+function openCaisseESP(montant, entry){
+  cvTransaction={montant, donnes:{}, rendus:{}, entry};
+  document.getElementById('mTitle').textContent='💵 Caisse espèces';
+  renderCVModal();
+  document.querySelector('#mainModal .ma').style.display='none';
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function renderCVModal(){
+  const totalDonne=Object.entries(cvTransaction.donnes).reduce((s,[c,n])=>s+parseFloat(c)*n,0);
+  const totalRendu=Object.entries(cvTransaction.rendus).reduce((s,[c,n])=>s+parseFloat(c)*n,0);
+  const net=Math.round((totalDonne-totalRendu)*100)/100;
+  const montant=cvTransaction.montant;
+  const diff=Math.round((net-montant)*100)/100;
+
+  const btnStyle=(c,type)=>{
+    const qty=type==='donne'?(cvTransaction.donnes[c]||0):(cvTransaction.rendus[c]||0);
+    const active=qty>0;
+    const col=type==='donne'?'var(--rec)':'var(--dep)';
+    const bg=type==='donne'?'var(--rec2)':'var(--dep2)';
+    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="display:flex;align-items:center;gap:4px">
+        <button onclick="cvAjuster('${c}','${type}',-1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--brd2);background:white;font-size:16px;cursor:pointer;color:var(--mut)">−</button>
+        <div style="background:${active?bg:'var(--bg2)'};border:1.5px solid ${active?col:'var(--brd)'};border-radius:10px;padding:6px 10px;text-align:center;min-width:52px;cursor:pointer" onclick="cvAjuster('${c}','${type}',1)">
+          <div style="font-size:10px;font-weight:700;color:var(--acc)">${parseFloat(c)<1?parseFloat(c)*100+'c':c+'€'}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${active?col:'var(--mut)'}">${qty}</div>
+        </div>
+        <button onclick="cvAjuster('${c}','${type}',1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid ${col};background:${col};font-size:16px;cursor:pointer;color:white">+</button>
+      </div>
+    </div>`;
+  };
+
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--bg2);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--mut)">À encaisser</span>
+      <span style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--acc)">${fa(montant)}</span>
+    </div>
+
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--rec);font-weight:700;margin-bottom:8px">✅ Reçu de la cliente</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      ${COUPURES.map(c=>btnStyle(String(c),'donne')).join('')}
+    </div>
+
+    <div style="background:${diff===0?'var(--rec2)':diff>0?'var(--gold2)':'var(--dep2)'};border-radius:14px;padding:12px 16px;margin-bottom:${diff>0?'14px':'0'};display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--mut)">Reçu : <strong style="color:var(--rec)">${fa(totalDonne)}</strong></div>
+        ${diff>0?`<div style="font-size:12px;font-weight:700;color:var(--warn)">🪙 Rendu : ${fa(diff)}</div>`:
+          diff<0?`<div style="font-size:11px;color:var(--dep)">Manque ${fa(Math.abs(diff))}</div>`:''}
+      </div>
+      <span style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:${diff===0?'var(--rec)':diff>0?'var(--warn)':'var(--dep)'}">${diff===0?'✓ Exact':diff>0?'-'+fa(diff):fa(net)}</span>
+    </div>
+
+    ${diff>0?`
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dep);font-weight:700;margin-bottom:8px">💸 Rendu à la cliente</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      ${COUPURES.map(c=>btnStyle(String(c),'rendu')).join('')}
+    </div>`:''}
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn bg" onclick="closeMo('mainModal')" style="flex:1">Annuler</button>
+      <button class="btn ${diff===0||diff>0?'bd':'bg'}" onclick="${diff>=0?'validerCaisseESP()':''}" style="flex:2;font-size:15px;padding:13px;${diff<0?'opacity:.5':''}">${diff===0?'✓ Confirmer':diff>0?'✓ Confirmer (rendu '+fa(diff)+')':'Montant insuffisant'}</button>
+    </div>
+  `;
+}
+
+function cvAjuster(coupure, type, delta){
+  const store=type==='donne'?cvTransaction.donnes:cvTransaction.rendus;
+  const current=store[coupure]||0;
+  const newVal=Math.max(0,current+delta);
+  if(newVal===0) delete store[coupure];
+  else store[coupure]=newVal;
+  renderCVModal();
+}
+
+async function validerCaisseESP(){
+  const totalDonne=Object.entries(cvTransaction.donnes).reduce((s,[c,n])=>s+parseFloat(c)*n,0);
+  const totalRendu=Object.entries(cvTransaction.rendus).reduce((s,[c,n])=>s+parseFloat(c)*n,0);
+  const diff=Math.round((totalDonne-totalRendu-cvTransaction.montant)*100)/100;
+  if(diff<0){ toast('⚠ Montant insuffisant'); return; }
+
+  // Mettre à jour la caisse virtuelle
+  for(const [c,n] of Object.entries(cvTransaction.donnes)){
+    const val=parseFloat(c);
+    if(BILLETS.includes(val)) CV.billets[val]=(CV.billets[val]||0)+n;
+    else CV.pieces[val]=(CV.pieces[val]||0)+n;
+  }
+  for(const [c,n] of Object.entries(cvTransaction.rendus)){
+    const val=parseFloat(c);
+    if(BILLETS.includes(val)) CV.billets[val]=Math.max(0,(CV.billets[val]||0)-n);
+    else CV.pieces[val]=Math.max(0,(CV.pieces[val]||0)-n);
+  }
+
+  // Enregistrer la prestation si elle vient de saveRapide
+  if(cvTransaction.entry){
+    DB.caisse.push(cvTransaction.entry);
+    await saveEntry_fb('caisse',cvTransaction.entry);
+  }
+
+  await saveCV();
+  closeMo('mainModal');
+  renderAll();
+  toast('✓ Encaissement enregistré !');
 }
 
    // ═══════════════════════════════════════
