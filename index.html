@@ -4868,8 +4868,8 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     
     agendaData=JSON.parse(match[0]);
     // Sauvegarder avec la date du jour
-    const today=new Date().toISOString().split('T')[0];
-    localStorage.setItem('agendaData', JSON.stringify({date:today, rdvs:agendaData}));
+    const todaySave=new Date().toISOString().split('T')[0];
+  localStorage.setItem('agendaData', JSON.stringify({date:todaySave, rdvs:agendaData}));
     renderAgenda();
 
   } catch(e) {
