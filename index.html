@@ -2934,22 +2934,66 @@ function renderCVModal(){
   const montant=cvTransaction.montant;
   const diff=Math.round((net-montant)*100)/100;
 
-  const btnStyle=(c,type)=>{
-    const qty=type==='donne'?(cvTransaction.donnes[c]||0):(cvTransaction.rendus[c]||0);
-    const active=qty>0;
-    const col=type==='donne'?'var(--rec)':'var(--dep)';
-    const bg=type==='donne'?'var(--rec2)':'var(--dep2)';
-    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-      <div style="display:flex;align-items:center;gap:4px">
-        <button onclick="cvAjuster('${c}','${type}',-1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--brd2);background:white;font-size:16px;cursor:pointer;color:var(--mut)">−</button>
-        <div style="background:${active?bg:'var(--bg2)'};border:1.5px solid ${active?col:'var(--brd)'};border-radius:10px;padding:6px 10px;text-align:center;min-width:52px;cursor:pointer" onclick="cvAjuster('${c}','${type}',1)">
-          <div style="font-size:10px;font-weight:700;color:var(--acc)">${parseFloat(c)<1?parseFloat(c)*100+'c':c+'€'}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${active?col:'var(--mut)'}">${qty}</div>
-        </div>
-        <button onclick="cvAjuster('${c}','${type}',1)" style="width:28px;height:28px;border-radius:50%;border:1.5px solid ${col};background:${col};font-size:16px;cursor:pointer;color:white">+</button>
-      </div>
+  const svgBillet=(val,bg,stripe,col,type)=>{
+    const store=type==='donne'?cvTransaction.donnes:cvTransaction.rendus;
+    const qty=store[String(val)]||0;
+    return`<div style="position:relative;cursor:pointer" onclick="cvAjuster('${val}','${type}',1)">
+      <svg width="90" height="47" viewBox="0 0 90 47" xmlns="http://www.w3.org/2000/svg">
+        <rect width="90" height="47" rx="5" fill="${bg}" opacity="${qty>0?1:0.5}"/>
+        <rect x="0" y="0" width="12" height="47" rx="5" fill="${stripe}"/>
+        <rect x="12" y="0" width="1" height="47" fill="${col}" opacity=".3"/>
+        <circle cx="72" cy="10" r="18" fill="none" stroke="${stripe}" stroke-width="5"/>
+        <line x1="16" y1="35" x2="82" y2="35" stroke="${stripe}" stroke-width="0.8"/>
+        <text x="${val>=100?17:val>=10?21:25}" y="27" font-family="Georgia,serif" font-size="17" font-weight="700" fill="${col}">${val}</text>
+        <text x="17" y="43" font-family="sans-serif" font-size="6" fill="${col}" letter-spacing="1.5" opacity=".7">EURO</text>
+      </svg>
+      ${qty>0?`
+        <div style="position:absolute;bottom:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:#c45878;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10;padding:0 4px">${qty}</div>
+        <div style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#c45858;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10" onclick="event.stopPropagation();cvAjuster('${val}','${type}',-1)">✕</div>
+      `:''}
     </div>`;
   };
+
+  const svgPiece=(val,label,bg,border,col,size,type)=>{
+    const store=type==='donne'?cvTransaction.donnes:cvTransaction.rendus;
+    const qty=store[String(val)]||0;
+    const cx=size/2,cy=size/2,r=size/2-1;
+    const innerR=val>=1?r*0.62:0;
+    const innerFill=val===2?'#fef9c3':val===1?'#fef3c7':'none';
+    const innerStroke=val===2?'#fde047':val===1?'#fbbf24':'none';
+    const fs=size>40?11:size>34?10:size>28?9:8;
+    return`<div style="position:relative;cursor:pointer" onclick="cvAjuster('${val}','${type}',1)">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" opacity="${qty>0?1:0.5}">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}" stroke="${border}" stroke-width="1"/>
+        ${innerR>0?`<circle cx="${cx}" cy="${cy}" r="${innerR}" fill="${innerFill}" stroke="${innerStroke}" stroke-width="1"/>`:''}
+        <text x="${cx}" y="${cy}" font-family="Georgia,serif" font-size="${fs}" font-weight="700" fill="${col}" text-anchor="middle" dominant-baseline="middle">${label}</text>
+      </svg>
+      ${qty>0?`
+        <div style="position:absolute;bottom:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:#c45878;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10;padding:0 4px">${qty}</div>
+        <div style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#c45858;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10" onclick="event.stopPropagation();cvAjuster('${val}','${type}',-1)">✕</div>
+      `:''}
+    </div>`;
+  };
+
+  const billetsDef=[
+    {val:500,bg:'#ede9fe',stripe:'#c4b5fd',col:'#5b21b6'},
+    {val:200,bg:'#fef3c7',stripe:'#fde68a',col:'#92400e'},
+    {val:100,bg:'#d1fae5',stripe:'#a7f3d0',col:'#065f46'},
+    {val:50, bg:'#ffedd5',stripe:'#fed7aa',col:'#c2410c'},
+    {val:20, bg:'#dbeafe',stripe:'#bfdbfe',col:'#1d4ed8'},
+    {val:10, bg:'#fee2e2',stripe:'#fecaca',col:'#b91c1c'},
+    {val:5,  bg:'#f3f4f6',stripe:'#e5e7eb',col:'#374151'},
+  ];
+  const piecesDef=[
+    {val:2,   label:'2€',  bg:'#e2e8f0',border:'#cbd5e1',col:'#713f12',size:50},
+    {val:1,   label:'1€',  bg:'#fef9c3',border:'#fde047',col:'#713f12',size:46},
+    {val:0.5, label:'50c', bg:'#fef9c3',border:'#fde047',col:'#713f12',size:42},
+    {val:0.2, label:'20c', bg:'#fef9c3',border:'#fde047',col:'#713f12',size:38},
+    {val:0.1, label:'10c', bg:'#fef9c3',border:'#fde047',col:'#713f12',size:34},
+    {val:0.05,label:'5c',  bg:'#fed7aa',border:'#fdba74',col:'#7c2d12',size:30},
+    {val:0.02,label:'2c',  bg:'#fed7aa',border:'#fdba74',col:'#7c2d12',size:26},
+    {val:0.01,label:'1c',  bg:'#fed7aa',border:'#fdba74',col:'#7c2d12',size:22},
+  ];
 
   document.getElementById('mBody').innerHTML=`
     <div style="background:var(--bg2);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
@@ -2957,29 +3001,37 @@ function renderCVModal(){
       <span style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--acc)">${fa(montant)}</span>
     </div>
 
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--rec);font-weight:700;margin-bottom:8px">✅ Reçu de la cliente</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      ${COUPURES.map(c=>btnStyle(String(c),'donne')).join('')}
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--rec);font-weight:700;margin-bottom:10px">✅ Reçu de la cliente</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+      ${billetsDef.map(b=>svgBillet(b.val,b.bg,b.stripe,b.col,'donne')).join('')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      ${piecesDef.map(p=>svgPiece(p.val,p.label,p.bg,p.border,p.col,p.size,'donne')).join('')}
     </div>
 
     <div style="background:${diff===0?'var(--rec2)':diff>0?'var(--gold2)':'var(--dep2)'};border-radius:14px;padding:12px 16px;margin-bottom:${diff>0?'14px':'0'};display:flex;justify-content:space-between;align-items:center">
       <div>
         <div style="font-size:11px;color:var(--mut)">Reçu : <strong style="color:var(--rec)">${fa(totalDonne)}</strong></div>
-        ${diff>0?`<div style="font-size:12px;font-weight:700;color:var(--warn)">🪙 Rendu : ${fa(diff)}</div>`:
+        ${diff>0?`<div style="font-size:12px;font-weight:700;color:var(--warn)">🪙 À rendre : ${fa(diff)}</div>`:
           diff<0?`<div style="font-size:11px;color:var(--dep)">Manque ${fa(Math.abs(diff))}</div>`:''}
       </div>
       <span style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:${diff===0?'var(--rec)':diff>0?'var(--warn)':'var(--dep)'}">${diff===0?'✓ Exact':diff>0?'-'+fa(diff):fa(net)}</span>
     </div>
 
     ${diff>0?`
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dep);font-weight:700;margin-bottom:8px">💸 Rendu à la cliente</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      ${COUPURES.map(c=>btnStyle(String(c),'rendu')).join('')}
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dep);font-weight:700;margin-bottom:10px;margin-top:14px">💸 Rendu à la cliente</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+      ${billetsDef.map(b=>svgBillet(b.val,b.bg,b.stripe,b.col,'rendu')).join('')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      ${piecesDef.map(p=>svgPiece(p.val,p.label,p.bg,p.border,p.col,p.size,'rendu')).join('')}
     </div>`:''}
 
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn bg" onclick="closeMo('mainModal')" style="flex:1">Annuler</button>
-      <button class="btn ${diff===0||diff>0?'bd':'bg'}" onclick="${diff>=0?'validerCaisseESP()':''}" style="flex:2;font-size:15px;padding:13px;${diff<0?'opacity:.5':''}">${diff===0?'✓ Confirmer':diff>0?'✓ Confirmer (rendu '+fa(diff)+')':'Montant insuffisant'}</button>
+      <button class="btn ${diff>=0?'bd':'bg'}" onclick="${diff>=0?'validerCaisseESP()':''}" style="flex:2;font-size:15px;padding:13px;${diff<0?'opacity:.5':''}">
+        ${diff===0?'✓ Confirmer':diff>0?'✓ Confirmer (rendre '+fa(diff)+')':'Montant insuffisant'}
+      </button>
     </div>
   `;
 }
@@ -3270,6 +3322,65 @@ function totalCV(){
 
 function renderCaisseVirtuelle(){
   const total=totalCV();
+
+  const svgBillet=(val,bg,stripe,textCol,qty)=>{
+    const hasQty=qty>0;
+    return`<div style="position:relative;cursor:pointer" onclick="cvWidgetAdd(${val})" oncontextmenu="cvWidgetRemove(${val});return false">
+      <svg width="90" height="47" viewBox="0 0 90 47" xmlns="http://www.w3.org/2000/svg">
+        <rect width="90" height="47" rx="5" fill="${bg}"/>
+        <rect x="0" y="0" width="12" height="47" rx="5" fill="${stripe}"/>
+        <rect x="12" y="0" width="1" height="47" fill="${textCol}" opacity=".3"/>
+        <circle cx="72" cy="10" r="18" fill="none" stroke="${stripe}" stroke-width="5"/>
+        <line x1="16" y1="35" x2="82" y2="35" stroke="${stripe}" stroke-width="0.8"/>
+        <text x="${val>=100?17:val>=10?21:25}" y="27" font-family="Georgia,serif" font-size="17" font-weight="700" fill="${textCol}">${val}</text>
+        <text x="17" y="43" font-family="sans-serif" font-size="6" fill="${textCol}" letter-spacing="1.5" opacity=".7">EURO</text>
+      </svg>
+      ${hasQty?`<div style="position:absolute;bottom:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:#c45878;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10;padding:0 4px">${qty}</div>`:''}
+      ${hasQty?`<div style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#c45858;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10;cursor:pointer" onclick="event.stopPropagation();cvWidgetRemove(${val})">✕</div>`:''}
+    </div>`;
+  };
+
+  const svgPiece=(val,label,bg,border,textCol,size,qty)=>{
+    const hasQty=qty>0;
+    const cx=size/2,cy=size/2,r=size/2-1;
+    const innerR=val>=1?r*0.62:0;
+    const innerFill=val===2?'#fef9c3':val===1?'#fef3c7':'none';
+    const innerStroke=val===2?'#fde047':val===1?'#fbbf24':'none';
+    const fs=size>40?11:size>34?10:size>28?9:8;
+    const ty=size>40?cy-4:cy-3;
+    const ly=size>40?cy+8:cy+7;
+    return`<div style="position:relative;cursor:pointer" onclick="cvWidgetAdd(${val})" oncontextmenu="cvWidgetRemove(${val});return false">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}" stroke="${border}" stroke-width="1"/>
+        ${innerR>0?`<circle cx="${cx}" cy="${cy}" r="${innerR}" fill="${innerFill}" stroke="${innerStroke}" stroke-width="1"/>`:''}
+        <text x="${cx}" y="${ty+2}" font-family="Georgia,serif" font-size="${fs}" font-weight="700" fill="${textCol}" text-anchor="middle">${label}</text>
+        <text x="${cx}" y="${ly+1}" font-family="sans-serif" font-size="${size>40?5:4}" fill="${textCol}" text-anchor="middle" opacity=".7">${val>=1?'EURO':'EURO CENT'}</text>
+      </svg>
+      ${hasQty?`<div style="position:absolute;bottom:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:#c45878;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10;padding:0 4px">${qty}</div>`:''}
+      ${hasQty?`<div style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#c45858;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;z-index:10;cursor:pointer" onclick="event.stopPropagation();cvWidgetRemove(${val})">✕</div>`:''}
+    </div>`;
+  };
+
+  const billetsDef=[
+    {val:500,bg:'#ede9fe',stripe:'#c4b5fd',col:'#5b21b6'},
+    {val:200,bg:'#fef3c7',stripe:'#fde68a',col:'#92400e'},
+    {val:100,bg:'#d1fae5',stripe:'#a7f3d0',col:'#065f46'},
+    {val:50, bg:'#ffedd5',stripe:'#fed7aa',col:'#c2410c'},
+    {val:20, bg:'#dbeafe',stripe:'#bfdbfe',col:'#1d4ed8'},
+    {val:10, bg:'#fee2e2',stripe:'#fecaca',col:'#b91c1c'},
+    {val:5,  bg:'#f3f4f6',stripe:'#e5e7eb',col:'#374151'},
+  ];
+  const piecesDef=[
+    {val:2,   label:'2',  bg:'#e2e8f0',border:'#cbd5e1',col:'#713f12',size:50},
+    {val:1,   label:'1',  bg:'#fef9c3',border:'#fde047',col:'#713f12',size:46},
+    {val:0.5, label:'50', bg:'#fef9c3',border:'#fde047',col:'#713f12',size:42},
+    {val:0.2, label:'20', bg:'#fef9c3',border:'#fde047',col:'#713f12',size:38},
+    {val:0.1, label:'10', bg:'#fef9c3',border:'#fde047',col:'#713f12',size:34},
+    {val:0.05,label:'5',  bg:'#fed7aa',border:'#fdba74',col:'#7c2d12',size:30},
+    {val:0.02,label:'2',  bg:'#fed7aa',border:'#fdba74',col:'#7c2d12',size:26},
+    {val:0.01,label:'1',  bg:'#fed7aa',border:'#fdba74',col:'#7c2d12',size:22},
+  ];
+
   let html=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-family:'Cormorant Garant',serif;font-size:22px;font-weight:700;color:var(--acc)">💵 ${fa(total)}</div>
@@ -3278,45 +3389,32 @@ function renderCaisseVirtuelle(){
         <button class="btn br bsm" onclick="confirmCloture()">🔒 Clôture</button>
       </div>
     </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">Billets</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-      ${BILLETS.map(b=>`
-        <div style="background:${(CV.billets[b]||0)>0?'var(--rec2)':'var(--bg2)'};border:1.5px solid ${(CV.billets[b]||0)>0?'var(--rec)':'var(--brd)'};border-radius:10px;padding:8px 12px;text-align:center;min-width:60px">
-          <div style="font-size:11px;font-weight:700;color:var(--acc)">${b}€</div>
-          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${(CV.billets[b]||0)>0?'var(--rec)':'var(--mut)'}">${CV.billets[b]||0}</div>
-        </div>`).join('')}
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:10px">Billets</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+      ${billetsDef.map(b=>svgBillet(b.val,b.bg,b.stripe,b.col,CV.billets[b.val]||0)).join('')}
     </div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:8px">Pièces</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-      ${PIECES.map(p=>`
-        <div style="background:${(CV.pieces[p]||0)>0?'var(--pla2)':'var(--bg2)'};border:1.5px solid ${(CV.pieces[p]||0)>0?'var(--pla)':'var(--brd)'};border-radius:10px;padding:8px 12px;text-align:center;min-width:60px">
-          <div style="font-size:11px;font-weight:700;color:var(--acc)">${p<1?p*100+'c':p+'€'}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${(CV.pieces[p]||0)>0?'var(--pla)':'var(--mut)'}">${CV.pieces[p]||0}</div>
-        </div>`).join('')}
-    </div>`;
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:10px">Pièces</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+      ${piecesDef.map(p=>svgPiece(p.val,p.label,p.bg,p.border,p.col,p.size,CV.pieces[p.val]||0)).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--mut);font-style:italic">tap = +1 · ✕ = retirer 1</div>`;
 
-  if(CV.lastCloture){
-    html+=`<div style="font-size:11px;color:var(--mut)">Dernière clôture : ${dlbl(CV.lastCloture)}</div>`;
-  }
+  if(CV.lastCloture) html+=`<div style="font-size:11px;color:var(--mut);margin-top:8px">Dernière clôture : ${dlbl(CV.lastCloture)}</div>`;
   document.getElementById('cv-widget').innerHTML=html;
 }
 
-async function confirmCloture(){
-  if(!confirm('Clôturer la caisse ? Le récap sera sauvegardé et les compteurs remis à zéro.')) return;
-  const today=new Date().toISOString().split('T')[0];
-  const recap={
-    date:today, total:totalCV(),
-    billets:{...CV.billets}, pieces:{...CV.pieces}
-  };
-  if(!CV.historique) CV.historique=[];
-  CV.historique.push(recap);
-  // Remettre à zéro
-  BILLETS.forEach(b=>CV.billets[b]=0);
-  PIECES.forEach(p=>CV.pieces[p]=0);
-  CV.lastCloture=today;
+async function cvWidgetAdd(val){
+  if(BILLETS.includes(val)) CV.billets[val]=(CV.billets[val]||0)+1;
+  else CV.pieces[val]=(CV.pieces[val]||0)+1;
   await saveCV();
   renderCaisseVirtuelle();
-  toast('✓ Caisse clôturée — récap sauvegardé');
+}
+
+async function cvWidgetRemove(val){
+  if(BILLETS.includes(val)) CV.billets[val]=Math.max(0,(CV.billets[val]||0)-1);
+  else CV.pieces[val]=Math.max(0,(CV.pieces[val]||0)-1);
+  await saveCV();
+  renderCaisseVirtuelle();
 }
 
    // ═══════════════════════════════════════
