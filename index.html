@@ -362,7 +362,6 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <button class="tab" onclick="goTab('recap',this)">✅ Récap</button>
     <button class="tab" onclick="goTab('clients',this)">👥 Clients</button>
     <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
-    <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
     <button class="tab" onclick="goTab('settings',this)">⚙️ Paramètres</button>
   </nav>
 
@@ -444,6 +443,8 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
         </div>
         <div style="font-size:11px;color:var(--mut);margin-top:6px" id="d-pr">—</div>
         <div style="font-size:11px;color:var(--mut);margin-top:2px" id="d-oc">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px" id="d-jours">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:3px" id="d-vs">—</div>
       </div>
       <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:12px;font-weight:700">💳 CA par mode</div>
@@ -463,6 +464,12 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       </div>
     </div>
 
+     <!-- Graphique CA semaines -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📊 CA par semaine — <span id="chart-mois"></span></div>
+      <div id="chart-semaines" style="display:flex;align-items:flex-end;gap:8px;height:80px"></div>
+    </div>
+     
     <!-- Virements en attente -->
     <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:12px">⏳ Virements en attente</div>
@@ -649,21 +656,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <div class="tw" id="comptaTable"></div>
   </div>
 
-  <!-- COMPTA DÉPOSÉE -->
-  <div class="view" id="view-compta">
-    <div class="sh">
-      <div><div class="st">📂 Compta déposée</div><div class="ss">Uniquement les règlements déposés ✅</div></div>
-    </div>
-    <div class="flt">
-      <select class="fi" id="comptaMois" onchange="renderCompta()"><option value="">Tous les mois</option></select>
-      <select class="fi" id="comptaPrat" onchange="renderCompta()">
-        <option value="ALL">Tous praticiens</option><option value="">Emma</option>
-        <option value="MARIE">MARIE</option><option value="GIULIA">GIULIA</option>
-      </select>
-    </div>
-    <div class="tw" id="comptaTable"></div>
-  </div>
-
+  
 </div><!-- /app -->
 
 <!-- MODALS -->
@@ -1169,6 +1162,35 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
 </div>    
 </div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>';
   document.getElementById('d-oc').textContent=(obj/(panier2||1)).toFixed(0)+' clientes';
+  // Jours restants + cadence
+  const joursRestants=dInM-dayN;
+  const resteCA=Math.max(0,obj-caNetRecap);
+  const cadence=joursRestants>0?(resteCA/joursRestants).toFixed(0):0;
+  const joursEl=document.getElementById('d-jours');
+  if(joursEl) joursEl.innerHTML=joursRestants>0
+    ?`J-${joursRestants} · <span style="color:var(--warn)">${cadence}€/jour</span> pour l'objectif`
+    :`Mois terminé`;
+
+  // Comparaison N vs N-1
+  const moisPrec=prevMois(mois);
+  const cMP=DB.caisse.filter(t=>inM(t.date,moisPrec)&&t.montant>0);
+  let espNetP=0;
+  for(const prat of ['MARIE','GIULIA']){
+    const pr=cMP.filter(t=>t.praticien===prat);
+    if(!pr.length) continue;
+    const cap=pr.reduce((s,t)=>s+t.montant,0);
+    const planp=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+    const chqvirp=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+    espNetP+=Math.max(0,cap*PARAMS.tauxSoc-(planp+chqvirp));
+  }
+  espNetP+=cMP.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+  const caNPrec=espNetP+cMP.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0)+cMP.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0)+cMP.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+  const diff=caNetRecap-caNPrec;
+  const pctDiff=caNPrec>0?((diff/caNPrec)*100).toFixed(1):null;
+  const vsEl=document.getElementById('d-vs');
+  if(vsEl) vsEl.innerHTML=caNPrec>0
+    ?`vs ${mc(moisPrec)} : <span style="color:${diff>=0?'var(--rec)':'var(--dep)'};font-weight:700">${diff>=0?'+':''}${fa(diff)} (${diff>=0?'+':''}${pctDiff}%)</span>`
+    :'';
   const proj2=dayN?caNetRecap/dayN*dInM:0;
   document.getElementById('d-pj').textContent=fa(proj2);
 
@@ -1202,6 +1224,39 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
           </div>
         </div>`).join('');
     }
+  }
+   // Graphique semaines
+  const chartEl=document.getElementById('chart-semaines');
+  const chartMoisEl=document.getElementById('chart-mois');
+  if(chartEl){
+    const weeks=semainesDuMois(y,m);
+    const wVals=weeks.map((wk,i)=>{
+      let v=0;
+      for(const prat of ['MARIE','GIULIA']){
+        const pr=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===prat&&t.montant>0);
+        if(!pr.length) continue;
+        const cap=pr.reduce((s,t)=>s+t.montant,0);
+        const planp=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+        const chqvirp=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+        v+=Math.max(0,cap*PARAMS.tauxSoc-(planp+chqvirp));
+      }
+      v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===''&&t.reglement==='ESP'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      return v;
+    });
+    const maxV=Math.max(...wVals,1);
+    if(chartMoisEl) chartMoisEl.textContent=MOIS[m-1]+' '+y;
+    chartEl.innerHTML=wVals.map((v,i)=>{
+      const h=Math.round((v/maxV)*70)+10;
+      const isNow=NOW.getMonth()+1===m&&NOW.getFullYear()===y&&NOW.getDate()>=weeks[i].s&&NOW.getDate()<=weeks[i].e;
+      return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" title="S${i+1}: ${fa(v)}">
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--acc);font-weight:600">${v>0?fa(v):''}</div>
+        <div style="width:100%;height:${h}px;background:${isNow?'var(--acc)':'var(--rose2)'};border-radius:6px 6px 0 0;border:1.5px solid ${isNow?'var(--acc2)':'var(--brd)'};transition:height .4s"></div>
+        <div style="font-size:10px;color:var(--mut)">S${i+1}</div>
+      </div>`;
+    }).join('');
   }
 }
 
@@ -1625,7 +1680,6 @@ function renderRecap(){
     const redevDep=redevDeposee(caisseM);
     const redevEcart=redevTotale-redevDep;
 
-    let cumulEspADeposer=0;
 
     html+=`<div class="card">
       <div class="card-hdr"><span>${mf(mois)}</span><span style="font-size:11px;font-weight:400;color:var(--mut)">${nw} semaines</span></div>
@@ -1638,8 +1692,8 @@ function renderRecap(){
 
     const row=(label,vals,tot,colFn,ttFn)=>`<tr>
       <td style="font-size:11px;font-weight:600;padding:8px 10px;color:var(--acc)">${label}</td>
-      ${vals.map((v,i)=>`<td style="text-align:right;padding:8px 9px">${tooltip(v!=null?fm(v,v>0):'—',ttFn?ttFn(i,v):'')}</td>`).join('')}
-      <td style="text-align:right;padding:8px 9px;font-weight:700">${tooltip(tot!=null?fm(tot,tot>0):'—',ttFn?ttFn(-1,tot):'')}</td>
+      ${vals.map((v,i)=>`<td style="text-align:right;padding:8px 9px;color:${colFn?colFn(v,i):''}">${tooltip(v!=null?fm(v,v>0):'—',ttFn?ttFn(i,v):'')}</td>`).join('')}
+      <td style="text-align:right;padding:8px 9px;font-weight:700;color:${colFn?colFn(tot,-1):''}">${tooltip(tot!=null?fm(tot,tot>0):'—',ttFn?ttFn(-1,tot):'')}</td>
     </tr>`;
 
     html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">CA NET SOCIÉTÉ</td></tr>`;
@@ -1713,17 +1767,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
 
     html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">TRÉSORERIE</td></tr>`;
 
-    const espW=weeks.map((wk,i)=>{
-      const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      // ESP déposées cette semaine = DÉPÔT ESPÈCES uniquement (pas chèques)
-      const deposes=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHEQUE')).reduce((s,t)=>s+t.montant,0);
-      // Cumul = écart semaine s'accumule (sans Math.max)
-      const ecartSem=chq+vir+plan+chargesW[i];
-      cumulEspADeposer=cumulEspADeposer+ecartSem;
-      return cumulEspADeposer;
-    });
+    
 
     // ESP déposées par semaine (hors chèques)
     const espDeposeesW=weeks.map(wk=>
@@ -1750,8 +1794,25 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     const espEcartW=espWCorr.map((v,i)=>v+espDeposeesW[i]);
     const espEcartTot=espWCorr[espWCorr.length-1]+espDeposesTot;
 
+    const espNetW=weeks.map((wk,i)=>{
+      let v=0;
+      for(const prat of ['MARIE','GIULIA']){
+        const pr=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===prat&&t.montant>0);
+        if(!pr.length) continue;
+        const cap=pr.reduce((s,t)=>s+t.montant,0);
+        const planp=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+        const chqvirp=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+        v+=Math.max(0,cap*PARAMS.tauxSoc-(planp+chqvirp));
+      }
+      v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===''&&t.reglement==='ESP'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+      return v;
+    });
+    // Cumul ESP nette encaissée
+    let cumulEspNet=0;
+    const espNetCumulW=espNetW.map(v=>{cumulEspNet+=v;return cumulEspNet;});
+
     html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espWCorr[espWCorr.length-1],
-      v=>v>0?'var(--rec)':v<0?'var(--dep)':'var(--mut)',
+      (v,i)=>i>=0?(Math.abs(espWCorr[i])>espNetCumulW[i]?'var(--dep)':'var(--rec)'):(Math.abs(espWCorr[espWCorr.length-1])>espNetCumulW[espNetCumulW.length-1]?'var(--dep)':'var(--rec)'),
       (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente`:`Cumul fin de mois`
     );
     html+=row('→ ESP déposées',espDeposeesW,espDeposesTot,
@@ -1805,77 +1866,7 @@ html+=row('💰 Total redevance due',redevTotW,redevTotTotal,
   document.getElementById('recapC').innerHTML=html||'<div class="empty">Aucune donnée</div>';
 }
 
-// ═══════════════════════════════════════
-// COMPTA DÉPOSÉE
-// ═══════════════════════════════════════
-function renderCompta(){
-  const filtM=document.getElementById('comptaMois')?.value||'';
-  const filtP=document.getElementById('comptaPrat')?.value;
 
-  // Lignes déposées = ESP déposée OU VIR/CHQ/PLANITY (auto déposé)
-  let rows=DB.caisse.filter(t=>{
-    if(t.montant<=0) return false;
-    if(t.reglement==='ESP') return t.depose===true;
-    return ['VIR','CHQ','PLANITY'].includes(t.reglement);
-  }).sort((a,b)=>b.date.localeCompare(a.date));
-
-  if(filtM) rows=rows.filter(t=>inM(t.date,filtM));
-  if(filtP!==undefined&&filtP!==null&&filtP!=='ALL') rows=rows.filter(t=>t.praticien===(filtP||''));
-
-  const byM={};
-  for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
-
-  let html=`<table><thead><tr>
-    <th>Date</th><th>Prat.</th><th>Nom</th><th>Prestation</th>
-    <th style="text-align:right">Montant</th><th>Règlement</th>
-  </tr></thead><tbody>`;
-
-  if(!Object.keys(byM).length) html+=`<tr><td colspan="6"><div class="empty">Aucune opération déposée</div></td></tr>`;
-
-  let grandTotal=0;
-  for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
-    const tot=mrows.reduce((s,t)=>s+t.montant,0);
-    grandTotal+=tot;
-    // Ventilation par mode
-    const modes={ESP:0,VIR:0,CHQ:0,PLANITY:0};
-    for(const t of mrows) if(modes[t.reglement]!==undefined) modes[t.reglement]+=t.montant;
-    html+=`<tr class="trm">
-      <td colspan="4" style="padding:8px 11px">▾ ${mf(mois)} <span style="font-weight:400;color:var(--mut);font-size:11px">${mrows.length} opérations</span></td>
-      <td colspan="2" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:var(--rec)">${fa(tot)}</td>
-    </tr>
-    <tr style="background:var(--bg2)">
-      <td colspan="6" style="padding:5px 11px">
-        <div style="display:flex;gap:14px;font-size:11px">
-          ${Object.entries(modes).filter(([,v])=>v>0).map(([mo,v])=>`${bdg(mo)} <span style="font-family:'DM Mono',monospace;font-weight:600">${fa(v)}</span>`).join('  ')}
-        </div>
-      </td>
-    </tr>`;
-    for(const t of mrows){
-      html+=`<tr>
-        <td class="tdt">${dlbl(t.date)}</td>
-        <td>${ptag(t.praticien)}</td>
-        <td style="font-weight:500">${t.nom}</td>
-        <td style="color:var(--mut);font-size:12px">${t.prestation||''}</td>
-        <td class="tp" style="text-align:right">${fa(t.montant)}</td>
-        <td>${bdg(t.reglement)}</td>
-      </tr>`;
-    }
-  }
-  html+=`<tr class="trt"><td colspan="4" style="font-size:13px">TOTAL DÉPOSÉ</td>
-    <td class="tp" style="text-align:right;font-size:14px">${fa(grandTotal)}</td><td></td>
-  </tr>`;
-  html+='</tbody></table>';
-  document.getElementById('comptaTable').innerHTML=html;
-
-  // Populate filter mois
-  const cMois=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse();
-  const comptaMoisEl=document.getElementById('comptaMois');
-  if(comptaMoisEl){
-    const cur=comptaMoisEl.value;
-    comptaMoisEl.innerHTML='<option value="">Tous les mois</option>'+cMois.map(m=>`<option value="${m}">${mf(m)}</option>`).join('');
-    if(cur)comptaMoisEl.value=cur;
-  }
-}
 
 // ═══════════════════════════════════════
 // COMPTA DÉPOSÉE
