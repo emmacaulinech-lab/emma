@@ -4880,13 +4880,15 @@ function renderAgenda(){
   }
 
   // CA estimé par praticien
-  const caEstime=(rdvs)=>rdvs.reduce((s,r)=>{
+  const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
     const prix=PARAMS.prixPrestations?.[r.prestation]||0;
-    return s+prix;
+    // Pour les autos, on prend uniquement la part société (tauxSoc)
+    const part=(praticien==='MARIE'||praticien==='GIULIA')?prix*PARAMS.tauxSoc:prix;
+    return s+part;
   },0);
 
   const couleurs={Emma:'var(--acc)',MARIE:'var(--marie)',GIULIA:'var(--giulia)'};
-  const totalCA=prats.reduce((s,p)=>s+caEstime(cols[p]),0);
+  const totalCA=prats.reduce((s,p)=>s+caEstime(cols[p],p),0);
 
   let html=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
@@ -4901,7 +4903,7 @@ function renderAgenda(){
               ${PARAMS.prixPrestations?.[r.prestation]?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(PARAMS.prixPrestations[r.prestation])}</div>`:''}
             </div>`).join('')
           :`<div style="font-size:11px;color:var(--mut);font-style:italic">Repos 😴</div>`}
-          ${cols[p].length?`<div style="font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:${couleurs[p]};margin-top:8px;text-align:right">~${fa(caEstime(cols[p]))}</div>`:''}
+          ${cols[p].length?`<div style="font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:${couleurs[p]};margin-top:8px;text-align:right">~${fa(caEstime(cols[p],p))}</div>`:''}
         </div>`).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--rec2);border-radius:12px">
