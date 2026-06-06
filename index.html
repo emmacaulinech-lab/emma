@@ -4901,7 +4901,18 @@ function renderAgenda(){
 
   // CA estimé par praticien
   const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
-    const prix=PARAMS.prixPrestations?.[r.prestation]||0;
+    // Recherche insensible à la casse et aux espaces
+    const findPrix=(prestation)=>{
+      if(!prestation||!PARAMS.prixPrestations) return 0;
+      // Correspondance exacte d'abord
+      if(PARAMS.prixPrestations[prestation]) return PARAMS.prixPrestations[prestation];
+      // Correspondance insensible à la casse
+      const key=Object.keys(PARAMS.prixPrestations).find(k=>
+        k.toLowerCase().trim()===prestation.toLowerCase().trim()
+      );
+      return key?PARAMS.prixPrestations[key]:0;
+    };
+    const prix=findPrix(r.prestation);
     // Pour les autos, on prend uniquement la part société (tauxSoc)
     const part=(praticien==='MARIE'||praticien==='GIULIA')?prix*PARAMS.tauxSoc:prix;
     return s+part;
