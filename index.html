@@ -2022,8 +2022,8 @@ function editClient(nom){
 async function delClient(nom){
   if(!confirm('Supprimer toutes les prestations de '+nom+' ?')) return;
   const toDelete=DB.caisse.filter(t=>t.nom===nom);
-  for(const t of toDelete) await deleteEntry_fb('caisse',t.id);
   DB.caisse=DB.caisse.filter(t=>t.nom!==nom);
+  await saveAll();
   renderAll(); toast('Supprimé');
 }
 
@@ -2497,8 +2497,8 @@ function editEntry(table, id){ openModal(table, id); }
 
 async function delEntry(table, id){
   if(!confirm('Supprimer ?')) return;
-  await deleteEntry_fb(table, id);
   DB[table]=DB[table].filter(t=>t.id!==id);
+  await saveAll();
   renderAll(); toast('Supprimé');
 }
 
