@@ -4835,9 +4835,25 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     });
 
     const data=await response.json();
+    console.log('Réponse Netlify:', JSON.stringify(data));
+    
+    if(data.error){
+      throw new Error(data.error);
+    }
+    
+    if(!data.content||!Array.isArray(data.content)){
+      throw new Error('Réponse inattendue: '+JSON.stringify(data));
+    }
+    
     const text=data.content.map(i=>i.text||'').join('');
+    console.log('Texte Claude:', text);
     const clean=text.replace(/```json/g,'').replace(/```/g,'').trim();
-    agendaData=JSON.parse(clean);
+    
+    // Extraire juste le tableau JSON
+    const match=clean.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('Pas de JSON trouvé dans: '+clean);
+    
+    agendaData=JSON.parse(match[0]);
     renderAgenda();
 
   } catch(e) {
