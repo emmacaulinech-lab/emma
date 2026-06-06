@@ -360,6 +360,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <button class="tab" onclick="goTab('variables',this)">📊 Ch. Variables</button>
     <button class="tab" onclick="goTab('auto',this)">🎭 Auto</button>
     <button class="tab" onclick="goTab('recap',this)">✅ Récap</button>
+    <button class="tab" onclick="goTab('boutique',this)">🛍️ Boutique</button>
     <button class="tab" onclick="goTab('clients',this)">👥 Clients</button>
     <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
     <button class="tab" onclick="goTab('settings',this)">⚙️ Paramètres</button>
@@ -664,7 +665,25 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
    
 <!-- SAISIE RAPIDE -->
 <button onclick="openRapide()" style="position:fixed;bottom:24px;right:24px;z-index:400;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;box-shadow:var(--shadow2);cursor:pointer;font-size:22px;color:white;display:flex;align-items:center;justify-content:center;">⚡</button>
-  
+
+<!-- BOUTIQUE -->
+<div class="view" id="view-boutique">
+  <div class="sh">
+    <div><div class="st">🛍️ Boutique</div><div class="ss">Accessoires · Produits franchise · Lots · Ventes</div></div>
+  </div>
+
+  <!-- Sous-navigation -->
+  <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
+    <button id="btab0" onclick="goBTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">📦 Produits</button>
+    <button id="btab1" onclick="goBTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🎁 Lots</button>
+    <button id="btab2" onclick="goBTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🛒 Ventes</button>
+  </div>
+
+  <div id="bview-produits"></div>
+  <div id="bview-lots" style="display:none"></div>
+  <div id="bview-ventes" style="display:none"></div>
+</div>
+   
 </div><!-- /app -->
 
 <!-- MODALS -->
@@ -772,6 +791,11 @@ auth.onAuthStateChanged(async user => {
 let DB = {
   caisse: [], banque: [], fixes: [], variables: [],
   prestations: ['Pose complète - Volume Russe','Remplissage 4 semaines','Remplissage 3 semaines','Remplissage 2 semaines','Retouche','Browlift','Lashlift coréen','Rehaussement cils','Acompte','Autre'],
+  boutique: {
+    produits: [],
+    lots: [],
+    ventes: []
+  }
 };
 
 let PARAMS = {
@@ -794,6 +818,7 @@ async function loadAll() {
       if(d.variables)   DB.variables   = JSON.parse(d.variables);
       if(d.prestations) DB.prestations = JSON.parse(d.prestations);
       if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
+      if(d.boutique)    DB.boutique = JSON.parse(d.boutique);
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -823,6 +848,7 @@ async function saveAll() {
       fixes:       JSON.stringify(DB.fixes),
       variables:   JSON.stringify(DB.variables),
       prestations: JSON.stringify(DB.prestations),
+      boutique:    JSON.stringify(DB.boutique),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -1040,6 +1066,7 @@ function renderAll(){
   renderClients();
   renderCompta();
   renderSettings();
+  renderBoutique();
   renderCaisseVirtuelle();
 }
 
@@ -3549,6 +3576,36 @@ function openNouvellesClientes(){
   document.querySelector('#mainModal .ma').style.display='none';
   document.getElementById('mainModal').classList.add('open');
 }
+
+   // ═══════════════════════════════════════
+// BOUTIQUE — NAVIGATION
+// ═══════════════════════════════════════
+let bTabActive=0;
+
+function goBTab(i){
+  bTabActive=i;
+  ['produits','lots','ventes'].forEach((n,j)=>{
+    document.getElementById('bview-'+n).style.display=j===i?'block':'none';
+    const btn=document.getElementById('btab'+j);
+    if(btn){
+      btn.style.background=j===i?'white':'transparent';
+      btn.style.color=j===i?'var(--acc)':'var(--mut)';
+      btn.style.boxShadow=j===i?'var(--shadow)':'none';
+    }
+  });
+  if(i===0) renderBProduits();
+  if(i===1) renderBLots();
+  if(i===2) renderBVentes();
+}
+
+function renderBoutique(){
+  goBTab(bTabActive);
+}
+
+function renderBProduits(){ document.getElementById('bview-produits').innerHTML='<div class="empty">Chargement...</div>'; }
+function renderBLots(){ document.getElementById('bview-lots').innerHTML='<div class="empty">Chargement...</div>'; }
+function renderBVentes(){ document.getElementById('bview-ventes').innerHTML='<div class="empty">Chargement...</div>'; }
+   
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
 </body>
