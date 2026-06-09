@@ -499,6 +499,18 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">🏆 Programme fidélité</div>
   <div id="fidelite-widget"></div>
 </div>
+
+     <!-- Salaires dus -->
+   <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">💰 Salaires dus</div>
+        <label style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:white;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif">
+          📄 Importer fiche de paie
+          <input type="file" accept=".pdf" onchange="importerFichePaie(event)" style="display:none">
+        </label>
+      </div>
+      <div id="salaires-widget"></div>
+    </div>
      
     <!-- Virements en attente -->
     <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
@@ -814,6 +826,7 @@ auth.onAuthStateChanged(async user => {
 // ═══════════════════════════════════════
 let DB = {
   caisse: [], banque: [], fixes: [], variables: [],
+  salaires: [],
   prestations: ['Pose complète - Volume Russe','Remplissage 4 semaines','Remplissage 3 semaines','Remplissage 2 semaines','Retouche','Browlift','Lashlift coréen','Rehaussement cils','Acompte','Autre'],
   boutique: {
     produits: [],
@@ -844,6 +857,7 @@ async function loadAll() {
       if(d.variables)   DB.variables   = JSON.parse(d.variables);
       if(d.prestations) DB.prestations = JSON.parse(d.prestations);
       if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
+      if(d.salaires) DB.salaires=JSON.parse(d.salaires);
       if(d.boutique){
         const b=JSON.parse(d.boutique);
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
@@ -879,6 +893,7 @@ async function saveAll() {
       variables:   JSON.stringify(DB.variables),
       prestations: JSON.stringify(DB.prestations),
       boutique:    JSON.stringify(DB.boutique),
+      salaires:    JSON.stringify(DB.salaires),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -1336,6 +1351,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   if(countEl) countEl.textContent=`${nbNouvelles} ce mois`;
 
    renderFidelite();
+   renderSalaires();
 }
 
 // ═══════════════════════════════════════
@@ -5044,6 +5060,245 @@ async function ajouterPrestationAgenda(prestation, btn){
   btn.parentElement.innerHTML=`<span style="font-size:12px">${prestation}</span><span style="color:var(--rec);font-size:12px">✅</span>`;
   toast('✓ Prestation ajoutée !');
   renderSettings();
+}
+
+// ═══════════════════════════════════════
+// SALAIRES
+// ═══════════════════════════════════════
+async function importerFichePaie(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const el=document.getElementById('salaires-widget');
+  el.innerHTML=`<div style="text-align:center;padding:16px;color:var(--mut);font-size:12px">
+    <div class="spinner" style="margin:0 auto 8px"></div>Lecture de la fiche de paie...
+  </div>`;
+
+  try{
+    // Charger pdf.js
+    if(!window.pdfjsLib){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc=
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    const page=await pdf.getPage(1);
+    const content=await page.getTextContent();
+    const text=content.items.map(i=>i.str).join(' ');
+
+    // Extraire Net payé
+    const netMatch=text.match(/Net\s+pay[eé]\s*:?\s*([\d\s,\.]+)\s*euros?/i)||
+                   text.match(/Net\s+pay[eé]\s+([\d\s,\.]+)/i)||
+                   text.match(/([\d\s,\.]+)\s*Net\s+pay[eé]/i);
+
+    // Extraire période
+    const periodeMatch=text.match(/P[eé]riode\s*:?\s*(\w+)\s+(\d{4})/i)||
+                       text.match(/(\w+)\s+(\d{4})/i);
+
+    let netPaye=null;
+    let periode=null;
+
+    if(netMatch){
+      const raw=netMatch[1].replace(/\s/g,'').replace(',','.');
+      netPaye=parseFloat(raw);
+    }
+
+    // Chercher "1 699,76" ou "1699.76" après "Net payé"
+    const netMatch2=text.match(/Net\s+pay[eé][^\d]*([\d\s]{1,4}[,\.]\d{2})/i);
+    if(netMatch2&&!netPaye){
+      netPaye=parseFloat(netMatch2[1].replace(/\s/g,'').replace(',','.'));
+    }
+
+    // Chercher le montant directement
+    const allMontants=text.match(/\d[\d\s]*[,\.]\d{2}/g)||[];
+    // Le net payé est souvent le dernier montant significatif avant "euros"
+    if(!netPaye){
+      const montants=allMontants.map(m=>parseFloat(m.replace(/\s/g,'').replace(',','.'))).filter(m=>m>500&&m<5000);
+      if(montants.length) netPaye=montants[montants.length-1];
+    }
+
+    // Période
+    const moisFr={janvier:'01',février:'02',mars:'03',avril:'04',mai:'05',juin:'06',
+                  juillet:'07',août:'08',septembre:'09',octobre:'10',novembre:'11',décembre:'12'};
+    if(periodeMatch){
+      const moisStr=periodeMatch[1].toLowerCase();
+      const annee=periodeMatch[2];
+      const moisNum=moisFr[moisStr];
+      if(moisNum&&annee) periode=`${annee}-${moisNum}`;
+    }
+    // Fallback période depuis nom du fichier
+    if(!periode){
+      const today=new Date();
+      periode=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    if(!netPaye||isNaN(netPaye)){
+      el.innerHTML=`<div style="color:var(--dep);font-size:12px;padding:10px">⚠️ Impossible de lire le net payé. Saisis-le manuellement.</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="number" id="manual-net" placeholder="1699.76" step="0.01" style="flex:1;padding:8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:13px">
+          <input type="month" id="manual-periode" value="${periode||''}" style="padding:8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px">
+          <button class="btn bd bsm" onclick="ajouterSalaireManuel()">✓ OK</button>
+        </div>`;
+      return;
+    }
+
+    // Vérifier si cette période existe déjà
+    const existing=DB.salaires.find(s=>s.periode===periode);
+    if(existing){
+      toast(`⚠ Fiche de ${mf(periode)} déjà importée`);
+      renderSalaires();
+      return;
+    }
+
+    // Ajouter le salaire
+    DB.salaires.push({id:genId(),periode,netPaye,verse:0});
+    await saveAll();
+    renderSalaires();
+    toast(`✓ Fiche de ${mf(periode)} importée — Net payé : ${fa(netPaye)}`);
+
+  }catch(e){
+    console.error(e);
+    el.innerHTML=`<div style="color:var(--dep);font-size:12px;padding:10px">⚠️ Erreur lecture PDF: ${e.message}</div>`;
+  }
+  event.target.value='';
+}
+
+async function ajouterSalaireManuel(){
+  const net=parseFloat(document.getElementById('manual-net')?.value);
+  const periode=document.getElementById('manual-periode')?.value;
+  if(!net||!periode){toast('⚠ Remplis les deux champs');return;}
+  const existing=DB.salaires.find(s=>s.periode===periode);
+  if(existing){toast(`⚠ Fiche de ${mf(periode)} déjà importée`);return;}
+  DB.salaires.push({id:genId(),periode,netPaye:net,verse:0});
+  await saveAll();
+  renderSalaires();
+  toast(`✓ Salaire ${mf(periode)} ajouté`);
+}
+
+function totalSalaireDu(){
+  return DB.salaires.reduce((s,sal)=>s+Math.max(0,sal.netPaye-sal.verse),0);
+}
+
+function renderSalaires(){
+  const el=document.getElementById('salaires-widget');
+  if(!el) return;
+
+  const totalDu=totalSalaireDu();
+
+  if(!DB.salaires.length){
+    el.innerHTML=`<div style="text-align:center;padding:16px;color:var(--mut);font-size:12px">
+      📄 Importe tes fiches de paie pour suivre tes salaires dus
+    </div>`;
+    return;
+  }
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;background:${totalDu>0?'var(--dep2)':'var(--rec2)'};border-radius:14px;padding:12px 16px;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;color:var(--mut);margin-bottom:3px">Total à te verser</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:26px;font-weight:700;color:${totalDu>0?'var(--dep)':'var(--rec)'}">${fa(totalDu)}</div>
+      </div>
+      ${totalDu>0?`<button class="btn bd" onclick="openVerserSalaire()" style="background:var(--dep);border-color:var(--dep)">💸 Je me verse</button>`:'<span style="color:var(--rec);font-size:13px;font-weight:700">✅ À jour !</span>'}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">`;
+
+  for(const sal of [...DB.salaires].sort((a,b)=>b.periode.localeCompare(a.periode))){
+    const du=Math.max(0,sal.netPaye-sal.verse);
+    const pct=Math.round(sal.verse/sal.netPaye*100);
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border-radius:12px">
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:700">${mf(sal.periode)}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:${du>0?'var(--dep)':'var(--rec)'}">
+            ${du>0?`Reste ${fa(du)}`:'✅ Versé'}
+          </span>
+        </div>
+        <div style="height:4px;background:var(--brd);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--rec)':'var(--acc)'};border-radius:99px;transition:width .4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:10px;color:var(--mut)">Net payé : ${fa(sal.netPaye)}</span>
+          <span style="font-size:10px;color:var(--mut)">Versé : ${fa(sal.verse)} (${pct}%)</span>
+        </div>
+      </div>
+      <button onclick="delSalaire('${sal.id}')" style="background:none;border:none;cursor:pointer;color:var(--brd2);font-size:16px">✕</button>
+    </div>`;
+  }
+
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+function openVerserSalaire(){
+  const totalDu=totalSalaireDu();
+  document.getElementById('mTitle').textContent='💸 Me verser mon salaire';
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--dep2);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between">
+      <span style="font-size:12px;color:var(--mut)">Total à te verser</span>
+      <span style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:var(--dep)">${fa(totalDu)}</span>
+    </div>
+    <div class="fr"><label>Montant à verser ce mois (€)</label>
+      <input type="number" id="versement-mnt" value="${totalDu.toFixed(2)}" step="0.01" max="${totalDu}" style="font-size:16px;padding:12px">
+    </div>
+    <div class="fr"><label>Mois concerné</label>
+      <input type="month" id="versement-mois" value="${new Date().toISOString().slice(0,7)}" style="font-size:14px;padding:10px">
+    </div>
+    <div style="background:var(--bg2);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--mut)">
+      💡 Ce montant sera ajouté à la charge fixe <strong>SALAIRE EMMA</strong> du mois sélectionné
+    </div>`;
+
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerVersement()" style="flex:1;font-size:15px;padding:13px">✓ Valider</button>
+  `;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerVersement(){
+  const mnt=parseFloat(document.getElementById('versement-mnt')?.value);
+  const mois=document.getElementById('versement-mois')?.value;
+  if(!mnt||mnt<=0||!mois){toast('⚠ Remplis tous les champs');return;}
+
+  // Chercher ou créer la ligne SALAIRE EMMA dans charges fixes
+  let fixe=DB.fixes.find(f=>f.mois===mois&&f.nom==='SALAIRE EMMA');
+  if(fixe){
+    fixe.montant=(fixe.montant||0)-mnt; // négatif car charge
+    fixe.prev=(fixe.prev||0)-mnt;
+  } else {
+    fixe={id:genId(),mois,nom:'SALAIRE EMMA',montant:-mnt,prev:-mnt,paye:true};
+    DB.fixes.push(fixe);
+  }
+
+  // Mettre à jour le versé dans les salaires (du plus ancien au plus récent)
+  let restant=mnt;
+  for(const sal of [...DB.salaires].sort((a,b)=>a.periode.localeCompare(b.periode))){
+    if(restant<=0) break;
+    const du=Math.max(0,sal.netPaye-sal.verse);
+    const aVerser=Math.min(du,restant);
+    sal.verse+=aVerser;
+    restant-=aVerser;
+  }
+
+  await saveAll();
+  closeMo('mainModal');
+  renderSalaires();
+  renderFixes();
+  toast(`✓ ${fa(mnt)} ajoutés à SALAIRE EMMA de ${mf(mois)}`);
+}
+
+async function delSalaire(id){
+  if(!confirm('Supprimer cette fiche de paie ?')) return;
+  DB.salaires=DB.salaires.filter(s=>s.id!==id);
+  await saveAll();
+  renderSalaires();
+  toast('Supprimé');
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
