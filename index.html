@@ -4980,15 +4980,6 @@ function renderAgenda(){
               </button>`}
             </div>`;
           }).join('')
-              <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--mut)">${r.heure_debut} → ${r.heure_fin}</div>
-              <div style="font-size:12px;font-weight:700;color:var(--txt);margin-top:2px">${r.nom}</div>
-              <div style="font-size:11px;color:var(--mut);margin-top:1px">${r.prestation||'—'}</div>
-              ${PARAMS.prixPrestations?.[r.prestation]?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(PARAMS.prixPrestations[r.prestation])}</div>`:''}
-              <button onclick="prefillFromAgenda('${r.nom.replace(/'/g,"\\'")}','${(r.prestation||'').replace(/'/g,"\\'")}','${r.praticien}')" 
-                style="margin-top:5px;padding:3px 9px;border-radius:20px;border:1.5px solid var(--acc);background:white;color:var(--acc);font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
-                + Caisse
-              </button>
-            </div>`).join('')
           :`<div style="font-size:11px;color:var(--mut);font-style:italic">Repos 😴</div>`}
           ${cols[p].length?`<div style="font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:${couleurs[p]};margin-top:8px;text-align:right">~${fa(caEstime(cols[p],p))}</div>`:''}
         </div>`).join('')}
