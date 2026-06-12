@@ -335,6 +335,10 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       <label>Mot de passe</label>
       <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
     </div>
+     <div class="login-field" id="apiKeyField" style="display:none">
+      <label>Clé API Anthropic <span style="font-size:10px;color:var(--mut)">(une seule fois)</span></label>
+      <input type="text" id="loginApiKey" placeholder="sk-ant-..." autocomplete="off">
+    </div>
     <button class="login-btn" onclick="doLogin()">Se connecter</button>
     <div class="login-error" id="loginErr"></div>
   </div>
@@ -787,6 +791,8 @@ let userRef = null;
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const pwd = document.getElementById('loginPwd').value;
+  const apiKey = document.getElementById('loginApiKey').value.trim();
+  if(apiKey) localStorage.setItem('anthropic_key', apiKey);
   const errEl = document.getElementById('loginErr');
   errEl.textContent = '';
   try {
@@ -4863,7 +4869,7 @@ async function importerPlanity(event){
   method:'POST',
   headers:{
     'Content-Type':'application/json',
-    'x-api-key':'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',
+    'x-api-key':localStorage.getItem('anthropic_key')||'',
     'anthropic-version':'2023-06-01',
     'anthropic-dangerous-direct-browser-access':'true'
   },
@@ -5327,6 +5333,11 @@ async function delSalaire(id){
   await saveAll();
   renderSalaires();
   toast('Supprimé');
+}
+
+// Afficher champ clé API si pas encore saisie
+if(!localStorage.getItem('anthropic_key')){
+  document.getElementById('apiKeyField').style.display='block';
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
