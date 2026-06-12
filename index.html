@@ -4996,11 +4996,10 @@ function renderAgenda(){
   `;
 
   el.innerHTML=html;
-  // Vérifier les nouvelles prestations après le rendu
   setTimeout(checkNouvellesPrestations, 100);
 }
 
-   function prefillFromAgenda(nom, prestation, praticien){
+function prefillFromAgenda(nom, prestation, praticien){
   // Ouvrir saisie rapide pré-remplie
   openRapide();
   // Attendre que le modal soit ouvert puis pré-remplir
