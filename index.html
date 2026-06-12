@@ -4943,8 +4943,21 @@ function renderAgenda(){
       ${prats.map(p=>`
         <div>
           <div style="font-size:11px;font-weight:700;color:${couleurs[p]};margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid ${couleurs[p]}">${p}</div>
-          ${cols[p].length?cols[p].sort((a,b)=>a.heure_debut.localeCompare(b.heure_debut)).map(r=>`
-            <div style="background:${couleurs[p]}15;border-left:3px solid ${couleurs[p]};border-radius:0 8px 8px 0;padding:7px 9px;margin-bottom:6px">
+          ${cols[p].length?cols[p].sort((a,b)=>a.heure_debut.localeCompare(b.heure_debut)).map(r=>{
+            const moisDash=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
+            const encaissee=DB.caisse.some(t=>t.nom===r.nom&&inM(t.date,moisDash)&&t.montant>0);
+            return`
+            <div style="background:${encaissee?'#E1F5EE':couleurs[p]+'15'};border-left:3px solid ${encaissee?'#085041':couleurs[p]};border-radius:0 8px 8px 0;padding:7px 9px;margin-bottom:6px">
+              <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--mut)">${r.heure_debut} → ${r.heure_fin}</div>
+              <div style="font-size:12px;font-weight:700;color:var(--txt);margin-top:2px">${r.nom}</div>
+              <div style="font-size:11px;color:var(--mut);margin-top:1px">${r.prestation||'—'}</div>
+              ${PARAMS.prixPrestations?.[r.prestation]?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(PARAMS.prixPrestations[r.prestation])}</div>`:''}
+              ${encaissee?`<div style="font-size:10px;color:#085041;font-weight:700;margin-top:4px">✅ Encaissée</div>`:`<button onclick="prefillFromAgenda('${r.nom.replace(/'/g,"\\'")}','${(r.prestation||'').replace(/'/g,"\\'")}','${r.praticien}')" 
+                style="margin-top:5px;padding:3px 9px;border-radius:20px;border:1.5px solid var(--acc);background:white;color:var(--acc);font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+                + Caisse
+              </button>`}
+            </div>`;
+          }).join('')
               <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--mut)">${r.heure_debut} → ${r.heure_fin}</div>
               <div style="font-size:12px;font-weight:700;color:var(--txt);margin-top:2px">${r.nom}</div>
               <div style="font-size:11px;color:var(--mut);margin-top:1px">${r.prestation||'—'}</div>
