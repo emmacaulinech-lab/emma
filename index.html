@@ -4916,7 +4916,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     renderAgenda();
 
  } catch(e) {
-    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
+    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur : ${e.message||JSON.stringify(e)}</div>`;
     console.error(e);
   }
 
