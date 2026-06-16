@@ -4915,8 +4915,8 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
   localStorage.setItem('agendaData', JSON.stringify({date:todaySave, rdvs:agendaData}));
     renderAgenda();
 
-  } catch(e) {
-    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur — réessaie</div>`;
+ } catch(e) {
+    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
     console.error(e);
   }
 
