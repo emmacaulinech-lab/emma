@@ -1839,10 +1839,9 @@ function renderRecap(){
     const achatsTot=achatsW.reduce((s,v)=>s+v,0);
 
     const estW=weeks.map((wk,i)=>{
-      if(i<nw-1) return chargeParSemaine;
-      // Dernière semaine : total réel − ce qui a déjà été comptabilisé
-      return totalReel - chargeParSemaine*3;
-    });
+  if(i<nw-1) return chargeParSemaine;
+  return totalReel - chargeParSemaine*(nw-1);
+});
 
     const chargesW=weeks.map((wk,i)=>estW[i]+achatsW[i]);
     // Total charges = total réel (fixes+variables) + achats réels
