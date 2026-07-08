@@ -912,6 +912,7 @@ async function loadAll() {
       toast('✓ Données migrées');
     }
      await loadCV();
+     await loadFactures();
     // Recharger l'agenda si données du jour disponibles
     if(agendaData) renderAgenda();
   } catch(e) {
