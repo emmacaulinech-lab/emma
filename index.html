@@ -812,9 +812,9 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <h2 id="fModalTitle">Nouvelle étudiante</h2>
     <div id="fModalBody"></div>
     <div class="ma">
-      <button class="btn bg" onclick="closeMo('formationModal')">Annuler</button>
-      <button class="btn bd" onclick="saveEtudiante()">Enregistrer</button>
-    </div>
+  <button class="btn bg" onclick="closeMo('formationModal')">Annuler</button>
+  <button class="btn bd" id="saveEtudianteBtn" onclick="saveEtudiante()">Enregistrer</button>
+</div>
   </div>
 </div>
    
@@ -6197,8 +6197,7 @@ function renderFormationsModule(){
   ensureFormationsData();
   goFTab(fTabActive);
 }
-
-// ── Étudiantes ──
+// Étudiantes
 function renderFEtudiantes(){
   ensureFormationsData();
   const list=DB.formations.etudiantes;
@@ -6210,7 +6209,7 @@ function renderFEtudiantes(){
   if(!list.length){
     html+=`<div class="empty">Aucune étudiante — clique sur "+ Ajouter"</div>`;
   } else {
-    html+=list.map((e,i)=>{
+    html+=list.map(e=>{
       const col=STATUT_COLORS[e.statut]||'var(--mut)';
       const kitDone=(e.kit?.contenu||[]).every(k=>k.coche)&&(e.kit?.contenu||[]).length>0;
       return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
@@ -6226,11 +6225,11 @@ function renderFEtudiantes(){
           <span>📦 Kit : ${kitDone?'✅ Complet':(e.kit?.statut||'à préparer')}</span>
         </div>
         <div style="display:flex;gap:8px">
-          <select onchange="changeStatutEtudiante(${i},this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+          <select onchange="changeStatutEtudiante('${e.id}',this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
             ${STATUTS_FORMATION.map(s=>`<option ${e.statut===s?'selected':''}>${s}</option>`).join('')}
           </select>
-          <button class="btn bg bsm" onclick="openEtudianteModal(${i})">✏️ Modifier</button>
-          <button class="btn br bsm" onclick="delEtudiante(${i})">✕</button>
+          <button class="btn bg bsm" onclick="openEtudianteModal('${e.id}')">✏️ Modifier</button>
+          <button class="btn br bsm" onclick="delEtudiante('${e.id}')">✕</button>
         </div>
       </div>`;
     }).join('');
@@ -6238,16 +6237,18 @@ function renderFEtudiantes(){
   document.getElementById('fview-etudiantes').innerHTML=html;
 }
 
-async function changeStatutEtudiante(i,statut){
-  DB.formations.etudiantes[i].statut=statut;
+async function changeStatutEtudiante(id,statut){
+  const e=DB.formations.etudiantes.find(x=>x.id===id);
+  if(!e) return;
+  e.statut=statut;
   await saveAll();
   renderFEtudiantes();
   toast('✓ Statut mis à jour');
 }
 
-function openEtudianteModal(idx=null){
-  const e=idx!=null?DB.formations.etudiantes[idx]:null;
-  document.getElementById('fModalTitle').textContent=idx!=null?'Modifier étudiante':'Nouvelle étudiante';
+function openEtudianteModal(id=null){
+  const e=id?DB.formations.etudiantes.find(x=>x.id===id):null;
+  document.getElementById('fModalTitle').textContent=e?'Modifier étudiante':'Nouvelle étudiante';
   document.getElementById('fModalBody').innerHTML=`
     <div class="g2">
       <div class="fr"><label>Nom</label><input type="text" id="fe-nom" value="${e?.nom||''}"></div>
@@ -6282,17 +6283,22 @@ function openEtudianteModal(idx=null){
     </div>
     <div class="fr"><label>Notes</label><textarea id="fe-notes" rows="2">${e?.notes||''}</textarea></div>
   `;
-  document.getElementById('formationModal').dataset.editIdx=idx!=null?idx:'';
+  document.getElementById('formationModal').dataset.editId=id||'';
   document.getElementById('formationModal').classList.add('open');
+  document.getElementById('saveEtudianteBtn').disabled=false;
 }
 
 async function saveEtudiante(){
   ensureFormationsData();
-  const idx=document.getElementById('formationModal').dataset.editIdx;
-  const nom=document.getElementById('fe-nom')?.value?.trim();
-  if(!nom){toast('⚠ Le nom est requis');return;}
+  const btn=document.getElementById('saveEtudianteBtn');
+  if(btn.disabled) return; // anti double-clic
+  btn.disabled=true;
 
-  const existing=idx!==''?DB.formations.etudiantes[idx]:null;
+  const editId=document.getElementById('formationModal').dataset.editId;
+  const nom=document.getElementById('fe-nom')?.value?.trim();
+  if(!nom){toast('⚠ Le nom est requis');btn.disabled=false;return;}
+
+  const existing=editId?DB.formations.etudiantes.find(x=>x.id===editId):null;
   const etu={
     id:existing?.id||genId(),
     nom,
@@ -6309,8 +6315,12 @@ async function saveEtudiante(){
     notes:document.getElementById('fe-notes')?.value||''
   };
 
-  if(idx!=='') DB.formations.etudiantes[idx]=etu;
-  else DB.formations.etudiantes.push(etu);
+  if(existing){
+    const i=DB.formations.etudiantes.findIndex(x=>x.id===editId);
+    DB.formations.etudiantes[i]=etu;
+  } else {
+    DB.formations.etudiantes.push(etu);
+  }
 
   await saveAll();
   closeMo('formationModal');
@@ -6318,14 +6328,13 @@ async function saveEtudiante(){
   toast('✓ Étudiante enregistrée');
 }
 
-async function delEtudiante(idx){
+async function delEtudiante(id){
   if(!confirm('Supprimer cette étudiante ?')) return;
-  DB.formations.etudiantes.splice(idx,1);
+  DB.formations.etudiantes=DB.formations.etudiantes.filter(x=>x.id!==id);
   await saveAll();
   renderFEtudiantes();
   toast('Supprimé');
 }
-
 // ── Kits ──
 function renderFKits(){
   ensureFormationsData();
