@@ -360,10 +360,11 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <button class="tab active" onclick="goTab('dashboard',this)">🏠 Dashboard</button>
     <button class="tab" onclick="goTab('caisse',this)">🧳 Caisse</button>
     <button class="tab" onclick="goTab('banque',this)">🏦 Banque</button>
-    <button class="tab" onclick="goTab('fixes',this)">✏️ Ch. Fixes</button>
-    <button class="tab" onclick="goTab('variables',this)">📊 Ch. Variables</button>
     <button class="tab" onclick="goTab('auto',this)">🎭 Auto</button>
     <button class="tab" onclick="goTab('recap',this)">✅ Récap</button>
+    <button class="tab" onclick="goTab('factures',this)">🧾 Factures</button>
+    <button class="tab" onclick="goTab('fixes',this)">✏️ Ch. Fixes</button>
+    <button class="tab" onclick="goTab('variables',this)">📊 Ch. Variables</button>
     <button class="tab" onclick="goTab('boutique',this)">🛍️ Boutique</button>
     <button class="tab" onclick="goTab('clients',this)">👥 Clients</button>
     <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
@@ -610,6 +611,17 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
     <div id="variablesC"></div>
   </div>
+
+<div class="view" id="view-factures">
+  <div class="sh">
+    <div><div class="st">🧾 Factures fournisseurs</div><div class="ss">TVA déductible détaillée</div></div>
+    <label class="btn bd" style="cursor:pointer">
+      + Importer une facture
+      <input type="file" accept="image/*,.pdf" onchange="importerFacture(event)" style="display:none">
+    </label>
+  </div>
+  <div id="facturesC"></div>
+</div>
 
   <!-- AUTO -->
   <div class="view" id="view-auto">
@@ -1138,6 +1150,7 @@ function renderAll(){
   renderSettings();
   renderBoutique();
   renderCaisseVirtuelle();
+  renderFactures();
 }
 
 function popSelects(){
@@ -2801,6 +2814,222 @@ async function validerRapprochementCharge(banqueId){
   closeMo('mainModal');
   renderAll();
   toast('✓ Charge rapprochée — montant réel mis à jour');
+}
+
+// ═══════════════════════════════════════
+// FACTURES FOURNISSEURS + TVA
+// ═══════════════════════════════════════
+let DB_FACTURES=[];
+
+async function loadFactures(){
+  if(!userRef) return;
+  try{
+    const snap=await userRef.collection('factures').get();
+    DB_FACTURES=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){console.error(e);}
+}
+
+async function saveFacture(f){
+  if(!userRef) return;
+  try{ await userRef.collection('factures').doc(f.id).set(f); }catch(e){console.error(e);}
+}
+
+async function deleteFactureFB(id){
+  if(!userRef) return;
+  try{ await userRef.collection('factures').doc(id).delete(); }catch(e){console.error(e);}
+}
+
+async function importerFacture(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return;}
+
+  const el=document.getElementById('facturesC');
+  el.innerHTML=`<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Analyse de la facture...</div></div>`;
+
+  try{
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const isPDF=file.type==='application/pdf';
+    let content;
+
+    if(isPDF){
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload=res;s.onerror=rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      const arrayBuffer=await file.arrayBuffer();
+      const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+      let text='';
+      for(let i=1;i<=Math.min(pdf.numPages,3);i++){
+        const page=await pdf.getPage(i);
+        const tc=await page.getTextContent();
+        text+=tc.items.map(x=>x.str).join(' ')+'\n';
+      }
+      content=`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}
+
+Texte :
+${text.slice(0,4000)}`;
+    }
+
+    const body=isPDF
+      ?{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content}]}
+      :{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'text',text:`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}`}
+        ]}]};
+
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify(body)
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text2=data.content.map(i=>i.text||'').join('');
+    const match=text2.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('Impossible de lire la facture');
+    const fd=JSON.parse(match[0]);
+
+    const facture={
+      id:genId(),
+      fournisseur:fd.fournisseur||'Inconnu',
+      date:fd.date||new Date().toISOString().split('T')[0],
+      numeroFacture:fd.numeroFacture||'—',
+      montantHT:parseFloat(fd.montantHT)||0,
+      tva:parseFloat(fd.tva)||0,
+      montantTTC:parseFloat(fd.montantTTC)||0,
+      rapprochee:false,
+      operationBanqueId:null
+    };
+    DB_FACTURES.push(facture);
+    await saveFacture(facture);
+    renderFactures();
+    toast('✓ Facture importée !');
+  }catch(e){
+    el.innerHTML=`<div style="padding:16px;text-align:center;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
+  }
+  event.target.value='';
+}
+
+function renderFactures(){
+  const el=document.getElementById('facturesC');
+  if(!el) return;
+  if(!DB_FACTURES.length){
+    el.innerHTML=`<div class="empty">Aucune facture — importe tes factures fournisseurs</div>`;
+    return;
+  }
+  const byM={};
+  for(const f of DB_FACTURES){const m=dm(f.date);if(!byM[m])byM[m]=[];byM[m].push(f);}
+
+  let html='';
+  for(const[mois,factures]of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
+    const totTVA=factures.reduce((s,f)=>s+f.tva,0);
+    const totTTC=factures.reduce((s,f)=>s+f.montantTTC,0);
+    html+=`<div class="fb"><div class="fh">
+      <span>${mf(mois)} — ${factures.length} facture(s)</span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px">TVA: <span style="color:var(--pla)">${fa(totTVA)}</span> · TTC: <span style="color:var(--dep)">${fa(totTTC)}</span></span>
+    </div>
+    <table><thead><tr>
+      <th>Date</th><th>Fournisseur</th><th>N°</th>
+      <th style="text-align:right">HT</th><th style="text-align:right">TVA</th><th style="text-align:right">TTC</th>
+      <th style="text-align:center">Rapprochée</th><th></th>
+    </tr></thead><tbody>`;
+    for(const f of factures.sort((a,b)=>b.date.localeCompare(a.date))){
+      html+=`<tr>
+        <td class="tdt">${dlbl(f.date)}</td>
+        <td style="font-weight:600">${f.fournisseur}</td>
+        <td class="tmu">${f.numeroFacture}</td>
+        <td class="tm" style="text-align:right">${fa(f.montantHT)}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(f.tva)}</td>
+        <td class="tn" style="text-align:right">${fa(f.montantTTC)}</td>
+        <td style="text-align:center">${f.rapprochee?'✅':`<button class="btn bg bsm" onclick="ouvrirRapprochementFacture('${f.id}')">🔗</button>`}</td>
+        <td><button class="btn br bsm" onclick="delFacture('${f.id}')">✕</button></td>
+      </tr>`;
+    }
+    html+=`<tr class="trt"><td colspan="3">TOTAL</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${fa(factures.reduce((s,f)=>s+f.montantHT,0))}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(totTVA)}</td>
+      <td class="tn" style="text-align:right">${fa(totTTC)}</td><td colspan="2"></td>
+    </tr></tbody></table></div>`;
+  }
+  el.innerHTML=html;
+}
+
+function ouvrirRapprochementFacture(factureId){
+  const f=DB_FACTURES.find(x=>x.id===factureId);
+  if(!f) return;
+  const mouvements=DB.banque.filter(b=>b.montant<0&&!DB_FACTURES.some(x=>x.operationBanqueId===b.id)).sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('mTitle').textContent='🔗 Rapprocher la facture';
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;margin-bottom:16px">
+      <div style="font-weight:700">${f.fournisseur}</div>
+      <div style="font-size:12px;color:var(--mut)">${dlbl(f.date)} · ${f.numeroFacture}</div>
+      <div style="font-family:'Cormorant Garant',serif;font-size:20px;color:var(--dep);margin-top:4px">${fa(f.montantTTC)}</div>
+    </div>
+    <div class="fr"><label>Opération bancaire</label>
+      <select id="rapf-banque-id">
+        <option value="">— Choisir —</option>
+        ${mouvements.map(b=>`<option value="${b.id}">${dlbl(b.date)} — ${b.nom} — ${fm(b.montant)}</option>`).join('')}
+      </select>
+    </div>`;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerRapprochementFacture('${factureId}')">✓ Rapprocher</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerRapprochementFacture(factureId){
+  const banqueId=document.getElementById('rapf-banque-id')?.value;
+  if(!banqueId){toast('⚠ Sélectionne une opération');return;}
+  const f=DB_FACTURES.find(x=>x.id===factureId);
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!f||!b) return;
+  f.rapprochee=true;
+  f.operationBanqueId=banqueId;
+  b.tva=-f.tva;
+  await saveFacture(f);
+  await saveEntry_fb('banque',b);
+  closeMo('mainModal');
+  renderFactures();
+  renderAll();
+  toast('✓ Facture rapprochée !');
+}
+
+async function delFacture(id){
+  if(!confirm('Supprimer cette facture ?')) return;
+  await deleteFactureFB(id);
+  DB_FACTURES=DB_FACTURES.filter(x=>x.id!==id);
+  renderFactures();
+  toast('Supprimé');
+}
+
+// ── TVA collectée/déductible détaillée ──
+function tvaCollecteeDetail(mois){
+  return DB.banque.filter(b=>inM(b.date,mois)&&b.categorie==='CA'&&b.montant>0)
+    .reduce((s,b)=>s+(b.tva||0),0);
+}
+function tvaDeductibleDetail(mois){
+  return DB_FACTURES.filter(f=>{
+    if(!f.rapprochee) return false;
+    const b=DB.banque.find(x=>x.id===f.operationBanqueId);
+    return b&&inM(b.date,mois);
+  }).reduce((s,f)=>s+f.tva,0);
 }
    
 // ═══════════════════════════════════════
