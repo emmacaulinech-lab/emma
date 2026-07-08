@@ -552,10 +552,29 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div class="view" id="view-banque">
     <div class="sh">
       <div><div class="st">🏦 Banque</div><div class="ss">Mouvements réels · TVA auto sur VIR/CA · Dépôts depuis ici</div></div>
+      
       <button class="btn bg" onclick="openTVA()">🧾 Calcul TVA</button> 
       <button class="btn bd" onclick="openModal('banque')">+ Ajouter</button>
     </div>
     <div class="rb">💡 Pour un <strong>dépôt espèces ou chèques</strong> : saisis l'opération normalement, une fenêtre de sélection s'ouvrira automatiquement.</div>
+   <div class="rb" style="background:var(--pla2);border-color:#b3c6ef">
+  📥 <strong>Importer un relevé</strong> — l'IA détecte les mouvements et propose des catégories automatiquement.
+</div>
+<div style="display:flex;gap:8px;margin-bottom:14px">
+  <label class="btn bd" style="cursor:pointer">
+    📄 Importer PDF
+    <input type="file" accept=".pdf" onchange="importBanquePDF(event)" style="display:none">
+  </label>
+  <label class="btn bg" style="cursor:pointer">
+    📊 Importer CSV
+    <input type="file" accept=".csv" onchange="importBanqueCSV(event)" style="display:none">
+  </label>
+  <label class="btn bg" style="cursor:pointer">
+    📸 Screenshot banque
+    <input type="file" accept="image/*" onchange="importBanqueImage(event)" style="display:none">
+  </label>
+</div>
+<div id="importBanqueResult"></div>
     <div class="flt">
       <input class="fi" id="bs" placeholder="🔍 Rechercher..." oninput="renderBanque()" style="min-width:180px">
       <select class="fi" id="bm" onchange="renderBanque()"><option value="">Tous les mois</option></select>
@@ -2394,6 +2413,216 @@ async function valDepot(){
   toast('✓ Dépôt enregistré');
 }
 
+// ═══════════════════════════════════════
+// IMPORT BANQUE (PDF/CSV/Photo)
+// ═══════════════════════════════════════
+let importedMouvements=[];
+
+function detecterCategorieImport(libelle, montant){
+  if(montant>0) return "CA";
+  const l=libelle.toLowerCase();
+  if(l.includes('loyer')||l.includes('urssaf')||l.includes('ag2r')||l.includes('comptable')||l.includes('salaire')||l.includes('predica')||l.includes('impôts')) return 'CH. Fixe';
+  if(l.includes('edf')||l.includes('planity')||l.includes('free')||l.includes('maaf')) return 'CH. Variable';
+  if(l.includes('achat')||l.includes('amazon')||l.includes('fourniture')||l.includes('materiel')) return 'ACHATS';
+  return 'CH. Variable';
+}
+
+async function importBanquePDF(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API (import Planity) d\'abord');return;}
+
+  const el=document.getElementById('importBanqueResult');
+  el.innerHTML=`<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Analyse du relevé...</div></div>`;
+
+  try{
+    if(!window.pdfjsLib){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let fullText='';
+    for(let i=1;i<=Math.min(pdf.numPages,10);i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      fullText+=content.items.map(x=>x.str).join(' ')+'\n';
+    }
+
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:3000,
+        messages:[{role:'user',content:`Voici le texte extrait d'un relevé bancaire français. Extrais tous les mouvements.
+Pour chaque mouvement : date (YYYY-MM-DD), libelle, montant (négatif=débit, positif=crédit).
+Réponds UNIQUEMENT en JSON valide sans backticks :
+[{"date":"2026-01-15","libelle":"LOYER","montant":-800}]
+
+Texte :
+${fullText.slice(0,8000)}`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('Aucun mouvement détecté');
+    importedMouvements=JSON.parse(match[0]);
+    renderImportBanqueResult();
+  }catch(e){
+    el.innerHTML=`<div style="padding:16px;text-align:center;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
+  }
+  event.target.value='';
+}
+
+async function importBanqueCSV(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const el=document.getElementById('importBanqueResult');
+  el.innerHTML=`<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Lecture du CSV...</div></div>`;
+  try{
+    const text=await file.text();
+    const lines=text.split('\n').filter(l=>l.trim());
+    const sep=text.includes(';')?';':',';
+    const headers=lines[0].split(sep).map(h=>h.trim().toLowerCase().replace(/"/g,''));
+    const dateIdx=headers.findIndex(h=>h.includes('date'));
+    const libIdx=headers.findIndex(h=>h.includes('lib')||h.includes('label')||h.includes('operat'));
+    const mntIdx=headers.findIndex(h=>h.includes('mont')||h.includes('amount')||h.includes('valeur'));
+    const debIdx=headers.findIndex(h=>h.includes('debit')||h.includes('débit'));
+    const credIdx=headers.findIndex(h=>h.includes('credit')||h.includes('crédit'));
+
+    importedMouvements=[];
+    for(let i=1;i<lines.length;i++){
+      const cols=lines[i].split(sep).map(c=>c.trim().replace(/"/g,''));
+      if(!cols[dateIdx]) continue;
+      let date=cols[dateIdx];
+      if(date.includes('/')){
+        const p=date.split('/');
+        if(p.length===3) date=p[2].length===4?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:date;
+      }
+      let montant=0;
+      if(mntIdx>=0) montant=parseFloat(cols[mntIdx].replace(',','.'))||0;
+      else if(debIdx>=0||credIdx>=0){
+        const deb=debIdx>=0?parseFloat(cols[debIdx].replace(',','.'))||0:0;
+        const cred=credIdx>=0?parseFloat(cols[credIdx].replace(',','.'))||0:0;
+        montant=cred-deb;
+      }
+      if(!montant) continue;
+      importedMouvements.push({date,libelle:cols[libIdx]||'—',montant});
+    }
+    renderImportBanqueResult();
+  }catch(e){
+    el.innerHTML=`<div style="padding:16px;text-align:center;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
+  }
+  event.target.value='';
+}
+
+async function importBanqueImage(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return;}
+  const el=document.getElementById('importBanqueResult');
+  el.innerHTML=`<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Analyse du screenshot...</div></div>`;
+  try{
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:3000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'text',text:`Analyse ce screenshot de relevé bancaire, extrais tous les mouvements.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+[{"date":"2026-01-15","libelle":"LOYER","montant":-800}]`}
+        ]}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('Aucun mouvement détecté');
+    importedMouvements=JSON.parse(match[0]);
+    renderImportBanqueResult();
+  }catch(e){
+    el.innerHTML=`<div style="padding:16px;text-align:center;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
+  }
+  event.target.value='';
+}
+
+function renderImportBanqueResult(){
+  const el=document.getElementById('importBanqueResult');
+  if(!importedMouvements.length){
+    el.innerHTML=`<div class="empty">Aucun mouvement détecté</div>`;
+    return;
+  }
+  const doublons=new Set();
+  importedMouvements.forEach((m,i)=>{
+    const exists=DB.banque.some(b=>b.date===m.date&&Math.abs(b.montant-m.montant)<0.01&&b.nom.toLowerCase()===m.libelle.toLowerCase());
+    if(exists) doublons.add(i);
+  });
+  const nouveaux=importedMouvements.filter((_,i)=>!doublons.has(i));
+
+  let html=`<div class="tw"><div class="card-hdr">📋 ${nouveaux.length} nouveaux mouvements <button class="btn bd bsm" onclick="importerTousMouvements()">✓ Tout importer</button></div>
+    <table><thead><tr><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>Catégorie</th><th></th></tr></thead><tbody>`;
+  importedMouvements.forEach((m,i)=>{
+    const isDup=doublons.has(i);
+    const cat=detecterCategorieImport(m.libelle,m.montant);
+    html+=`<tr style="opacity:${isDup?0.4:1}">
+      <td class="tdt">${dlbl(m.date)}</td>
+      <td style="font-weight:500;font-size:12px">${m.libelle}</td>
+      <td class="${m.montant>=0?'tp':'tn'}" style="text-align:right">${fm(m.montant,m.montant>0)}</td>
+      <td>${bdg(cat)}</td>
+      <td>${isDup?'<span style="font-size:11px;color:var(--mut)">Déjà importé</span>':`<button class="btn bd bsm" onclick="importerMouvement(${i})">+ Ajouter</button>`}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+}
+
+async function importerMouvement(i){
+  const m=importedMouvements[i];
+  const cat=detecterCategorieImport(m.libelle,m.montant);
+  const tva=m.montant>0?Math.round(m.montant/(1+PARAMS.tva)*PARAMS.tva*100)/100:0;
+  DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:m.montant,categorie:cat,tva});
+  await saveAll();
+  importedMouvements.splice(i,1);
+  renderImportBanqueResult();
+  renderAll();
+  toast('✓ Mouvement importé !');
+}
+
+async function importerTousMouvements(){
+  let count=0;
+  for(const m of importedMouvements){
+    const isDup=DB.banque.some(b=>b.date===m.date&&Math.abs(b.montant-m.montant)<0.01&&b.nom.toLowerCase()===m.libelle.toLowerCase());
+    if(isDup) continue;
+    const cat=detecterCategorieImport(m.libelle,m.montant);
+    const tva=m.montant>0?Math.round(m.montant/(1+PARAMS.tva)*PARAMS.tva*100)/100:0;
+    DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:m.montant,categorie:cat,tva});
+    count++;
+  }
+  await saveAll();
+  importedMouvements=[];
+  renderImportBanqueResult();
+  renderAll();
+  toast(`✓ ${count} mouvements importés !`);
+}
+   
 // ═══════════════════════════════════════
 // MODAL
 // ═══════════════════════════════════════
