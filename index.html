@@ -6172,16 +6172,16 @@ function renderHubOverview(){
     // Mail kit à envoyer (statut = Inscrite)
     if(idx===0){
       const urgent=j<14;
-      notifs.push({icon:'✉️',txt:`${urgent?'🔴 URGENT — ':''}Envoyer mail kit à ${e.nom.split(' ')[0]}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(2)`});
+      notifs.push({icon:'✉️',txt:`${urgent?'🔴 URGENT — ':''}Envoyer mail kit à ${e.nom}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(2)`});
     }
     // Kit à payer (statut = Mail kit envoyé ou Kit choisi, pas encore payé)
     else if((idx===1||idx===2)&&!e.financement?.paye){
       const urgent=j<7;
-      notifs.push({icon:'💶',txt:`${urgent?'🔴 URGENT — ':''}Kit à payer — ${e.nom.split(' ')[0]}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(0)`});
+      notifs.push({icon:'💶',txt:`${urgent?'🔴 URGENT — ':''}Kit à payer — ${e.nom}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(0)`});
     }
     // Kit à préparer (statut = Kit payé, dans la semaine avant formation)
     else if(idx===3&&j<=7&&j>=0){
-      notifs.push({icon:'📦',txt:`Préparer le kit — ${e.nom.split(' ')[0]} (J-${j})`,color:'var(--warn)',onclick:`goModule('formations');goFTab(1)`});
+      notifs.push({icon:'📦',txt:`Préparer le kit — ${e.nom} (J-${j})`,color:'var(--warn)',onclick:`goModule('formations');goFTab(1)`});
     }
   });
 
@@ -6384,10 +6384,15 @@ function renderFormationsModule(){
 // Étudiantes
 function renderFEtudiantes(){
   ensureFormationsData();
-  const list=DB.formations.etudiantes;
-let html=`
+  const today=new Date();
+  const list=[...DB.formations.etudiantes].sort((a,b)=>{
+    const ja=a.dateFormation?Math.floor((new Date(a.dateFormation+'T12:00:00')-today)/86400000):9999;
+    const jb=b.dateFormation?Math.floor((new Date(b.dateFormation+'T12:00:00')-today)/86400000):9999;
+    return ja-jb;
+  });
+  let html=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} étudiante${list.length>1?'s':''}</div>
+      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} étudiante${list.length>1?'s':''} — triées par urgence</div>
       <div style="display:flex;gap:8px">
         <label class="btn bg" style="cursor:pointer">
           📥 Importer planning
@@ -6403,13 +6408,20 @@ let html=`
     html+=list.map(e=>{
       const col=STATUT_COLORS[e.statut]||'var(--mut)';
       const kitDone=(e.kit?.contenu||[]).every(k=>k.coche)&&(e.kit?.contenu||[]).length>0;
-      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+      const idxStatut=STATUTS_FORMATION.indexOf(e.statut);
+      const pct=Math.round((idxStatut/(STATUTS_FORMATION.length-1))*100);
+      const j=e.dateFormation?Math.floor((new Date(e.dateFormation+'T12:00:00')-today)/86400000):null;
+      const urgent=j!==null&&j<14&&j>=0;
+      return`<div style="background:white;border:1.5px solid ${urgent?'var(--dep)':'var(--brd)'};border-radius:16px;padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
-            <div style="font-weight:700;font-size:14px">${e.nom}</div>
-            <div style="font-size:11px;color:var(--mut)">${e.email||''} ${e.tel?'· '+e.tel:''}</div>
+            <div style="font-weight:700;font-size:14px">${e.nom} ${urgent?'<span style="color:var(--dep);font-size:11px">🔴 URGENT</span>':''}</div>
+            <div style="font-size:11px;color:var(--mut)">${e.email||''} ${e.tel?'· '+e.tel:''} ${e.dateFormation?'· 📅 '+dlbl(e.dateFormation)+(j!==null?' (J'+(j>=0?'-'+j:'+'+Math.abs(j))+')':''):''}</div>
           </div>
           <span style="background:${col}20;color:${col};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${e.statut}</span>
+        </div>
+        <div style="height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;margin-bottom:8px">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:99px;transition:width .4s"></div>
         </div>
         <div style="display:flex;gap:16px;font-size:12px;color:var(--mut);margin-bottom:10px">
           <span>💶 ${e.financement?.type==='cpf'?'CPF':'Perso'} — ${e.financement?.montant?fa(e.financement.montant):'—'} ${e.financement?.paye?'✅':'⏳'}</span>
@@ -6742,6 +6754,13 @@ function renderFPlanning(){
   }
   document.getElementById('fview-planning').innerHTML=html;
 }
+
+function extrairePrenom(nomComplet){
+  const mots=nomComplet.trim().split(/\s+/);
+  // Le prénom est le mot qui n'est PAS entièrement en majuscules
+  const prenom=mots.find(m=>m!==m.toUpperCase()||m.length<=2);
+  return prenom||mots[mots.length-1];
+}
    
 function renderEmailPreview(){
   const idx=document.getElementById('femail-etudiante')?.value;
@@ -6753,7 +6772,7 @@ function renderEmailPreview(){
   const tpl=EMAIL_TEMPLATES[tplKey];
 
   const sujet=tpl.sujet;
-  const corps=tpl.corps.replace(/{NOM}/g,e.nom.split(' ')[0]);
+  const corps=tpl.corps.replace(/{NOM}/g,extrairePrenom(e.nom));
 
   el.innerHTML=`
     <div class="fb" style="margin-top:14px">
@@ -6761,6 +6780,8 @@ function renderEmailPreview(){
         <button class="btn bd bsm" onclick="copyEmailToClipboard()">📋 Copier</button>
       </div>
       <div style="padding:16px">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Destinataire :</div>
+        <div id="femail-adresse-txt" style="font-weight:700;margin-bottom:14px;color:var(--pla)">${e.email||'— pas d\'email renseigné —'}</div>
         <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Sujet :</div>
         <div id="femail-sujet-txt" style="font-weight:700;margin-bottom:14px">${sujet}</div>
         <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Corps :</div>
@@ -6770,9 +6791,10 @@ function renderEmailPreview(){
 }
 
 function copyEmailToClipboard(){
+  const adresse=document.getElementById('femail-adresse-txt')?.textContent||'';
   const sujet=document.getElementById('femail-sujet-txt')?.textContent||'';
   const corps=document.getElementById('femail-corps-txt')?.textContent||'';
-  navigator.clipboard.writeText(`Objet : ${sujet}\n\n${corps}`).then(()=>toast('✓ Email copié !'));
+  navigator.clipboard.writeText(`À : ${adresse}\nObjet : ${sujet}\n\n${corps}`).then(()=>toast('✓ Email copié !'));
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
