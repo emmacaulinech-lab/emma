@@ -1013,6 +1013,12 @@ async function loadAll() {
         const b=JSON.parse(d.boutique);
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
       }
+       if(d.salaires) DB.salaires=JSON.parse(d.salaires);
+      if(d.boutique){
+        const b=JSON.parse(d.boutique);
+        DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
+      }
+      if(d.formations) DB.formations=JSON.parse(d.formations);
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1046,6 +1052,7 @@ async function saveAll() {
       prestations: JSON.stringify(DB.prestations),
       boutique:    JSON.stringify(DB.boutique),
       salaires:    JSON.stringify(DB.salaires),
+      formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
