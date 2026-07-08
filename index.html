@@ -807,13 +807,33 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
    
 </div><!-- /app -->
 
+   <div class="mo" id="formationModal">
+  <div class="mb" style="width:600px;max-width:96vw">
+    <h2 id="fModalTitle">Nouvelle étudiante</h2>
+    <div id="fModalBody"></div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('formationModal')">Annuler</button>
+      <button class="btn bd" onclick="saveEtudiante()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+   
 <div id="module-facturation" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Facturation LIMAGECILS</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/limagecils-facturation/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
 </div>
-<div id="module-formations" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+<div id="module-formations" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🎓 Formations</div></div>
-  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+  <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
+      <button id="ftab0" onclick="goFTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">👥 Étudiantes</button>
+      <button id="ftab1" onclick="goFTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📦 Kits</button>
+      <button id="ftab2" onclick="goFTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">✉️ Emails</button>
+    </div>
+    <div id="fview-etudiantes"></div>
+    <div id="fview-kits" style="display:none"></div>
+    <div id="fview-emails" style="display:none"></div>
+  </div>
 </div>
 <div id="module-banqueperso" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">👛 Banque perso</div></div>
@@ -6082,6 +6102,7 @@ function goModule(name){
   } else {
     document.getElementById('app').classList.remove('visible');
     document.getElementById('module-'+name).style.display='flex';
+    if(name==='formations') renderFormationsModule();
   }
 }
 
@@ -6140,6 +6161,347 @@ function renderHubOverview(){
   }
 }
 
+// ═══════════════════════════════════════
+// MODULE FORMATIONS
+// ═══════════════════════════════════════
+const STATUTS_FORMATION=['Prospect','Inscrite','Dossier financement','Financement validé','Kit envoyé','Formée'];
+const STATUT_COLORS={'Prospect':'#9ca3af','Inscrite':'#4a78c8','Dossier financement':'#c89040','Financement validé':'#5a8a6a','Kit envoyé':'#c45878','Formée':'#5A8A6A'};
+const KIT_TEMPLATE_DEFAUT=[
+  {item:'Colle',coche:false},{item:'Pinces',coche:false},{item:'Cils volume russe (plateau)',coche:false},
+  {item:'Ventilateur',coche:false},{item:'Nettoyant/Préparateur',coche:false},{item:'Support de formation',coche:false}
+];
+
+function ensureFormationsData(){
+  if(!DB.formations) DB.formations={etudiantes:[]};
+  if(!DB.formations.etudiantes) DB.formations.etudiantes=[];
+}
+
+let fTabActive=0;
+function goFTab(i){
+  fTabActive=i;
+  ['etudiantes','kits','emails'].forEach((n,j)=>{
+    document.getElementById('fview-'+n).style.display=j===i?'block':'none';
+    const btn=document.getElementById('ftab'+j);
+    if(btn){
+      btn.style.background=j===i?'white':'transparent';
+      btn.style.color=j===i?'var(--acc)':'var(--mut)';
+      btn.style.boxShadow=j===i?'var(--shadow)':'none';
+    }
+  });
+  if(i===0) renderFEtudiantes();
+  if(i===1) renderFKits();
+  if(i===2) renderFEmails();
+}
+
+function renderFormationsModule(){
+  ensureFormationsData();
+  goFTab(fTabActive);
+}
+
+// ── Étudiantes ──
+function renderFEtudiantes(){
+  ensureFormationsData();
+  const list=DB.formations.etudiantes;
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} étudiante${list.length>1?'s':''}</div>
+      <button class="btn bd" onclick="openEtudianteModal()">+ Ajouter</button>
+    </div>`;
+  if(!list.length){
+    html+=`<div class="empty">Aucune étudiante — clique sur "+ Ajouter"</div>`;
+  } else {
+    html+=list.map((e,i)=>{
+      const col=STATUT_COLORS[e.statut]||'var(--mut)';
+      const kitDone=(e.kit?.contenu||[]).every(k=>k.coche)&&(e.kit?.contenu||[]).length>0;
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;font-size:14px">${e.nom}</div>
+            <div style="font-size:11px;color:var(--mut)">${e.email||''} ${e.tel?'· '+e.tel:''}</div>
+          </div>
+          <span style="background:${col}20;color:${col};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${e.statut}</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12px;color:var(--mut);margin-bottom:10px">
+          <span>💶 ${e.financement?.type==='cpf'?'CPF':'Perso'} — ${e.financement?.montant?fa(e.financement.montant):'—'} ${e.financement?.paye?'✅':'⏳'}</span>
+          <span>📦 Kit : ${kitDone?'✅ Complet':(e.kit?.statut||'à préparer')}</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select onchange="changeStatutEtudiante(${i},this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+            ${STATUTS_FORMATION.map(s=>`<option ${e.statut===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+          <button class="btn bg bsm" onclick="openEtudianteModal(${i})">✏️ Modifier</button>
+          <button class="btn br bsm" onclick="delEtudiante(${i})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('fview-etudiantes').innerHTML=html;
+}
+
+async function changeStatutEtudiante(i,statut){
+  DB.formations.etudiantes[i].statut=statut;
+  await saveAll();
+  renderFEtudiantes();
+  toast('✓ Statut mis à jour');
+}
+
+function openEtudianteModal(idx=null){
+  const e=idx!=null?DB.formations.etudiantes[idx]:null;
+  document.getElementById('fModalTitle').textContent=idx!=null?'Modifier étudiante':'Nouvelle étudiante';
+  document.getElementById('fModalBody').innerHTML=`
+    <div class="g2">
+      <div class="fr"><label>Nom</label><input type="text" id="fe-nom" value="${e?.nom||''}"></div>
+      <div class="fr"><label>Statut</label>
+        <select id="fe-statut">${STATUTS_FORMATION.map(s=>`<option ${e?.statut===s?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Email</label><input type="email" id="fe-email" value="${e?.email||''}"></div>
+      <div class="fr"><label>Téléphone</label><input type="tel" id="fe-tel" value="${e?.tel||''}"></div>
+    </div>
+    <div class="fr"><label>Formation suivie</label>
+      <select id="fe-formation">
+        <option value="gestion-finance" ${e?.formation==='gestion-finance'?'selected':''}>Gestion Finance</option>
+        <option value="kit-cils" ${e?.formation==='kit-cils'?'selected':''}>Extension de cils</option>
+        <option value="les-deux" ${e?.formation==='les-deux'?'selected':''}>Les deux</option>
+      </select>
+    </div>
+    <div class="divider"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💶 Financement</div>
+    <div class="g2">
+      <div class="fr"><label>Type</label>
+        <select id="fe-fin-type">
+          <option value="cpf" ${e?.financement?.type==='cpf'?'selected':''}>CPF</option>
+          <option value="perso" ${e?.financement?.type==='perso'?'selected':''}>Personnel</option>
+        </select>
+      </div>
+      <div class="fr"><label>Montant (€)</label><input type="number" id="fe-fin-montant" value="${e?.financement?.montant||''}" step="0.01"></div>
+    </div>
+    <div class="fr"><label>Payé ?</label>
+      <select id="fe-fin-paye"><option value="1" ${e?.financement?.paye?'selected':''}>✅ Oui</option><option value="0" ${!e?.financement?.paye?'selected':''}>⏳ Non</option></select>
+    </div>
+    <div class="fr"><label>Notes</label><textarea id="fe-notes" rows="2">${e?.notes||''}</textarea></div>
+  `;
+  document.getElementById('formationModal').dataset.editIdx=idx!=null?idx:'';
+  document.getElementById('formationModal').classList.add('open');
+}
+
+async function saveEtudiante(){
+  ensureFormationsData();
+  const idx=document.getElementById('formationModal').dataset.editIdx;
+  const nom=document.getElementById('fe-nom')?.value?.trim();
+  if(!nom){toast('⚠ Le nom est requis');return;}
+
+  const existing=idx!==''?DB.formations.etudiantes[idx]:null;
+  const etu={
+    id:existing?.id||genId(),
+    nom,
+    email:document.getElementById('fe-email')?.value?.trim()||'',
+    tel:document.getElementById('fe-tel')?.value?.trim()||'',
+    statut:document.getElementById('fe-statut')?.value||'Prospect',
+    formation:document.getElementById('fe-formation')?.value||'gestion-finance',
+    financement:{
+      type:document.getElementById('fe-fin-type')?.value||'perso',
+      montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
+      paye:document.getElementById('fe-fin-paye')?.value==='1'
+    },
+    kit:existing?.kit||{statut:'à préparer',contenu:KIT_TEMPLATE_DEFAUT.map(k=>({...k}))},
+    notes:document.getElementById('fe-notes')?.value||''
+  };
+
+  if(idx!=='') DB.formations.etudiantes[idx]=etu;
+  else DB.formations.etudiantes.push(etu);
+
+  await saveAll();
+  closeMo('formationModal');
+  renderFEtudiantes();
+  toast('✓ Étudiante enregistrée');
+}
+
+async function delEtudiante(idx){
+  if(!confirm('Supprimer cette étudiante ?')) return;
+  DB.formations.etudiantes.splice(idx,1);
+  await saveAll();
+  renderFEtudiantes();
+  toast('Supprimé');
+}
+
+// ── Kits ──
+function renderFKits(){
+  ensureFormationsData();
+  const list=DB.formations.etudiantes.filter(e=>e.formation==='kit-cils'||e.formation==='les-deux');
+  let html='';
+  if(!list.length){
+    html=`<div class="empty">Aucune étudiante en formation extension de cils</div>`;
+  } else {
+    html=list.map(e=>{
+      const idx=DB.formations.etudiantes.indexOf(e);
+      const contenu=e.kit?.contenu||[];
+      const nbFait=contenu.filter(k=>k.coche).length;
+      const complet=nbFait===contenu.length&&contenu.length>0;
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:700;font-size:14px">${e.nom}</div>
+          <span style="font-size:11px;font-weight:700;color:${complet?'var(--rec)':'var(--warn)'}">${nbFait}/${contenu.length} ${complet?'✅':''}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+          ${contenu.map((k,ki)=>`
+            <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleKitItem(${idx},${ki})">
+              <input type="checkbox" ${k.coche?'checked':''} style="width:16px;height:16px;accent-color:var(--rec)" onclick="event.stopPropagation();toggleKitItem(${idx},${ki})">
+              <span style="font-size:13px;${k.coche?'text-decoration:line-through;color:var(--mut)':''}">${k.item}</span>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select onchange="changeKitStatut(${idx},this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+            <option ${e.kit?.statut==='à préparer'?'selected':''}>à préparer</option>
+            <option ${e.kit?.statut==='préparé'?'selected':''}>préparé</option>
+            <option ${e.kit?.statut==='envoyé'?'selected':''}>envoyé</option>
+          </select>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('fview-kits').innerHTML=html;
+}
+
+async function toggleKitItem(idx,ki){
+  DB.formations.etudiantes[idx].kit.contenu[ki].coche=!DB.formations.etudiantes[idx].kit.contenu[ki].coche;
+  await saveAll();
+  renderFKits();
+}
+
+async function changeKitStatut(idx,statut){
+  DB.formations.etudiantes[idx].kit.statut=statut;
+  await saveAll();
+  renderFKits();
+  toast('✓ Statut kit mis à jour');
+}
+
+// ── Emails (kits uniquement) ──
+const EMAIL_TEMPLATES={
+  'kit-cpf':{
+    label:'📦 Kit obligatoire (CPF)',
+    sujet:'Votre formation approche – informations importantes 🎓',
+    corps:`Bonjour {NOM},
+
+Votre formation approche à grands pas, et nous nous réjouissons de vous accueillir !
+
+Voici quelques informations essentielles pour préparer votre session dans les meilleures conditions :
+
+
+1. Kit pédagogique obligatoire
+
+Dans le cadre d'un financement CPF, l'achat d'un kit pédagogique est obligatoire. Ce kit reste votre propriété à l'issue de la formation.
+
+Selon la formation à laquelle vous êtes inscrite :
+
+- Formation 5 jours extensions de cils → Kit Starter (189€) ou Kit Extra (319€) + Kit Lash Up' (62€)
+- Coaching Privé 1 jour → Kit Coaching Privé 1 jour (79€)
+- Coaching Privé 2 jours → Kit Coaching Privé 2 jours (129€)
+- Formation Lash Lift Coréen → Kit Lash Lift Coréen (119€)
+- Formation Brow Lift → Kit Brow Lift (99€)
+
+[Insérer l'image des kits]
+
+Afin de préparer votre matériel à temps, merci de nous confirmer votre choix de kit au plus tard une semaine avant le début de votre formation.
+
+
+2. Pause déjeuner
+
+Le petit-déjeuner et le goûter sont offerts par la Limage School.
+Merci de prévoir votre propre déjeuner (un espace restauration avec réfrigérateur est mis à votre disposition).
+
+
+Nous comptons sur votre sérieux et votre implication pour respecter ces consignes.
+
+Merci de nous confirmer, dans les plus brefs délais, la bonne prise en compte de ces informations.
+
+À très bientôt !
+
+Emma – Limagecils Team`
+  },
+  'kit-perso':{
+    label:'🎁 Kit offert (financement perso)',
+    sujet:'Votre formation approche – informations importantes 🎓',
+    corps:`Bonjour {NOM},
+
+Votre formation approche à grands pas, et nous nous réjouissons de vous accueillir !
+
+Voici quelques informations essentielles pour préparer votre session dans les meilleures conditions :
+
+
+1. Votre kit pédagogique offert 🎁
+
+Bonne nouvelle : dans le cadre d'un financement personnel, votre kit pédagogique vous est offert !
+
+Il sera remis directement le jour de votre formation. Ce kit est conçu pour vous accompagner dans les meilleures conditions et reste bien sûr votre propriété à l'issue de la session.
+
+Découvrez son contenu ci-dessous :
+
+[Insérer l'image du kit correspondant à la formation]
+
+
+2. Pause déjeuner
+
+Le petit-déjeuner et le goûter sont offerts par la Limage School.
+Merci de prévoir votre propre déjeuner (un espace restauration avec réfrigérateur est mis à votre disposition).
+
+
+Nous comptons sur votre sérieux et votre implication pour le bon déroulement de votre formation.
+
+Merci de nous confirmer, dans les plus brefs délais, la bonne prise en compte de ces informations.
+
+À très bientôt !
+
+Emma – Limagecils Team`
+  }
+};
+
+function renderFEmails(){
+  ensureFormationsData();
+  const list=DB.formations.etudiantes;
+  let html=`<div class="fr"><label>Choisir une étudiante</label>
+    <select id="femail-etudiante" onchange="renderEmailPreview()">
+      <option value="">— Choisir —</option>
+      ${list.map((e,i)=>`<option value="${i}">${e.nom}</option>`).join('')}
+    </select>
+  </div>
+  <div id="femail-preview"></div>`;
+  document.getElementById('fview-emails').innerHTML=html;
+}
+
+function renderEmailPreview(){
+  const idx=document.getElementById('femail-etudiante')?.value;
+  const el=document.getElementById('femail-preview');
+  if(idx===''){el.innerHTML='';return;}
+
+  const e=DB.formations.etudiantes[idx];
+  const tplKey=e.financement?.type==='cpf'?'kit-cpf':'kit-perso';
+  const tpl=EMAIL_TEMPLATES[tplKey];
+
+  const sujet=tpl.sujet;
+  const corps=tpl.corps.replace(/{NOM}/g,e.nom.split(' ')[0]);
+
+  el.innerHTML=`
+    <div class="fb" style="margin-top:14px">
+      <div class="fh"><span>${tpl.label} — auto-détecté selon le financement</span>
+        <button class="btn bd bsm" onclick="copyEmailToClipboard()">📋 Copier</button>
+      </div>
+      <div style="padding:16px">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Sujet :</div>
+        <div id="femail-sujet-txt" style="font-weight:700;margin-bottom:14px">${sujet}</div>
+        <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Corps :</div>
+        <div id="femail-corps-txt" style="white-space:pre-wrap;font-size:13px;line-height:1.6;background:var(--bg2);border-radius:10px;padding:14px">${corps}</div>
+      </div>
+    </div>`;
+}
+
+function copyEmailToClipboard(){
+  const sujet=document.getElementById('femail-sujet-txt')?.textContent||'';
+  const corps=document.getElementById('femail-corps-txt')?.textContent||'';
+  navigator.clipboard.writeText(`Objet : ${sujet}\n\n${corps}`).then(()=>toast('✓ Email copié !'));
+}
+   
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
 </body>
