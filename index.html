@@ -827,12 +827,14 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
     <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
       <button id="ftab0" onclick="goFTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">👥 Étudiantes</button>
-      <button id="ftab1" onclick="goFTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📦 Kits</button>
-      <button id="ftab2" onclick="goFTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">✉️ Emails</button>
+<button id="ftab1" onclick="goFTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📦 Kits</button>
+<button id="ftab2" onclick="goFTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">✉️ Emails</button>
+<button id="ftab3" onclick="goFTab(3)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Planning</button>
     </div>
-    <div id="fview-etudiantes"></div>
-    <div id="fview-kits" style="display:none"></div>
-    <div id="fview-emails" style="display:none"></div>
+   <div id="fview-etudiantes"></div>
+<div id="fview-kits" style="display:none"></div>
+<div id="fview-emails" style="display:none"></div>
+<div id="fview-planning" style="display:none"></div>
   </div>
 </div>
 <div id="module-banqueperso" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
@@ -6303,7 +6305,8 @@ async function importerEtudianteFormation(i){
     email:e.email||'',
     tel:e.tel||'',
     statut:'Inscrite',
-    formation:e.formation||'kit-cils',
+    formation:'kit-cils',
+    formationType:e.formation||'',
     dateFormation:e.dateDebut||'',
     lieu:e.lieu||'',
     financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
@@ -6332,7 +6335,8 @@ async function importerToutesEtudiantesFormation(){
       email:e.email||'',
       tel:e.tel||'',
       statut:'Inscrite',
-      formation:e.formation||'kit-cils',
+      formation:'kit-cils',
+      formationType:e.formation||'',
       dateFormation:e.dateDebut||'',
       lieu:e.lieu||'',
       financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
@@ -6351,7 +6355,7 @@ async function importerToutesEtudiantesFormation(){
 let fTabActive=0;
 function goFTab(i){
   fTabActive=i;
-  ['etudiantes','kits','emails'].forEach((n,j)=>{
+  ['etudiantes','kits','emails','planning'].forEach((n,j)=>{
     document.getElementById('fview-'+n).style.display=j===i?'block':'none';
     const btn=document.getElementById('ftab'+j);
     if(btn){
@@ -6363,6 +6367,7 @@ function goFTab(i){
   if(i===0) renderFEtudiantes();
   if(i===1) renderFKits();
   if(i===2) renderFEmails();
+  if(i===3) renderFPlanning();
 }
 
 function renderFormationsModule(){
@@ -6664,6 +6669,73 @@ function renderFEmails(){
   document.getElementById('fview-emails').innerHTML=html;
 }
 
+// ── Planning mensuel ──
+let planningM=NOW.getMonth(), planningY=NOW.getFullYear();
+
+function planningD(d){
+  planningM+=d;
+  if(planningM>11){planningM=0;planningY++;}
+  if(planningM<0){planningM=11;planningY--;}
+  renderFPlanning();
+}
+
+function renderFPlanning(){
+  ensureFormationsData();
+  const mois=`${planningY}-${String(planningM+1).padStart(2,'0')}`;
+  const etudiantes=(DB.formations.etudiantes||[]).filter(e=>e.dateFormation&&dm(e.dateFormation)===mois);
+
+  // Grouper par date
+  const parDate={};
+  etudiantes.forEach(e=>{
+    if(!parDate[e.dateFormation]) parDate[e.dateFormation]=[];
+    parDate[e.dateFormation].push(e);
+  });
+
+  const datesTriees=Object.keys(parDate).sort();
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <button onclick="planningD(-1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">‹</button>
+      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${MOIS[planningM]} ${planningY}</div>
+      <button onclick="planningD(1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">›</button>
+    </div>`;
+
+  if(!datesTriees.length){
+    html+=`<div class="empty">Aucune formation prévue ce mois-ci</div>`;
+  } else {
+    html+=datesTriees.map(date=>{
+      const etus=parDate[date];
+      const d=new Date(date+'T12:00:00');
+      const jourNom=d.toLocaleDateString('fr-FR',{weekday:'long'});
+      const jourNum=d.getDate();
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="background:var(--acc);color:white;border-radius:10px;width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Cormorant Garant',serif">
+            <span style="font-size:16px;font-weight:700;line-height:1">${jourNum}</span>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:13px;text-transform:capitalize">${jourNom}</div>
+            <div style="font-size:11px;color:var(--mut)">${etus.length} étudiante${etus.length>1?'s':''}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${etus.map(e=>{
+            const col=STATUT_COLORS[e.statut]||'var(--mut)';
+            return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:10px">
+              <div>
+                <span style="font-weight:600;font-size:13px">${e.nom}</span>
+                <span style="font-size:11px;color:var(--mut);margin-left:6px">${e.formationType||''} · ${e.lieu||'—'}</span>
+              </div>
+              <span style="background:${col}20;color:${col};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px">${e.statut}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('fview-planning').innerHTML=html;
+}
+   
 function renderEmailPreview(){
   const idx=document.getElementById('femail-etudiante')?.value;
   const el=document.getElementById('femail-preview');
