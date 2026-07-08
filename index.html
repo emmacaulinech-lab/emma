@@ -6150,13 +6150,36 @@ function renderHubOverview(){
   });
   if(redevancesRetard.length) notifs.push({icon:'💰',txt:`${redevancesRetard.length} redevance(s) impayée(s) (+30j)`,color:'var(--dep)'});
 
-  const kitsAPreparer=(DB.formations?.kits||[]).filter(k=>k.statut==='a_preparer');
-  if(kitsAPreparer.length) notifs.push({icon:'📦',txt:`${kitsAPreparer.length} kit(s) formation à préparer`,color:'var(--warn)'});
+  ensureFormationsData();
+  const etudiantes=DB.formations.etudiantes||[];
+  const todayMs=today.getTime();
+  const joursRestants=dateStr=>dateStr?Math.floor((new Date(dateStr+'T12:00:00')-todayMs)/86400000):null;
 
-  const el=document.getElementById('hub-notifications');
+  etudiantes.forEach(e=>{
+    const j=joursRestants(e.dateFormation);
+    if(j===null) return;
+    const idx=STATUTS_FORMATION.indexOf(e.statut);
+
+    // Mail kit à envoyer (statut = Inscrite)
+    if(idx===0){
+      const urgent=j<14;
+      notifs.push({icon:'✉️',txt:`${urgent?'🔴 URGENT — ':''}Envoyer mail kit à ${e.nom.split(' ')[0]}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(2)`});
+    }
+    // Kit à payer (statut = Mail kit envoyé ou Kit choisi, pas encore payé)
+    else if((idx===1||idx===2)&&!e.financement?.paye){
+      const urgent=j<7;
+      notifs.push({icon:'💶',txt:`${urgent?'🔴 URGENT — ':''}Kit à payer — ${e.nom.split(' ')[0]}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(0)`});
+    }
+    // Kit à préparer (statut = Kit payé, dans la semaine avant formation)
+    else if(idx===3&&j<=7&&j>=0){
+      notifs.push({icon:'📦',txt:`Préparer le kit — ${e.nom.split(' ')[0]} (J-${j})`,color:'var(--warn)',onclick:`goModule('formations');goFTab(1)`});
+    }
+  });
+
+const el=document.getElementById('hub-notifications');
   if(el){
     el.innerHTML=notifs.length
-      ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
+      ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="${n.onclick||''}"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
       :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
   }
 }
@@ -6176,6 +6199,155 @@ function ensureFormationsData(){
   if(!DB.formations.etudiantes) DB.formations.etudiantes=[];
 }
 
+// ── Import planning formations (PDF) ──
+let importedEtudiantes=[];
+
+async function importPlanningFormations(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
+
+  const el=document.getElementById('import-formations-result');
+  el.innerHTML=`<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Analyse du planning...</div></div>`;
+
+  try{
+    if(!window.pdfjsLib){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let fullText='';
+    for(let i=1;i<=Math.min(pdf.numPages,15);i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      fullText+=content.items.map(x=>x.str).join(' ')+'\n';
+    }
+
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:4000,
+        messages:[{role:'user',content:`Voici un planning de formations avec les étudiantes inscrites. Extrais toutes les étudiantes.
+Pour chaque étudiante donne : nom (Prénom Nom), tel, email, financement ("cpf" ou "perso"), dateDebut (YYYY-MM-DD, année 2026 si non précisée), lieu, formation (nom du type de formation, ex: "Coaching Privé", "Débutant", "Perfectionnement").
+Ignore les lignes d'absence de l'équipe (Isabelle, Giulia, Danielle absentes).
+Réponds UNIQUEMENT en JSON valide sans backticks :
+[{"nom":"SESTINI Samantha","tel":"06.45.18.17.20","email":"samanthasestini@icloud.com","financement":"cpf","dateDebut":"2026-06-23","lieu":"Porto-Vecchio","formation":"Coaching Privé"}]
+
+Texte du planning :
+${fullText.slice(0,10000)}`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('Aucune étudiante détectée');
+    importedEtudiantes=JSON.parse(match[0]);
+    renderImportFormationsResult();
+  }catch(e){
+    el.innerHTML=`<div style="padding:16px;text-align:center;color:var(--dep)">⚠️ Erreur : ${e.message}</div>`;
+  }
+  event.target.value='';
+}
+
+function renderImportFormationsResult(){
+  const el=document.getElementById('import-formations-result');
+  if(!importedEtudiantes.length){
+    el.innerHTML=`<div class="empty">Aucune étudiante détectée</div>`;
+    return;
+  }
+  ensureFormationsData();
+  const doublons=new Set();
+  importedEtudiantes.forEach((e,i)=>{
+    const exists=DB.formations.etudiantes.some(x=>
+      x.nom.toLowerCase().trim()===e.nom.toLowerCase().trim()&&x.dateFormation===e.dateDebut
+    );
+    if(exists) doublons.add(i);
+  });
+  const nouveaux=importedEtudiantes.filter((_,i)=>!doublons.has(i));
+
+  let html=`<div class="fb" style="margin-top:14px">
+    <div class="fh"><span>📋 ${nouveaux.length} nouvelle(s) étudiante(s)</span>
+      <button class="btn bd bsm" onclick="importerToutesEtudiantesFormation()">✓ Tout importer</button>
+    </div>
+    <table><thead><tr><th>Nom</th><th>Formation</th><th>Date</th><th>Lieu</th><th>Financement</th><th></th></tr></thead><tbody>`;
+  importedEtudiantes.forEach((e,i)=>{
+    const isDup=doublons.has(i);
+    html+=`<tr style="opacity:${isDup?0.4:1}">
+      <td style="font-weight:600">${e.nom}</td>
+      <td class="tmu">${e.formation||'—'}</td>
+      <td class="tdt">${e.dateDebut?dlbl(e.dateDebut):'—'}</td>
+      <td class="tmu">${e.lieu||'—'}</td>
+      <td>${e.financement==='cpf'?'CPF':'Perso'}</td>
+      <td>${isDup?'<span style="font-size:11px;color:var(--mut)">Déjà importée</span>':`<button class="btn bd bsm" onclick="importerEtudianteFormation(${i})">+ Ajouter</button>`}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+}
+
+async function importerEtudianteFormation(i){
+  ensureFormationsData();
+  const e=importedEtudiantes[i];
+  const etu={
+    id:genId(),
+    nom:e.nom,
+    email:e.email||'',
+    tel:e.tel||'',
+    statut:'Inscrite',
+    formation:e.formation||'kit-cils',
+    dateFormation:e.dateDebut||'',
+    lieu:e.lieu||'',
+    financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
+    kit:{statut:'à préparer',contenu:KIT_TEMPLATE_DEFAUT.map(k=>({...k}))},
+    notes:''
+  };
+  DB.formations.etudiantes.push(etu);
+  await saveAll();
+  importedEtudiantes.splice(i,1);
+  renderImportFormationsResult();
+  renderFEtudiantes();
+  toast('✓ Étudiante importée !');
+}
+
+async function importerToutesEtudiantesFormation(){
+  ensureFormationsData();
+  let count=0;
+  for(const e of importedEtudiantes){
+    const exists=DB.formations.etudiantes.some(x=>
+      x.nom.toLowerCase().trim()===e.nom.toLowerCase().trim()&&x.dateFormation===e.dateDebut
+    );
+    if(exists) continue;
+    DB.formations.etudiantes.push({
+      id:genId(),
+      nom:e.nom,
+      email:e.email||'',
+      tel:e.tel||'',
+      statut:'Inscrite',
+      formation:e.formation||'kit-cils',
+      dateFormation:e.dateDebut||'',
+      lieu:e.lieu||'',
+      financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
+      kit:{statut:'à préparer',contenu:KIT_TEMPLATE_DEFAUT.map(k=>({...k}))},
+      notes:''
+    });
+    count++;
+  }
+  await saveAll();
+  importedEtudiantes=[];
+  renderImportFormationsResult();
+  renderFEtudiantes();
+  toast(`✓ ${count} étudiante(s) importée(s) !`);
+}
+   
 let fTabActive=0;
 function goFTab(i){
   fTabActive=i;
@@ -6201,11 +6373,18 @@ function renderFormationsModule(){
 function renderFEtudiantes(){
   ensureFormationsData();
   const list=DB.formations.etudiantes;
-  let html=`
+let html=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} étudiante${list.length>1?'s':''}</div>
-      <button class="btn bd" onclick="openEtudianteModal()">+ Ajouter</button>
-    </div>`;
+      <div style="display:flex;gap:8px">
+        <label class="btn bg" style="cursor:pointer">
+          📥 Importer planning
+          <input type="file" accept=".pdf" onchange="importPlanningFormations(event)" style="display:none">
+        </label>
+        <button class="btn bd" onclick="openEtudianteModal()">+ Ajouter</button>
+      </div>
+    </div>
+    <div id="import-formations-result"></div>`;
   if(!list.length){
     html+=`<div class="empty">Aucune étudiante — clique sur "+ Ajouter"</div>`;
   } else {
@@ -6267,6 +6446,10 @@ function openEtudianteModal(id=null){
         <option value="les-deux" ${e?.formation==='les-deux'?'selected':''}>Les deux</option>
       </select>
     </div>
+    <div class="g2">
+  <div class="fr"><label>Date début formation</label><input type="date" id="fe-date-formation" value="${e?.dateFormation||''}"></div>
+  <div class="fr"><label>Lieu</label><input type="text" id="fe-lieu" value="${e?.lieu||''}"></div>
+</div>
     <div class="divider"></div>
     <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💶 Financement</div>
     <div class="g2">
@@ -6306,6 +6489,8 @@ async function saveEtudiante(){
     tel:document.getElementById('fe-tel')?.value?.trim()||'',
     statut:document.getElementById('fe-statut')?.value||'Inscrite',
     formation:document.getElementById('fe-formation')?.value||'gestion-finance',
+    dateFormation:document.getElementById('fe-date-formation')?.value||'',
+    lieu:document.getElementById('fe-lieu')?.value?.trim()||'',
     financement:{
       type:document.getElementById('fe-fin-type')?.value||'perso',
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
