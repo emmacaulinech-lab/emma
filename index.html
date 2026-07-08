@@ -354,7 +354,23 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
 
 <div class="hub" id="hubPage" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);align-items:center;justify-content:center;flex-direction:column;padding:40px 20px">
   <div style="font-family:'Cormorant Garant',serif;font-size:38px;color:var(--acc);margin-bottom:6px;letter-spacing:.06em">✦ EMMA</div>
-  <div style="font-size:13px;color:var(--mut);margin-bottom:40px">Choisis un espace</div>
+  <div style="font-size:13px;color:var(--mut);margin-bottom:24px">Vue d'ensemble</div>
+
+  <div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:18px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="background:var(--bg2);border-radius:14px;padding:12px 14px">
+        <div style="font-size:10px;color:var(--mut);margin-bottom:4px">💰 Solde compte pro</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:var(--acc)" id="hub-solde-pro">—</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:14px;padding:12px 14px">
+        <div style="font-size:10px;color:var(--mut);margin-bottom:4px">👛 Solde compte perso</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:var(--pla)" id="hub-solde-perso">—</div>
+      </div>
+    </div>
+    <div id="hub-notifications"></div>
+  </div>
+
+  <div style="font-size:13px;color:var(--mut);margin-bottom:20px">Choisis un espace</div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;width:100%">
     <div class="hub-card" onclick="goModule('compta')">
       <div class="hub-card-icon">💰</div><div class="hub-card-label">Compta</div>
@@ -6033,6 +6049,7 @@ function goHub(){
   ['facturation','formations','banqueperso','sport','lecture'].forEach(m=>{
     document.getElementById('module-'+m).style.display='none';
   });
+  renderHubOverview();
 }
 
 function goModule(name){
@@ -6043,6 +6060,48 @@ function goModule(name){
   } else {
     document.getElementById('app').classList.remove('visible');
     document.getElementById('module-'+name).style.display='block';
+  }
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD HUB — soldes + notifications
+// ═══════════════════════════════════════
+function renderHubOverview(){
+  const soldeProEl=document.getElementById('hub-solde-pro');
+  const soldePersoEl=document.getElementById('hub-solde-perso');
+  if(!soldeProEl) return;
+
+  const soldePro=DB.banque.reduce((s,b)=>s+b.montant,PARAMS.soldeInit);
+  soldeProEl.textContent=fa(soldePro);
+
+  const soldePerso=(DB.banquePerso?.transactions||[]).reduce((s,t)=>s+t.montant,PARAMS.soldePersoInit||0);
+  soldePersoEl.textContent=fa(soldePerso);
+
+  const notifs=[];
+  const today=new Date();
+
+  const facturesRetard=(DB.facturation?.factures||[]).filter(f=>{
+    if(f.payee) return false;
+    const j=Math.floor((today-new Date(f.date+'T12:00:00'))/86400000);
+    return j>=15;
+  });
+  if(facturesRetard.length) notifs.push({icon:'🧾',txt:`${facturesRetard.length} facture(s) LIMAGECILS en retard (+15j)`,color:'var(--dep)'});
+
+  const redevancesRetard=(DB.facturation?.factures||[]).filter(f=>{
+    if(f.type!=='redevance'||f.payee) return false;
+    const j=Math.floor((today-new Date(f.date+'T12:00:00'))/86400000);
+    return j>=30;
+  });
+  if(redevancesRetard.length) notifs.push({icon:'💰',txt:`${redevancesRetard.length} redevance(s) impayée(s) (+30j)`,color:'var(--dep)'});
+
+  const kitsAPreparer=(DB.formations?.kits||[]).filter(k=>k.statut==='a_preparer');
+  if(kitsAPreparer.length) notifs.push({icon:'📦',txt:`${kitsAPreparer.length} kit(s) formation à préparer`,color:'var(--warn)'});
+
+  const el=document.getElementById('hub-notifications');
+  if(el){
+    el.innerHTML=notifs.length
+      ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
+      :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
   }
 }
 
