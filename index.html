@@ -887,6 +887,20 @@ const db = firebase.firestore();
 let currentUser = null;
 let userRef = null;
 
+   // Connexion secondaire — lecture des factures LIMAGECILS pour les notifs
+const facturationApp = firebase.initializeApp({
+  apiKey: "AIzaSyAzRthKF90GkzZA-aGS__9QumzOI10gcCc",
+  authDomain: "facturation-31fd0.firebaseapp.com",
+  projectId: "facturation-31fd0",
+  storageBucket: "facturation-31fd0.firebasestorage.app",
+  messagingSenderId: "199243069820",
+  appId: "1:199243069820:web:5632eb18f21742cf628cf9"
+}, "facturationApp");
+const facturationAuth = facturationApp.auth();
+const facturationDb = facturationApp.firestore();
+let facturationUid = null;
+let facturesLimagecils = [];
+
 // ═══════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════
@@ -899,6 +913,14 @@ async function doLogin() {
   errEl.textContent = '';
   try {
     await auth.signInWithEmailAndPassword(email, pwd);
+    // Connexion silencieuse au compte Facturation pour les notifs
+    try {
+      const cred = await facturationAuth.signInWithEmailAndPassword(email, pwd);
+      facturationUid = cred.user.uid;
+      await loadFacturesLimagecils();
+    } catch(e2) {
+      console.warn('Connexion Facturation impossible:', e2.message);
+    }
   } catch(e) {
     errEl.textContent = 'Email ou mot de passe incorrect.';
   }
@@ -6063,6 +6085,19 @@ function goModule(name){
   }
 }
 
+async function loadFacturesLimagecils(){
+  if(!facturationUid) return;
+  try{
+    const snap = await facturationDb.collection('users').doc(facturationUid).collection('data').doc('main').get();
+    if(snap.exists){
+      const d = snap.data();
+      if(d.factures) facturesLimagecils = JSON.parse(d.factures);
+    }
+  }catch(e){
+    console.warn('Lecture factures impossible:', e.message);
+  }
+}
+
 // ═══════════════════════════════════════
 // DASHBOARD HUB — soldes + notifications
 // ═══════════════════════════════════════
@@ -6080,15 +6115,15 @@ function renderHubOverview(){
   const notifs=[];
   const today=new Date();
 
-  const facturesRetard=(DB.facturation?.factures||[]).filter(f=>{
-    if(f.payee) return false;
+  const facturesRetard=facturesLimagecils.filter(f=>{
+    if(f.type!=='Produits'||f.statut==='Payée') return false;
     const j=Math.floor((today-new Date(f.date+'T12:00:00'))/86400000);
     return j>=15;
   });
   if(facturesRetard.length) notifs.push({icon:'🧾',txt:`${facturesRetard.length} facture(s) LIMAGECILS en retard (+15j)`,color:'var(--dep)'});
 
-  const redevancesRetard=(DB.facturation?.factures||[]).filter(f=>{
-    if(f.type!=='redevance'||f.payee) return false;
+  const redevancesRetard=facturesLimagecils.filter(f=>{
+    if(f.type!=='Redevance'||f.statut==='Payée') return false;
     const j=Math.floor((today-new Date(f.date+'T12:00:00'))/86400000);
     return j>=30;
   });
