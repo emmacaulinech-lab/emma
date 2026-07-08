@@ -6164,8 +6164,8 @@ function renderHubOverview(){
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
 // ═══════════════════════════════════════
-const STATUTS_FORMATION=['Prospect','Inscrite','Dossier financement','Financement validé','Kit envoyé','Formée'];
-const STATUT_COLORS={'Prospect':'#9ca3af','Inscrite':'#4a78c8','Dossier financement':'#c89040','Financement validé':'#5a8a6a','Kit envoyé':'#c45878','Formée':'#5A8A6A'};
+const STATUTS_FORMATION=['Inscrite','Mail kit envoyé','Kit choisi','Kit payé','Kit préparé'];
+const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choisi':'#8b6fff','Kit payé':'#5a8a6a','Kit préparé':'#5A8A6A'};
 const KIT_TEMPLATE_DEFAUT=[
   {item:'Colle',coche:false},{item:'Pinces',coche:false},{item:'Cils volume russe (plateau)',coche:false},
   {item:'Ventilateur',coche:false},{item:'Nettoyant/Préparateur',coche:false},{item:'Support de formation',coche:false}
@@ -6298,7 +6298,7 @@ async function saveEtudiante(){
     nom,
     email:document.getElementById('fe-email')?.value?.trim()||'',
     tel:document.getElementById('fe-tel')?.value?.trim()||'',
-    statut:document.getElementById('fe-statut')?.value||'Prospect',
+    statut:document.getElementById('fe-statut')?.value||'Inscrite',
     formation:document.getElementById('fe-formation')?.value||'gestion-finance',
     financement:{
       type:document.getElementById('fe-fin-type')?.value||'perso',
