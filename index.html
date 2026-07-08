@@ -318,6 +318,14 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
 .card { border-radius: 20px !important; }
 .fb, .ab, .tw { border-radius: 18px !important; }
 .login-page { background: linear-gradient(135deg, #fff0f8, #f0f4ff, #f0fff8) !important; }
+
+.hub-card{background:white;border:1.5px solid var(--brd);border-radius:20px;padding:28px 16px;text-align:center;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+.hub-card:hover{transform:translateY(-3px);box-shadow:var(--shadow2);border-color:var(--rose)}
+.hub-card-icon{font-size:32px;margin-bottom:10px}
+.hub-card-label{font-family:'Cormorant Garant',serif;font-size:15px;font-weight:700;color:var(--acc)}
+.module-hdr{background:white;border-bottom:1.5px solid var(--brd);padding:0 24px;display:flex;align-items:center;gap:16px;height:52px;position:sticky;top:0;z-index:300}
+.module-hdr-title{font-family:'Cormorant Garant',serif;font-size:17px;color:var(--acc);font-weight:700}
+
 </style>
 </head>
 <body>
@@ -344,10 +352,36 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   </div>
 </div>
 
+<div class="hub" id="hubPage" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);align-items:center;justify-content:center;flex-direction:column;padding:40px 20px">
+  <div style="font-family:'Cormorant Garant',serif;font-size:38px;color:var(--acc);margin-bottom:6px;letter-spacing:.06em">✦ EMMA</div>
+  <div style="font-size:13px;color:var(--mut);margin-bottom:40px">Choisis un espace</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;width:100%">
+    <div class="hub-card" onclick="goModule('compta')">
+      <div class="hub-card-icon">💰</div><div class="hub-card-label">Compta</div>
+    </div>
+    <div class="hub-card" onclick="goModule('facturation')">
+      <div class="hub-card-icon">🧾</div><div class="hub-card-label">Facturation<br>LIMAGECILS</div>
+    </div>
+    <div class="hub-card" onclick="goModule('formations')">
+      <div class="hub-card-icon">🎓</div><div class="hub-card-label">Formations</div>
+    </div>
+    <div class="hub-card" onclick="goModule('banqueperso')">
+      <div class="hub-card-icon">👛</div><div class="hub-card-label">Banque perso</div>
+    </div>
+    <div class="hub-card" onclick="goModule('sport')">
+      <div class="hub-card-icon">🏋️</div><div class="hub-card-label">Sport</div>
+    </div>
+    <div class="hub-card" onclick="goModule('lecture')">
+      <div class="hub-card-icon">📚</div><div class="hub-card-label">Lecture</div>
+    </div>
+  </div>
+</div>
+   
 <!-- ═══════════════ APP ═══════════════ -->
 <div class="app" id="app">
 
   <header class="hdr">
+    <button class="logout-btn" onclick="goHub()" style="margin-right:4px">← Accueil</button>
     <div class="hdr-title">✦ EMMA <span>Comptabilité</span></div>
     <div class="hdr-right">
       <div class="hdr-date" id="todayLbl"></div>
@@ -757,6 +791,27 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
    
 </div><!-- /app -->
 
+<div id="module-facturation" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Facturation LIMAGECILS</div></div>
+  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+</div>
+<div id="module-formations" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🎓 Formations</div></div>
+  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+</div>
+<div id="module-banqueperso" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">👛 Banque perso</div></div>
+  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+</div>
+<div id="module-sport" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🏋️ Sport</div></div>
+  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+</div>
+<div id="module-lecture" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">📚 Lecture</div></div>
+  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+</div>
+   
 <!-- MODALS -->
 <div class="mo" id="mainModal">
   <div class="mb">
@@ -846,10 +901,9 @@ auth.onAuthStateChanged(async user => {
     currentUser = user;
     userRef = db.collection('users').doc(user.uid);
     document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('app').classList.add('visible');
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
-    renderAll();
+    goHub();
   } else {
     currentUser = null;
     userRef = null;
@@ -3294,7 +3348,8 @@ function openTVA(){
     !noTVAList.includes(b.nom)&&
     !b.nom.toUpperCase().includes('DÉPÔT')&&
     !b.nom.toUpperCase().includes('DEPOT')&&
-    ['VIR','CA','ACHATS','CH. Fixe','CH. Variable'].includes(b.categorie)
+    b.montant>0&&
+    ['VIR','CA'].includes(b.categorie)
   ).sort((a,b)=>b.date.localeCompare(a.date));
   let html=`<div style="max-height:60vh;overflow-y:auto">`;
   if(!rows.length){
@@ -5969,6 +6024,28 @@ if(!localStorage.getItem('anthropic_key')){
   document.getElementById('apiKeyField').style.display='block';
 }
    
+// ═══════════════════════════════════════
+// NAVIGATION HUB / MODULES
+// ═══════════════════════════════════════
+function goHub(){
+  document.getElementById('hubPage').style.display='flex';
+  document.getElementById('app').classList.remove('visible');
+  ['facturation','formations','banqueperso','sport','lecture'].forEach(m=>{
+    document.getElementById('module-'+m).style.display='none';
+  });
+}
+
+function goModule(name){
+  document.getElementById('hubPage').style.display='none';
+  if(name==='compta'){
+    document.getElementById('app').classList.add('visible');
+    renderAll();
+  } else {
+    document.getElementById('app').classList.remove('visible');
+    document.getElementById('module-'+name).style.display='block';
+  }
+}
+
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
 </body>
