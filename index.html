@@ -6198,10 +6198,15 @@ const el=document.getElementById('hub-notifications');
 // ═══════════════════════════════════════
 const STATUTS_FORMATION=['Inscrite','Mail kit envoyé','Kit choisi','Kit payé','Kit préparé'];
 const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choisi':'#8b6fff','Kit payé':'#5a8a6a','Kit préparé':'#5A8A6A'};
-const KIT_TEMPLATE_DEFAUT=[
-  {item:'Colle',coche:false},{item:'Pinces',coche:false},{item:'Cils volume russe (plateau)',coche:false},
-  {item:'Ventilateur',coche:false},{item:'Nettoyant/Préparateur',coche:false},{item:'Support de formation',coche:false}
-];
+const KITS_CONTENU={
+  'starter':{label:'Kit Starter (189€)',items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','10 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 nettoyant','1 scotch professionnel','5 marguerites']},
+  'extra':{label:'Kit Extra (319€)',items:['7 boîtes de cils LIMAGECILS','2 colles professionnelles','15 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 boîte pinces','1 préparateur','1 nettoyant','1 fixateur','1 crème remover']},
+  'lashup':{label:"Kit Lash Up' (62€)",items:['10 dosettes','Pads réutilisables','Colle rehaussement','Grattoir','Kit teinture','Soin nourrissant']},
+  'lashlift':{label:'Kit Lash Lift Coréen (119€)',items:['Protocole complet 5 lotions','Silicone Shields réutilisables','Outil Y professionnel','Film plastique','Goupillons & accessoires','Produits de préparation',"Manuel d'utilisation LIMAGECILS"]},
+  'browlift':{label:'Kit Brow Lift (99€)',items:['Protocole Brow Lift complet','Colle Brow Lift','Patches silicone','Brosse mascara','Outil Y professionnel','Accessoires de précision','Ventilateur professionnel']},
+  'coaching1j':{label:'Kit Coaching Privé 1 Jour (79€)',items:['1 boîte de cils LIMAGECILS','1 colle professionnelle','1 patch hydrogel','10 brossettes','10 microtigettes','1 fiche étude du regard','1 marguerite','1 scotch professionnel']},
+  'coaching2j':{label:'Kit Coaching Privé 2 Jours (129€)',items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','1 préparateur','5 patches hydrogel','1 pince saisie','1 pince isolation','1 nettoyant','1 support palette','1 fiche étude du regard','1 scotch professionnel','5 marguerites','20 brossettes','20 tigettes','20 microtigettes']}
+};
 
 function ensureFormationsData(){
   if(!DB.formations) DB.formations={etudiantes:[]};
@@ -6317,7 +6322,7 @@ async function importerEtudianteFormation(i){
     dateFormation:e.dateDebut||'',
     lieu:e.lieu||'',
     financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-    kit:{statut:'à préparer',contenu:KIT_TEMPLATE_DEFAUT.map(k=>({...k}))},
+    kit:construireKit('starter'),
     notes:''
   };
   DB.formations.etudiantes.push(etu);
@@ -6347,7 +6352,7 @@ async function importerToutesEtudiantesFormation(){
       dateFormation:e.dateDebut||'',
       lieu:e.lieu||'',
       financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-      kit:{statut:'à préparer',contenu:KIT_TEMPLATE_DEFAUT.map(k=>({...k}))},
+      kit:construireKit('starter'),
       notes:''
     });
     count++;
@@ -6474,6 +6479,11 @@ function openEtudianteModal(id=null){
   <div class="fr"><label>Date début formation</label><input type="date" id="fe-date-formation" value="${e?.dateFormation||''}"></div>
   <div class="fr"><label>Lieu</label><input type="text" id="fe-lieu" value="${e?.lieu||''}"></div>
 </div>
+<div class="fr"><label>Kit choisi</label>
+  <select id="fe-kit-type" onchange="previewKitChange()">
+    ${Object.entries(KITS_CONTENU).map(([k,v])=>`<option value="${k}" ${e?.kit?.type===k?'selected':''}>${v.label}</option>`).join('')}
+  </select>
+</div>
     <div class="divider"></div>
     <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💶 Financement</div>
     <div class="g2">
@@ -6493,6 +6503,23 @@ function openEtudianteModal(id=null){
   document.getElementById('formationModal').dataset.editId=id||'';
   document.getElementById('formationModal').classList.add('open');
   document.getElementById('saveEtudianteBtn').disabled=false;
+}
+
+function construireKit(typeKit,kitExistant){
+  const template=KITS_CONTENU[typeKit]||KITS_CONTENU.starter;
+  // Si même type qu'avant, on garde les coches déjà faites
+  if(kitExistant?.type===typeKit&&kitExistant.contenu){
+    return{...kitExistant,type:typeKit};
+  }
+  return{
+    type:typeKit,
+    statut:kitExistant?.statut||'à préparer',
+    contenu:template.items.map(item=>({item,coche:false}))
+  };
+}
+
+function previewKitChange(){
+  // Optionnel : pourrait afficher un aperçu, laissé simple pour l'instant
 }
 
 async function saveEtudiante(){
@@ -6520,7 +6547,7 @@ async function saveEtudiante(){
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
       paye:document.getElementById('fe-fin-paye')?.value==='1'
     },
-    kit:existing?.kit||{statut:'à préparer',contenu:KIT_TEMPLATE_DEFAUT.map(k=>({...k}))},
+    kit:construireKit(document.getElementById('fe-kit-type')?.value,existing?.kit),
     notes:document.getElementById('fe-notes')?.value||''
   };
 
@@ -6558,10 +6585,11 @@ function renderFKits(){
       const nbFait=contenu.filter(k=>k.coche).length;
       const complet=nbFait===contenu.length&&contenu.length>0;
       return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <div style="font-weight:700;font-size:14px">${e.nom}</div>
           <span style="font-size:11px;font-weight:700;color:${complet?'var(--rec)':'var(--warn)'}">${nbFait}/${contenu.length} ${complet?'✅':''}</span>
         </div>
+        <div style="font-size:11px;color:var(--acc);margin-bottom:10px">${KITS_CONTENU[e.kit?.type]?.label||'Kit non défini'}</div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
           ${contenu.map((k,ki)=>`
             <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleKitItem(${idx},${ki})">
