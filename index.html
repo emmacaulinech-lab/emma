@@ -2030,18 +2030,10 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
 
     
 
-        // ESP déposées = somme des prestations ESP effectivement rapprochées avec un mouvement banque, par semaine
-    const espDeposeesW=weeks.map(wk=>{
-      const lignesRapprochees=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.montant>0&&t.caisseIds?.length);
-      let total=0;
-      for(const ligne of lignesRapprochees){
-        for(const cid of ligne.caisseIds){
-          const c=DB.caisse.find(x=>x.id===cid);
-          if(c&&c.reglement==='ESP') total+=c.montant;
-        }
-      }
-      return total;
-    });
+           // ESP déposées = prestations ESP marquées comme rapprochées (peu importe la méthode de rapprochement)
+    const espDeposeesW=weeks.map(wk=>
+      DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='ESP'&&t.montant>0&&t.depose===true).reduce((s,t)=>s+t.montant,0)
+    );
 
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
     // Écart ESP = ESP à déposer - ESP déposées (addition car dépôts sont positifs)
