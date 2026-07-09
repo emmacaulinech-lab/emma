@@ -3263,7 +3263,6 @@ async function matcherToutesFactures(){
 }
 
 
-
 function ouvrirRapprochementMultiFactures(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
@@ -3279,7 +3278,7 @@ function ouvrirRapprochementMultiFactures(banqueId){
     ${disponibles.length?`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:11px;font-weight:600;color:var(--mut)">Sélectionne une ou plusieurs factures :</span>
-      <button class="btn bg bsm" onclick="suggererRapprochementIA('${banqueId}')">🤖 Suggérer via IA</button>
+      <button class="btn bg bsm" onclick="suggererRapprochementIA()">🤖 Suggérer via IA</button>
     </div>
     <div id="rmf-suggestion"></div>
     <div style="max-height:280px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:6px">
@@ -3348,7 +3347,8 @@ async function validerRapprochementMultiFactures(){
   toast(`✓ ${checks.length} facture(s) rapprochée(s) !`);
 }
 
-async function suggererRapprochementIA(banqueId){
+async function suggererRapprochementIA(){
+  const banqueId=document.getElementById('mainModal').dataset.banqueIdRmf;
   const apiKey=localStorage.getItem('anthropic_key');
   if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return;}
   const b=DB.banque.find(x=>x.id===banqueId);
