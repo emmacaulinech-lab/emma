@@ -1253,18 +1253,7 @@ function tvaNette(mois){ return tvaCollectee(mois)-tvaDed(mois); }
 // ═══════════════════════════════════════
 async function autoRapproch(){
   let changed=false;
-  // VIR Caisse ↔ Banque
-  for(const c of DB.caisse){
-    if(c.paye||c.reglement!=='VIR') continue;
-    const match=DB.banque.find(b=>{
-      if(b.montant<=0||b.categorie!=='VIR') return false;
-      const nomMatch=b.nom.toLowerCase().includes(c.nom.toLowerCase().split(' ')[0]);
-      const mntMatch=Math.abs(b.montant-c.montant)<0.01;
-      const dc=new Date(c.date+'T12:00:00'),db_=new Date(b.date+'T12:00:00');
-      return nomMatch&&mntMatch&&Math.abs(dc-db_)<=7*86400000;
-    });
-    if(match){ c.paye=true; changed=true; await saveEntry_fb('caisse',c); }
-  }
+// VIR Caisse ↔ Banque : désormais géré uniquement via le rapprochement manuel (rapprocheBanque)
   // Fixes ↔ Banque
   for(const f of DB.fixes){
     const bMatch=DB.banque.filter(b=>dm(b.date)===f.mois&&b.nom===f.nom&&b.montant<0);
@@ -1499,7 +1488,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   }).join('');
 
   // Clientes non payées (VIR en attente)
-  const nonPayees=DB.caisse.filter(t=>t.reglement==='VIR'&&!t.paye&&t.montant>0&&inM(t.date,mois));
+  const nonPayees=DB.caisse.filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0&&inM(t.date,mois));
   const npEl=document.getElementById('d-nonpayees');
   if(npEl){
     if(!nonPayees.length){
@@ -1680,7 +1669,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
         <td style="white-space:nowrap">
         ${t.montant>0
             ?(t.caisseIds?.length
-                ?`<span style="font-size:11px;color:var(--rec)">✅ ${t.caisseIds.length} presta</span>`
+                ?`<span style="font-size:11px;color:var(--rec)">✅ ${t.caisseIds.length}</span> <button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Détails</button>`
                 :`<button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Lier</button>`)
             :(['TVA','REDEVANCE'].includes(t.nom.toUpperCase())
                 ?`<span style="font-size:11px;color:var(--pla)">✅ Auto</span>`
@@ -2879,9 +2868,12 @@ function updateRapListe(banqueId){
   const el=document.getElementById('rap-liste');
   if(!el||!mode) return;
 
+  const b=DB.banque.find(x=>x.id===banqueId);
+  const dejaLies=b?.caisseIds||[];
   const prestations=DB.caisse.filter(t=>{
     if(t.montant<=0||t.reglement!==mode) return false;
     if(mois&&!inM(t.date,mois)) return false;
+    if(dejaLies.includes(t.id)) return true; // toujours montrer celles déjà liées à CETTE ligne
     if(mode==='ESP') return !t.depose;
     if(mode==='CHQ') return !t.chqDepose;
     return !t.rapprocheBanque;
@@ -2900,7 +2892,7 @@ function updateRapListe(banqueId){
     <div style="max-height:260px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:6px">
       ${prestations.map(t=>`
         <div class="di">
-          <input type="checkbox" id="rap-${t.id}" value="${t.id}" data-mnt="${t.montant}" data-mode="${t.reglement}" onchange="updateRapTotal()">
+          <input type="checkbox" id="rap-${t.id}" value="${t.id}" data-mnt="${t.montant}" data-mode="${t.reglement}" ${dejaLies.includes(t.id)?'checked':''} onchange="updateRapTotal()">
           <label for="rap-${t.id}" style="cursor:pointer;flex:1;font-size:12px">
             ${dlbl(t.date)} — <strong>${t.nom}</strong> — ${t.prestation||''} — <span style="font-family:'DM Mono',monospace;color:var(--rec)">${fa(t.montant)}</span>
           </label>
@@ -6682,7 +6674,7 @@ const el=document.getElementById('hub-notifications');
   }
 
   // Virements en attente (compta)
-  const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.paye&&t.montant>0);
+  const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
   const wrapVir=document.getElementById('hub-virements-wrap');
   const elVir=document.getElementById('hub-virements');
   if(wrapVir&&elVir){
