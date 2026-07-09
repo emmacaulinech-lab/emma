@@ -3165,8 +3165,16 @@ function openModal(ctx, editId=null){
   const titles={caisse:editId?'Modifier prestation':'Nouvelle prestation',banque:editId?'Modifier mouvement':'Nouveau mouvement',fixes:editId?'Modifier charge fixe':'Nouvelle charge fixe',variables:editId?'Modifier charge variable':'Nouvelle charge variable'};
   document.getElementById('mTitle').textContent=titles[ctx]||'Nouvelle entrée';
   document.getElementById('mBody').innerHTML=buildForm(ctx,editId);
+  // Remet les boutons par défaut (au cas où une autre fenêtre les aurait remplacés)
+  const footer=document.querySelector('#mainModal .ma');
+  footer.style.display='flex';
+  footer.innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bg" onclick="saveEntry()">Enregistrer</button>
+    <button class="btn bd" onclick="saveEntry(true)">Enregistrer + Ajouter</button>`;
   document.getElementById('mainModal').classList.add('open');
 }
+
 
 function buildForm(ctx, editId=null){
   const today=new Date().toISOString().split('T')[0];
