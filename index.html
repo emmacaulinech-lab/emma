@@ -2113,11 +2113,11 @@ const espEcartTot=espEcartW.reduce((s,v)=>s+v,0);
       v=>Math.abs(v)<0.01?'var(--mut)':v>0?'var(--warn)':'var(--rec)',
       (i,v)=>i>=0?`À déposer: ${fa(espWCorr[i])}\nDéposé: ${fa(espDeposeesW[i])}\nÉcart: ${fm(v,true)}`:`Reste à déposer fin de mois`
     );
-    const resteEspW=weeks.map((wk,i)=>(semData[i].parMode['ESP']||0)-espDeposeesW[i]);
+    const resteEspW=weeks.map((wk,i)=>(espNetW[i]||0)-espDeposeesW[i]);
     const resteEspTot=resteEspW.reduce((s,v)=>s+v,0);
     html+=row('💰 Reste espèces',resteEspW,resteEspTot,
       v=>Math.abs(v)<0.01?'var(--mut)':v>0?'var(--warn)':'var(--rec)',
-      (i,v)=>i>=0?`ESP semaine: ${fa(semData[i].parMode['ESP']||0)}\nESP déposées: ${fa(espDeposeesW[i])}\nReste: ${fm(v,true)}`:`Total reste espèces`
+      (i,v)=>i>=0?`ESP semaine: ${fa(espNetW[i]||0)}\nESP déposées: ${fa(espDeposeesW[i])}\nReste: ${fm(v,true)}`:`Total reste espèces`
     );
 
     html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">REDEVANCE (${PARAMS.redev*100}%)</td></tr>`;
