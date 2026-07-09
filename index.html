@@ -3262,6 +3262,8 @@ async function matcherToutesFactures(){
   toast(count?`✓ ${count} facture(s) rapprochée(s) automatiquement`:'Aucune correspondance trouvée');
 }
 
+
+
 function ouvrirRapprochementMultiFactures(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
@@ -3275,7 +3277,11 @@ function ouvrirRapprochementMultiFactures(banqueId){
       <div style="font-family:'Cormorant Garant',serif;font-size:20px;color:var(--dep);margin-top:4px">${fa(Math.abs(b.montant))}</div>
     </div>
     ${disponibles.length?`
-    <div style="font-size:11px;font-weight:600;color:var(--mut);margin-bottom:8px">Sélectionne une ou plusieurs factures :</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:11px;font-weight:600;color:var(--mut)">Sélectionne une ou plusieurs factures :</span>
+      <button class="btn bg bsm" onclick="suggererRapprochementIA('${banqueId}')">🤖 Suggérer via IA</button>
+    </div>
+    <div id="rmf-suggestion"></div>
     <div style="max-height:280px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:6px">
       ${disponibles.map(f=>`
         <div class="di">
@@ -3292,11 +3298,109 @@ function ouvrirRapprochementMultiFactures(banqueId){
     <div id="rmf-ecart" style="font-size:12px;margin-top:4px"></div>
     `:`<div class="empty">Aucune facture disponible — importe-les d'abord</div>`}
   `;
+  document.getElementById('mainModal').dataset.banqueIdRmf=banqueId;
   document.querySelector('#mainModal .ma').style.display='flex';
   document.querySelector('#mainModal .ma').innerHTML=`
     <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
-    <button class="btn bd" onclick="validerRapprochementMultiFactures('${banqueId}')">✓ Rapprocher</button>`;
+    <button class="btn bd" onclick="validerRapprochementMultiFactures()">✓ Rapprocher</button>`;
   document.getElementById('mainModal').classList.add('open');
+}
+
+function updateMultiFacturesTotal(){
+  const checks=[...document.querySelectorAll('#mBody input[id^="rmf-"]:checked')];
+  const total=checks.reduce((s,c)=>s+parseFloat(c.dataset.mnt),0);
+  document.getElementById('rmf-total').textContent=fa(total);
+
+  const banqueId=document.getElementById('mainModal').dataset.banqueIdRmf;
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(b){
+    const ecart=Math.round((total-Math.abs(b.montant))*100)/100;
+    const el=document.getElementById('rmf-ecart');
+    if(Math.abs(ecart)<0.01) el.innerHTML=`<span style="color:var(--rec)">✅ Montant exact</span>`;
+    else if(ecart<0) el.innerHTML=`<span style="color:var(--warn)">Il manque ${fa(Math.abs(ecart))} pour atteindre le montant</span>`;
+    else el.innerHTML=`<span style="color:var(--dep)">⚠️ Dépasse de ${fa(ecart)}</span>`;
+  }
+}
+
+async function validerRapprochementMultiFactures(){
+  const banqueId=document.getElementById('mainModal').dataset.banqueIdRmf;
+  const checks=[...document.querySelectorAll('#mBody input[id^="rmf-"]:checked')];
+  if(!checks.length){toast('⚠ Sélectionne au moins une facture');return;}
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return;
+
+  let totalTva=0;
+  for(const cb of checks){
+    const f=DB_FACTURES.find(x=>x.id===cb.value);
+    if(f){
+      f.rapprochee=true;
+      f.operationBanqueId=banqueId;
+      await saveFacture(f);
+      totalTva+=f.tva;
+    }
+  }
+  b.tva=-totalTva;
+  await saveEntry_fb('banque',b);
+  closeMo('mainModal');
+  renderAll();
+  renderFactures();
+  renderSansTva();
+  toast(`✓ ${checks.length} facture(s) rapprochée(s) !`);
+}
+
+async function suggererRapprochementIA(banqueId){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return;}
+  const b=DB.banque.find(x=>x.id===banqueId);
+  const disponibles=DB_FACTURES.filter(f=>!f.rapprochee);
+  if(!b||!disponibles.length) return;
+
+  const el=document.getElementById('rmf-suggestion');
+  el.innerHTML=`<div style="text-align:center;padding:12px"><div class="spinner" style="margin:0 auto"></div></div>`;
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:1000,
+        messages:[{role:'user',content:`Voici un mouvement bancaire à rapprocher :
+Libellé : "${b.nom}"
+Date : ${b.date}
+Montant : ${Math.abs(b.montant)} €
+
+Voici la liste des factures disponibles (non encore rapprochées) :
+${disponibles.map(f=>`- ID:${f.id} | Fournisseur:"${f.fournisseur}" | Date:${f.date} | Montant TTC:${f.montantTTC} €`).join('\n')}
+
+Suggère quelle(s) facture(s) correspondent le mieux à ce mouvement bancaire, en te basant sur : la proximité du nom du fournisseur avec le libellé bancaire, la proximité des dates, et le fait que la somme des montants TTC des factures suggérées doit être proche du montant du mouvement bancaire (une ou plusieurs factures peuvent correspondre à un seul mouvement).
+
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"ids":["id1","id2"],"raison":"explication courte en français"}
+Si aucune correspondance plausible, réponds {"ids":[],"raison":"aucune correspondance trouvée"}`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('Réponse IA invalide');
+    const suggestion=JSON.parse(match[0]);
+
+    if(!suggestion.ids.length){
+      el.innerHTML=`<div style="font-size:12px;color:var(--mut);padding:8px 0">🤖 ${suggestion.raison}</div>`;
+      return;
+    }
+
+    // Coche automatiquement les factures suggérées
+    suggestion.ids.forEach(id=>{
+      const cb=document.getElementById('rmf-'+id);
+      if(cb) cb.checked=true;
+    });
+    updateMultiFacturesTotal();
+    el.innerHTML=`<div style="background:var(--pla2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--pla);margin-bottom:10px">🤖 <strong>Suggestion :</strong> ${suggestion.raison}</div>`;
+  }catch(e){
+    el.innerHTML=`<div style="font-size:12px;color:var(--dep);padding:8px 0">⚠️ ${e.message}</div>`;
+  }
 }
 
 function updateMultiFacturesTotal(){
