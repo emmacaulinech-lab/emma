@@ -395,6 +395,11 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <div id="hub-notifications"></div>
   </div>
 
+  <div id="hub-virements-wrap" style="display:none;background:white;border:1.5px solid var(--brd2);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:10px">⏳ Virements en attente</div>
+    <div id="hub-virements"></div>
+  </div>
+
   <div style="font-size:13px;color:var(--mut);margin-bottom:20px">Choisis un espace</div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;width:100%">
     <div class="hub-card" onclick="goModule('compta')">
@@ -1679,11 +1684,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
                 :`<button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Lier</button>`)
             :(['TVA','REDEVANCE'].includes(t.nom.toUpperCase())
                 ?`<span style="font-size:11px;color:var(--pla)">✅ Auto</span>`
-                :[...DB.fixes,...DB.variables].some(f=>f.banqueIds?.includes(t.id))
-                  ?`<span style="font-size:11px;color:var(--rec)">✅ Rapprochée</span>`
-                  :DB_FACTURES.some(f=>f.operationBanqueId===t.id)
-                    ?`<span style="font-size:11px;color:var(--rec)">✅ Facture(s)</span>`
-                    :`<button class="btn bg bsm" onclick="ouvrirRapprochementCharge('${t.id}')">🔗 Charge</button> <button class="btn bg bsm" onclick="ouvrirRapprochementMultiFactures('${t.id}')">🧾 Factures</button>`)
+                :`<button class="btn bg bsm" onclick="ouvrirDetailRapprochement('${t.id}')">🔗 Détails</button>`)
           }
           <button class="btn bg bsm" onclick="editEntry('banque','${t.id}')">✏️</button>
           <button class="btn br bsm" onclick="delEntry('banque','${t.id}')">✕</button>
@@ -3262,7 +3263,91 @@ async function matcherToutesFactures(){
   toast(count?`✓ ${count} facture(s) rapprochée(s) automatiquement`:'Aucune correspondance trouvée');
 }
 
+function getFacturesLieesA(banqueId){
+  return DB_FACTURES.filter(f=>f.operationBanqueId===banqueId);
+}
 
+async function recalcTvaLigneBanque(banqueId){
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return;
+  const factures=getFacturesLieesA(banqueId);
+  const totalTva=factures.reduce((s,f)=>s+f.tva,0);
+  b.tva=totalTva>0?-totalTva:0;
+  await saveEntry_fb('banque',b);
+}
+
+function ouvrirDetailRapprochement(banqueId){
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return;
+  const chargeLiee=[...DB.fixes,...DB.variables].find(f=>f.banqueIds?.includes(banqueId));
+  const facturesLiees=getFacturesLieesA(banqueId);
+
+  document.getElementById('mTitle').textContent='🔗 Détail du rapprochement';
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;margin-bottom:16px">
+      <div style="font-weight:700">${b.nom}</div>
+      <div style="font-size:12px;color:var(--mut)">${dlbl(b.date)}</div>
+      <div style="font-family:'Cormorant Garant',serif;font-size:20px;color:var(--dep);margin-top:4px">${fm(b.montant)}</div>
+      ${b.tva?`<div style="font-size:12px;color:var(--pla)">TVA associée : ${fa(Math.abs(b.tva))}</div>`:''}
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📋 Charge liée</div>
+    ${chargeLiee?`
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--rec2);border-radius:10px;padding:10px 14px;margin-bottom:16px">
+        <span style="font-weight:600;font-size:13px">${chargeLiee.nom}</span>
+        <button class="btn br bsm" onclick="delierCharge('${banqueId}','${chargeLiee.id}')">✕ Délier</button>
+      </div>`:`
+      <div style="margin-bottom:16px">
+        <button class="btn bg" onclick="ouvrirRapprochementCharge('${banqueId}')">+ Lier une charge</button>
+      </div>`}
+
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🧾 Facture(s) liée(s)</div>
+    ${facturesLiees.length?facturesLiees.map(f=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--rec2);border-radius:10px;padding:10px 14px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:600;font-size:13px">${f.fournisseur} — ${fa(f.montantTTC)}</div>
+          <div style="font-size:11px;color:var(--mut)">${dlbl(f.date)} · ${f.numeroFacture} · TVA ${fa(f.tva)}</div>
+        </div>
+        <button class="btn br bsm" onclick="delierFacture('${banqueId}','${f.id}')">✕ Délier</button>
+      </div>`).join(''):'<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Aucune facture liée</div>'}
+    <button class="btn bg" onclick="ouvrirRapprochementMultiFactures('${banqueId}')">+ Ajouter des factures</button>
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`<button class="btn bg" onclick="closeMo('mainModal')">Fermer</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function delierCharge(banqueId,chargeId){
+  const table=DB.fixes.find(x=>x.id===chargeId)?'fixes':'variables';
+  const charge=DB[table].find(x=>x.id===chargeId);
+  if(charge){
+    charge.banqueIds=(charge.banqueIds||[]).filter(id=>id!==banqueId);
+    charge.montant=charge.banqueIds.reduce((s,bid)=>{
+      const bm=DB.banque.find(x=>x.id===bid);
+      return s+(bm?bm.montant:0);
+    },0);
+    charge.paye=charge.banqueIds.length>0;
+    await saveEntry_fb(table,charge);
+  }
+  renderAll();
+  ouvrirDetailRapprochement(banqueId);
+  toast('Charge déliée');
+}
+
+async function delierFacture(banqueId,factureId){
+  const f=DB_FACTURES.find(x=>x.id===factureId);
+  if(f){
+    f.rapprochee=false;
+    f.operationBanqueId=null;
+    await saveFacture(f);
+  }
+  await recalcTvaLigneBanque(banqueId);
+  renderAll();
+  renderFactures();
+  ouvrirDetailRapprochement(banqueId);
+  toast('Facture déliée');
+}
+   
 function ouvrirRapprochementMultiFactures(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
@@ -3328,23 +3413,20 @@ async function validerRapprochementMultiFactures(){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
 
-  let totalTva=0;
   for(const cb of checks){
     const f=DB_FACTURES.find(x=>x.id===cb.value);
     if(f){
       f.rapprochee=true;
       f.operationBanqueId=banqueId;
       await saveFacture(f);
-      totalTva+=f.tva;
     }
   }
-  b.tva=-totalTva;
-  await saveEntry_fb('banque',b);
-  closeMo('mainModal');
+  await recalcTvaLigneBanque(banqueId);
   renderAll();
   renderFactures();
   renderSansTva();
   toast(`✓ ${checks.length} facture(s) rapprochée(s) !`);
+  ouvrirDetailRapprochement(banqueId);
 }
 
 async function suggererRapprochementIA(){
@@ -6598,7 +6680,28 @@ const el=document.getElementById('hub-notifications');
       ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="${n.onclick||''}"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
       :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
   }
-}
+
+  // Virements en attente (compta)
+  const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.paye&&t.montant>0);
+  const wrapVir=document.getElementById('hub-virements-wrap');
+  const elVir=document.getElementById('hub-virements');
+  if(wrapVir&&elVir){
+    if(virementsEnAttente.length){
+      wrapVir.style.display='block';
+      const totalVir=virementsEnAttente.reduce((s,t)=>s+t.montant,0);
+      elVir.innerHTML=`
+        <div style="font-size:12px;color:var(--mut);margin-bottom:8px">${virementsEnAttente.length} virement(s) — ${fa(totalVir)}</div>
+        ${virementsEnAttente.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(t=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="goModule('compta')">
+            <span>${t.nom} <span style="color:var(--mut);font-size:11px">${t.prestation||''}</span></span>
+            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--warn)">${fa(t.montant)}</span>
+          </div>`).join('')}
+        ${virementsEnAttente.length>5?`<div style="font-size:11px;color:var(--mut);margin-top:6px">+${virementsEnAttente.length-5} autre(s)</div>`:''}
+      `;
+    } else {
+      wrapVir.style.display='none';
+    }
+  }
 
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
