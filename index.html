@@ -1164,25 +1164,38 @@ function caNet(rows){
   return ca;
 }
 
-function redevDue(rows){
-  let r=0;
-  for(const t of rows){
-    if(t.montant<=0) continue;
-    if(t.praticien==='MARIE'||t.praticien==='GIULIA') r+=t.montant*PARAMS.tauxSoc*PARAMS.redev;
-    else r+=t.montant*PARAMS.redev;
+function redevDeposee(rows){
+  let total=0;
+  const emmaRows=rows.filter(t=>t.montant>0&&t.depose&&(!t.praticien||t.praticien===''));
+  total+=emmaRows.reduce((s,t)=>s+t.montant,0)*PARAMS.redev;
+
+  for(const prat of ['MARIE','GIULIA']){
+    const pratRows=rows.filter(t=>t.montant>0&&t.depose&&t.praticien===prat);
+    if(!pratRows.length) continue;
+    const ca=pratRows.reduce((s,t)=>s+t.montant,0);
+    const chqvirplan=pratRows.filter(t=>['CHQ','VIR','PLANITY'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+    const netSociete=Math.max(chqvirplan,ca*PARAMS.tauxSoc);
+    total+=netSociete*PARAMS.redev;
   }
-  return r;
+  return total;
 }
 
-function redevDeposee(rows){
-  let r=0;
-  for(const t of rows){
-    if(t.montant<=0||!t.depose) continue;
-    if(t.praticien==='MARIE'||t.praticien==='GIULIA') r+=t.montant*PARAMS.tauxSoc*PARAMS.redev;
-    else r+=t.montant*PARAMS.redev;
+function redevDue(rows){
+  let total=0;
+  const emmaRows=rows.filter(t=>t.montant>0&&(!t.praticien||t.praticien===''));
+  total+=emmaRows.reduce((s,t)=>s+t.montant,0)*PARAMS.redev;
+
+  for(const prat of ['MARIE','GIULIA']){
+    const pratRows=rows.filter(t=>t.montant>0&&t.praticien===prat);
+    if(!pratRows.length) continue;
+    const ca=pratRows.reduce((s,t)=>s+t.montant,0);
+    const chqvirplan=pratRows.filter(t=>['CHQ','VIR','PLANITY'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+    const netSociete=Math.max(chqvirplan,ca*PARAMS.tauxSoc);
+    total+=netSociete*PARAMS.redev;
   }
-  return r;
+  return total;
 }
+
 
 function tvaCollectee(mois){
   return DB.banque
