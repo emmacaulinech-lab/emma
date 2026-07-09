@@ -40,8 +40,9 @@
   --mut2: #d8c0b0;
   --marie: #c0392b;
   --giulia: #8B6914;
-  --shadow: 0 3px 10px rgba(180,80,100,.10), 0 1px 3px rgba(180,80,100,.08);
-  --shadow2: 0 10px 30px rgba(180,80,100,.18), 0 3px 8px rgba(180,80,100,.12);
+  --shadow: 0 4px 14px rgba(180,80,100,.14), 0 1px 4px rgba(180,80,100,.10);
+--shadow2: 0 14px 36px rgba(180,80,100,.24), 0 4px 12px rgba(180,80,100,.16);
+--shadow-inset: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(180,80,100,.06);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -86,7 +87,7 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
   background: white; border-bottom: 1.5px solid var(--brd);
   padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
   height: 52px; position: sticky; top: 0; z-index: 300;
-  box-shadow: 0 2px 8px rgba(180,80,100,.06);
+  box-shadow: 0 4px 12px rgba(180,80,100,.10);
 }
 .hdr-title { font-family: 'Cormorant Garant', serif; font-size: 18px; color: var(--acc); font-weight: 700; letter-spacing: .04em; }
 .hdr-title span { color: var(--mut); font-weight: 400; font-size: 13px; margin-left: 8px; font-family: 'Nunito', sans-serif; }
@@ -138,8 +139,9 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
 
 /* ── BUTTONS ── */
 .btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; font-family: 'Nunito', sans-serif; font-weight: 600; transition: all .15s; }
-.bd { background: var(--acc); color: white; }
-.bd:hover { background: var(--acc2); transform: translateY(-1px); box-shadow: var(--shadow); }
+.bd { background: linear-gradient(145deg, var(--acc2), var(--acc)); color: white; box-shadow: 0 3px 8px rgba(196,88,120,.35), inset 0 1px 0 rgba(255,255,255,.25); }
+.bd:hover { background: linear-gradient(145deg, var(--acc), #a83d5f); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(196,88,120,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+.bd:active { transform: translateY(0); box-shadow: 0 2px 4px rgba(196,88,120,.3); }
 .bg { background: white; border: 1.5px solid var(--brd2); color: var(--mut); }
 .bg:hover { border-color: var(--acc); color: var(--acc); }
 .br { background: white; border: 1.5px solid var(--dep); color: var(--dep); }
@@ -154,9 +156,9 @@ body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--tx
 table { width: 100%; border-collapse: collapse; }
 thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
 thead th { padding: 9px 11px; text-align: left; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--rose2); font-weight: 600; white-space: nowrap; }
-tbody tr { border-bottom: 1px solid var(--brd); transition: background .1s; }
+tbody tr { border-bottom: 1px solid var(--brd); transition: background .15s, transform .1s; }
 tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: var(--bg2); }
+tbody tr:hover { background: linear-gradient(90deg, var(--bg2), transparent); transform: translateX(2px); }
 td { padding: 9px 11px; vertical-align: middle; }
 .tm { font-family: 'DM Mono', monospace; font-size: 12px; }
 .tdt { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--mut); white-space: nowrap; }
@@ -194,9 +196,11 @@ td { padding: 9px 11px; vertical-align: middle; }
 /* ── KPI ── */
 .kg { display: grid; grid-template-columns: repeat(4,1fr); gap: 13px; margin-bottom: 18px; }
 .kc {
-  background: white; border: 1.5px solid var(--brd); border-radius: 18px;
-  padding: 18px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  background: linear-gradient(160deg, #ffffff, #fff5f8); border: 1px solid var(--brd); border-radius: 18px;
+  padding: 18px 18px; box-shadow: var(--shadow), var(--shadow-inset); position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
 }
+.kc:hover { transform: translateY(-3px); box-shadow: var(--shadow2), var(--shadow-inset); }
 .kc::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: 18px 18px 0 0; }
 .kca::before { background: linear-gradient(90deg, var(--rec), #6fc49a); }
 .kob::before { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
@@ -300,7 +304,13 @@ td { padding: 9px 11px; vertical-align: middle; }
   .hdr-date { display: none; }
 }
 
-body { background: linear-gradient(135deg, #fff0f8 0%, #f0f4ff 50%, #f0fff8 100%) !important; background-attachment: fixed !important; }
+body {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(244,114,160,.10) 0%, transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(122,180,232,.10) 0%, transparent 45%),
+    linear-gradient(135deg, #fff0f8 0%, #f0f4ff 50%, #f0fff8 100%) !important;
+  background-attachment: fixed !important;
+}
 .hdr { background: white; }
 .tabs { background: white; }
 thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !important; }
@@ -427,7 +437,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <button class="tab" onclick="goTab('banque',this)">🏦 Banque</button>
     <button class="tab" onclick="goTab('auto',this)">🎭 Auto</button>
     <button class="tab" onclick="goTab('recap',this)">✅ Récap</button>
-    <button class="tab" onclick="goTab('factures',this)">🧾 Factures</button>
+    <button class="tab" onclick="goTab('factures',this)">🧾 TVA</button>
     <button class="tab" onclick="goTab('fixes',this)">✏️ Ch. Fixes</button>
     <button class="tab" onclick="goTab('variables',this)">📊 Ch. Variables</button>
     <button class="tab" onclick="goTab('boutique',this)">🛍️ Boutique</button>
@@ -679,13 +689,22 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
 
 <div class="view" id="view-factures">
   <div class="sh">
-    <div><div class="st">🧾 Factures fournisseurs</div><div class="ss">TVA déductible détaillée</div></div>
+    <div><div class="st">🧾 TVA</div><div class="ss">Import factures, rapprochement banque, gestion des exclusions</div></div>
     <label class="btn bd" style="cursor:pointer">
-      + Importer une facture
-      <input type="file" accept="image/*,.pdf" onchange="importerFacture(event)" style="display:none">
+      + Importer des factures
+      <input type="file" accept="image/*,.pdf" multiple onchange="importerFacturesMultiples(event)" style="display:none">
     </label>
   </div>
+  <div class="ib">💡 Sélectionne plusieurs fichiers d'un coup pour les importer en série. Le rapprochement automatique tente ensuite de les relier à tes mouvements bancaires.</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn bg" onclick="matcherToutesFactures()">🔄 Rapprocher automatiquement</button>
+  </div>
   <div id="facturesC"></div>
+  <div class="divider"></div>
+  <div class="fh" style="background:var(--bg2);border-radius:10px 10px 0 0"><span>🚫 Lignes banque sans TVA à exclure</span></div>
+  <div id="sansTvaC"></div>
+  ${''}
+  <div id="noTvaListC" style="margin-top:12px"></div>
 </div>
 
   <!-- AUTO -->
@@ -1300,6 +1319,7 @@ function renderAll(){
   renderSettings();
   renderBoutique();
   renderCaisseVirtuelle();
+  renderSansTva();
   renderFactures();
 }
 
@@ -3125,6 +3145,163 @@ function renderFactures(){
     </tr></tbody></table></div>`;
   }
   el.innerHTML=html;
+}
+
+// ── Import multiple + rapprochement auto + exclusions ──
+async function importerFacturesMultiples(event){
+  const files=[...event.target.files];
+  if(!files.length) return;
+  for(const file of files){
+    await importerUneFacture(file);
+  }
+  event.target.value='';
+  renderFactures();
+  renderSansTva();
+  toast(`✓ ${files.length} facture(s) traitée(s)`);
+}
+
+async function importerUneFacture(file){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return;}
+  try{
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const isPDF=file.type==='application/pdf';
+    let content;
+    if(isPDF){
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload=res;s.onerror=rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      const arrayBuffer=await file.arrayBuffer();
+      const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+      let text='';
+      for(let i=1;i<=Math.min(pdf.numPages,3);i++){
+        const page=await pdf.getPage(i);
+        const tc=await page.getTextContent();
+        text+=tc.items.map(x=>x.str).join(' ')+'\n';
+      }
+      content=`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}
+
+Texte :
+${text.slice(0,4000)}`;
+    }
+    const body=isPDF
+      ?{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content}]}
+      :{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'text',text:`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}`}
+        ]}]};
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify(body)
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text2=data.content.map(i=>i.text||'').join('');
+    const match=text2.match(/\{[\s\S]*\}/);
+    if(!match) return;
+    const fd=JSON.parse(match[0]);
+    const facture={
+      id:genId(),
+      fournisseur:fd.fournisseur||'Inconnu',
+      date:fd.date||new Date().toISOString().split('T')[0],
+      numeroFacture:fd.numeroFacture||'—',
+      montantHT:parseFloat(fd.montantHT)||0,
+      tva:parseFloat(fd.tva)||0,
+      montantTTC:parseFloat(fd.montantTTC)||0,
+      rapprochee:false,
+      operationBanqueId:null
+    };
+    DB_FACTURES.push(facture);
+    await saveFacture(facture);
+  }catch(e){
+    console.error('Erreur import facture:',e);
+  }
+}
+
+async function matcherToutesFactures(){
+  let count=0;
+  const nonRapprochees=DB_FACTURES.filter(f=>!f.rapprochee);
+  for(const f of nonRapprochees){
+    const candidat=DB.banque.find(b=>
+      b.montant<0&&
+      !DB_FACTURES.some(x=>x.operationBanqueId===b.id)&&
+      Math.abs(Math.abs(b.montant)-f.montantTTC)<0.02&&
+      Math.abs((new Date(b.date)-new Date(f.date))/86400000)<=10
+    );
+    if(candidat){
+      f.rapprochee=true;
+      f.operationBanqueId=candidat.id;
+      candidat.tva=-f.tva;
+      await saveFacture(f);
+      await saveEntry_fb('banque',candidat);
+      count++;
+    }
+  }
+  renderFactures();
+  renderSansTva();
+  toast(count?`✓ ${count} facture(s) rapprochée(s) automatiquement`:'Aucune correspondance trouvée');
+}
+
+function renderSansTva(){
+  const el=document.getElementById('sansTvaC');
+  if(!el) return;
+  const rows=DB.banque.filter(b=>
+    b.montant<0&&
+    !noTVAList.includes(b.nom)&&
+    !DB_FACTURES.some(f=>f.operationBanqueId===b.id)&&
+    !b.nom.toUpperCase().includes('DÉPÔT')&&
+    !b.nom.toUpperCase().includes('DEPOT')
+  ).sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(!rows.length){
+    el.innerHTML=`<div class="empty" style="padding:20px">✅ Toutes les lignes ont une facture ou sont exclues</div>`;
+  } else {
+    el.innerHTML=`<div class="tw"><table><thead><tr><th>Date</th><th>Nom</th><th style="text-align:right">Montant</th><th></th></tr></thead><tbody>
+      ${rows.map(b=>`<tr>
+        <td class="tdt">${dlbl(b.date)}</td>
+        <td style="font-weight:500">${b.nom}</td>
+        <td class="tn" style="text-align:right">${fm(b.montant)}</td>
+        <td><button class="btn bg bsm" onclick="addNoTva('${b.nom.replace(/'/g,"\\'")}')">🚫 Pas de TVA</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  }
+
+  const listEl=document.getElementById('noTvaListC');
+  if(listEl){
+    listEl.innerHTML=noTVAList.length?`<div style="font-size:11px;color:var(--mut);padding:8px 0">
+      🚫 Exclues : ${noTVAList.join(', ')}
+      <button class="btn bg bsm" style="margin-left:8px" onclick="clearNoTva()">Réinitialiser</button>
+    </div>`:'';
+  }
+}
+
+function addNoTva(nom){
+  if(!noTVAList.includes(nom)) noTVAList.push(nom);
+  localStorage.setItem('noTVAList',JSON.stringify(noTVAList));
+  renderSansTva();
+  toast('🚫 '+nom+' — exclue de la TVA');
+}
+
+function clearNoTva(){
+  noTVAList=[];
+  localStorage.setItem('noTVAList',JSON.stringify(noTVAList));
+  renderSansTva();
 }
 
 function ouvrirRapprochementFacture(factureId){
