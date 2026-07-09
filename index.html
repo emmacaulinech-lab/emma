@@ -1673,13 +1673,17 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
         <td class="${t.montant>=0?'tp':'tn'}" style="text-align:right">${fm(t.montant,t.montant>0)}</td>
         <td class="tmu" style="text-align:right">${fa(sm[t.id]||0)}</td>
         <td style="white-space:nowrap">
-          ${t.montant>0
+        ${t.montant>0
             ?(t.caisseIds?.length
                 ?`<span style="font-size:11px;color:var(--rec)">✅ ${t.caisseIds.length} presta</span>`
                 :`<button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Lier</button>`)
-            :([...DB.fixes,...DB.variables].some(f=>f.banqueIds?.includes(t.id))
-                ?`<span style="font-size:11px;color:var(--rec)">✅ Rapprochée</span>`
-                :`<button class="btn bg bsm" onclick="ouvrirRapprochementCharge('${t.id}')">🔗 Lier</button>`)
+            :(['TVA','REDEVANCE'].includes(t.nom.toUpperCase())
+                ?`<span style="font-size:11px;color:var(--pla)">✅ Auto</span>`
+                :[...DB.fixes,...DB.variables].some(f=>f.banqueIds?.includes(t.id))
+                  ?`<span style="font-size:11px;color:var(--rec)">✅ Rapprochée</span>`
+                  :DB_FACTURES.some(f=>f.operationBanqueId===t.id)
+                    ?`<span style="font-size:11px;color:var(--rec)">✅ Facture(s)</span>`
+                    :`<button class="btn bg bsm" onclick="ouvrirRapprochementCharge('${t.id}')">🔗 Charge</button> <button class="btn bg bsm" onclick="ouvrirRapprochementMultiFactures('${t.id}')">🧾 Factures</button>`)
           }
           <button class="btn bg bsm" onclick="editEntry('banque','${t.id}')">✏️</button>
           <button class="btn br bsm" onclick="delEntry('banque','${t.id}')">✕</button>
@@ -3258,6 +3262,84 @@ async function matcherToutesFactures(){
   toast(count?`✓ ${count} facture(s) rapprochée(s) automatiquement`:'Aucune correspondance trouvée');
 }
 
+function ouvrirRapprochementMultiFactures(banqueId){
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return;
+  const disponibles=DB_FACTURES.filter(f=>!f.rapprochee).sort((a,b)=>b.date.localeCompare(a.date));
+
+  document.getElementById('mTitle').textContent='🧾 Rapprocher plusieurs factures';
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;margin-bottom:16px">
+      <div style="font-weight:700">${b.nom}</div>
+      <div style="font-size:12px;color:var(--mut)">${dlbl(b.date)}</div>
+      <div style="font-family:'Cormorant Garant',serif;font-size:20px;color:var(--dep);margin-top:4px">${fa(Math.abs(b.montant))}</div>
+    </div>
+    ${disponibles.length?`
+    <div style="font-size:11px;font-weight:600;color:var(--mut);margin-bottom:8px">Sélectionne une ou plusieurs factures :</div>
+    <div style="max-height:280px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:6px">
+      ${disponibles.map(f=>`
+        <div class="di">
+          <input type="checkbox" id="rmf-${f.id}" value="${f.id}" data-mnt="${f.montantTTC}" data-tva="${f.tva}" onchange="updateMultiFacturesTotal()">
+          <label for="rmf-${f.id}" style="cursor:pointer;flex:1;font-size:12px">
+            ${dlbl(f.date)} — <strong>${f.fournisseur}</strong> — ${f.numeroFacture} — <span style="font-family:'DM Mono',monospace;color:var(--dep)">${fa(f.montantTTC)}</span>
+          </label>
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;margin-top:8px;border-top:1px solid var(--brd)">
+      <span style="font-size:12px;color:var(--mut)">Total sélectionné :</span>
+      <span id="rmf-total" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--dep)">0,00 €</span>
+    </div>
+    <div id="rmf-ecart" style="font-size:12px;margin-top:4px"></div>
+    `:`<div class="empty">Aucune facture disponible — importe-les d'abord</div>`}
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerRapprochementMultiFactures('${banqueId}')">✓ Rapprocher</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function updateMultiFacturesTotal(){
+  const checks=[...document.querySelectorAll('#mBody input[id^="rmf-"]:checked')];
+  const total=checks.reduce((s,c)=>s+parseFloat(c.dataset.mnt),0);
+  document.getElementById('rmf-total').textContent=fa(total);
+
+  const banqueId=document.querySelector('#mainModal .ma button.bd').getAttribute('onclick').match(/'([^']+)'/)[1];
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(b){
+    const ecart=Math.round((total-Math.abs(b.montant))*100)/100;
+    const el=document.getElementById('rmf-ecart');
+    if(Math.abs(ecart)<0.01) el.innerHTML=`<span style="color:var(--rec)">✅ Montant exact</span>`;
+    else if(ecart<0) el.innerHTML=`<span style="color:var(--warn)">Il manque ${fa(Math.abs(ecart))} pour atteindre le montant</span>`;
+    else el.innerHTML=`<span style="color:var(--dep)">⚠️ Dépasse de ${fa(ecart)}</span>`;
+  }
+}
+
+async function validerRapprochementMultiFactures(banqueId){
+  const checks=[...document.querySelectorAll('#mBody input[id^="rmf-"]:checked')];
+  if(!checks.length){toast('⚠ Sélectionne au moins une facture');return;}
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return;
+
+  let totalTva=0;
+  for(const cb of checks){
+    const f=DB_FACTURES.find(x=>x.id===cb.value);
+    if(f){
+      f.rapprochee=true;
+      f.operationBanqueId=banqueId;
+      await saveFacture(f);
+      totalTva+=f.tva;
+    }
+  }
+  b.tva=-totalTva;
+  await saveEntry_fb('banque',b);
+  closeMo('mainModal');
+  renderAll();
+  renderFactures();
+  renderSansTva();
+  toast(`✓ ${checks.length} facture(s) rapprochée(s) !`);
+}
+   
 function renderSansTva(){
   const el=document.getElementById('sansTvaC');
   if(!el) return;
