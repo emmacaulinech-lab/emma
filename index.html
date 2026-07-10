@@ -2960,6 +2960,13 @@ async function validerRapprochementCaisse(banqueId){
   for(const cb of checks){
     const t=DB.caisse.find(x=>x.id===cb.value);
     if(t){
+      // Retire cette prestation de toute AUTRE ligne banque où elle était liée
+      for(const autreLigne of DB.banque){
+        if(autreLigne.id!==banqueId&&autreLigne.caisseIds?.includes(t.id)){
+          autreLigne.caisseIds=autreLigne.caisseIds.filter(id=>id!==t.id);
+          await saveEntry_fb('banque',autreLigne);
+        }
+      }
       const mode=t.reglement;
       if(mode==='ESP') t.depose=true;
       else if(mode==='CHQ') t.chqDepose=true;
