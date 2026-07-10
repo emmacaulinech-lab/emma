@@ -2822,12 +2822,19 @@ function ouvrirRapprochementCaisse(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
 
-  const libelle=b.nom.toLowerCase();
-  let modeAuto='';
-  if(libelle.includes('planity')) modeAuto='PLANITY';
-  else if(libelle.includes('vir')) modeAuto='VIR';
-  else if(libelle.includes('cheq')||libelle.includes('chq')) modeAuto='CHQ';
-  else if(libelle.includes('esp')||libelle.includes('depot')||libelle.includes('dépôt')) modeAuto='ESP';
+  // Si des prestations sont déjà liées, on récupère leur mode et mois directement
+  const dejaLiees=(b.caisseIds||[]).map(id=>DB.caisse.find(t=>t.id===id)).filter(Boolean);
+  let modeAuto='',moisAuto='';
+  if(dejaLiees.length){
+    modeAuto=dejaLiees[0].reglement;
+    moisAuto=dm(dejaLiees[0].date);
+  } else {
+    const libelle=b.nom.toLowerCase();
+    if(libelle.includes('planity')) modeAuto='PLANITY';
+    else if(libelle.includes('vir')) modeAuto='VIR';
+    else if(libelle.includes('cheq')||libelle.includes('chq')) modeAuto='CHQ';
+    else if(libelle.includes('esp')||libelle.includes('depot')||libelle.includes('dépôt')) modeAuto='ESP';
+  }
 
   document.getElementById('mTitle').textContent='🔗 Rapprocher avec des prestations';
   document.getElementById('mBody').innerHTML=`
@@ -2847,7 +2854,7 @@ function ouvrirRapprochementCaisse(banqueId){
     </div>
     <div class="fr"><label>Mois des prestations</label>
       <select id="rap-mois" onchange="updateRapListe('${banqueId}')">
-        ${[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse().map(m=>`<option value="${m}" ${m===dm(b.date)?'selected':''}>${mf(m)}</option>`).join('')}
+        ${[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse().map(m=>`<option value="${m}" ${m===(moisAuto||dm(b.date))?'selected':''}>${mf(m)}</option>`).join('')}
       </select>
     </div>
     <div id="rap-liste"></div>
@@ -2859,7 +2866,7 @@ function ouvrirRapprochementCaisse(banqueId){
     <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
     <button class="btn bd" onclick="validerRapprochementCaisse('${banqueId}')">✓ Valider</button>`;
   document.getElementById('mainModal').classList.add('open');
-  if(modeAuto) updateRapListe(banqueId);
+  updateRapListe(banqueId); // toujours charger la liste, avec le mode/mois détecté
 }
 
 function updateRapListe(banqueId){
