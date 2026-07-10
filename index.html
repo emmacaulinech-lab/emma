@@ -3486,46 +3486,6 @@ Si aucune correspondance plausible, réponds {"ids":[],"raison":"aucune correspo
   }
 }
 
-function updateMultiFacturesTotal(){
-  const checks=[...document.querySelectorAll('#mBody input[id^="rmf-"]:checked')];
-  const total=checks.reduce((s,c)=>s+parseFloat(c.dataset.mnt),0);
-  document.getElementById('rmf-total').textContent=fa(total);
-
-  const banqueId=document.querySelector('#mainModal .ma button.bd').getAttribute('onclick').match(/'([^']+)'/)[1];
-  const b=DB.banque.find(x=>x.id===banqueId);
-  if(b){
-    const ecart=Math.round((total-Math.abs(b.montant))*100)/100;
-    const el=document.getElementById('rmf-ecart');
-    if(Math.abs(ecart)<0.01) el.innerHTML=`<span style="color:var(--rec)">✅ Montant exact</span>`;
-    else if(ecart<0) el.innerHTML=`<span style="color:var(--warn)">Il manque ${fa(Math.abs(ecart))} pour atteindre le montant</span>`;
-    else el.innerHTML=`<span style="color:var(--dep)">⚠️ Dépasse de ${fa(ecart)}</span>`;
-  }
-}
-
-async function validerRapprochementMultiFactures(banqueId){
-  const checks=[...document.querySelectorAll('#mBody input[id^="rmf-"]:checked')];
-  if(!checks.length){toast('⚠ Sélectionne au moins une facture');return;}
-  const b=DB.banque.find(x=>x.id===banqueId);
-  if(!b) return;
-
-  let totalTva=0;
-  for(const cb of checks){
-    const f=DB_FACTURES.find(x=>x.id===cb.value);
-    if(f){
-      f.rapprochee=true;
-      f.operationBanqueId=banqueId;
-      await saveFacture(f);
-      totalTva+=f.tva;
-    }
-  }
-  b.tva=-totalTva;
-  await saveEntry_fb('banque',b);
-  closeMo('mainModal');
-  renderAll();
-  renderFactures();
-  renderSansTva();
-  toast(`✓ ${checks.length} facture(s) rapprochée(s) !`);
-}
    
 function renderSansTva(){
   const el=document.getElementById('sansTvaC');
