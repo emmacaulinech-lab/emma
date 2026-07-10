@@ -1673,7 +1673,14 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
                 :`<button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Lier</button>`)
             :(['TVA','REDEVANCE'].includes(t.nom.toUpperCase())
                 ?`<span style="font-size:11px;color:var(--pla)">✅ Auto</span>`
-                :`<button class="btn bg bsm" onclick="ouvrirDetailRapprochement('${t.id}')">🔗 Détails</button>`)
+                :(()=>{
+                    const chargeLiee=[...DB.fixes,...DB.variables].some(f=>f.banqueIds?.includes(t.id));
+                    const facturesLiees=DB_FACTURES.filter(f=>f.operationBanqueId===t.id);
+                    const badges=[];
+                    if(chargeLiee) badges.push('<span style="font-size:11px;color:var(--rec)">✅ Charge</span>');
+                    if(facturesLiees.length) badges.push(`<span style="font-size:11px;color:var(--pla)">✅ ${facturesLiees.length} facture(s)</span>`);
+                    return`${badges.join(' ')} <button class="btn bg bsm" onclick="ouvrirDetailRapprochement('${t.id}')">🔗 Détails</button>`;
+                  })())
           }
           <button class="btn bg bsm" onclick="editEntry('banque','${t.id}')">✏️</button>
           <button class="btn br bsm" onclick="delEntry('banque','${t.id}')">✕</button>
