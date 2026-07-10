@@ -3162,10 +3162,10 @@ function renderTvaDetail(){
   if(!tvaDetailMois||!allMois.includes(tvaDetailMois)) tvaDetailMois=allMois[0]||'';
   if(!tvaDetailMois){el.innerHTML='';return;}
 
-  const collecteLignes=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['CA','VIR'].includes(b.categorie)&&b.montant>0&&b.tva);
+  const collecteLignes=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['CA','VIR'].includes(b.categorie)&&b.montant>0);
   const totalCollecte=collecteLignes.reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
 
-  const dedLignesBanque=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0);
+  const dedLignesBanque=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id));
   const dedFactures=DB_FACTURES.filter(f=>{
     const b=DB.banque.find(x=>x.id===f.operationBanqueId);
     return b&&inM(b.date,tvaDetailMois);
