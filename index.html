@@ -1243,9 +1243,16 @@ function tvaCollectee(mois){
     .reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
 }
 function tvaDed(mois){
-  return DB.banque
-    .filter(b=>inM(b.date,mois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0)
+  const viaFactures=DB_FACTURES.filter(f=>{
+    const b=DB.banque.find(x=>x.id===f.operationBanqueId);
+    return b&&inM(b.date,mois);
+  }).reduce((s,f)=>s+f.tva,0);
+
+  const viaManuelle=DB.banque
+    .filter(b=>inM(b.date,mois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id))
     .reduce((s,b)=>s+Math.abs(b.tva||0),0);
+
+  return viaFactures+viaManuelle;
 }
 function tvaNette(mois){ return tvaCollectee(mois)-tvaDed(mois); }
 
