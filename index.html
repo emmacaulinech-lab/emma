@@ -704,6 +704,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div style="display:flex;gap:8px;margin-bottom:16px">
     <button class="btn bg" onclick="matcherToutesFactures()">🔄 Rapprocher automatiquement</button>
   </div>
+  <div id="tvaDetailC" style="margin-bottom:16px"></div>
   <div id="facturesC"></div>
   <div class="divider"></div>
   <div class="fh" style="background:var(--bg2);border-radius:10px 10px 0 0"><span>🚫 Lignes banque sans TVA à exclure</span></div>
@@ -1315,6 +1316,7 @@ function renderAll(){
   renderCaisseVirtuelle();
   renderSansTva();
   renderFactures();
+  renderTvaDetail();
 }
 
 function popSelects(){
@@ -3144,6 +3146,71 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
   event.target.value='';
 }
 
+let tvaDetailMois=null;
+
+function renderTvaDetail(){
+  const el=document.getElementById('tvaDetailC');
+  if(!el) return;
+  const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date))])].sort().reverse();
+  if(!tvaDetailMois||!allMois.includes(tvaDetailMois)) tvaDetailMois=allMois[0]||'';
+  if(!tvaDetailMois){el.innerHTML='';return;}
+
+  const collecteLignes=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['CA','VIR'].includes(b.categorie)&&b.montant>0&&b.tva);
+  const totalCollecte=collecteLignes.reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
+
+  const dedLignesBanque=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0);
+  const dedFactures=DB_FACTURES.filter(f=>{
+    const b=DB.banque.find(x=>x.id===f.operationBanqueId);
+    return b&&inM(b.date,tvaDetailMois);
+  });
+  const totalDedBanque=dedLignesBanque.reduce((s,b)=>s+Math.abs(b.tva||0),0);
+  const totalDedFactures=dedFactures.reduce((s,f)=>s+f.tva,0);
+  const totalDed=totalDedBanque+totalDedFactures;
+  const nette=totalCollecte-totalDed;
+
+  el.innerHTML=`
+    <div class="fb">
+      <div class="fh">
+        <span>🧮 Détail du calcul — ${mf(tvaDetailMois)}</span>
+        <select onchange="tvaDetailMois=this.value;renderTvaDetail()" style="font-size:11px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+          ${allMois.map(m=>`<option value="${m}" ${m===tvaDetailMois?'selected':''}>${mf(m)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="padding:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:8px">✅ TVA collectée (${collecteLignes.length} ligne(s))</div>
+        ${collecteLignes.length?collecteLignes.map(b=>`
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd);font-size:12px">
+            <span>${dlbl(b.date)} — ${b.nom}</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--rec)">${fa(b.montant/(1+PARAMS.tva)*PARAMS.tva)}</span>
+          </div>`).join(''):'<div style="font-size:12px;color:var(--mut)">Aucune ligne</div>'}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px">
+          <span>Total collectée</span><span style="color:var(--rec)">${fa(totalCollecte)}</span>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin:14px 0 8px">🧾 TVA déductible</div>
+        ${dedFactures.map(f=>`
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd);font-size:12px">
+            <span>${dlbl(f.date)} — ${f.fournisseur} (facture)</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--dep)">${fa(f.tva)}</span>
+          </div>`).join('')}
+        ${dedLignesBanque.map(b=>`
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd);font-size:12px">
+            <span>${dlbl(b.date)} — ${b.nom} (manuel)</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--dep)">${fa(Math.abs(b.tva))}</span>
+          </div>`).join('')}
+        ${!dedFactures.length&&!dedLignesBanque.length?'<div style="font-size:12px;color:var(--mut)">Aucune ligne</div>':''}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px">
+          <span>Total déductible</span><span style="color:var(--dep)">${fa(totalDed)}</span>
+        </div>
+
+        <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:700;font-size:13px">TVA nette à reverser</span>
+          <span style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:var(--acc)">${fa(nette)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderFactures(){
   const el=document.getElementById('facturesC');
   if(!el) return;
@@ -3529,6 +3596,7 @@ function renderSansTva(){
     b.montant<0&&
     !noTVAList.includes(b.nom)&&
     !DB_FACTURES.some(f=>f.operationBanqueId===b.id)&&
+    !(b.tva&&b.tva!==0)&&
     !b.nom.toUpperCase().includes('DÉPÔT')&&
     !b.nom.toUpperCase().includes('DEPOT')
   ).sort((a,b)=>b.date.localeCompare(a.date));
