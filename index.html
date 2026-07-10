@@ -2828,6 +2828,8 @@ function ouvrirRapprochementCaisse(banqueId){
   if(dejaLiees.length){
     modeAuto=dejaLiees[0].reglement;
     moisAuto=dm(dejaLiees[0].date);
+} else if(b.categorie==='VIR'){
+    modeAuto='VIR';
   } else {
     const libelle=b.nom.toLowerCase();
     if(libelle.includes('planity')) modeAuto='PLANITY';
