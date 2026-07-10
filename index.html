@@ -1634,7 +1634,7 @@ function renderBanque(){
   const fc=document.getElementById('bc')?.value||'';
   const si=PARAMS.soldeInit;
 
-  let all=[...DB.banque].sort((a,b)=>a.date.localeCompare(b.date));
+  let all=[...DB.banque].sort((a,b)=>a.date.localeCompare(b.date)||String(a.id).localeCompare(String(b.id)));
 let running=si;
 const sm={};
 for(const t of all){running+=t.montant;sm[t.id]=running;}
@@ -2889,17 +2889,28 @@ function updateRapListe(banqueId){
   // Toutes les autres lignes banque qui ont déjà lié cette prestation (pour affichage seulement)
   const liePartout=id=>DB.banque.some(bb=>bb.id!==banqueId&&bb.caisseIds?.includes(id));
 
+  const estRapprochee=t=>{
+    if(mode==='ESP') return !!t.depose;
+    if(mode==='CHQ') return !!t.chqDepose;
+    return !!t.rapprocheBanque;
+  };
+
   const prestations=DB.caisse.filter(t=>{
     if(t.montant<=0||t.reglement!==mode) return false;
     if(mois&&!inM(t.date,mois)) return false;
     return true; // on affiche tout, on ne filtre plus sur depose/chqDepose/rapprocheBanque
-  }).sort((a,b)=>b.date.localeCompare(a.date));
+  }).sort((a,b)=>{
+    const ra=estRapprochee(a),rb=estRapprochee(b);
+    if(ra!==rb) return ra?1:-1; // non-rapprochées d'abord
+    return b.date.localeCompare(a.date);
+  });
 
   if(!prestations.length){
     el.innerHTML=`<div style="font-size:12px;color:var(--mut);padding:10px;background:var(--bg2);border-radius:10px">Aucune prestation ${mode} pour ce mois.</div>`;
     return;
   }
 
+  let lastGroup=null;
   el.innerHTML=`
     <div style="font-size:11px;font-weight:600;color:var(--mut);margin-bottom:8px;display:flex;justify-content:space-between">
       <span>${prestations.length} prestation(s) ${mode}</span>
@@ -2908,7 +2919,14 @@ function updateRapListe(banqueId){
     <div style="max-height:260px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:6px">
       ${prestations.map(t=>{
         const ailleurs=liePartout(t.id);
-        return`<div class="di" style="${ailleurs?'opacity:0.5':''}">
+        const rappr=estRapprochee(t);
+        const group=rappr?'rapprochee':'attente';
+        let header='';
+        if(group!==lastGroup){
+          header=`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:${rappr?'var(--mut)':'var(--acc)'};font-weight:700;padding:6px 4px 4px;${lastGroup?'border-top:1px solid var(--brd);margin-top:6px':''}">${rappr?'✅ Déjà rapprochées':'⏳ En attente'}</div>`;
+          lastGroup=group;
+        }
+        return`${header}<div class="di" style="${ailleurs||rappr?'opacity:0.5':''}">
           <input type="checkbox" id="rap-${t.id}" value="${t.id}" data-mnt="${t.montant}" data-mode="${t.reglement}" ${dejaLies.includes(t.id)?'checked':''} onchange="updateRapTotal()">
           <label for="rap-${t.id}" style="cursor:pointer;flex:1;font-size:12px">
             ${dlbl(t.date)} — <strong>${t.nom}</strong> — ${t.prestation||''} — <span style="font-family:'DM Mono',monospace;color:var(--rec)">${fa(t.montant)}</span>
