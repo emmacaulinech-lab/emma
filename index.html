@@ -951,6 +951,14 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   </div>
 </div>
 
+<div class="mo" id="exerciceModal">
+  <div class="mb" style="width:420px;max-width:94vw">
+    <h2 id="exModalTitle">Exercice</h2>
+    <div id="exModalBody"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('exerciceModal')">Fermer</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -7536,10 +7544,11 @@ async function copyEmailToClipboard(){
 const TYPES_SEANCE=['Musculation','Cardio','Yoga','Course à pied','Vélo','Natation','Pilates','Autre'];
 
 function ensureSportData(){
-  if(!DB.sport) DB.sport={seances:[],mensurations:[],objectifs:[]};
+  if(!DB.sport) DB.sport={seances:[],mensurations:[],objectifs:[],repasPlanifies:[]};
   if(!DB.sport.seances) DB.sport.seances=[];
   if(!DB.sport.mensurations) DB.sport.mensurations=[];
   if(!DB.sport.objectifs) DB.sport.objectifs=[];
+  if(!DB.sport.repasPlanifies) DB.sport.repasPlanifies=[];
 }
 
 let sTabActive=0;
@@ -8016,6 +8025,30 @@ const PROGRAMMES_PREDEFINIS=[
     {nom:'Fentes',series:3,reps:12,repos:'45s'},
     {nom:'Gainage',series:3,reps:'45s',repos:'30s'},
     {nom:'Développé épaules',series:3,reps:12,repos:'45s'}
+  {id:'ventre30',label:'Ventre plat & Taille fine',duree:30,zone:'ventre-taille',exercices:[
+    {nom:'Crunchs',series:4,reps:20,repos:'30s'},
+    {nom:'Gainage',series:3,reps:'45s',repos:'30s'},
+    {nom:'Gainage latéral',series:3,reps:'30s/côté',repos:'20s'},
+    {nom:'Rotations russes',series:3,reps:20,repos:'30s'},
+    {nom:'Relevés de jambes',series:3,reps:15,repos:'30s'},
+    {nom:'Mountain climbers',series:3,reps:20,repos:'30s'}
+  ]},
+  {id:'cuisses45',label:'Affiner les cuisses',duree:45,zone:'cuisses-affiner',exercices:[
+    {nom:'Squat sumo',series:4,reps:18,repos:'45s'},
+    {nom:'Fentes latérales',series:3,reps:12,repos:'45s'},
+    {nom:'Adducteurs au sol',series:3,reps:20,repos:'30s'},
+    {nom:'Chaise (gainage mural)',series:3,reps:'40s',repos:'30s'},
+    {nom:'Jumping jacks',series:3,reps:20,repos:'30s'},
+    {nom:'Fentes marchées',series:3,reps:12,repos:'45s'}
+  ]},
+  {id:'fessiers45',label:'Gonfler les fessiers',duree:45,zone:'fessiers-gonfler',exercices:[
+    {nom:'Hip thrust',series:4,reps:15,repos:'60s'},
+    {nom:'Squats sumo',series:4,reps:15,repos:'60s'},
+    {nom:'Fentes bulgares',series:3,reps:12,repos:'60s'},
+    {nom:'Donkey kicks',series:3,reps:15,repos:'45s'},
+    {nom:'Pont fessier une jambe',series:3,reps:12,repos:'45s'},
+    {nom:'Squat pulse',series:3,reps:15,repos:'45s'}
+  ]},
   ]}
 ];
 
@@ -8023,7 +8056,7 @@ let sProgFiltreDuree='',sProgFiltreZone='';
 
 function renderSProgramme(){
   const el=document.getElementById('sview-programme');
-  const zones=[{v:'full-body',l:'Full body'},{v:'haut-corps',l:'Haut du corps'},{v:'bas-corps',l:'Bas du corps'},{v:'cardio',l:'Cardio'},{v:'abdos',l:'Abdos'}];
+  const zones=[{v:'full-body',l:'Full body'},{v:'haut-corps',l:'Haut du corps'},{v:'bas-corps',l:'Bas du corps'},{v:'cardio',l:'Cardio'},{v:'abdos',l:'Abdos'},{v:'ventre-taille',l:'Ventre & Taille'},{v:'cuisses-affiner',l:'Affiner cuisses'},{v:'fessiers-gonfler',l:'Gonfler fessiers'}];
   const filtres=PROGRAMMES_PREDEFINIS.filter(p=>
     (!sProgFiltreDuree||p.duree===parseInt(sProgFiltreDuree))&&
     (!sProgFiltreZone||p.zone===sProgFiltreZone)
@@ -8074,7 +8107,7 @@ function renderSProgramme(){
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           ${p.exercices.map(ex=>`<div style="font-size:12px;color:var(--txt);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--brd)">
-            <span>${ex.nom}</span><span style="color:var(--mut)">${ex.series}×${ex.reps} (repos ${ex.repos})</span>
+            <span style="cursor:pointer;color:var(--pla);text-decoration:underline dotted" onclick="afficherDescriptionExercice('${ex.nom.replace(/'/g,"\\'")}')">${ex.nom}</span><span style="color:var(--mut)">${ex.series}×${ex.reps} (repos ${ex.repos})</span>
           </div>`).join('')}
         </div>
       </div>`).join('')}
@@ -8113,7 +8146,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       <div style="background:var(--bg2);border-radius:12px;padding:14px 16px">
         <div style="font-weight:700;font-size:14px;margin-bottom:10px">✨ ${prog.titre}</div>
         ${prog.exercices.map(ex=>`<div style="font-size:12px;display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd)">
-          <span>${ex.nom}</span><span style="color:var(--mut)">${ex.series}×${ex.reps} (repos ${ex.repos})</span>
+          <span style="cursor:pointer;color:var(--pla);text-decoration:underline dotted" onclick="afficherDescriptionExercice('${ex.nom.replace(/'/g,"\\'")}')">${ex.nom}</span><span style="color:var(--mut)">${ex.series}×${ex.reps} (repos ${ex.repos})</span>
         </div>`).join('')}
         <button class="btn bd bsm" style="margin-top:10px" onclick="planifierProgrammeIA()">📅 Planifier cette séance</button>
       </div>`;
@@ -8153,6 +8186,8 @@ function renderSRepas(){
   ensureSportData();
   const objectifsActifs=DB.sport.objectifs.filter(o=>o.statut!=='atteint');
   const el=document.getElementById('sview-repas');
+  const today=new Date().toISOString().split('T')[0];
+  const planifies=[...DB.sport.repasPlanifies].sort((a,b)=>a.date.localeCompare(b.date));
 
   el.innerHTML=`
     <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
@@ -8171,13 +8206,37 @@ function renderSRepas(){
           </select>
         </div>
       </div>
-      <div class="fr"><label>Préférences <span style="font-size:10px;color:var(--mut)">optionnel</span></label>
-        <input type="text" id="repas-prefs" placeholder="ex: végétarien, sans lactose, rapide à préparer">
+      <div class="g2">
+        <div class="fr"><label>Préférences <span style="font-size:10px;color:var(--mut)">optionnel</span></label>
+          <input type="text" id="repas-prefs" placeholder="ex: végétarien, rapide">
+        </div>
+        <div class="fr"><label>Date prévue</label>
+          <input type="date" id="repas-date" value="${today}">
+        </div>
       </div>
       <button class="btn bd" onclick="genererRepasIA()" style="width:100%">✨ Suggérer un repas</button>
       <div id="repas-result" style="margin-top:14px"></div>
     </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">📅 Repas planifiés</div>
+    ${!planifies.length?`<div class="empty">Aucun repas planifié</div>`:planifies.map(r=>`
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:12px 16px;margin-bottom:8px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:13px">${r.nom} <span style="font-size:11px;color:var(--mut);font-weight:400">— ${r.type}</span></div>
+            <div style="font-size:11px;color:var(--mut)">📅 ${dlbl(r.date)}</div>
+          </div>
+          <button class="btn br bsm" onclick="delRepasPlanifie('${r.id}')">✕</button>
+        </div>
+      </div>`).join('')}
   `;
+}
+
+async function delRepasPlanifie(id){
+  DB.sport.repasPlanifies=DB.sport.repasPlanifies.filter(x=>x.id!==id);
+  await saveAll();
+  renderSRepas();
+  toast('Supprimé');
 }
 
 async function genererRepasIA(){
@@ -8212,17 +8271,70 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     if(!match) throw new Error('Réponse invalide');
     const repas=JSON.parse(match[0]);
 
+    window._repasGenere=repas;
     el.innerHTML=`
       <div style="background:var(--bg2);border-radius:12px;padding:14px 16px">
         <div style="font-weight:700;font-size:15px;color:var(--acc);margin-bottom:6px">🍽️ ${repas.nom}</div>
         <div style="font-size:13px;color:var(--txt);margin-bottom:10px">${repas.description}</div>
         <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:6px">Ingrédients</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
           ${repas.ingredients.map(ing=>`<span style="background:white;border:1px solid var(--brd2);border-radius:20px;padding:3px 10px;font-size:12px">${ing}</span>`).join('')}
         </div>
+        <button class="btn bd bsm" onclick="planifierRepas()">📅 Planifier ce repas</button>
       </div>`;
   }catch(e){
     el.innerHTML=`<div style="padding:12px;text-align:center;color:var(--dep)">⚠️ ${e.message}</div>`;
+  }
+}
+
+window._exerciceDescCache={};
+
+async function planifierRepas(){
+  ensureSportData();
+  const repas=window._repasGenere;
+  if(!repas) return;
+  const type=document.getElementById('repas-type')?.value||'Repas';
+  const date=document.getElementById('repas-date')?.value||new Date().toISOString().split('T')[0];
+  DB.sport.repasPlanifies.push({
+    id:genId(),date,type,nom:repas.nom,description:repas.description,ingredients:repas.ingredients
+  });
+  await saveAll();
+  renderSRepas();
+  toast('✓ Repas planifié !');
+}
+
+async function afficherDescriptionExercice(nom){
+  document.getElementById('exModalTitle').textContent=nom;
+  document.getElementById('exerciceModal').classList.add('open');
+
+  if(window._exerciceDescCache[nom]){
+    document.getElementById('exModalBody').innerHTML=window._exerciceDescCache[nom];
+    return;
+  }
+
+  document.getElementById('exModalBody').innerHTML=`<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>`;
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){
+    document.getElementById('exModalBody').innerHTML=`<div style="font-size:12px;color:var(--dep)">⚠ Configure ta clé API pour voir les descriptions</div>`;
+    return;
+  }
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:400,
+        messages:[{role:'user',content:`Explique l'exercice de sport "${nom}" simplement : position de départ, mouvement à effectuer, 1 conseil pour bien faire. Réponds en français, format court, sans markdown, 3 courtes phrases max.`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const html=`<div style="font-size:13px;line-height:1.6;color:var(--txt)">${text}</div>`;
+    window._exerciceDescCache[nom]=html;
+    document.getElementById('exModalBody').innerHTML=html;
+  }catch(e){
+    document.getElementById('exModalBody').innerHTML=`<div style="font-size:12px;color:var(--dep)">⚠️ ${e.message}</div>`;
   }
 }
 
