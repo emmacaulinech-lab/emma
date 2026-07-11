@@ -7982,49 +7982,14 @@ function renderSCalendrier(){
   document.getElementById('sview-calendrier').innerHTML=html;
 }
 
-// ── Programme (prédéfinis + IA) ──
-const PROGRAMMES_PREDEFINIS=[
-  {id:'fb30',label:'Full Body Express',duree:30,zone:'full-body',exercices:[
-    {nom:'Squats',series:3,reps:15,repos:'45s'},
-    {nom:'Pompes',series:3,reps:12,repos:'45s'},
-    {nom:'Fentes alternées',series:3,reps:12,repos:'45s'},
-    {nom:'Gainage',series:3,reps:'30s',repos:'30s'},
-    {nom:'Mountain climbers',series:3,reps:20,repos:'30s'}
-  ]},
-  {id:'haut45',label:'Haut du corps',duree:45,zone:'haut-corps',exercices:[
-    {nom:'Pompes',series:4,reps:12,repos:'60s'},
-    {nom:'Rowing (élastique/haltères)',series:4,reps:12,repos:'60s'},
-    {nom:'Développé épaules',series:3,reps:12,repos:'60s'},
-    {nom:'Dips sur chaise',series:3,reps:10,repos:'45s'},
-    {nom:'Curl biceps',series:3,reps:12,repos:'45s'},
-    {nom:'Extension triceps',series:3,reps:12,repos:'45s'}
-  ]},
-  {id:'bas45',label:'Jambes & Fessiers',duree:45,zone:'bas-corps',exercices:[
-    {nom:'Squats',series:4,reps:15,repos:'60s'},
-    {nom:'Fentes marchées',series:3,reps:12,repos:'60s'},
-    {nom:'Hip thrust',series:4,reps:15,repos:'60s'},
-    {nom:'Mollets debout',series:3,reps:20,repos:'30s'},
-    {nom:'Squat sumo',series:3,reps:15,repos:'45s'}
-  ]},
-  {id:'abdo15',label:'Abdos Flash',duree:15,zone:'abdos',exercices:[
-    {nom:'Crunchs',series:3,reps:20,repos:'20s'},
-    {nom:'Gainage',series:3,reps:'30s',repos:'20s'},
-    {nom:'Relevés de jambes',series:3,reps:15,repos:'20s'},
-    {nom:'Gainage latéral',series:2,reps:'20s/côté',repos:'20s'}
-  ]},
-  {id:'cardio30',label:'Cardio Brûle-graisse',duree:30,zone:'cardio',exercices:[
-    {nom:'Jumping jacks',series:4,reps:'30s',repos:'15s'},
-    {nom:'Burpees',series:4,reps:10,repos:'30s'},
-    {nom:'Montées de genoux',series:4,reps:'30s',repos:'15s'},
-    {nom:'Squat jumps',series:4,reps:12,repos:'30s'}
-  ]},
-  {id:'fb60',label:'Full Body Complet',duree:60,zone:'full-body',exercices:[
+{id:'fb60',label:'Full Body Complet',duree:60,zone:'full-body',exercices:[
     {nom:'Squats',series:4,reps:15,repos:'60s'},
     {nom:'Pompes',series:4,reps:12,repos:'60s'},
     {nom:'Rowing',series:4,reps:12,repos:'60s'},
     {nom:'Fentes',series:3,reps:12,repos:'45s'},
     {nom:'Gainage',series:3,reps:'45s',repos:'30s'},
     {nom:'Développé épaules',series:3,reps:12,repos:'45s'}
+  ]},
   {id:'ventre30',label:'Ventre plat & Taille fine',duree:30,zone:'ventre-taille',exercices:[
     {nom:'Crunchs',series:4,reps:20,repos:'30s'},
     {nom:'Gainage',series:3,reps:'45s',repos:'30s'},
@@ -8048,10 +8013,8 @@ const PROGRAMMES_PREDEFINIS=[
     {nom:'Donkey kicks',series:3,reps:15,repos:'45s'},
     {nom:'Pont fessier une jambe',series:3,reps:12,repos:'45s'},
     {nom:'Squat pulse',series:3,reps:15,repos:'45s'}
-  ]},
   ]}
 ];
-
 let sProgFiltreDuree='',sProgFiltreZone='';
 
 function renderSProgramme(){
