@@ -1205,19 +1205,12 @@ function caNet(rows){
 }
 
 function redevDeposee(rows){
-  let total=0;
-  const emmaRows=rows.filter(t=>t.montant>0&&t.depose&&(!t.praticien||t.praticien===''));
-  total+=emmaRows.reduce((s,t)=>s+t.montant,0)*PARAMS.redev;
-
-  for(const prat of ['MARIE','GIULIA']){
-    const pratRows=rows.filter(t=>t.montant>0&&t.depose&&t.praticien===prat);
-    if(!pratRows.length) continue;
-    const ca=pratRows.reduce((s,t)=>s+t.montant,0);
-    const chqvirplan=pratRows.filter(t=>['CHQ','VIR','PLANITY'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
-    const netSociete=Math.max(chqvirplan,ca*PARAMS.tauxSoc);
-    total+=netSociete*PARAMS.redev;
-  }
-  return total;
+  const chq=rows.filter(t=>t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+  const vir=rows.filter(t=>t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+  const planity=rows.filter(t=>t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+  const espDeposees=rows.filter(t=>t.reglement==='ESP'&&t.montant>0&&t.depose===true).reduce((s,t)=>s+t.montant,0);
+  const net=chq+vir+planity+espDeposees;
+  return net*PARAMS.redev;
 }
 
 function redevDue(rows){
