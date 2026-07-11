@@ -893,16 +893,20 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
 <div id="module-sport" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🏋️ Sport</div></div>
   <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
-    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
-      <button id="stab0" onclick="goSTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">🏋️ Séances</button>
-      <button id="stab1" onclick="goSTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">⚖️ Poids</button>
-      <button id="stab2" onclick="goSTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🎯 Objectifs</button>
-      <button id="stab3" onclick="goSTab(3)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Calendrier</button>
-    </div>
-    <div id="sview-seances"></div>
-    <div id="sview-poids" style="display:none"></div>
-    <div id="sview-objectifs" style="display:none"></div>
-    <div id="sview-calendrier" style="display:none"></div>
+    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px;flex-wrap:wrap">
+  <button id="stab0" onclick="goSTab(0)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">🏋️ Séances</button>
+  <button id="stab1" onclick="goSTab(1)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">⚖️ Poids</button>
+  <button id="stab2" onclick="goSTab(2)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🎯 Objectifs</button>
+  <button id="stab3" onclick="goSTab(3)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Calendrier</button>
+  <button id="stab4" onclick="goSTab(4)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">💪 Programme</button>
+  <button id="stab5" onclick="goSTab(5)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🍽️ Repas</button>
+</div>
+<div id="sview-seances"></div>
+<div id="sview-poids" style="display:none"></div>
+<div id="sview-objectifs" style="display:none"></div>
+<div id="sview-calendrier" style="display:none"></div>
+<div id="sview-programme" style="display:none"></div>
+<div id="sview-repas" style="display:none"></div>
   </div>
 </div>
 <div id="module-lecture" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
@@ -7541,7 +7545,7 @@ function ensureSportData(){
 let sTabActive=0;
 function goSTab(i){
   sTabActive=i;
-  ['seances','poids','objectifs','calendrier'].forEach((n,j)=>{
+  ['seances','poids','objectifs','calendrier','programme','repas'].forEach((n,j)=>{
     document.getElementById('sview-'+n).style.display=j===i?'block':'none';
     const btn=document.getElementById('stab'+j);
     if(btn){
@@ -7554,6 +7558,8 @@ function goSTab(i){
   if(i===1) renderSPoids();
   if(i===2) renderSObjectifs();
   if(i===3) renderSCalendrier();
+  if(i===4) renderSProgramme();
+  if(i===5) renderSRepas();
 }
 
 function renderSportModule(){
@@ -7965,6 +7971,259 @@ function renderSCalendrier(){
     }).join('');
   }
   document.getElementById('sview-calendrier').innerHTML=html;
+}
+
+// ── Programme (prédéfinis + IA) ──
+const PROGRAMMES_PREDEFINIS=[
+  {id:'fb30',label:'Full Body Express',duree:30,zone:'full-body',exercices:[
+    {nom:'Squats',series:3,reps:15,repos:'45s'},
+    {nom:'Pompes',series:3,reps:12,repos:'45s'},
+    {nom:'Fentes alternées',series:3,reps:12,repos:'45s'},
+    {nom:'Gainage',series:3,reps:'30s',repos:'30s'},
+    {nom:'Mountain climbers',series:3,reps:20,repos:'30s'}
+  ]},
+  {id:'haut45',label:'Haut du corps',duree:45,zone:'haut-corps',exercices:[
+    {nom:'Pompes',series:4,reps:12,repos:'60s'},
+    {nom:'Rowing (élastique/haltères)',series:4,reps:12,repos:'60s'},
+    {nom:'Développé épaules',series:3,reps:12,repos:'60s'},
+    {nom:'Dips sur chaise',series:3,reps:10,repos:'45s'},
+    {nom:'Curl biceps',series:3,reps:12,repos:'45s'},
+    {nom:'Extension triceps',series:3,reps:12,repos:'45s'}
+  ]},
+  {id:'bas45',label:'Jambes & Fessiers',duree:45,zone:'bas-corps',exercices:[
+    {nom:'Squats',series:4,reps:15,repos:'60s'},
+    {nom:'Fentes marchées',series:3,reps:12,repos:'60s'},
+    {nom:'Hip thrust',series:4,reps:15,repos:'60s'},
+    {nom:'Mollets debout',series:3,reps:20,repos:'30s'},
+    {nom:'Squat sumo',series:3,reps:15,repos:'45s'}
+  ]},
+  {id:'abdo15',label:'Abdos Flash',duree:15,zone:'abdos',exercices:[
+    {nom:'Crunchs',series:3,reps:20,repos:'20s'},
+    {nom:'Gainage',series:3,reps:'30s',repos:'20s'},
+    {nom:'Relevés de jambes',series:3,reps:15,repos:'20s'},
+    {nom:'Gainage latéral',series:2,reps:'20s/côté',repos:'20s'}
+  ]},
+  {id:'cardio30',label:'Cardio Brûle-graisse',duree:30,zone:'cardio',exercices:[
+    {nom:'Jumping jacks',series:4,reps:'30s',repos:'15s'},
+    {nom:'Burpees',series:4,reps:10,repos:'30s'},
+    {nom:'Montées de genoux',series:4,reps:'30s',repos:'15s'},
+    {nom:'Squat jumps',series:4,reps:12,repos:'30s'}
+  ]},
+  {id:'fb60',label:'Full Body Complet',duree:60,zone:'full-body',exercices:[
+    {nom:'Squats',series:4,reps:15,repos:'60s'},
+    {nom:'Pompes',series:4,reps:12,repos:'60s'},
+    {nom:'Rowing',series:4,reps:12,repos:'60s'},
+    {nom:'Fentes',series:3,reps:12,repos:'45s'},
+    {nom:'Gainage',series:3,reps:'45s',repos:'30s'},
+    {nom:'Développé épaules',series:3,reps:12,repos:'45s'}
+  ]}
+];
+
+let sProgFiltreDuree='',sProgFiltreZone='';
+
+function renderSProgramme(){
+  const el=document.getElementById('sview-programme');
+  const zones=[{v:'full-body',l:'Full body'},{v:'haut-corps',l:'Haut du corps'},{v:'bas-corps',l:'Bas du corps'},{v:'cardio',l:'Cardio'},{v:'abdos',l:'Abdos'}];
+  const filtres=PROGRAMMES_PREDEFINIS.filter(p=>
+    (!sProgFiltreDuree||p.duree===parseInt(sProgFiltreDuree))&&
+    (!sProgFiltreZone||p.zone===sProgFiltreZone)
+  );
+
+  el.innerHTML=`
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">🤖 Générer un programme sur mesure</div>
+      <div class="g2">
+        <div class="fr"><label>Temps disponible (min)</label>
+          <select id="prog-ia-duree"><option>15</option><option>30</option><option selected>45</option><option>60</option><option>90</option></select>
+        </div>
+        <div class="fr"><label>Zone à cibler</label>
+          <select id="prog-ia-zone">
+            ${zones.map(z=>`<option value="${z.v}">${z.l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="fr"><label>Matériel disponible <span style="font-size:10px;color:var(--mut)">optionnel</span></label>
+        <input type="text" id="prog-ia-materiel" placeholder="ex: haltères, élastique, aucun (poids du corps)">
+      </div>
+      <button class="btn bd" onclick="genererProgrammeIA()" style="width:100%">✨ Générer mon programme</button>
+      <div id="prog-ia-result" style="margin-top:14px"></div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">📋 Programmes prédéfinis</div>
+    <div class="flt">
+      <select class="fi" onchange="sProgFiltreDuree=this.value;renderSProgramme()">
+        <option value="">Toutes durées</option>
+        <option value="15" ${sProgFiltreDuree==='15'?'selected':''}>15 min</option>
+        <option value="30" ${sProgFiltreDuree==='30'?'selected':''}>30 min</option>
+        <option value="45" ${sProgFiltreDuree==='45'?'selected':''}>45 min</option>
+        <option value="60" ${sProgFiltreDuree==='60'?'selected':''}>60 min</option>
+      </select>
+      <select class="fi" onchange="sProgFiltreZone=this.value;renderSProgramme()">
+        <option value="">Toutes zones</option>
+        ${zones.map(z=>`<option value="${z.v}" ${sProgFiltreZone===z.v?'selected':''}>${z.l}</option>`).join('')}
+      </select>
+    </div>
+    ${filtres.map(p=>`
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div>
+            <div style="font-weight:700;font-size:14px">${p.label}</div>
+            <div style="font-size:11px;color:var(--mut)">${p.duree} min · ${zones.find(z=>z.v===p.zone)?.l||p.zone}</div>
+          </div>
+          <button class="btn bd bsm" onclick="planifierProgramme('${p.id}')">📅 Planifier</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${p.exercices.map(ex=>`<div style="font-size:12px;color:var(--txt);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--brd)">
+            <span>${ex.nom}</span><span style="color:var(--mut)">${ex.series}×${ex.reps} (repos ${ex.repos})</span>
+          </div>`).join('')}
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+async function genererProgrammeIA(){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
+  const duree=document.getElementById('prog-ia-duree')?.value;
+  const zone=document.getElementById('prog-ia-zone')?.value;
+  const materiel=document.getElementById('prog-ia-materiel')?.value||'poids du corps uniquement';
+  const el=document.getElementById('prog-ia-result');
+  el.innerHTML=`<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>`;
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:1500,
+        messages:[{role:'user',content:`Crée un programme de sport pour une séance de ${duree} minutes, ciblant : ${zone}. Matériel disponible : ${materiel}.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"titre":"Nom du programme","exercices":[{"nom":"...","series":3,"reps":"12","repos":"45s"}]}`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('Réponse invalide');
+    const prog=JSON.parse(match[0]);
+
+    window._progIAGenere={...prog,duree:parseInt(duree),zone};
+    el.innerHTML=`
+      <div style="background:var(--bg2);border-radius:12px;padding:14px 16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">✨ ${prog.titre}</div>
+        ${prog.exercices.map(ex=>`<div style="font-size:12px;display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd)">
+          <span>${ex.nom}</span><span style="color:var(--mut)">${ex.series}×${ex.reps} (repos ${ex.repos})</span>
+        </div>`).join('')}
+        <button class="btn bd bsm" style="margin-top:10px" onclick="planifierProgrammeIA()">📅 Planifier cette séance</button>
+      </div>`;
+  }catch(e){
+    el.innerHTML=`<div style="padding:12px;text-align:center;color:var(--dep)">⚠️ ${e.message}</div>`;
+  }
+}
+
+async function planifierProgramme(progId){
+  ensureSportData();
+  const p=PROGRAMMES_PREDEFINIS.find(x=>x.id===progId);
+  if(!p) return;
+  const notes=p.exercices.map(ex=>`${ex.nom}: ${ex.series}×${ex.reps}`).join(', ');
+  DB.sport.seances.push({
+    id:genId(),type:'Musculation',date:new Date().toISOString().split('T')[0],
+    duree:p.duree,statut:'prevue',notes:`${p.label} — ${notes}`
+  });
+  await saveAll();
+  toast('✓ Séance planifiée ! Va voir dans Séances/Calendrier');
+}
+
+async function planifierProgrammeIA(){
+  ensureSportData();
+  const p=window._progIAGenere;
+  if(!p) return;
+  const notes=p.exercices.map(ex=>`${ex.nom}: ${ex.series}×${ex.reps}`).join(', ');
+  DB.sport.seances.push({
+    id:genId(),type:'Musculation',date:new Date().toISOString().split('T')[0],
+    duree:p.duree,statut:'prevue',notes:`${p.titre} — ${notes}`
+  });
+  await saveAll();
+  toast('✓ Séance planifiée !');
+}
+
+// ── Repas ──
+function renderSRepas(){
+  ensureSportData();
+  const objectifsActifs=DB.sport.objectifs.filter(o=>o.statut!=='atteint');
+  const el=document.getElementById('sview-repas');
+
+  el.innerHTML=`
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">🍽️ Suggestion de repas</div>
+      ${!objectifsActifs.length?`<div style="font-size:12px;color:var(--mut);margin-bottom:12px">💡 Ajoute d'abord un objectif dans l'onglet Objectifs pour des suggestions personnalisées</div>`:''}
+      <div class="g2">
+        <div class="fr"><label>Objectif de référence</label>
+          <select id="repas-objectif">
+            <option value="">Repas équilibré général</option>
+            ${objectifsActifs.map(o=>`<option value="${o.id}">${o.titre}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fr"><label>Type de repas</label>
+          <select id="repas-type">
+            <option>Petit-déjeuner</option><option>Déjeuner</option><option>Dîner</option><option>Collation</option>
+          </select>
+        </div>
+      </div>
+      <div class="fr"><label>Préférences <span style="font-size:10px;color:var(--mut)">optionnel</span></label>
+        <input type="text" id="repas-prefs" placeholder="ex: végétarien, sans lactose, rapide à préparer">
+      </div>
+      <button class="btn bd" onclick="genererRepasIA()" style="width:100%">✨ Suggérer un repas</button>
+      <div id="repas-result" style="margin-top:14px"></div>
+    </div>
+  `;
+}
+
+async function genererRepasIA(){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
+  const objectifId=document.getElementById('repas-objectif')?.value;
+  const objectif=DB.sport.objectifs.find(o=>o.id===objectifId);
+  const type=document.getElementById('repas-type')?.value;
+  const prefs=document.getElementById('repas-prefs')?.value||'aucune préférence particulière';
+  const el=document.getElementById('repas-result');
+  el.innerHTML=`<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>`;
+
+  const contexteObjectif=objectif
+    ?`L'objectif est : "${objectif.titre}" (${objectif.type==='poids'?`viser ${objectif.valeurCible}kg`:objectif.titre}).`
+    :'Aucun objectif spécifique, juste une alimentation équilibrée.';
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:800,
+        messages:[{role:'user',content:`Suggère une idée de repas pour un(e) ${type.toLowerCase()}. ${contexteObjectif} Préférences : ${prefs}.
+Réponds UNIQUEMENT en JSON valide sans backticks :
+{"nom":"Nom du plat","description":"description courte et appétissante","ingredients":["ingrédient 1","ingrédient 2"]}`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('Réponse invalide');
+    const repas=JSON.parse(match[0]);
+
+    el.innerHTML=`
+      <div style="background:var(--bg2);border-radius:12px;padding:14px 16px">
+        <div style="font-weight:700;font-size:15px;color:var(--acc);margin-bottom:6px">🍽️ ${repas.nom}</div>
+        <div style="font-size:13px;color:var(--txt);margin-bottom:10px">${repas.description}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:6px">Ingrédients</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${repas.ingredients.map(ing=>`<span style="background:white;border:1px solid var(--brd2);border-radius:20px;padding:3px 10px;font-size:12px">${ing}</span>`).join('')}
+        </div>
+      </div>`;
+  }catch(e){
+    el.innerHTML=`<div style="padding:12px;text-align:center;color:var(--dep)">⚠️ ${e.message}</div>`;
+  }
 }
 
 // ── Routeur d'enregistrement ──
