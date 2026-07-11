@@ -3012,6 +3012,14 @@ function ouvrirRapprochementCharge(banqueId){
     ...DB.fixes.filter(f=>f.mois===mois).map(f=>({...f,type:'fixes'})),
     ...DB.variables.filter(f=>f.mois===mois).map(f=>({...f,type:'variables'}))
   ];
+  // Ajoute TVA/REDEVANCE comme options même si pas encore créées réellement
+  const pm=prevMois(mois);
+  ['TVA','REDEVANCE'].forEach(nom=>{
+    if(!chargesDispo.some(c=>c.nom===nom)){
+      const prev=nom==='TVA'?-(tvaNette(pm)):-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
+      chargesDispo.push({id:'virtual-'+nom,nom,type:'variables',prev,virtual:true});
+    }
+  });
 
   document.getElementById('mTitle').textContent='🔗 Rapprocher avec une charge';
   document.getElementById('mBody').innerHTML=`
@@ -3037,10 +3045,24 @@ function ouvrirRapprochementCharge(banqueId){
 async function validerRapprochementCharge(banqueId){
   const val=document.getElementById('rap-charge-id')?.value;
   if(!val){toast('⚠ Choisis une charge');return;}
-  const [type,id]=[val.split('-')[0],val.split('-').slice(1).join('-')];
   const b=DB.banque.find(x=>x.id===banqueId);
-  const charge=DB[type].find(x=>x.id===id);
-  if(!b||!charge) return;
+  if(!b) return;
+
+  let type,charge;
+  if(val.startsWith('variables-virtual-')){
+    const nom=val.replace('variables-virtual-','');
+    type='variables';
+    const mois=dm(b.date);
+    const pm=prevMois(mois);
+    const prev=nom==='TVA'?-(tvaNette(pm)):-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
+    charge={id:genId(),mois,nom,montant:0,prev};
+    DB.variables.push(charge);
+  } else {
+    type=val.split('-')[0];
+    const id=val.split('-').slice(1).join('-');
+    charge=DB[type].find(x=>x.id===id);
+  }
+  if(!charge) return;
 
   if(!charge.banqueIds) charge.banqueIds=[];
   if(!charge.banqueIds.includes(banqueId)) charge.banqueIds.push(banqueId);
@@ -3419,13 +3441,10 @@ function ouvrirDetailRapprochement(banqueId){
       <div style="display:flex;justify-content:space-between;align-items:center;background:var(--rec2);border-radius:10px;padding:10px 14px;margin-bottom:16px">
         <span style="font-weight:600;font-size:13px">${chargeLiee.nom}</span>
         <button class="btn br bsm" onclick="delierCharge('${banqueId}','${chargeLiee.id}')">✕ Délier</button>
-      </div>`:(['TVA','REDEVANCE'].includes(b.nom.toUpperCase())?`
-      <div style="margin-bottom:16px">
-        <button class="btn bd" onclick="creerEtLierChargeAuto('${banqueId}')">✓ Créer et lier la charge ${b.nom.toUpperCase()}</button>
       </div>`:`
       <div style="margin-bottom:16px">
         <button class="btn bg" onclick="ouvrirRapprochementCharge('${banqueId}')">+ Lier une charge</button>
-      </div>`)}
+      </div>`}
 
     <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🧾 Facture(s) liée(s)</div>
     ${facturesLiees.length?facturesLiees.map(f=>`
