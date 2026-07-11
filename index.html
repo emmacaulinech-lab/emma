@@ -857,7 +857,16 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
 </div>
   </div>
 </div>
-   
+   <div class="mo" id="sportModal">
+  <div class="mb" style="width:500px;max-width:96vw">
+    <h2 id="sModalTitle">—</h2>
+    <div id="sModalBody"></div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('sportModal')">Annuler</button>
+      <button class="btn bd" id="saveSportBtn" onclick="saveSportEntry()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 <div id="module-facturation" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Facturation LIMAGECILS</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/limagecils-facturation/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
@@ -881,9 +890,20 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">👛 Banque perso</div></div>
   <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
 </div>
-<div id="module-sport" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
+<div id="module-sport" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🏋️ Sport</div></div>
-  <div style="padding:24px"><div class="empty">🚧 Module en construction</div></div>
+  <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
+      <button id="stab0" onclick="goSTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">🏋️ Séances</button>
+      <button id="stab1" onclick="goSTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">⚖️ Poids</button>
+      <button id="stab2" onclick="goSTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🎯 Objectifs</button>
+      <button id="stab3" onclick="goSTab(3)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Calendrier</button>
+    </div>
+    <div id="sview-seances"></div>
+    <div id="sview-poids" style="display:none"></div>
+    <div id="sview-objectifs" style="display:none"></div>
+    <div id="sview-calendrier" style="display:none"></div>
+  </div>
 </div>
 <div id="module-lecture" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8)">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">📚 Lecture</div></div>
@@ -1059,6 +1079,7 @@ async function loadAll() {
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
       }
       if(d.formations) DB.formations=JSON.parse(d.formations);
+      if(d.sport) DB.sport=JSON.parse(d.sport);
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1093,6 +1114,7 @@ async function saveAll() {
       boutique:    JSON.stringify(DB.boutique),
       salaires:    JSON.stringify(DB.salaires),
       formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
+      sport:       JSON.stringify(DB.sport||{seances:[],mensurations:[],objectifs:[]}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -3397,10 +3419,13 @@ function ouvrirDetailRapprochement(banqueId){
       <div style="display:flex;justify-content:space-between;align-items:center;background:var(--rec2);border-radius:10px;padding:10px 14px;margin-bottom:16px">
         <span style="font-weight:600;font-size:13px">${chargeLiee.nom}</span>
         <button class="btn br bsm" onclick="delierCharge('${banqueId}','${chargeLiee.id}')">✕ Délier</button>
+      </div>`:(['TVA','REDEVANCE'].includes(b.nom.toUpperCase())?`
+      <div style="margin-bottom:16px">
+        <button class="btn bd" onclick="creerEtLierChargeAuto('${banqueId}')">✓ Créer et lier la charge ${b.nom.toUpperCase()}</button>
       </div>`:`
       <div style="margin-bottom:16px">
         <button class="btn bg" onclick="ouvrirRapprochementCharge('${banqueId}')">+ Lier une charge</button>
-      </div>`}
+      </div>`)}
 
     <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🧾 Facture(s) liée(s)</div>
     ${facturesLiees.length?facturesLiees.map(f=>`
@@ -3433,6 +3458,33 @@ async function delierCharge(banqueId,chargeId){
   renderAll();
   ouvrirDetailRapprochement(banqueId);
   toast('Charge déliée');
+}
+
+async function creerEtLierChargeAuto(banqueId){
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return;
+  const nom=b.nom.toUpperCase();
+  const mois=dm(b.date);
+  let charge=DB.variables.find(v=>v.mois===mois&&v.nom===nom);
+  if(!charge){
+    const pm=prevMois(mois);
+    let prev=0;
+    if(nom==='REDEVANCE') prev=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
+    else if(nom==='TVA') prev=-(tvaNette(pm));
+    charge={id:genId(),mois,nom,montant:0,prev};
+    DB.variables.push(charge);
+  }
+  if(!charge.banqueIds) charge.banqueIds=[];
+  if(!charge.banqueIds.includes(banqueId)) charge.banqueIds.push(banqueId);
+  charge.montant=charge.banqueIds.reduce((s,bid)=>{
+    const bm=DB.banque.find(x=>x.id===bid);
+    return s+(bm?bm.montant:0);
+  },0);
+  charge.paye=true;
+  await saveEntry_fb('variables',charge);
+  renderAll();
+  ouvrirDetailRapprochement(banqueId);
+  toast(`✓ Charge ${nom} créée et liée`);
 }
 
 async function delierFacture(banqueId,factureId){
@@ -6663,6 +6715,7 @@ function goModule(name){
     document.getElementById('app').classList.remove('visible');
     document.getElementById('module-'+name).style.display='flex';
     if(name==='formations') renderFormationsModule();
+    if(name==='sport') renderSportModule();
   }
 }
 
@@ -6895,7 +6948,7 @@ async function importerEtudianteFormation(i){
     dateFormation:e.dateDebut||'',
     lieu:e.lieu||'',
     financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-    kit:construireKit('starter'),
+    kits:construireKits(['starter'],null),
     notes:''
   };
   DB.formations.etudiantes.push(etu);
@@ -6925,7 +6978,7 @@ async function importerToutesEtudiantesFormation(){
       dateFormation:e.dateDebut||'',
       lieu:e.lieu||'',
       financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-      kit:construireKit('starter'),
+      kits:construireKits(['starter'],null),
       notes:''
     });
     count++;
@@ -6985,7 +7038,7 @@ function renderFEtudiantes(){
   } else {
     html+=list.map(e=>{
       const col=STATUT_COLORS[e.statut]||'var(--mut)';
-      const kitDone=(e.kit?.contenu||[]).every(k=>k.coche)&&(e.kit?.contenu||[]).length>0;
+      const kitDone=(e.kits||[]).length>0&&(e.kits||[]).every(kit=>(kit.contenu||[]).every(k=>k.coche));
       const idxStatut=STATUTS_FORMATION.indexOf(e.statut);
       const pct=Math.round((idxStatut/(STATUTS_FORMATION.length-1))*100);
       const j=e.dateFormation?Math.floor((new Date(e.dateFormation+'T12:00:00')-today)/86400000):null;
@@ -7003,7 +7056,7 @@ function renderFEtudiantes(){
         </div>
         <div style="display:flex;gap:16px;font-size:12px;color:var(--mut);margin-bottom:10px">
           <span>💶 ${e.financement?.type==='cpf'?'CPF':'Perso'} — ${e.financement?.montant?fa(e.financement.montant):'—'} ${e.financement?.paye?'✅':'⏳'}</span>
-          <span>📦 Kit : ${kitDone?'✅ Complet':(e.kit?.statut||'à préparer')}</span>
+          <span>📦 Kit${(e.kits||[]).length>1?'s':''} : ${kitDone?'✅ Complet':(e.kits||[]).map(k=>KITS_CONTENU[k.type]?.label?.split(' ')[1]||k.type).join(' + ')||'aucun'}</span>
         </div>
         <div style="display:flex;gap:8px">
           <select onchange="changeStatutEtudiante('${e.id}',this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
@@ -7052,10 +7105,16 @@ function openEtudianteModal(id=null){
   <div class="fr"><label>Date début formation</label><input type="date" id="fe-date-formation" value="${e?.dateFormation||''}"></div>
   <div class="fr"><label>Lieu</label><input type="text" id="fe-lieu" value="${e?.lieu||''}"></div>
 </div>
-<div class="fr"><label>Kit choisi</label>
-  <select id="fe-kit-type" onchange="previewKitChange()">
-    ${Object.entries(KITS_CONTENU).map(([k,v])=>`<option value="${k}" ${e?.kit?.type===k?'selected':''}>${v.label}</option>`).join('')}
-  </select>
+<div class="fr"><label>Kit(s) choisi(s) <span style="font-size:10px;color:var(--mut)">(sélection multiple possible)</span></label>
+  <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:8px">
+    ${Object.entries(KITS_CONTENU).map(([k,v])=>{
+      const dejaChoisi=(e?.kits||[]).some(kt=>kt.type===k);
+      return`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="fe-kit-check" value="${k}" ${dejaChoisi?'checked':''} style="width:16px;height:16px;accent-color:var(--acc)">
+        ${v.label}
+      </label>`;
+    }).join('')}
+  </div>
 </div>
     <div class="divider"></div>
     <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💶 Financement</div>
@@ -7078,17 +7137,17 @@ function openEtudianteModal(id=null){
   document.getElementById('saveEtudianteBtn').disabled=false;
 }
 
-function construireKit(typeKit,kitExistant){
-  const template=KITS_CONTENU[typeKit]||KITS_CONTENU.starter;
-  // Si même type qu'avant, on garde les coches déjà faites
-  if(kitExistant?.type===typeKit&&kitExistant.contenu){
-    return{...kitExistant,type:typeKit};
-  }
-  return{
-    type:typeKit,
-    statut:kitExistant?.statut||'à préparer',
-    contenu:template.items.map(item=>({item,coche:false}))
-  };
+function construireKits(typesChoisis,kitsExistants){
+  return typesChoisis.map(typeKit=>{
+    const template=KITS_CONTENU[typeKit]||KITS_CONTENU.starter;
+    const existant=(kitsExistants||[]).find(k=>k.type===typeKit);
+    if(existant&&existant.contenu) return existant;
+    return{
+      type:typeKit,
+      statut:'à préparer',
+      contenu:template.items.map(item=>({item,coche:false}))
+    };
+  });
 }
 
 function previewKitChange(){
@@ -7120,7 +7179,7 @@ async function saveEtudiante(){
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
       paye:document.getElementById('fe-fin-paye')?.value==='1'
     },
-    kit:construireKit(document.getElementById('fe-kit-type')?.value,existing?.kit),
+    kits:construireKits([...document.querySelectorAll('.fe-kit-check:checked')].map(c=>c.value),existing?.kits),
     notes:document.getElementById('fe-notes')?.value||''
   };
 
@@ -7154,43 +7213,46 @@ function renderFKits(){
   } else {
     html=list.map(e=>{
       const idx=DB.formations.etudiantes.indexOf(e);
-      const contenu=e.kit?.contenu||[];
-      const nbFait=contenu.filter(k=>k.coche).length;
-      const complet=nbFait===contenu.length&&contenu.length>0;
+      const kits=e.kits||[];
       return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-weight:700;font-size:14px">${e.nom}</div>
-          <span style="font-size:11px;font-weight:700;color:${complet?'var(--rec)':'var(--warn)'}">${nbFait}/${contenu.length} ${complet?'✅':''}</span>
-        </div>
-        <div style="font-size:11px;color:var(--acc);margin-bottom:10px">${KITS_CONTENU[e.kit?.type]?.label||'Kit non défini'}</div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
-          ${contenu.map((k,ki)=>`
-            <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleKitItem(${idx},${ki})">
-              <input type="checkbox" ${k.coche?'checked':''} style="width:16px;height:16px;accent-color:var(--rec)" onclick="event.stopPropagation();toggleKitItem(${idx},${ki})">
-              <span style="font-size:13px;${k.coche?'text-decoration:line-through;color:var(--mut)':''}">${k.item}</span>
-            </div>`).join('')}
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select onchange="changeKitStatut(${idx},this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
-            <option ${e.kit?.statut==='à préparer'?'selected':''}>à préparer</option>
-            <option ${e.kit?.statut==='préparé'?'selected':''}>préparé</option>
-            <option ${e.kit?.statut==='envoyé'?'selected':''}>envoyé</option>
-          </select>
-        </div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">${e.nom}</div>
+        ${kits.map((kit,ki)=>{
+          const contenu=kit.contenu||[];
+          const nbFait=contenu.filter(k=>k.coche).length;
+          const complet=nbFait===contenu.length&&contenu.length>0;
+          return`<div style="background:var(--bg2);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-size:12px;font-weight:700;color:var(--acc)">${KITS_CONTENU[kit.type]?.label||kit.type}</span>
+              <span style="font-size:11px;font-weight:700;color:${complet?'var(--rec)':'var(--warn)'}">${nbFait}/${contenu.length} ${complet?'✅':''}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+              ${contenu.map((k,ci)=>`
+                <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleKitItem(${idx},${ki},${ci})">
+                  <input type="checkbox" ${k.coche?'checked':''} style="width:16px;height:16px;accent-color:var(--rec)" onclick="event.stopPropagation();toggleKitItem(${idx},${ki},${ci})">
+                  <span style="font-size:13px;${k.coche?'text-decoration:line-through;color:var(--mut)':''}">${k.item}</span>
+                </div>`).join('')}
+            </div>
+            <select onchange="changeKitStatut(${idx},${ki},this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+              <option ${kit.statut==='à préparer'?'selected':''}>à préparer</option>
+              <option ${kit.statut==='préparé'?'selected':''}>préparé</option>
+              <option ${kit.statut==='envoyé'?'selected':''}>envoyé</option>
+            </select>
+          </div>`;
+        }).join('')}
       </div>`;
     }).join('');
   }
   document.getElementById('fview-kits').innerHTML=html;
 }
 
-async function toggleKitItem(idx,ki){
-  DB.formations.etudiantes[idx].kit.contenu[ki].coche=!DB.formations.etudiantes[idx].kit.contenu[ki].coche;
+async function toggleKitItem(idx,ki,ci){
+  DB.formations.etudiantes[idx].kits[ki].contenu[ci].coche=!DB.formations.etudiantes[idx].kits[ki].contenu[ci].coche;
   await saveAll();
   renderFKits();
 }
 
-async function changeKitStatut(idx,statut){
-  DB.formations.etudiantes[idx].kit.statut=statut;
+async function changeKitStatut(idx,ki,statut){
+  DB.formations.etudiantes[idx].kits[ki].statut=statut;
   await saveAll();
   renderFKits();
   toast('✓ Statut kit mis à jour');
@@ -7396,6 +7458,455 @@ function copyEmailToClipboard(){
   const sujet=document.getElementById('femail-sujet-txt')?.textContent||'';
   const corps=document.getElementById('femail-corps-txt')?.textContent||'';
   navigator.clipboard.writeText(`À : ${adresse}\nObjet : ${sujet}\n\n${corps}`).then(()=>toast('✓ Email copié !'));
+}
+
+// ═══════════════════════════════════════
+// MODULE SPORT
+// ═══════════════════════════════════════
+const TYPES_SEANCE=['Musculation','Cardio','Yoga','Course à pied','Vélo','Natation','Pilates','Autre'];
+
+function ensureSportData(){
+  if(!DB.sport) DB.sport={seances:[],mensurations:[],objectifs:[]};
+  if(!DB.sport.seances) DB.sport.seances=[];
+  if(!DB.sport.mensurations) DB.sport.mensurations=[];
+  if(!DB.sport.objectifs) DB.sport.objectifs=[];
+}
+
+let sTabActive=0;
+function goSTab(i){
+  sTabActive=i;
+  ['seances','poids','objectifs','calendrier'].forEach((n,j)=>{
+    document.getElementById('sview-'+n).style.display=j===i?'block':'none';
+    const btn=document.getElementById('stab'+j);
+    if(btn){
+      btn.style.background=j===i?'white':'transparent';
+      btn.style.color=j===i?'var(--acc)':'var(--mut)';
+      btn.style.boxShadow=j===i?'var(--shadow)':'none';
+    }
+  });
+  if(i===0) renderSSeances();
+  if(i===1) renderSPoids();
+  if(i===2) renderSObjectifs();
+  if(i===3) renderSCalendrier();
+}
+
+function renderSportModule(){
+  ensureSportData();
+  goSTab(sTabActive);
+}
+
+// ── Séances ──
+function renderSSeances(){
+  ensureSportData();
+  const today=new Date().toISOString().split('T')[0];
+  const list=[...DB.sport.seances].sort((a,b)=>b.date.localeCompare(a.date));
+  const cetteSemaine=list.filter(s=>{
+    const d=new Date(s.date+'T12:00:00');
+    const now=new Date();
+    const debut=new Date(now); debut.setDate(now.getDate()-now.getDay()+1);
+    return d>=debut&&s.statut==='faite';
+  }).length;
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} séance${list.length>1?'s':''}</div>
+        <div style="font-size:11px;color:var(--mut)">${cetteSemaine} cette semaine</div>
+      </div>
+      <button class="btn bd" onclick="openSeanceModal()">+ Ajouter</button>
+    </div>`;
+
+  if(!list.length){
+    html+=`<div class="empty">Aucune séance — clique sur "+ Ajouter"</div>`;
+  } else {
+    html+=list.map(s=>{
+      const faite=s.statut==='faite';
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:14px">${s.type} ${!faite?'<span style="color:var(--warn);font-size:11px">📅 Prévue</span>':''}</div>
+            <div style="font-size:11px;color:var(--mut)">${dlbl(s.date)} · ${s.duree?s.duree+' min':'—'}</div>
+            ${s.notes?`<div style="font-size:12px;color:var(--txt);margin-top:4px">${s.notes}</div>`:''}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${!faite?`<button class="btn bgrn bsm" onclick="marquerSeanceFaite('${s.id}')">✓ Faite</button>`:'<span style="color:var(--rec);font-size:18px">✅</span>'}
+            <button class="btn bg bsm" onclick="openSeanceModal('${s.id}')">✏️</button>
+            <button class="btn br bsm" onclick="delSeance('${s.id}')">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('sview-seances').innerHTML=html;
+}
+
+async function marquerSeanceFaite(id){
+  const s=DB.sport.seances.find(x=>x.id===id);
+  if(!s) return;
+  s.statut='faite';
+  await saveAll();
+  renderSSeances();
+  toast('✓ Séance marquée comme faite');
+}
+
+function openSeanceModal(id=null){
+  const s=id?DB.sport.seances.find(x=>x.id===id):null;
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('sModalTitle').textContent=s?'Modifier séance':'Nouvelle séance';
+  document.getElementById('sModalBody').innerHTML=`
+    <div class="fr"><label>Type de séance</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px" id="seance-type-btns">
+        ${TYPES_SEANCE.map(t=>`<button type="button" onclick="setSeanceType(this,'${t}')" style="padding:10px 8px;border-radius:12px;border:2px solid ${s?.type===t?'var(--acc)':'var(--brd2)'};background:${s?.type===t?'var(--rose2)':'white'};color:${s?.type===t?'var(--acc)':'var(--txt)'};font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer">${t}</button>`).join('')}
+      </div>
+      <input type="hidden" id="se-type" value="${s?.type||''}">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Date</label><input type="date" id="se-date" value="${s?.date||today}"></div>
+      <div class="fr"><label>Durée (min)</label><input type="number" id="se-duree" value="${s?.duree||''}" placeholder="45"></div>
+    </div>
+    <div class="fr"><label>Statut</label>
+      <select id="se-statut">
+        <option value="faite" ${!s||s.statut==='faite'?'selected':''}>✅ Faite</option>
+        <option value="prevue" ${s?.statut==='prevue'?'selected':''}>📅 Prévue</option>
+      </select>
+    </div>
+    <div class="fr"><label>Notes</label><textarea id="se-notes" rows="2">${s?.notes||''}</textarea></div>
+  `;
+  document.getElementById('sportModal').dataset.mode='seance';
+  document.getElementById('sportModal').dataset.editId=id||'';
+  document.getElementById('sportModal').classList.add('open');
+  document.getElementById('saveSportBtn').disabled=false;
+}
+
+function setSeanceType(btn,type){
+  document.getElementById('se-type').value=type;
+  document.querySelectorAll('#seance-type-btns button').forEach(b=>{
+    b.style.border='2px solid var(--brd2)'; b.style.background='white'; b.style.color='var(--txt)';
+  });
+  btn.style.border='2px solid var(--acc)'; btn.style.background='var(--rose2)'; btn.style.color='var(--acc)';
+}
+
+async function saveSeance(){
+  ensureSportData();
+  const editId=document.getElementById('sportModal').dataset.editId;
+  const type=document.getElementById('se-type')?.value;
+  if(!type){toast('⚠ Choisis un type de séance');return;}
+
+  const existing=editId?DB.sport.seances.find(x=>x.id===editId):null;
+  const s={
+    id:existing?.id||genId(),
+    type,
+    date:document.getElementById('se-date')?.value,
+    duree:parseFloat(document.getElementById('se-duree')?.value)||0,
+    statut:document.getElementById('se-statut')?.value||'faite',
+    notes:document.getElementById('se-notes')?.value||''
+  };
+  if(existing){
+    const i=DB.sport.seances.findIndex(x=>x.id===editId);
+    DB.sport.seances[i]=s;
+  } else {
+    DB.sport.seances.push(s);
+  }
+  await saveAll();
+  closeMo('sportModal');
+  renderSSeances();
+  toast('✓ Séance enregistrée');
+}
+
+async function delSeance(id){
+  if(!confirm('Supprimer cette séance ?')) return;
+  DB.sport.seances=DB.sport.seances.filter(x=>x.id!==id);
+  await saveAll();
+  renderSSeances();
+  toast('Supprimé');
+}
+
+// ── Poids / Mensurations ──
+function renderSPoids(){
+  ensureSportData();
+  const list=[...DB.sport.mensurations].sort((a,b)=>b.date.localeCompare(a.date));
+  const dernier=list[0];
+  const premier=list[list.length-1];
+  const evolution=dernier&&premier&&list.length>1?dernier.poids-premier.poids:null;
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} mesure${list.length>1?'s':''}</div>
+      <button class="btn bd" onclick="openMensurationModal()">+ Ajouter</button>
+    </div>`;
+
+  if(dernier){
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px">Dernier poids</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700;color:var(--acc)">${dernier.poids} kg</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">${dlbl(dernier.date)}</div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px">Évolution totale</div>
+        <div style="font-family:'Cormorant Garant',serif;font-size:24px;font-weight:700;color:${evolution===null?'var(--mut)':evolution<=0?'var(--rec)':'var(--dep)'}">${evolution===null?'—':(evolution>0?'+':'')+evolution.toFixed(1)+' kg'}</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">depuis le début</div>
+      </div>
+    </div>`;
+
+    // Petit graphique
+    const derniers10=list.slice(0,10).reverse();
+    const maxP=Math.max(...derniers10.map(m=>m.poids));
+    const minP=Math.min(...derniers10.map(m=>m.poids));
+    const range=maxP-minP||1;
+    html+=`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:12px">📊 Évolution (10 dernières mesures)</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
+        ${derniers10.map(m=>{
+          const h=Math.round(((m.poids-minP)/range)*70)+15;
+          return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px" title="${dlbl(m.date)}: ${m.poids}kg">
+            <div style="font-size:9px;font-family:'DM Mono',monospace;color:var(--acc)">${m.poids}</div>
+            <div style="width:100%;height:${h}px;background:var(--rose2);border-radius:4px 4px 0 0;border:1.5px solid var(--acc2)"></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  if(!list.length){
+    html+=`<div class="empty">Aucune mesure enregistrée</div>`;
+  } else {
+    html+=`<div class="tw"><table><thead><tr><th>Date</th><th style="text-align:right">Poids</th><th style="text-align:right">Tour de taille</th><th></th></tr></thead><tbody>
+      ${list.map(m=>`<tr>
+        <td class="tdt">${dlbl(m.date)}</td>
+        <td class="tp" style="text-align:right">${m.poids} kg</td>
+        <td class="tmu" style="text-align:right">${m.tourTaille?m.tourTaille+' cm':'—'}</td>
+        <td style="white-space:nowrap"><button class="btn bg bsm" onclick="openMensurationModal('${m.id}')">✏️</button><button class="btn br bsm" onclick="delMensuration('${m.id}')">✕</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  }
+  document.getElementById('sview-poids').innerHTML=html;
+}
+
+function openMensurationModal(id=null){
+  const m=id?DB.sport.mensurations.find(x=>x.id===id):null;
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('sModalTitle').textContent=m?'Modifier mesure':'Nouvelle mesure';
+  document.getElementById('sModalBody').innerHTML=`
+    <div class="g2">
+      <div class="fr"><label>Date</label><input type="date" id="me-date" value="${m?.date||today}"></div>
+      <div class="fr"><label>Poids (kg)</label><input type="number" step="0.1" id="me-poids" value="${m?.poids||''}"></div>
+    </div>
+    <div class="fr"><label>Tour de taille (cm) <span style="font-size:10px;color:var(--mut)">optionnel</span></label>
+      <input type="number" step="0.1" id="me-taille" value="${m?.tourTaille||''}">
+    </div>
+  `;
+  document.getElementById('sportModal').dataset.mode='mensuration';
+  document.getElementById('sportModal').dataset.editId=id||'';
+  document.getElementById('sportModal').classList.add('open');
+  document.getElementById('saveSportBtn').disabled=false;
+}
+
+async function saveMensuration(){
+  ensureSportData();
+  const editId=document.getElementById('sportModal').dataset.editId;
+  const poids=parseFloat(document.getElementById('me-poids')?.value);
+  if(!poids){toast('⚠ Le poids est requis');return;}
+
+  const existing=editId?DB.sport.mensurations.find(x=>x.id===editId):null;
+  const m={
+    id:existing?.id||genId(),
+    date:document.getElementById('me-date')?.value,
+    poids,
+    tourTaille:parseFloat(document.getElementById('me-taille')?.value)||null
+  };
+  if(existing){
+    const i=DB.sport.mensurations.findIndex(x=>x.id===editId);
+    DB.sport.mensurations[i]=m;
+  } else {
+    DB.sport.mensurations.push(m);
+  }
+  await saveAll();
+  closeMo('sportModal');
+  renderSPoids();
+  toast('✓ Mesure enregistrée');
+}
+
+async function delMensuration(id){
+  if(!confirm('Supprimer cette mesure ?')) return;
+  DB.sport.mensurations=DB.sport.mensurations.filter(x=>x.id!==id);
+  await saveAll();
+  renderSPoids();
+  toast('Supprimé');
+}
+
+// ── Objectifs ──
+function renderSObjectifs(){
+  ensureSportData();
+  const list=DB.sport.objectifs;
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${list.length} objectif${list.length>1?'s':''}</div>
+      <button class="btn bd" onclick="openObjectifModal()">+ Ajouter</button>
+    </div>`;
+
+  if(!list.length){
+    html+=`<div class="empty">Aucun objectif — clique sur "+ Ajouter"</div>`;
+  } else {
+    html+=list.map(o=>{
+      const atteint=o.statut==='atteint';
+      const dernierPoids=[...DB.sport.mensurations].sort((a,b)=>b.date.localeCompare(a.date))[0]?.poids;
+      let progression=null;
+      if(o.type==='poids'&&dernierPoids&&o.valeurDepart){
+        const total=Math.abs(o.valeurCible-o.valeurDepart);
+        const fait=Math.abs(dernierPoids-o.valeurDepart);
+        progression=total?Math.min(100,Math.round((fait/total)*100)):0;
+      }
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;font-size:14px">${o.titre} ${atteint?'<span style="color:var(--rec)">✅</span>':''}</div>
+            <div style="font-size:11px;color:var(--mut)">Cible : ${o.valeurCible}${o.unite||''} ${o.dateLimite?'· avant le '+dlbl(o.dateLimite):''}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            ${!atteint?`<button class="btn bgrn bsm" onclick="marquerObjectifAtteint('${o.id}')">✓ Atteint</button>`:''}
+            <button class="btn bg bsm" onclick="openObjectifModal('${o.id}')">✏️</button>
+            <button class="btn br bsm" onclick="delObjectif('${o.id}')">✕</button>
+          </div>
+        </div>
+        ${progression!==null?`<div style="height:8px;background:var(--bg2);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${progression}%;background:linear-gradient(90deg,var(--rose),var(--acc));border-radius:99px"></div>
+        </div><div style="font-size:11px;color:var(--mut);margin-top:4px">${progression}% de progression</div>`:''}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('sview-objectifs').innerHTML=html;
+}
+
+async function marquerObjectifAtteint(id){
+  const o=DB.sport.objectifs.find(x=>x.id===id);
+  if(!o) return;
+  o.statut='atteint';
+  await saveAll();
+  renderSObjectifs();
+  toast('🎉 Objectif atteint !');
+}
+
+function openObjectifModal(id=null){
+  const o=id?DB.sport.objectifs.find(x=>x.id===id):null;
+  document.getElementById('sModalTitle').textContent=o?'Modifier objectif':'Nouvel objectif';
+  document.getElementById('sModalBody').innerHTML=`
+    <div class="fr"><label>Titre</label><input type="text" id="ob-titre" value="${o?.titre||''}" placeholder="ex: Perdre 5kg"></div>
+    <div class="fr"><label>Type</label>
+      <select id="ob-type">
+        <option value="poids" ${o?.type==='poids'?'selected':''}>Poids</option>
+        <option value="autre" ${!o||o.type==='autre'?'selected':''}>Autre (séances, distance...)</option>
+      </select>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Valeur de départ</label><input type="number" step="0.1" id="ob-depart" value="${o?.valeurDepart||''}"></div>
+      <div class="fr"><label>Valeur cible</label><input type="number" step="0.1" id="ob-cible" value="${o?.valeurCible||''}"></div>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Unité</label><input type="text" id="ob-unite" value="${o?.unite||'kg'}" placeholder="kg, séances..."></div>
+      <div class="fr"><label>Date limite</label><input type="date" id="ob-date" value="${o?.dateLimite||''}"></div>
+    </div>
+  `;
+  document.getElementById('sportModal').dataset.mode='objectif';
+  document.getElementById('sportModal').dataset.editId=id||'';
+  document.getElementById('sportModal').classList.add('open');
+  document.getElementById('saveSportBtn').disabled=false;
+}
+
+async function saveObjectif(){
+  ensureSportData();
+  const editId=document.getElementById('sportModal').dataset.editId;
+  const titre=document.getElementById('ob-titre')?.value?.trim();
+  if(!titre){toast('⚠ Le titre est requis');return;}
+
+  const existing=editId?DB.sport.objectifs.find(x=>x.id===editId):null;
+  const o={
+    id:existing?.id||genId(),
+    titre,
+    type:document.getElementById('ob-type')?.value||'autre',
+    valeurDepart:parseFloat(document.getElementById('ob-depart')?.value)||null,
+    valeurCible:parseFloat(document.getElementById('ob-cible')?.value)||0,
+    unite:document.getElementById('ob-unite')?.value||'',
+    dateLimite:document.getElementById('ob-date')?.value||'',
+    statut:existing?.statut||'en cours'
+  };
+  if(existing){
+    const i=DB.sport.objectifs.findIndex(x=>x.id===editId);
+    DB.sport.objectifs[i]=o;
+  } else {
+    DB.sport.objectifs.push(o);
+  }
+  await saveAll();
+  closeMo('sportModal');
+  renderSObjectifs();
+  toast('✓ Objectif enregistré');
+}
+
+async function delObjectif(id){
+  if(!confirm('Supprimer cet objectif ?')) return;
+  DB.sport.objectifs=DB.sport.objectifs.filter(x=>x.id!==id);
+  await saveAll();
+  renderSObjectifs();
+  toast('Supprimé');
+}
+
+// ── Calendrier ──
+let calSportM=NOW.getMonth(), calSportY=NOW.getFullYear();
+
+function calSportD(d){
+  calSportM+=d;
+  if(calSportM>11){calSportM=0;calSportY++;}
+  if(calSportM<0){calSportM=11;calSportY--;}
+  renderSCalendrier();
+}
+
+function renderSCalendrier(){
+  ensureSportData();
+  const mois=`${calSportY}-${String(calSportM+1).padStart(2,'0')}`;
+  const seances=DB.sport.seances.filter(s=>dm(s.date)===mois);
+  const parDate={};
+  seances.forEach(s=>{
+    if(!parDate[s.date]) parDate[s.date]=[];
+    parDate[s.date].push(s);
+  });
+  const datesTriees=Object.keys(parDate).sort();
+
+  let html=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <button onclick="calSportD(-1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">‹</button>
+      <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">${MOIS[calSportM]} ${calSportY}</div>
+      <button onclick="calSportD(1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">›</button>
+    </div>`;
+
+  if(!datesTriees.length){
+    html+=`<div class="empty">Aucune séance ce mois-ci</div>`;
+  } else {
+    html+=datesTriees.map(date=>{
+      const sList=parDate[date];
+      const d=new Date(date+'T12:00:00');
+      const jourNom=d.toLocaleDateString('fr-FR',{weekday:'long'});
+      const jourNum=d.getDate();
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="background:var(--acc);color:white;border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garant',serif;font-size:16px;font-weight:700">${jourNum}</div>
+          <div style="font-weight:700;font-size:13px;text-transform:capitalize">${jourNom}</div>
+        </div>
+        ${sList.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:10px;margin-bottom:6px">
+          <span style="font-weight:600;font-size:13px">${s.type} ${s.duree?'· '+s.duree+' min':''}</span>
+          <span style="font-size:11px;font-weight:700;color:${s.statut==='faite'?'var(--rec)':'var(--warn)'}">${s.statut==='faite'?'✅ Faite':'📅 Prévue'}</span>
+        </div>`).join('')}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('sview-calendrier').innerHTML=html;
+}
+
+// ── Routeur d'enregistrement ──
+async function saveSportEntry(){
+  const mode=document.getElementById('sportModal').dataset.mode;
+  if(mode==='seance') await saveSeance();
+  else if(mode==='mensuration') await saveMensuration();
+  else if(mode==='objectif') await saveObjectif();
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
