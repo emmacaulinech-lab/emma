@@ -6833,6 +6833,27 @@ const KITS_CONTENU={
   'coaching1j':{label:'Kit Coaching Privé 1 Jour (79€)',items:['1 boîte de cils LIMAGECILS','1 colle professionnelle','1 patch hydrogel','10 brossettes','10 microtigettes','1 fiche étude du regard','1 marguerite','1 scotch professionnel']},
   'coaching2j':{label:'Kit Coaching Privé 2 Jours (129€)',items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','1 préparateur','5 patches hydrogel','1 pince saisie','1 pince isolation','1 nettoyant','1 support palette','1 fiche étude du regard','1 scotch professionnel','5 marguerites','20 brossettes','20 tigettes','20 microtigettes']}
 };
+const BASE_IMG_URL='https://raw.githubusercontent.com/emmacaulinech-lab/emma/main/assets/';
+const IMG_DEBUTANTE_CPF='KIT_DEBUTANTE.png';
+const IMG_DEBUTANTE_PERSO='KIT_DEBUTANTE_OFFERT.png';
+const IMG_COACHING_1J='KIT_COACHING_1j.png';
+const IMG_COACHING_2J='KIT_COACHING_2j.png';
+
+function getImagesEmail(e){
+  const kitsTypes=(e.kits||[]).map(k=>k.type);
+  const images=[];
+  const manquants=[];
+
+  if(kitsTypes.includes('coaching1j')) images.push(IMG_COACHING_1J);
+  if(kitsTypes.includes('coaching2j')) images.push(IMG_COACHING_2J);
+  if(kitsTypes.includes('starter')||kitsTypes.includes('extra')||kitsTypes.includes('lashup')){
+    images.push(e.financement?.type==='cpf'?IMG_DEBUTANTE_CPF:IMG_DEBUTANTE_PERSO);
+  }
+  if(kitsTypes.includes('lashlift')) manquants.push('Kit Lash Lift Coréen');
+  if(kitsTypes.includes('browlift')) manquants.push('Kit Brow Lift');
+
+  return{images:[...new Set(images)],manquants};
+}
 
 function ensureFormationsData(){
   if(!DB.formations) DB.formations={etudiantes:[]};
@@ -7435,12 +7456,18 @@ function renderEmailPreview(){
   const tpl=EMAIL_TEMPLATES[tplKey];
 
   const sujet=tpl.sujet;
-  const corps=tpl.corps.replace(/{NOM}/g,extrairePrenom(e.nom));
+  let corps=tpl.corps.replace(/{NOM}/g,extrairePrenom(e.nom));
+
+  // Détermine les images à insérer
+// Détermine les images à insérer (selon formation + financement)
+  const{images,manquants}=getImagesEmail(e);
+
+  const imagesHtml=images.map(img=>`<img src="${BASE_IMG_URL}${img}" style="max-width:100%;border-radius:8px;margin:10px 0" alt="Visuel kit">`).join('');
 
   el.innerHTML=`
     <div class="fb" style="margin-top:14px">
       <div class="fh"><span>${tpl.label} — auto-détecté selon le financement</span>
-        <button class="btn bd bsm" onclick="copyEmailToClipboard()">📋 Copier</button>
+        <button class="btn bd bsm" onclick="copyEmailToClipboard()">📋 Copier (avec images)</button>
       </div>
       <div style="padding:16px">
         <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Destinataire :</div>
@@ -7449,15 +7476,35 @@ function renderEmailPreview(){
         <div id="femail-sujet-txt" style="font-weight:700;margin-bottom:14px">${sujet}</div>
         <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Corps :</div>
         <div id="femail-corps-txt" style="white-space:pre-wrap;font-size:13px;line-height:1.6;background:var(--bg2);border-radius:10px;padding:14px">${corps}</div>
+        ${images.length?`<div style="margin-top:10px">${imagesHtml}</div>`:''}
+        ${manquants.length?`<div style="font-size:11px;color:var(--warn);margin-top:8px">⚠️ Pas encore d'image pour : ${manquants.join(', ')}</div>`:''}
       </div>
     </div>`;
+
+  window._currentEmailData={sujet,corps,images,adresse:e.email||''};
 }
 
-function copyEmailToClipboard(){
-  const adresse=document.getElementById('femail-adresse-txt')?.textContent||'';
-  const sujet=document.getElementById('femail-sujet-txt')?.textContent||'';
-  const corps=document.getElementById('femail-corps-txt')?.textContent||'';
-  navigator.clipboard.writeText(`À : ${adresse}\nObjet : ${sujet}\n\n${corps}`).then(()=>toast('✓ Email copié !'));
+async function copyEmailToClipboard(){
+  const data=window._currentEmailData;
+  if(!data){toast('⚠ Aucun email à copier');return;}
+
+  const corpsHtml=data.corps.replace(/\n/g,'<br>');
+  const imagesHtml=data.images.map(img=>`<img src="${BASE_IMG_URL}${img}" style="max-width:500px;display:block;margin:14px 0" alt="Visuel kit">`).join('');
+  const htmlComplet=`<div>${corpsHtml}${imagesHtml}</div>`;
+  const texteComplet=`À : ${data.adresse}\nObjet : ${data.sujet}\n\n${data.corps}`;
+
+  try{
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/plain':new Blob([texteComplet],{type:'text/plain'}),
+        'text/html':new Blob([htmlComplet],{type:'text/html'})
+      })
+    ]);
+    toast('✓ Email copié avec images ! Colle-le dans Gmail/Outlook');
+  }catch(e){
+    // Fallback navigateur qui ne supporte pas ClipboardItem multi-format
+    navigator.clipboard.writeText(texteComplet).then(()=>toast('✓ Email copié (texte seul, images à ajouter manuellement)'));
+  }
 }
 
 // ═══════════════════════════════════════
