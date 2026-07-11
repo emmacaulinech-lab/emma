@@ -8082,7 +8082,9 @@ async function genererProgrammeIA(){
   const apiKey=localStorage.getItem('anthropic_key');
   if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
   const duree=document.getElementById('prog-ia-duree')?.value;
-  const zone=document.getElementById('prog-ia-zone')?.value;
+  const zoneSelect=document.getElementById('prog-ia-zone');
+  const zone=zoneSelect?.value;
+  const zoneLabel=zoneSelect?.options[zoneSelect.selectedIndex]?.text||zone;
   const materiel=document.getElementById('prog-ia-materiel')?.value||'poids du corps uniquement';
   const el=document.getElementById('prog-ia-result');
   el.innerHTML=`<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>`;
@@ -8093,7 +8095,7 @@ async function genererProgrammeIA(){
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',max_tokens:1500,
-        messages:[{role:'user',content:`Crée un programme de sport pour une séance de ${duree} minutes, ciblant : ${zone}. Matériel disponible : ${materiel}.
+      messages:[{role:'user',content:`Crée un programme de sport pour une séance de ${duree} minutes, ciblant spécifiquement : "${zoneLabel}". Choisis des exercices précis et efficaces pour cet objectif (si c'est "Affiner cuisses" ou "Gonfler fessiers", privilégie des exercices ciblés type squats sumo, hip thrust, fentes, adducteurs, etc. selon le cas). Matériel disponible : ${materiel}.
 Réponds UNIQUEMENT en JSON valide sans backticks :
 {"titre":"Nom du programme","exercices":[{"nom":"...","series":3,"reps":"12","repos":"45s"}]}`}]
       })
