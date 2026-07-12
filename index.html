@@ -6828,6 +6828,50 @@ async function loadSoldeBanquePerso(){
   }
 }
 
+function normalizeLabelPerso(label){
+  return (label||'').toLowerCase()
+    .replace(/\d{1,2}[\/\.]\d{1,2}([\/\.]\d{2,4})?/g,'')
+    .replace(/\bref[\.\:]?\s*\S+/g,'')
+    .replace(/\d{4,}/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+
+function detectRecurrencesPerso(){
+  const groups={};
+  banquePersoTransactions.filter(t=>t.type==='dep').forEach(t=>{
+    const key=normalizeLabelPerso(t.label).slice(0,18);
+    if(!key) return;
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(t);
+  });
+
+  const results=[];
+  Object.values(groups).forEach(txs=>{
+    if(txs.length<3) return;
+    const sorted=[...txs].sort((a,b)=>a.date.localeCompare(b.date));
+    const intervals=[];
+    for(let i=1;i<sorted.length;i++){
+      const d1=new Date(sorted[i-1].date+'T12:00:00');
+      const d2=new Date(sorted[i].date+'T12:00:00');
+      intervals.push(Math.round((d2-d1)/86400000));
+    }
+    const avgInterval=intervals.reduce((s,v)=>s+v,0)/intervals.length;
+    const variance=intervals.reduce((s,v)=>s+Math.pow(v-avgInterval,2),0)/intervals.length;
+    const stdDev=Math.sqrt(variance);
+    if(stdDev<=4 && avgInterval>=6){
+      const last=sorted[sorted.length-1];
+      const lastDate=new Date(last.date+'T12:00:00');
+      const nextDate=new Date(lastDate.getTime()+Math.round(avgInterval)*86400000);
+      const avgAmount=sorted.reduce((s,t)=>s+t.amount,0)/sorted.length;
+      results.push({label:last.label,avgAmount,nextDate:nextDate.toISOString().split('T')[0]});
+    }
+  });
+  return results;
+}
+
+const STATUTS_FORMATION=['Inscrite','Mail kit envoyé','Kit choisi','Kit payé','Kit préparé'];
+const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choisi':'#8b6fff','Kit payé':'#5a8a6a','Kit préparé':'#5A8A6A'};
+
 // ═══════════════════════════════════════
 // DASHBOARD HUB — soldes + notifications
 // ═══════════════════════════════════════
@@ -6945,8 +6989,7 @@ const el=document.getElementById('hub-notifications');
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
 // ═══════════════════════════════════════
-const STATUTS_FORMATION=['Inscrite','Mail kit envoyé','Kit choisi','Kit payé','Kit préparé'];
-const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choisi':'#8b6fff','Kit payé':'#5a8a6a','Kit préparé':'#5A8A6A'};
+
 const KITS_CONTENU={
   'starter':{label:'Kit Starter (189€)',prix:189,items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','10 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 nettoyant','1 scotch professionnel','5 marguerites']},
   'extra':{label:'Kit Extra (319€)',prix:319,items:['7 boîtes de cils LIMAGECILS','2 colles professionnelles','15 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 boîte pinces','1 préparateur','1 nettoyant','1 fixateur','1 crème remover']},
