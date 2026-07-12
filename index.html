@@ -1029,6 +1029,22 @@ let banquePersoSolde = null;
 let banquePersoTransactions=[];
 let banquePersoCategories=[];
 
+// Détecte automatiquement une session Ma Compta déjà active (survit aux rechargements)
+banquePersoAuth.onAuthStateChanged(async user => {
+  if(user){
+    banquePersoUid = user.uid;
+    await loadSoldeBanquePerso();
+    renderHubOverview();
+  }
+});
+facturationAuth.onAuthStateChanged(async user => {
+  if(user){
+    facturationUid = user.uid;
+    await loadFacturesLimagecils();
+    renderHubOverview();
+  }
+});
+
 // ═══════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════
