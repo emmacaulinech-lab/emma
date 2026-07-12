@@ -994,6 +994,19 @@ const facturationAuth = facturationApp.auth();
 const facturationDb = facturationApp.firestore();
 let facturationUid = null;
 let facturesLimagecils = [];
+// Connexion secondaire — lecture du solde Ma Compta (Banque perso)
+const banquePersoApp = firebase.initializeApp({
+  apiKey: "AIzaSyA5Pz2RUMXdHPg66wE87SALUA5wnKTVyXM",
+  authDomain: "banqueperso.firebaseapp.com",
+  projectId: "banqueperso",
+  storageBucket: "banqueperso.firebasestorage.app",
+  messagingSenderId: "843645915395",
+  appId: "1:843645915395:web:52154a5d5e8863c99f1936"
+}, "banquePersoApp");
+const banquePersoAuth = banquePersoApp.auth();
+const banquePersoDb = banquePersoApp.firestore();
+let banquePersoUid = null;
+let banquePersoSolde = null;
 
 // ═══════════════════════════════════════
 // AUTH
@@ -1014,6 +1027,14 @@ async function doLogin() {
       await loadFacturesLimagecils();
     } catch(e2) {
       console.warn('Connexion Facturation impossible:', e2.message);
+    }
+    // Connexion silencieuse au compte Ma Compta pour le solde perso
+    try {
+      const cred2 = await banquePersoAuth.signInWithEmailAndPassword(email, pwd);
+      banquePersoUid = cred2.user.uid;
+      await loadSoldeBanquePerso();
+    } catch(e3) {
+      console.warn('Connexion Banque perso impossible:', e3.message);
     }
   } catch(e) {
     errEl.textContent = 'Email ou mot de passe incorrect.';
@@ -6763,6 +6784,23 @@ async function loadFacturesLimagecils(){
   }
 }
 
+async function loadSoldeBanquePerso(){
+  if(!banquePersoUid) return;
+  try{
+    const snap = await banquePersoDb.collection('users').doc(banquePersoUid).get();
+    if(snap.exists){
+      const d = snap.data();
+      const transactions = d.transactions ? JSON.parse(d.transactions) : [];
+      const params = d.params ? JSON.parse(d.params) : {soldeInitial:0};
+      const allRec = transactions.filter(t=>t.type==='rec').reduce((s,t)=>s+t.amount,0);
+      const allDep = transactions.filter(t=>t.type==='dep').reduce((s,t)=>s+t.amount,0);
+      banquePersoSolde = (params.soldeInitial||0) + allRec - allDep;
+    }
+  }catch(e){
+    console.warn('Lecture solde Banque perso impossible:', e.message);
+  }
+}
+
 // ═══════════════════════════════════════
 // DASHBOARD HUB — soldes + notifications
 // ═══════════════════════════════════════
@@ -6774,8 +6812,11 @@ function renderHubOverview(){
   const soldePro=DB.banque.reduce((s,b)=>s+b.montant,PARAMS.soldeInit);
   soldeProEl.textContent=fa(soldePro);
 
-  const soldePerso=(DB.banquePerso?.transactions||[]).reduce((s,t)=>s+t.montant,PARAMS.soldePersoInit||0);
-  soldePersoEl.textContent=fa(soldePerso);
+  if(banquePersoSolde!==null){
+    soldePersoEl.textContent=(banquePersoSolde<0?'−':'')+fa(banquePersoSolde);
+  } else {
+    soldePersoEl.textContent='—';
+  }
 
   const notifs=[];
   const today=new Date();
