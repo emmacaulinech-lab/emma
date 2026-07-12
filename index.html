@@ -1026,6 +1026,8 @@ const banquePersoAuth = banquePersoApp.auth();
 const banquePersoDb = banquePersoApp.firestore();
 let banquePersoUid = null;
 let banquePersoSolde = null;
+let banquePersoTransactions=[];
+let banquePersoCategories=[];
 
 // ═══════════════════════════════════════
 // AUTH
@@ -6818,6 +6820,8 @@ async function loadSoldeBanquePerso(){
       const allRec = transactions.filter(t=>t.type==='rec').reduce((s,t)=>s+t.amount,0);
       const allDep = transactions.filter(t=>t.type==='dep').reduce((s,t)=>s+t.amount,0);
       banquePersoSolde = (params.soldeInitial||0) + allRec - allDep;
+      banquePersoTransactions = transactions;
+      banquePersoCategories = d.categories ? JSON.parse(d.categories) : [];
     }
   }catch(e){
     console.warn('Lecture solde Banque perso impossible:', e.message);
@@ -6913,6 +6917,30 @@ const el=document.getElementById('hub-notifications');
     }
   }
 }
+
+// Prélèvements récurrents à venir (Banque perso)
+  const recurrencesPerso=detectRecurrencesPerso();
+  recurrencesPerso.forEach(r=>{
+    const j=Math.floor((new Date(r.nextDate+'T12:00:00')-today)/86400000);
+    if(j>=0&&j<=7){
+      const label=r.label.length>25?r.label.slice(0,25)+'…':r.label;
+      notifs.push({icon:'🔮',txt:`À venir : ${label} (~${fa(r.avgAmount)}) dans ${j}j`,color:'var(--pla)',onclick:`goModule('banqueperso')`});
+    }
+  });
+
+// Alertes budget dépassé (Banque perso)
+  const moisCourantPerso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  banquePersoCategories.filter(c=>c.type==='dep'&&c.budget>0).forEach(cat=>{
+    const spent=banquePersoTransactions.filter(t=>t.type==='dep'&&t.catId===cat.id&&t.date.startsWith(moisCourantPerso)).reduce((s,t)=>s+t.amount,0);
+    if(spent>=cat.budget){
+      notifs.push({icon:'🚨',txt:`Budget "${cat.name}" dépassé (${fa(spent)}/${fa(cat.budget)})`,color:'var(--dep)',onclick:`goModule('banqueperso')`});
+    }
+  });
+
+  // Solde perso négatif
+  if(banquePersoSolde!==null&&banquePersoSolde<0){
+    notifs.push({icon:'⚠️',txt:`Compte perso à découvert : ${'−'+fa(banquePersoSolde)}`,color:'var(--dep)',onclick:`goModule('banqueperso')`});
+  }
 
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
