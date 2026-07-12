@@ -1033,6 +1033,7 @@ async function doLogin() {
       const cred2 = await banquePersoAuth.signInWithEmailAndPassword(email, pwd);
       banquePersoUid = cred2.user.uid;
       await loadSoldeBanquePerso();
+      renderHubOverview(); // rafraîchit le Hub une fois le solde chargé
     } catch(e3) {
       console.warn('Connexion Banque perso impossible:', e3.message);
     }
@@ -6897,13 +6898,13 @@ const el=document.getElementById('hub-notifications');
 const STATUTS_FORMATION=['Inscrite','Mail kit envoyé','Kit choisi','Kit payé','Kit préparé'];
 const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choisi':'#8b6fff','Kit payé':'#5a8a6a','Kit préparé':'#5A8A6A'};
 const KITS_CONTENU={
-  'starter':{label:'Kit Starter (189€)',items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','10 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 nettoyant','1 scotch professionnel','5 marguerites']},
-  'extra':{label:'Kit Extra (319€)',items:['7 boîtes de cils LIMAGECILS','2 colles professionnelles','15 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 boîte pinces','1 préparateur','1 nettoyant','1 fixateur','1 crème remover']},
-  'lashup':{label:"Kit Lash Up' (62€)",items:['10 dosettes','Pads réutilisables','Colle rehaussement','Grattoir','Kit teinture','Soin nourrissant']},
-  'lashlift':{label:'Kit Lash Lift Coréen (119€)',items:['Protocole complet 5 lotions','Silicone Shields réutilisables','Outil Y professionnel','Film plastique','Goupillons & accessoires','Produits de préparation',"Manuel d'utilisation LIMAGECILS"]},
-  'browlift':{label:'Kit Brow Lift (99€)',items:['Protocole Brow Lift complet','Colle Brow Lift','Patches silicone','Brosse mascara','Outil Y professionnel','Accessoires de précision','Ventilateur professionnel']},
-  'coaching1j':{label:'Kit Coaching Privé 1 Jour (79€)',items:['1 boîte de cils LIMAGECILS','1 colle professionnelle','1 patch hydrogel','10 brossettes','10 microtigettes','1 fiche étude du regard','1 marguerite','1 scotch professionnel']},
-  'coaching2j':{label:'Kit Coaching Privé 2 Jours (129€)',items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','1 préparateur','5 patches hydrogel','1 pince saisie','1 pince isolation','1 nettoyant','1 support palette','1 fiche étude du regard','1 scotch professionnel','5 marguerites','20 brossettes','20 tigettes','20 microtigettes']}
+  'starter':{label:'Kit Starter (189€)',prix:189,items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','10 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 nettoyant','1 scotch professionnel','5 marguerites']},
+  'extra':{label:'Kit Extra (319€)',prix:319,items:['7 boîtes de cils LIMAGECILS','2 colles professionnelles','15 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 boîte pinces','1 préparateur','1 nettoyant','1 fixateur','1 crème remover']},
+  'lashup':{label:"Kit Lash Up' (62€)",prix:62,items:['10 dosettes','Pads réutilisables','Colle rehaussement','Grattoir','Kit teinture','Soin nourrissant']},
+  'lashlift':{label:'Kit Lash Lift Coréen (119€)',prix:119,items:['Protocole complet 5 lotions','Silicone Shields réutilisables','Outil Y professionnel','Film plastique','Goupillons & accessoires','Produits de préparation',"Manuel d'utilisation LIMAGECILS"]},
+  'browlift':{label:'Kit Brow Lift (99€)',prix:99,items:['Protocole Brow Lift complet','Colle Brow Lift','Patches silicone','Brosse mascara','Outil Y professionnel','Accessoires de précision','Ventilateur professionnel']},
+  'coaching1j':{label:'Kit Coaching Privé 1 Jour (79€)',prix:79,items:['1 boîte de cils LIMAGECILS','1 colle professionnelle','1 patch hydrogel','10 brossettes','10 microtigettes','1 fiche étude du regard','1 marguerite','1 scotch professionnel']},
+  'coaching2j':{label:'Kit Coaching Privé 2 Jours (129€)',prix:129,items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','1 préparateur','5 patches hydrogel','1 pince saisie','1 pince isolation','1 nettoyant','1 support palette','1 fiche étude du regard','1 scotch professionnel','5 marguerites','20 brossettes','20 tigettes','20 microtigettes']}
 };
 const BASE_IMG_URL='https://raw.githubusercontent.com/emmacaulinech-lab/emma/main/assets/';
 const IMG_DEBUTANTE_CPF='KIT_DEBUTANTE.png';
@@ -7149,7 +7150,7 @@ function renderFEtudiantes(){
         </div>
         <div style="display:flex;gap:16px;font-size:12px;color:var(--mut);margin-bottom:10px">
           <span>💶 ${e.financement?.type==='cpf'?'CPF':'Perso'} — ${e.financement?.montant?fa(e.financement.montant):'—'} ${e.financement?.paye?'✅':'⏳'}</span>
-          <span>📦 Kit${(e.kits||[]).length>1?'s':''} : ${kitDone?'✅ Complet':(e.kits||[]).map(k=>KITS_CONTENU[k.type]?.label?.split(' ')[1]||k.type).join(' + ')||'aucun'}</span>
+          <span>📦 Kit${(e.kits||[]).length>1?'s':''} : ${kitDone?'✅ Complet':(e.kits||[]).map(k=>KITS_CONTENU[k.type]?.label?.split(' ')[1]||k.type).join(' + ')||'aucun'}${e.financement?.type==='cpf'&&(e.kits||[]).length?' — <strong>'+fa((e.kits||[]).reduce((s,k)=>s+(KITS_CONTENU[k.type]?.prix||0),0))+'</strong>':''}</span>
         </div>
         <div style="display:flex;gap:8px">
           <select onchange="changeStatutEtudiante('${e.id}',this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
