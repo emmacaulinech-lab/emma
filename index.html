@@ -6948,12 +6948,6 @@ function renderHubOverview(){
     }
   });
 
-const el=document.getElementById('hub-notifications');
-  if(el){
-    el.innerHTML=notifs.length
-      ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="${n.onclick||''}"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
-      :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
-  }
 
   // Virements en attente (compta)
   const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
@@ -6997,11 +6991,18 @@ const el=document.getElementById('hub-notifications');
     }
   });
 
-  // Solde perso négatif
+// Solde perso négatif
   if(banquePersoSolde!==null&&banquePersoSolde<0){
     notifs.push({icon:'⚠️',txt:`Compte perso à découvert : ${'−'+fa(banquePersoSolde)}`,color:'var(--dep)',onclick:`goModule('banqueperso')`});
   }
-   }
+
+  const el=document.getElementById('hub-notifications');
+  if(el){
+    el.innerHTML=notifs.length
+      ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="${n.onclick||''}"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
+      :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
+  }
+}
 
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
