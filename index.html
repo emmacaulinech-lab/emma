@@ -6874,11 +6874,23 @@ function detectRecurrencesPerso(){
     const avgInterval=intervals.reduce((s,v)=>s+v,0)/intervals.length;
     const variance=intervals.reduce((s,v)=>s+Math.pow(v-avgInterval,2),0)/intervals.length;
     const stdDev=Math.sqrt(variance);
+    const last=sorted[sorted.length-1];
+    const avgAmount=sorted.reduce((s,t)=>s+t.amount,0)/sorted.length;
+
     if(stdDev<=4 && avgInterval>=6){
-      const last=sorted[sorted.length-1];
       const lastDate=new Date(last.date+'T12:00:00');
       const nextDate=new Date(lastDate.getTime()+Math.round(avgInterval)*86400000);
-      const avgAmount=sorted.reduce((s,t)=>s+t.amount,0)/sorted.length;
+      results.push({label:last.label,avgAmount,nextDate:nextDate.toISOString().split('T')[0]});
+      return;
+    }
+
+    const joursDuMois=sorted.map(t=>+t.date.split('-')[2]);
+    const avgJour=joursDuMois.reduce((s,v)=>s+v,0)/joursDuMois.length;
+    const varJour=joursDuMois.reduce((s,v)=>s+Math.pow(v-avgJour,2),0)/joursDuMois.length;
+    const stdJour=Math.sqrt(varJour);
+    if(stdJour<=5){
+      const lastDate=new Date(last.date+'T12:00:00');
+      const nextDate=new Date(lastDate.getFullYear(),lastDate.getMonth()+1,Math.round(avgJour));
       results.push({label:last.label,avgAmount,nextDate:nextDate.toISOString().split('T')[0]});
     }
   });
