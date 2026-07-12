@@ -6925,14 +6925,14 @@ function renderHubOverview(){
     const j=Math.floor((today-new Date(f.date+'T12:00:00'))/86400000);
     return j>=15;
   });
-  if(facturesRetard.length) notifs.push({icon:'🧾',txt:`${facturesRetard.length} facture(s) LIMAGECILS en retard (+15j)`,color:'var(--dep)'});
+  if(facturesRetard.length) notifs.push({icon:'🧾',txt:`${facturesRetard.length} facture(s) LIMAGECILS en retard (+15j)`,color:'var(--dep)',onclick:`goModule('facturation')`});
 
   const redevancesRetard=facturesLimagecils.filter(f=>{
     if(f.type!=='Redevance'||f.statut==='Payée') return false;
     const j=Math.floor((today-new Date(f.date+'T12:00:00'))/86400000);
     return j>=30;
   });
-  if(redevancesRetard.length) notifs.push({icon:'💰',txt:`${redevancesRetard.length} redevance(s) impayée(s) (+30j)`,color:'var(--dep)'});
+  if(redevancesRetard.length) notifs.push({icon:'💰',txt:`${redevancesRetard.length} redevance(s) impayée(s) (+30j)`,color:'var(--dep)',onclick:`goModule('facturation')`});
 
   ensureFormationsData();
   const etudiantes=DB.formations.etudiantes||[];
