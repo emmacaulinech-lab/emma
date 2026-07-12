@@ -6960,7 +6960,7 @@ const el=document.getElementById('hub-notifications');
       wrapVir.style.display='none';
     }
   }
-}
+
 
 // Prélèvements récurrents à venir (Banque perso)
   const recurrencesPerso=detectRecurrencesPerso();
@@ -6985,6 +6985,7 @@ const el=document.getElementById('hub-notifications');
   if(banquePersoSolde!==null&&banquePersoSolde<0){
     notifs.push({icon:'⚠️',txt:`Compte perso à découvert : ${'−'+fa(banquePersoSolde)}`,color:'var(--dep)',onclick:`goModule('banqueperso')`});
   }
+   }
 
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
