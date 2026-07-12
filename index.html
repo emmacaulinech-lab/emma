@@ -481,19 +481,27 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       </div>
     </div>
      
+    <!-- Caisse virtuelle -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">💵 Caisse espèces</div>
+      <div id="cv-widget"></div>
+    </div>
+
+    <!-- Virements en attente -->
+    <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:12px">⏳ Virements en attente</div>
+      <div id="d-nonpayees"></div>
+    </div>
+
     <!-- Actions rapides -->
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">⚡ Actions rapides</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
-      <div onclick="goTab('caisse',document.querySelector('[onclick*=caisse]'));openModal('caisse')" style="background:linear-gradient(135deg,#fff0f8,#ffe0f0);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
-        <div style="font-size:22px;margin-bottom:7px">🧳</div>
-        <div style="font-size:13px;font-weight:700;color:var(--txt)">+ Prestation</div>
-        <div style="font-size:11px;color:var(--mut);margin-top:3px">Ajouter en caisse</div>
-      </div>
-      <div onclick="goTab('banque',document.querySelector('[onclick*=banque]'));openModal('banque')" style="background:linear-gradient(135deg,#f0f4ff,#e0eaff);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
-        <div style="font-size:22px;margin-bottom:7px">🏦</div>
-        <div style="font-size:13px;font-weight:700;color:var(--txt)">+ Opération</div>
-        <div style="font-size:11px;color:var(--mut);margin-top:3px">Ajouter en banque</div>
-      </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+      <label style="background:linear-gradient(135deg,#f0f4ff,#e0eaff);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd);display:block">
+        <div style="font-size:22px;margin-bottom:7px">📸</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Import screenshot</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">Relevé banque</div>
+        <input type="file" accept="image/*" onchange="importBanqueImage(event);goTab('banque',document.querySelector('[onclick*=banque]'))" style="display:none">
+      </label>
       <div onclick="openStatsPrestations()" style="background:linear-gradient(135deg,#f0fff8,#d8f5e8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
         <div style="font-size:22px;margin-bottom:7px">📊</div>
         <div style="font-size:13px;font-weight:700;color:var(--txt)">Stats prestations</div>
@@ -552,6 +560,8 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:12px;font-weight:700">💳 CA par mode</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="d-modes"></div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:14px 0 10px;font-weight:700">📅 Cette semaine</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="d-modes-semaine"></div>
       </div>
     </div>
 
@@ -573,11 +583,6 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       <div id="chart-semaines" style="display:flex;align-items:flex-end;gap:8px;height:80px"></div>
     </div>
 
-     <!-- Caisse virtuelle -->
-<div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
-  <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">💵 Caisse espèces</div>
-  <div id="cv-widget"></div>
-</div>
 
      <!-- Fidélité -->
 <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
@@ -596,12 +601,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       </div>
       <div id="salaires-widget"></div>
     </div>
-     
-    <!-- Virements en attente -->
-    <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:12px">⏳ Virements en attente</div>
-      <div id="d-nonpayees"></div>
-    </div>
+  
 
   </div>
 </div>
@@ -631,11 +631,13 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
 
   <!-- BANQUE -->
   <div class="view" id="view-banque">
+    <div style="margin-bottom:14px">
+      <button class="btn bg" onclick="openTVA()" style="width:100%;padding:12px;font-size:13px">🧾 Calculer TVA</button>
+    </div>
     <div class="sh">
       <div><div class="st">🏦 Banque</div><div class="ss">Mouvements réels · TVA auto sur VIR/CA · Dépôts depuis ici</div></div>
-      
-      <button class="btn bg" onclick="openTVA()">🧾 Calcul TVA</button> 
       <button class="btn bd" onclick="openModal('banque')">+ Ajouter</button>
+    </div>
     </div>
     <div class="rb">💡 Pour un <strong>dépôt espèces ou chèques</strong> : saisis l'opération normalement, une fenêtre de sélection s'ouvrira automatiquement.</div>
    <div class="rb" style="background:var(--pla2);border-color:#b3c6ef">
@@ -704,8 +706,8 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div style="display:flex;gap:8px;margin-bottom:16px">
     <button class="btn bg" onclick="matcherToutesFactures()">🔄 Rapprocher automatiquement</button>
   </div>
-  <div id="tvaDetailC" style="margin-bottom:16px"></div>
   <div id="facturesC"></div>
+  <div id="tvaDetailC" style="margin-bottom:16px"></div>
   <div class="divider"></div>
   <div class="fh" style="background:var(--bg2);border-radius:10px 10px 0 0"><span>🚫 Lignes banque sans TVA à exclure</span></div>
   <div id="sansTvaC"></div>
@@ -734,6 +736,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div class="view" id="view-clients">
     <div class="sh">
       <div><div class="st">👥 Clients</div><div class="ss">Historique · Alimenté depuis Caisse</div></div>
+      <button class="btn bg" onclick="openFusionDoublons()">🔗 Fusionner doublons</button>
     </div>
     <div class="flt">
       <input class="fi" id="clis" placeholder="🔍 Rechercher..." oninput="renderClients()" style="min-width:200px">
@@ -1510,7 +1513,8 @@ function renderDash(){
   const top=Object.values(map).sort((a,b)=>b.total-a.total).slice(0,10);
   const colors=['#ffd8e8','#d8e8ff','#fff3d0','#d8f5e8','#f0d8ff'];
   const tcEl=document.getElementById('d-topclientes');
-  if(tcEl) tcEl.innerHTML=top.length?top.map((c,i)=>`
+  const topAffiches=window._topClientesExpanded?top:top.slice(0,3);
+  if(tcEl) tcEl.innerHTML=(top.length?topAffiches.map((c,i)=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
       <div style="display:flex;align-items:center;gap:8px">
         <div style="width:32px;height:32px;border-radius:50%;background:${colors[i]};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc)">${c.nom.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
@@ -1518,7 +1522,8 @@ function renderDash(){
         <div style="font-size:11px;color:var(--mut)">${c.nb} visite${c.nb>1?'s':''}</div></div>
       </div>
       <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--acc);font-size:13px">${fa(c.total)}</span>
-    </div>`).join(''):'<div style="color:var(--mut);font-size:12px">Aucune prestation ce mois</div>';
+    </div>`).join(''):'<div style="color:var(--mut);font-size:12px">Aucune prestation ce mois</div>')
+    +(top.length>3?`<div style="text-align:center;font-size:11px;color:var(--acc);font-weight:600;cursor:pointer;margin-top:8px" onclick="window._topClientesExpanded=!window._topClientesExpanded;renderDash()">${window._topClientesExpanded?'▲ Réduire':'▼ Voir tout ('+top.length+')'}</div>`:'');
 
   // À relancer — clientes sans visite depuis 30j+
   const aujourdhui=new Date();
@@ -1533,7 +1538,8 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
     .map(c=>({...c,seuil:SEUIL_LONG.includes(c.prestation)?50:30}))
     .filter(c=>c.jours>=c.seuil).sort((a,b)=>b.jours-a.jours);
   const rEl=document.getElementById('d-relancer');
-  if(rEl) rEl.innerHTML=relancer.length?relancer.map(c=>`
+  const relancerAffiches=window._relancerExpanded?relancer:relancer.slice(0,3);
+  if(rEl) rEl.innerHTML=(relancer.length?relancerAffiches.map(c=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--brd)">
       <div><div style="font-size:13px;font-weight:700;color:var(--pla);cursor:pointer;text-decoration:underline dotted" onclick="openClient('${c.nom.replace(/'/g,"\'")}')">${c.nom}</div>
       <div style="font-size:11px;color:var(--mut)">${dlbl(c.last)} · ${c.prestation||'—'}</div></div>
@@ -1541,7 +1547,8 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   <span style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${c.jours>45?'#ffd8d8':'#fff3d0'};color:${c.jours>45?'#c45858':'#c89040'}">${c.jours>45?'⚠️':'🟠'} ${c.jours}j</span>
   ${PARAMS.telPro&&c.tel?`<a href="sms:${PARAMS.telPro}&body=${encodeURIComponent('Bonjour '+c.nom.split(' ')[0]+' 🌸 Vous nous manquez ! Pour votre prochain rendez-vous chez LIMAGE CILS by La Valentine ♡, bénéficiez de 10€ offerts en présentant ce message (valable 30 jours). On sera ravies de vous retrouver très bientôt !')}" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#d8e8ff;color:#4a78c8;text-decoration:none">📱 Relancer</a>`:c.tel?`<span style="font-size:10px;color:var(--mut)">⚙️ numéro pro manquant</span>`:''}
 </div>    
-</div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>';
+</div>`).join(''):'<div style="color:var(--rec);font-size:12px">✅ Toutes les clientes sont revenues</div>')
+  +(relancer.length>3?`<div style="text-align:center;font-size:11px;color:var(--acc);font-weight:600;cursor:pointer;margin-top:8px" onclick="window._relancerExpanded=!window._relancerExpanded;renderDash()">${window._relancerExpanded?'▲ Réduire':'▼ Voir tout ('+relancer.length+')'}</div>`:'');
   document.getElementById('d-oc').textContent=(obj/(panier2||1)).toFixed(0)+' clientes';
   // Jours restants + cadence
   const joursRestants=dInM-dayN;
@@ -1578,6 +1585,37 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   const modeVals={ESP:espNet,VIR:virTot,CHQ:chqTot,PLANITY:planTot};
   document.getElementById('d-modes').innerHTML=modes.map(mo=>{
     const v=modeVals[mo]||0;
+    return`<div style="background:var(--bg2);border:1.5px solid var(--brd);border-radius:12px;padding:11px;text-align:center;box-shadow:var(--shadow)">
+      <div style="margin-bottom:5px">${bdg(mo)}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--acc)">${fa(v)}</div>
+    </div>`;
+  }).join('');
+
+  // CA par mode — semaine en cours
+  const nowW=new Date();
+  const debutSem=new Date(nowW); debutSem.setDate(nowW.getDate()-((nowW.getDay()+6)%7));
+  const finSem=new Date(debutSem); finSem.setDate(debutSem.getDate()+6);
+  const dS=debutSem.toISOString().split('T')[0], dF=finSem.toISOString().split('T')[0];
+  const cSemaine=DB.caisse.filter(t=>t.date>=dS&&t.date<=dF&&t.montant>0);
+  let espNetSem=0;
+  for(const prat of ['MARIE','GIULIA']){
+    const pr=cSemaine.filter(t=>t.praticien===prat);
+    if(!pr.length) continue;
+    const capr=pr.reduce((s,t)=>s+t.montant,0);
+    const planpr=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
+    const chqvirpr=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
+    espNetSem+=Math.max(0,capr*PARAMS.tauxSoc-(planpr+chqvirpr));
+  }
+  espNetSem+=cSemaine.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
+  const modeValsSem={
+    ESP:espNetSem,
+    VIR:cSemaine.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0),
+    CHQ:cSemaine.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0),
+    PLANITY:cSemaine.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0)
+  };
+  const elSem=document.getElementById('d-modes-semaine');
+  if(elSem) elSem.innerHTML=modes.map(mo=>{
+    const v=modeValsSem[mo]||0;
     return`<div style="background:var(--bg2);border:1.5px solid var(--brd);border-radius:12px;padding:11px;text-align:center;box-shadow:var(--shadow)">
       <div style="margin-bottom:5px">${bdg(mo)}</div>
       <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--acc)">${fa(v)}</div>
@@ -2333,7 +2371,54 @@ function renderCompta(){
 // ═══════════════════════════════════════
 // CLIENTS
 // ═══════════════════════════════════════
-function renderClients(){
+
+function normalizeNom(nom){
+  return nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+}
+
+function detecterDoublonsClientes(){
+  const map={};
+  DB.caisse.forEach(t=>{
+    if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) return;
+    const key=normalizeNom(t.nom);
+    if(!map[key]) map[key]=new Set();
+    map[key].add(t.nom);
+  });
+  return Object.values(map).filter(set=>set.size>1).map(set=>[...set]);
+}
+
+function openFusionDoublons(){
+  const doublons=detecterDoublonsClientes();
+  if(!doublons.length){ toast('✅ Aucun doublon détecté'); return; }
+  document.getElementById('cliMT').textContent='🔗 Fusionner les doublons';
+  document.getElementById('cliMB').innerHTML=doublons.map((noms,i)=>`
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--mut);margin-bottom:8px">Ces noms semblent être la même personne :</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        ${noms.map(n=>`<span style="background:white;border:1px solid var(--brd2);border-radius:20px;padding:4px 10px;font-size:12px">${n}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;color:var(--mut)">Fusionner vers :</span>
+        <select id="fusion-choix-${i}" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+          ${noms.map(n=>`<option value="${n}">${n}</option>`).join('')}
+        </select>
+        <button class="btn bgrn bsm" onclick="fusionnerDoublon(${JSON.stringify(noms).replace(/"/g,'&quot;')},document.getElementById('fusion-choix-${i}').value)">✓ Fusionner</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('clientModal').classList.add('open');
+}
+
+async function fusionnerDoublon(noms,nomCible){
+  for(const t of DB.caisse){
+    if(noms.includes(t.nom)&&t.nom!==nomCible){ t.nom=nomCible; }
+  }
+  await saveAll();
+  closeMo('clientModal');
+  renderClients();
+  toast('✓ Fusionné vers "'+nomCible+'"');
+}
+   
+   function renderClients(){
   const s=(document.getElementById('clis')?.value||'').toLowerCase();
   const map={};
   for(const t of DB.caisse){
@@ -3287,7 +3372,7 @@ function renderTvaDetail(){
     <div class="fb">
       <div class="fh">
         <span>🧮 Détail du calcul — ${mf(tvaDetailMois)}</span>
-        <select onchange="tvaDetailMois=this.value;renderTvaDetail()" style="font-size:11px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:8px">
+        <select onchange="tvaDetailMois=this.value;renderTvaDetail();renderFactures()" style="font-size:11px;padding:4px 8px;border:1.5px solid var(--brd2);border-radius:8px">
           ${allMois.map(m=>`<option value="${m}" ${m===tvaDetailMois?'selected':''}>${mf(m)}</option>`).join('')}
         </select>
       </div>
@@ -3329,44 +3414,43 @@ function renderTvaDetail(){
 function renderFactures(){
   const el=document.getElementById('facturesC');
   if(!el) return;
-  if(!DB_FACTURES.length){
-    el.innerHTML=`<div class="empty">Aucune facture — importe tes factures fournisseurs</div>`;
+  if(!tvaDetailMois){
+    const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date))])].sort().reverse();
+    tvaDetailMois=allMois[0]||dm(new Date().toISOString().split('T')[0]);
+  }
+  const factures=DB_FACTURES.filter(f=>dm(f.date)===tvaDetailMois);
+  if(!factures.length){
+    el.innerHTML=`<div class="fb"><div class="fh"><span>${mf(tvaDetailMois)} — 0 facture</span></div><div class="empty">Aucune facture ce mois</div></div>`;
     return;
   }
-  const byM={};
-  for(const f of DB_FACTURES){const m=dm(f.date);if(!byM[m])byM[m]=[];byM[m].push(f);}
-
-  let html='';
-  for(const[mois,factures]of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
-    const totTVA=factures.reduce((s,f)=>s+f.tva,0);
-    const totTTC=factures.reduce((s,f)=>s+f.montantTTC,0);
-    html+=`<div class="fb"><div class="fh">
-      <span>${mf(mois)} — ${factures.length} facture(s)</span>
-      <span style="font-family:'DM Mono',monospace;font-size:11px">TVA: <span style="color:var(--pla)">${fa(totTVA)}</span> · TTC: <span style="color:var(--dep)">${fa(totTTC)}</span></span>
-    </div>
-    <table><thead><tr>
-      <th>Date</th><th>Fournisseur</th><th>N°</th>
-      <th style="text-align:right">HT</th><th style="text-align:right">TVA</th><th style="text-align:right">TTC</th>
-      <th style="text-align:center">Rapprochée</th><th></th>
-    </tr></thead><tbody>`;
-    for(const f of factures.sort((a,b)=>b.date.localeCompare(a.date))){
-      html+=`<tr>
-        <td class="tdt">${dlbl(f.date)}</td>
-        <td style="font-weight:600">${f.fournisseur}</td>
-        <td class="tmu">${f.numeroFacture}</td>
-        <td class="tm" style="text-align:right">${fa(f.montantHT)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(f.tva)}</td>
-        <td class="tn" style="text-align:right">${fa(f.montantTTC)}</td>
-        <td style="text-align:center">${f.rapprochee?'✅':`<button class="btn bg bsm" onclick="ouvrirRapprochementFacture('${f.id}')">🔗</button>`}</td>
-        <td><button class="btn br bsm" onclick="delFacture('${f.id}')">✕</button></td>
-      </tr>`;
-    }
-    html+=`<tr class="trt"><td colspan="3">TOTAL</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${fa(factures.reduce((s,f)=>s+f.montantHT,0))}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(totTVA)}</td>
-      <td class="tn" style="text-align:right">${fa(totTTC)}</td><td colspan="2"></td>
-    </tr></tbody></table></div>`;
+  const totTVA=factures.reduce((s,f)=>s+f.tva,0);
+  const totTTC=factures.reduce((s,f)=>s+f.montantTTC,0);
+  let html=`<div class="fb"><div class="fh">
+    <span>${mf(tvaDetailMois)} — ${factures.length} facture(s)</span>
+    <span style="font-family:'DM Mono',monospace;font-size:11px">TVA: <span style="color:var(--pla)">${fa(totTVA)}</span> · TTC: <span style="color:var(--dep)">${fa(totTTC)}</span></span>
+  </div>
+  <table><thead><tr>
+    <th>Date</th><th>Fournisseur</th><th>N°</th>
+    <th style="text-align:right">HT</th><th style="text-align:right">TVA</th><th style="text-align:right">TTC</th>
+    <th style="text-align:center">Rapprochée</th><th></th>
+  </tr></thead><tbody>`;
+  for(const f of factures.sort((a,b)=>b.date.localeCompare(a.date))){
+    html+=`<tr>
+      <td class="tdt">${dlbl(f.date)}</td>
+      <td style="font-weight:600">${f.fournisseur}</td>
+      <td class="tmu">${f.numeroFacture}</td>
+      <td class="tm" style="text-align:right">${fa(f.montantHT)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(f.tva)}</td>
+      <td class="tn" style="text-align:right">${fa(f.montantTTC)}</td>
+      <td style="text-align:center">${f.rapprochee?'✅':`<button class="btn bg bsm" onclick="ouvrirRapprochementFacture('${f.id}')">🔗</button>`}</td>
+      <td><button class="btn br bsm" onclick="delFacture('${f.id}')">✕</button></td>
+    </tr>`;
   }
+  html+=`<tr class="trt"><td colspan="3">TOTAL</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace">${fa(factures.reduce((s,f)=>s+f.montantHT,0))}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(totTVA)}</td>
+    <td class="tn" style="text-align:right">${fa(totTTC)}</td><td colspan="2"></td>
+  </tr></tbody></table></div>`;
   el.innerHTML=html;
 }
 
@@ -4857,6 +4941,20 @@ function totalCV(){
   BILLETS.forEach(b=>t+=(CV.billets[b]||0)*b);
   PIECES.forEach(p=>t+=(CV.pieces[p]||0)*p);
   return Math.round(t*100)/100;
+}
+
+async function confirmCloture(){
+  const total=totalCV();
+  if(total<=0){ toast('Caisse déjà à zéro'); return; }
+  if(!confirm(`Clôturer la caisse et la remettre à zéro ?\nMontant actuel : ${fa(total)}`)) return;
+  CV.historique=CV.historique||[];
+  CV.historique.push({date:new Date().toISOString().split('T')[0],montant:total});
+  BILLETS.forEach(b=>CV.billets[b]=0);
+  PIECES.forEach(p=>CV.pieces[p]=0);
+  CV.lastCloture=new Date().toISOString().split('T')[0];
+  await saveCV();
+  renderCaisseVirtuelle();
+  toast('✓ Caisse clôturée et remise à zéro');
 }
 
 function renderCaisseVirtuelle(){
