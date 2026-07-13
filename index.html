@@ -7224,13 +7224,22 @@ async function validerTempsLibreLibre(){
   ensureJournalData();
   const today=new Date().toISOString().split('T')[0];
   const trou=window._trouTempsLibreActuel;
+  const heureDebut=minToStr(trou.debut), heureFin=minToStr(trou.fin);
 
   if(!DB.journal.tempsLibre) DB.journal.tempsLibre={};
   if(!DB.journal.tempsLibre[today]) DB.journal.tempsLibre[today]=[];
-  DB.journal.tempsLibre[today].push({id:genId(),nom,heureDebut:minToStr(trou.debut),heureFin:minToStr(trou.fin)});
+  DB.journal.tempsLibre[today].push({id:genId(),nom,heureDebut,heureFin});
+
+  // Ajoute aussi au planning pour affichage visuel
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+  DB.journal.planning[today].push({
+    id:genId(),type:'tempsLibre',nom,iconOverride:'☁️',
+    heureDebut,heureFin,duree:trou.fin-trou.debut
+  });
 
   await saveAll();
   closeMo('tempsLibreModal');
+  renderJAujourdhui();
   toast('✓ "'+nom+'" enregistré !');
 }
 
@@ -7238,13 +7247,21 @@ async function passerTempsLibre(){
   ensureJournalData();
   const today=new Date().toISOString().split('T')[0];
   const trou=window._trouTempsLibreActuel;
+  const heureDebut=minToStr(trou.debut), heureFin=minToStr(trou.fin);
 
   if(!DB.journal.tempsLibre) DB.journal.tempsLibre={};
   if(!DB.journal.tempsLibre[today]) DB.journal.tempsLibre[today]=[];
-  DB.journal.tempsLibre[today].push({id:genId(),nom:'Non précisé',heureDebut:minToStr(trou.debut),heureFin:minToStr(trou.fin)});
+  DB.journal.tempsLibre[today].push({id:genId(),nom:'Non précisé',heureDebut,heureFin});
+
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+  DB.journal.planning[today].push({
+    id:genId(),type:'tempsLibre',nom:'Non précisé',iconOverride:'☁️',
+    heureDebut,heureFin,duree:trou.fin-trou.debut
+  });
 
   await saveAll();
   closeMo('tempsLibreModal');
+  renderJAujourdhui();
 }
 
 const HUMEUR_SCORES={'😄':5,'🥰':5,'😌':4,'😴':3,'😰':2,'😤':2,'😢':1,'😡':1};
@@ -10576,8 +10593,9 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
   const gouttiere=1;
   const blocsHtml=planning.map(p=>{
     const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
-    const couleur=zone?.couleur||'#993556';
-    const bg=couleurPastel(couleur);
+    const estTempsLibre=p.type==='tempsLibre';
+    const couleur=estTempsLibre?'#9ca3af':(zone?.couleur||'#993556');
+    const bg=estTempsLibre?'#ffffff':couleurPastel(couleur);
     const top=yMap[toMin(p.heureDebut)];
     const hgt=yMap[toMin(p.heureFin)]-top;
     const expanded=clickable&&window['_blocOpen_'+p.id];
