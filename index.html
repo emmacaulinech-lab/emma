@@ -9879,9 +9879,24 @@ function renderJHistorique(){
     return;
   }
 
-  const entrees=[...DB.journal.historique[historiqueJourAffiche]].sort((a,b)=>a.heure.localeCompare(b.heure));
-  const totalMin=entrees.reduce((s,e)=>s+e.duree,0);
+  const entreesBrutes=DB.journal.historique[historiqueJourAffiche];
+  const totalMin=entreesBrutes.reduce((s,e)=>s+e.duree,0);
   const h=Math.floor(totalMin/60), m=totalMin%60;
+
+  const toMin=t=>{ const[hh,mm]=t.split(':').map(Number); return hh*60+mm; };
+  const entrees=entreesBrutes.map(e=>({...e,heureFin:(()=>{const fin=toMin(e.heure)+e.duree;return `${String(Math.floor(fin/60)).padStart(2,'0')}:${String(fin%60).padStart(2,'0')}`;})()}));
+  const entreesColonnes=assignerColonnesPlanning(entrees.map(e=>({...e,heureDebut:e.heure})));
+
+  let heureMin=Math.floor(toMin(entrees[0].heure)/60)*60;
+  let heureMax=Math.ceil((Math.max(...entrees.map(e=>toMin(e.heureFin))))/60)*60;
+  const pxParMin=1.6;
+  const hauteurTotale=(heureMax-heureMin)*pxParMin;
+  const heuresAffichees=[];
+  for(let hh=heureMin;hh<=heureMax;hh+=60) heuresAffichees.push(hh);
+
+  const maxColsGlobal=entreesColonnes.length?Math.max(...entreesColonnes.map(e=>e._maxCols)):1;
+  const largeurColonne=210;
+  const largeurZone=Math.max(320,maxColsGlobal*largeurColonne);
 
   let html=`
     <div class="flt">
@@ -9890,33 +9905,27 @@ function renderJHistorique(){
       </select>
     </div>
     <div style="font-size:12px;color:var(--mut);margin-bottom:14px">${entrees.length} tâche(s) faite(s) — ${h>0?h+'h':''}${m>0?String(m).padStart(2,'0')+'min':''}</div>
+    <div style="overflow-x:auto;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd)">
+      <div style="display:flex;position:relative;min-width:${64+largeurZone}px">
+        <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;position:sticky;left:0;z-index:1">
+          ${heuresAffichees.map(hh=>`<div style="position:absolute;top:${(hh-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(hh/60)).padStart(2,'0')}:00</div>`).join('')}
+        </div>
+        <div style="flex:1;position:relative;height:${hauteurTotale}px;min-width:${largeurZone}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
+          ${entreesColonnes.map(e=>{
+            const top=(toMin(e.heure)-heureMin)*pxParMin;
+            const hgt=Math.max(46,e.duree*pxParMin);
+            const left=e._col*largeurColonne+4;
+            return`<div style="position:absolute;top:${top}px;left:${left}px;width:${largeurColonne-8}px;min-height:${hgt}px;background:white;border:2px solid ${e.couleur};border-radius:10px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.08)">
+              <div style="background:${e.couleur};padding:5px 9px">
+                <div style="font-size:11px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.zoneIcon} ${e.nom}</div>
+                <div style="font-size:9px;color:white;opacity:.85">${e.heure} · ${e.duree}min</div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
   `;
-
-  const toMin=t=>{ const[hh,mm]=t.split(':').map(Number); return hh*60+mm; };
-  let heureMin=Math.floor(toMin(entrees[0].heure)/60)*60;
-  let heureMax=Math.ceil((toMin(entrees[entrees.length-1].heure)+30)/60)*60;
-  const pxParMin=1.4;
-  const hauteurTotale=(heureMax-heureMin)*pxParMin;
-  const heuresAffichees=[];
-  for(let hh=heureMin;hh<=heureMax;hh+=60) heuresAffichees.push(hh);
-
-  html+=`<div style="display:flex;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)">
-    <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px">
-      ${heuresAffichees.map(hh=>`<div style="position:absolute;top:${(hh-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(hh/60)).padStart(2,'0')}:00</div>`).join('')}
-    </div>
-    <div style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
-      ${entrees.map(e=>{
-        const debutMin=toMin(e.heure);
-        const top=(debutMin-heureMin)*pxParMin;
-        const hgt=Math.max(20,e.duree*pxParMin);
-        return`<div style="position:absolute;top:${top}px;left:4px;right:4px;height:${hgt}px;background:${e.couleur}18;border:2px solid ${e.couleur};border-radius:8px;padding:4px 8px;overflow:hidden">
-          <div style="font-size:11px;font-weight:700;color:${e.couleur};line-height:1.2">${e.zoneIcon} ${e.nom}</div>
-          <div style="font-size:9px;color:${e.couleur};opacity:.8">${e.heure} · ${e.duree}min</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
-
   document.getElementById('jview-historique').innerHTML=html;
 }
 
