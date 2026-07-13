@@ -395,6 +395,14 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <div id="hub-notifications"></div>
   </div>
 
+  <div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🌸 Humeur du jour</div>
+      <button class="btn bg bsm" onclick="ouvrirPopupHumeur()">+ Ajouter</button>
+    </div>
+    <div id="humeur-jour-widget"></div>
+  </div>
+
   <div id="hub-virements-wrap" style="display:none;background:white;border:1.5px solid var(--brd2);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:10px">⏳ Virements en attente</div>
     <div id="hub-virements"></div>
@@ -462,15 +470,6 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
         <div id="dml" style="font-family:'Cormorant Garant',serif;font-size:17px;color:var(--acc);min-width:130px;text-align:center"></div>
         <button onclick="dashD(1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">›</button>
       </div>
-    </div>
-
-   <!-- Humeur du jour -->
-    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🌸 Humeur du jour</div>
-        <button class="btn bg bsm" onclick="ouvrirPopupHumeur()">+ Ajouter</button>
-      </div>
-      <div id="humeur-jour-widget"></div>
     </div>
 
 
@@ -1470,7 +1469,6 @@ function popSelects(){
 function dashD(d){ dashM+=d; if(dashM>11){dashM=0;dashY++;} if(dashM<0){dashM=11;dashY--;} renderDash(); }
 
 function renderDash(){
-  renderHumeurJour();
   const mois=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
   document.getElementById('dml').textContent=MOIS[dashM]+' '+dashY;
   const cM=DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0);
@@ -7102,6 +7100,7 @@ const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choi
 // DASHBOARD HUB — soldes + notifications
 // ═══════════════════════════════════════
 function renderHubOverview(){
+   renderHumeurJour();
   const soldeProEl=document.getElementById('hub-solde-pro');
   const soldePersoEl=document.getElementById('hub-solde-perso');
   if(!soldeProEl) return;
