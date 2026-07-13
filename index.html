@@ -938,6 +938,24 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <button class="btn bg" onclick="closeMo('photoJourModal')" style="width:100%;margin-top:10px">Passer pour cette fois</button>
   </div>
 </div>
+   <div class="mo" id="tempsLibreModal">
+  <div class="mb" style="width:480px;max-width:96vw">
+    <h2>🕐 Que faisais-tu ?</h2>
+    <div id="tempsLibreRange" style="font-size:12px;color:var(--mut);margin-bottom:16px"></div>
+    <div class="fr"><label>Rechercher une tâche existante</label>
+      <input type="text" id="tempsLibre-recherche" placeholder="Tape pour chercher..." oninput="filtrerTempsLibreRecherche()">
+    </div>
+    <div id="tempsLibre-resultats" style="max-height:180px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>
+    <div class="fr"><label>Créer un moment "temps libre"</label>
+      <input type="text" id="tempsLibre-nom" placeholder="ex: Piscine, Sieste, Balade...">
+    </div>
+    <div class="ma">
+      <button class="btn bg" onclick="passerTempsLibre()">Passer sans préciser</button>
+      <button class="btn bd" onclick="validerTempsLibreLibre()">✓ Créer ce moment</button>
+    </div>
+  </div>
+</div>
    <div class="mo" id="historiqueHumeurModal">
   <div class="mb" style="width:500px;max-width:96vw">
     <h2>🕐 Historique Humeur & Photos</h2>
@@ -1192,9 +1210,10 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
     goHub();
-    setTimeout(ouvrirPopupHumeur,600);
+    setTimeout(verifierRappelHumeur,600);
     setTimeout(ouvrirPopupTachesRetard,650);
-    setTimeout(verifierRappelPhoto,700);   
+    setTimeout(verifierRappelPhoto,700);
+    setTimeout(ouvrirPopupTempsLibre,750);  
   } else {
     currentUser = null;
     userRef = null;
@@ -7086,6 +7105,154 @@ function verifierRappelPhoto(){
   }
 }
 
+function verifierRappelHumeur(){
+  ensureHumeurData();
+  const today=new Date().toISOString().split('T')[0];
+  const entrees=(DB.humeurs||{})[today]||[];
+  const maintenant=new Date();
+
+  if(!entrees.length){ ouvrirPopupHumeur(); return; }
+
+  const derniere=entrees[entrees.length-1];
+  const[h,m]=derniere.heure.split(':').map(Number);
+  const derniereDate=new Date();
+  derniereDate.setHours(h,m,0,0);
+  const heuresEcoulees=(maintenant-derniereDate)/3600000;
+
+  if(heuresEcoulees>=2.5) ouvrirPopupHumeur();
+}
+
+// ═══════════════════════════════════════
+// TEMPS LIBRE — justifier les créneaux non expliqués
+// ═══════════════════════════════════════
+function getTrouTempsLibre(){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const toMinLocal=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+
+  const planning=(DB.journal.planning[today]||[]).map(p=>({debut:toMinLocal(p.heureDebut),fin:toMinLocal(p.heureFin)}));
+  const libre=((DB.journal.tempsLibre||{})[today]||[]).map(t=>({debut:toMinLocal(t.heureDebut),fin:toMinLocal(t.heureFin)}));
+  const intervalles=[...planning,...libre].sort((a,b)=>a.debut-b.debut);
+  if(!intervalles.length) return null;
+
+  const maintenant=new Date();
+  const minMaintenant=maintenant.getHours()*60+maintenant.getMinutes();
+
+  const fusionnes=[];
+  intervalles.forEach(iv=>{
+    const last=fusionnes[fusionnes.length-1];
+    if(last&&iv.debut<=last.fin) last.fin=Math.max(last.fin,iv.fin);
+    else fusionnes.push({...iv});
+  });
+
+  let trou=null;
+  for(let i=0;i<fusionnes.length-1;i++){
+    const trouDebut=fusionnes[i].fin, trouFin=fusionnes[i+1].debut;
+    if(trouFin-trouDebut>=20&&trouFin<=minMaintenant){ trou={debut:trouDebut,fin:trouFin}; }
+  }
+  const dernier=fusionnes[fusionnes.length-1];
+  if(minMaintenant-dernier.fin>=20){ trou={debut:dernier.fin,fin:minMaintenant}; }
+
+  return trou;
+}
+
+function ouvrirPopupTempsLibre(){
+  const trou=getTrouTempsLibre();
+  if(!trou) return; // rien à justifier
+
+  window._trouTempsLibreActuel=trou;
+  document.getElementById('tempsLibreRange').textContent=`Entre ${minToStr(trou.debut)} et ${minToStr(trou.fin)}, aucune tâche n'est enregistrée.`;
+  document.getElementById('tempsLibre-recherche').value='';
+  document.getElementById('tempsLibre-nom').value='';
+  document.getElementById('tempsLibre-resultats').innerHTML='';
+  document.getElementById('tempsLibreModal').classList.add('open');
+}
+
+function filtrerTempsLibreRecherche(){
+  const terme=document.getElementById('tempsLibre-recherche')?.value?.toLowerCase()||'';
+  const el=document.getElementById('tempsLibre-resultats');
+  if(terme.length<2){ el.innerHTML=''; return; }
+
+  const resultats=[];
+  DB.journal.zones.forEach(zone=>{
+    zone.actions.forEach(action=>{
+      (action.sousTaches||[]).forEach(st=>{
+        if(st.nom.toLowerCase().includes(terme)){
+          resultats.push({zoneId:zone.id,actionId:action.id,stId:st.id,zoneIcon:zone.icon,zoneNom:zone.nom,nom:st.nom});
+        }
+      });
+    });
+  });
+
+  el.innerHTML=resultats.length?resultats.slice(0,8).map(r=>`
+    <div onclick="validerTempsLibreExistante('${r.zoneId}','${r.actionId}','${r.stId}','${r.nom.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:5px;cursor:pointer">
+      <span style="font-size:12px;flex:1">${r.zoneIcon} ${r.nom}</span>
+      <span style="font-size:10px;color:var(--mut)">${r.zoneNom}</span>
+    </div>`).join(''):'<div style="font-size:12px;color:var(--mut);padding:8px">Aucun résultat</div>';
+}
+
+async function validerTempsLibreExistante(zoneId,actionId,stId,nom){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const trou=window._trouTempsLibreActuel;
+  const heureDebut=minToStr(trou.debut), heureFin=minToStr(trou.fin);
+
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+  const planningId=genId();
+  DB.journal.planning[today].push({
+    id:planningId,zoneId,actionId,stId,nom,
+    heureDebut,heureFin,duree:trou.fin-trou.debut
+  });
+
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone?.actions.find(a=>a.id===actionId);
+  const st=action?.sousTaches.find(x=>x.id===stId);
+  if(st){
+    st.dernierFait=today;
+    st.compteurFait=(st.compteurFait||0)+1;
+    if(!DB.journal.historique) DB.journal.historique={};
+    if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
+    DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure:heureDebut,duree:trou.fin-trou.debut});
+  }
+  if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
+  if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
+  DB.journal.faitAujourdhui[today][planningId]=true;
+
+  await saveAll();
+  closeMo('tempsLibreModal');
+  renderJAujourdhui();
+  toast('✓ Enregistré !');
+}
+
+async function validerTempsLibreLibre(){
+  const nom=document.getElementById('tempsLibre-nom')?.value?.trim();
+  if(!nom){toast('⚠ Tape un nom pour ce moment');return;}
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const trou=window._trouTempsLibreActuel;
+
+  if(!DB.journal.tempsLibre) DB.journal.tempsLibre={};
+  if(!DB.journal.tempsLibre[today]) DB.journal.tempsLibre[today]=[];
+  DB.journal.tempsLibre[today].push({id:genId(),nom,heureDebut:minToStr(trou.debut),heureFin:minToStr(trou.fin)});
+
+  await saveAll();
+  closeMo('tempsLibreModal');
+  toast('✓ "'+nom+'" enregistré !');
+}
+
+async function passerTempsLibre(){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const trou=window._trouTempsLibreActuel;
+
+  if(!DB.journal.tempsLibre) DB.journal.tempsLibre={};
+  if(!DB.journal.tempsLibre[today]) DB.journal.tempsLibre[today]=[];
+  DB.journal.tempsLibre[today].push({id:genId(),nom:'Non précisé',heureDebut:minToStr(trou.debut),heureFin:minToStr(trou.fin)});
+
+  await saveAll();
+  closeMo('tempsLibreModal');
+}
+
 const HUMEUR_SCORES={'😄':5,'🥰':5,'😌':4,'😴':3,'😰':2,'😤':2,'😢':1,'😡':1};
 const HUMEUR_EMOJI_PAR_SCORE=[null,'😢','😰','😴','😌','😄'];
 
@@ -7149,9 +7316,8 @@ function getPlanningEnRetard(){
 
 function ouvrirPopupTachesRetard(){
   const enRetard=getPlanningEnRetard();
-  if(!enRetard.length){
-    document.getElementById('tachesRetardBody').innerHTML=`<div class="empty">✅ Rien en retard sur le planning du jour !</div>`;
-  } else {
+  if(!enRetard.length) return; // pas de pop-up si rien en retard
+  {
     document.getElementById('tachesRetardBody').innerHTML=enRetard.map(p=>{
       const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
       const couleur=zone?.couleur||'#993556';
