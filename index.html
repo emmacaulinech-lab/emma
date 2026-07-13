@@ -6996,37 +6996,49 @@ function ouvrirPopupHumeur(){
   document.getElementById('humeurModal').classList.add('open');
 }
 
-function getSousTachesEnRetard(){
+function getPlanningEnRetard(){
   ensureJournalData();
   const today=new Date().toISOString().split('T')[0];
-  const liste=[];
-  DB.journal.zones.forEach(zone=>{
-    zone.actions.forEach(action=>{
-      (action.sousTaches||[]).forEach(st=>{
-        if(st.freq===1&&st.dernierFait!==today){
-          liste.push({zoneId:zone.id,actionId:action.id,stId:st.id,nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556'});
-        }
-      });
-    });
-  });
-  return liste;
+  const planning=DB.journal.planning[today]||[];
+  const faitMap=(DB.journal.faitAujourdhui||{})[today]||{};
+  const maintenant=new Date();
+  const heureActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+
+  const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+
+  return planning.filter(p=>{
+    if(faitMap[p.id]) return false;
+    return toMin(p.heureFin)<heureActuelle;
+  }).sort((a,b)=>a.heureFin.localeCompare(b.heureFin));
 }
 
 function ouvrirPopupTachesRetard(){
-  const enRetard=getSousTachesEnRetard();
+  const enRetard=getPlanningEnRetard();
   if(!enRetard.length){
-    document.getElementById('tachesRetardBody').innerHTML=`<div class="empty">✅ Rien en retard, bravo !</div>`;
+    document.getElementById('tachesRetardBody').innerHTML=`<div class="empty">✅ Rien en retard sur le planning du jour !</div>`;
   } else {
-    document.getElementById('tachesRetardBody').innerHTML=enRetard.map(t=>`
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${couleurPastel(t.couleur)};border:1.5px solid ${t.couleur};border-radius:10px;margin-bottom:6px">
-        <input type="checkbox" onchange="cocherTacheRetard('${t.zoneId}','${t.actionId}','${t.stId}',this)" style="width:18px;height:18px;accent-color:${t.couleur}">
+    document.getElementById('tachesRetardBody').innerHTML=enRetard.map(p=>{
+      const found=trouverAction(p.actionId);
+      const couleur=found?.zone?.couleur||'#993556';
+      const nom=found?found.action.nom:(p.customNom||'Tâche');
+      const zoneNom=found?found.zone.nom:'—';
+      const zoneIcon=found?found.zone.icon:'📌';
+      return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:10px;margin-bottom:6px">
+        <input type="checkbox" onchange="cocherPlanningRetard('${p.id}',this)" style="width:18px;height:18px;accent-color:${couleur}">
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:600;color:${t.couleur}">${t.zoneIcon} ${t.nom}</div>
-          <div style="font-size:11px;color:var(--mut)">${t.zoneNom}</div>
+          <div style="font-size:13px;font-weight:600;color:${couleur}">${zoneIcon} ${nom}</div>
+          <div style="font-size:11px;color:var(--mut)">${zoneNom} · prévu ${p.heureDebut}–${p.heureFin}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
   document.getElementById('tachesRetardModal').classList.add('open');
+}
+
+async function cocherPlanningRetard(planningId,checkbox){
+  if(!checkbox.checked) return;
+  await togglePlanningFait(planningId);
+  toast('✓ Marqué comme fait !');
 }
 
 async function cocherTacheRetard(zoneId,actionId,stId,checkbox){
