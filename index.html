@@ -7133,7 +7133,16 @@ function getTrouTempsLibre(){
   const planning=(DB.journal.planning[today]||[]).map(p=>({debut:toMinLocal(p.heureDebut),fin:toMinLocal(p.heureFin)}));
   const libre=((DB.journal.tempsLibre||{})[today]||[]).map(t=>({debut:toMinLocal(t.heureDebut),fin:toMinLocal(t.heureFin)}));
   const intervalles=[...planning,...libre].sort((a,b)=>a.debut-b.debut);
-  if(!intervalles.length) return null;
+
+  const maintenant0=new Date();
+  const minMaintenant0=maintenant0.getHours()*60+maintenant0.getMinutes();
+
+  if(!intervalles.length){
+    // Rien du tout aujourd'hui — le trou couvre depuis le début de matinée jusqu'à maintenant
+    const debutJournee=7*60; // 7h00
+    if(minMaintenant0-debutJournee>=20) return{debut:debutJournee,fin:minMaintenant0};
+    return null;
+  }
 
   const maintenant=new Date();
   const minMaintenant=maintenant.getHours()*60+maintenant.getMinutes();
