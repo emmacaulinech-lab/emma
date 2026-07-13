@@ -9233,7 +9233,8 @@ function renderConfigBlocStep(){
           const j=joursDepuis(datesPlanif[st.id]);
           exclueAutreJour=j<st.freq;
         }
-        if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaChoisisSession.has(st.id)&&!exclueAutreJour&&!dejaPlanifiesAujourdhui.has(st.id)){
+        const tropLongue=st.duree>dureeRestante;
+        if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaChoisisSession.has(st.id)&&!exclueAutreJour&&!dejaPlanifiesAujourdhui.has(st.id)&&!tropLongue){
           const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
           sousTachesDisponibles.push({zoneId:zone.id,zoneIcon:zone.icon,zoneNom:zone.nom,actionId:action.id,actionNom:action.nom,st,severite});
         }
