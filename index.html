@@ -9994,7 +9994,7 @@ function goJTab(i){
       btn.style.boxShadow=j===i?'var(--shadow)':'none';
     }
   });
-  if(i===0){ journalJourAffiche=new Date().toISOString().split('T')[0]; renderJAujourdhui(); }
+  if(i===0){ journalJourAffiche=new Date().toISOString().split('T')[0]; renderJAujourdhui(); scrollVersMaintenant(); }
   if(i===1) renderJTaches();
   if(i===2) renderJHistorique();
 }
@@ -10002,6 +10002,7 @@ function goJTab(i){
 function renderJournalModule(){
   ensureJournalData();
   goJTab(jTabActive);
+  if(jTabActive===0) scrollVersMaintenant();
 }
 
 function joursDepuis(dateStr){
@@ -10552,11 +10553,10 @@ function assignerColonnesPlanning(items){
   return sorted;
 }
 
-
 function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
   if(!dispos.length&&!planningBrut.length) return '';
   const clickable=options.clickable!==false;
-
+  const estAujourdhui=options.estAujourdhui===true;
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
   const heuresDispos=dispos.map(d=>toMin(d.debut)).concat(dispos.map(d=>toMin(d.fin)));
   const heuresPlanning=planningBrut.map(p=>toMin(p.heureDebut)).concat(planningBrut.map(p=>toMin(p.heureFin)));
@@ -10627,6 +10627,28 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
     window._timelineReperes=reperes;
   }
 
+  let ligneMaintenantHtml='';
+  if(estAujourdhui){
+    const now=new Date();
+    const minMaintenant=now.getHours()*60+now.getMinutes();
+    if(minMaintenant>=reperes[0]&&minMaintenant<=reperes[reperes.length-1]){
+      let yNow=null;
+      for(let i=0;i<reperes.length-1;i++){
+        if(minMaintenant>=reperes[i]&&minMaintenant<=reperes[i+1]){
+          const ratio=(minMaintenant-reperes[i])/(reperes[i+1]-reperes[i]||1);
+          yNow=yMap[reperes[i]]+ratio*(yMap[reperes[i+1]]-yMap[reperes[i]]);
+          break;
+        }
+      }
+      if(yNow!==null){
+        ligneMaintenantHtml=`<div id="now-marker" style="position:absolute;top:${yNow}px;left:0;right:0;height:2px;background:#e11d48;z-index:45;pointer-events:none">
+          <div style="position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#e11d48"></div>
+          <div style="position:absolute;right:6px;top:-9px;background:#e11d48;color:white;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;font-family:'DM Mono',monospace">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>
+        </div>`;
+      }
+    }
+  }
+
   return`
     <div style="display:flex;position:relative;border-radius:16px;${options.noShadow?'':'box-shadow:var(--shadow);border:1.5px solid var(--brd);'}overflow:hidden">
       <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
@@ -10635,6 +10657,7 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
       <div id="timeline-clickzone" ${clickable?`onmousemove="handleTimelineHover(event)" onmouseleave="handleTimelineLeave()" onclick="handleTimelineClick(event)"`:''} style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2);${clickable?'cursor:pointer':''}">
         ${fondsDispo}
         ${blocsHtml}
+        ${ligneMaintenantHtml}
         ${clickable?`<div id="timeline-hover-line" style="display:none;position:absolute;left:0;right:0;height:1px;background:var(--acc);z-index:40;pointer-events:none">
           <div id="timeline-hover-label" style="position:absolute;left:6px;top:-9px;background:var(--acc);color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;font-family:'DM Mono',monospace"></div>
         </div>`:''}
@@ -10652,7 +10675,15 @@ function renderPlanningTimeline(){
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
-  el.innerHTML=genererHtmlTimeline(planning,dispos,faitMap,{clickable:true});
+  const estAujourdhui=today===new Date().toISOString().split('T')[0];
+  el.innerHTML=genererHtmlTimeline(planning,dispos,faitMap,{clickable:true,estAujourdhui});
+}
+
+function scrollVersMaintenant(){
+  setTimeout(()=>{
+    const marker=document.getElementById('now-marker');
+    if(marker) marker.scrollIntoView({behavior:'smooth',block:'center'});
+  },200);
 }
 function renderHubPlanningMini(){
   ensureJournalData();
@@ -10680,9 +10711,14 @@ function renderHubPlanningMini(){
 
   mini.innerHTML=`
     <div style="font-size:11px;color:var(--mut);margin-bottom:10px">${faitesActions}/${totalActions} tâche(s) faite(s)</div>
-    <div style="max-height:400px;overflow-y:auto">
-      ${genererHtmlTimeline(planning,dispos,faitMap,{clickable:false,noShadow:true})}
+    <div id="hub-planning-scroll" style="max-height:400px;overflow-y:auto">
+      ${genererHtmlTimeline(planning,dispos,faitMap,{clickable:false,noShadow:true,estAujourdhui:true})}
     </div>`;
+
+  setTimeout(()=>{
+    const marker=document.querySelector('#hub-planning-mini #now-marker');
+    if(marker) marker.scrollIntoView({behavior:'smooth',block:'center'});
+  },200);
 }
 
 function ouvrirBlocPlanning(planningId){
