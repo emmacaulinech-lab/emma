@@ -8908,25 +8908,42 @@ function strToMin(str){
   return h*60+m;
 }
 
-function dureeZoneDue(zone){
+function dureeZoneDue(zone,exclureIds){
   let total=0;
   zone.actions.forEach(action=>{
-    getSousTachesDues(action).forEach(st=>total+=st.duree);
+    getSousTachesDues(action).forEach(st=>{
+      if(exclureIds&&exclureIds.has(st.id)) return;
+      total+=st.duree;
+    });
   });
   return total;
 }
 
 function proposerBlocsPourDispo(dispo){
-  const dureeTotale=strToMin(dispo.fin)-strToMin(dispo.debut);
-  const zonesDuBonType=DB.journal.zones.filter(z=>z.typeDefaut===dispo.type&&dureeZoneDue(z)>0);
+  const today=getJournalJour();
+  const dejaPlanifies=(DB.journal.planning[today]||[]);
+  const exclureIds=new Set(dejaPlanifies.map(p=>p.stId).filter(Boolean));
 
+  const toMinLocal=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const debutDispo=toMinLocal(dispo.debut), finDispo=toMinLocal(dispo.fin);
+
+  // Démarre après le dernier bloc déjà présent dans ce créneau
+  let curStart=debutDispo;
+  dejaPlanifies.forEach(p=>{
+    const pDebut=toMinLocal(p.heureDebut), pFin=toMinLocal(p.heureFin);
+    if(pDebut>=debutDispo&&pDebut<finDispo){ curStart=Math.max(curStart,pFin); }
+  });
+
+  const dureeTotale=finDispo-curStart;
+  if(dureeTotale<=0) return [];
+
+  const zonesDuBonType=DB.journal.zones.filter(z=>z.typeDefaut===dispo.type&&dureeZoneDue(z,exclureIds)>0);
   const maxBlocDuree=60;
   const zoneRestants={};
-  zonesDuBonType.forEach(z=>zoneRestants[z.id]=dureeZoneDue(z));
+  zonesDuBonType.forEach(z=>zoneRestants[z.id]=dureeZoneDue(z,exclureIds));
 
   const blocs=[];
   let reste=dureeTotale;
-  let curStart=strToMin(dispo.debut);
   let progression=true;
 
   if(zonesDuBonType.length){
@@ -8947,7 +8964,6 @@ function proposerBlocsPourDispo(dispo){
     }
   }
 
-  // Temps restant non utilisé → bloc "libre" (toutes zones confondues)
   if(reste>=10){
     blocs.push({zoneId:'libre',type:dispo.type,dureeMin:reste,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+reste)});
   }
@@ -9143,11 +9159,12 @@ async function finaliserConfigPlanning(){
 
   cfg.blocs.forEach(bloc=>{
     if(!bloc._choix||!bloc._choix.length) return;
+    const groupId=genId();
     let curMin=strToMin(bloc.heureDebut);
     bloc._choix.forEach(c=>{
       const place=placerSansChevauchement(today,minToStr(curMin),c.duree);
       DB.journal.planning[today].push({
-        id:genId(),zoneId:c.zoneId,actionId:c.actionId,stId:c.stId,
+        id:genId(),zoneId:c.zoneId,actionId:c.actionId,stId:c.stId,groupId,
         nom:c.nom,heureDebut:place.heureDebut,heureFin:place.heureFin,duree:c.duree
       });
       curMin=strToMin(place.heureFin);
@@ -10762,6 +10779,7 @@ function ouvrirReporter(planningId){
       </select>
     </div>
     <div class="fr" id="reporter-heure-wrap"><label>Nouvelle heure</label><input type="time" id="reporter-nouvelle-heure" value="${item.heureDebut}"></div>
+    ${item.groupId?`<div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="reporter-decaler-groupe" checked style="width:16px;height:16px"> Décaler aussi les tâches suivantes du même bloc</label></div>`:''}
   `;
   document.querySelector('#mainModal .ma').style.display='flex';
   document.querySelector('#mainModal .ma').innerHTML=`
@@ -10780,11 +10798,24 @@ async function validerReport(planningId){
     DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==planningId);
     toast('✓ Reporté à la prochaine fois');
   } else {
+    const ancienDebutMin=strToMin(item.heureDebut);
     const nouvelleHeure=document.getElementById('reporter-nouvelle-heure')?.value;
-    const[h,m]=nouvelleHeure.split(':').map(Number);
-    const finMin=h*60+m+item.duree;
+    const nouveauDebutMin=strToMin(nouvelleHeure);
+    const delta=nouveauDebutMin-ancienDebutMin;
+
     item.heureDebut=nouvelleHeure;
-    item.heureFin=minToStr(finMin);
+    item.heureFin=minToStr(nouveauDebutMin+item.duree);
+
+    const decalerGroupe=document.getElementById('reporter-decaler-groupe')?.checked;
+    if(decalerGroupe&&item.groupId){
+      DB.journal.planning[today]
+        .filter(p=>p.groupId===item.groupId&&p.id!==planningId&&strToMin(p.heureDebut)>ancienDebutMin)
+        .sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut))
+        .forEach(p=>{
+          p.heureDebut=minToStr(strToMin(p.heureDebut)+delta);
+          p.heureFin=minToStr(strToMin(p.heureFin)+delta);
+        });
+    }
     toast('✓ Reporté à '+nouvelleHeure);
   }
   await saveAll();
