@@ -7003,13 +7003,27 @@ function getPlanningEnRetard(){
   const faitMap=(DB.journal.faitAujourdhui||{})[today]||{};
   const maintenant=new Date();
   const heureActuelle=maintenant.getHours()*60+maintenant.getMinutes();
-
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
 
-  return planning.filter(p=>{
-    if(faitMap[p.id]) return false;
-    return toMin(p.heureFin)<heureActuelle;
-  }).sort((a,b)=>a.heureFin.localeCompare(b.heureFin));
+  const blocsEnRetard=planning.filter(p=>!faitMap[p.id]&&toMin(p.heureFin)<heureActuelle);
+
+  const sousTachesListe=[];
+  blocsEnRetard.forEach(p=>{
+    const found=trouverAction(p.actionId);
+    if(!found){
+      sousTachesListe.push({planningId:p.id,customNom:p.customNom||'Tâche',heureDebut:p.heureDebut,heureFin:p.heureFin});
+      return;
+    }
+    const dues=getSousTachesDues(found.action);
+    dues.forEach(st=>{
+      sousTachesListe.push({
+        planningId:p.id,zoneId:found.zone.id,actionId:found.action.id,stId:st.id,
+        nom:st.nom,actionNom:found.action.nom,zoneNom:found.zone.nom,zoneIcon:found.zone.icon,
+        couleur:found.zone.couleur||'#993556',heureDebut:p.heureDebut,heureFin:p.heureFin
+      });
+    });
+  });
+  return sousTachesListe.sort((a,b)=>a.heureFin.localeCompare(b.heureFin));
 }
 
 function ouvrirPopupTachesRetard(){
@@ -7017,22 +7031,33 @@ function ouvrirPopupTachesRetard(){
   if(!enRetard.length){
     document.getElementById('tachesRetardBody').innerHTML=`<div class="empty">✅ Rien en retard sur le planning du jour !</div>`;
   } else {
-    document.getElementById('tachesRetardBody').innerHTML=enRetard.map(p=>{
-      const found=trouverAction(p.actionId);
-      const couleur=found?.zone?.couleur||'#993556';
-      const nom=found?found.action.nom:(p.customNom||'Tâche');
-      const zoneNom=found?found.zone.nom:'—';
-      const zoneIcon=found?found.zone.icon:'📌';
+    document.getElementById('tachesRetardBody').innerHTML=enRetard.map(st=>{
+      const couleur=st.couleur||'#993556';
+      if(!st.stId){
+        return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:10px;margin-bottom:6px">
+          <input type="checkbox" onchange="cocherPlanningRetard('${st.planningId}',this)" style="width:18px;height:18px;accent-color:${couleur}">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:${couleur}">📌 ${st.customNom}</div>
+            <div style="font-size:11px;color:var(--mut)">prévu ${st.heureDebut}–${st.heureFin}</div>
+          </div>
+        </div>`;
+      }
       return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:10px;margin-bottom:6px">
-        <input type="checkbox" onchange="cocherPlanningRetard('${p.id}',this)" style="width:18px;height:18px;accent-color:${couleur}">
+        <input type="checkbox" onchange="cocherSousTacheRetard('${st.zoneId}','${st.actionId}','${st.stId}',this)" style="width:18px;height:18px;accent-color:${couleur}">
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:600;color:${couleur}">${zoneIcon} ${nom}</div>
-          <div style="font-size:11px;color:var(--mut)">${zoneNom} · prévu ${p.heureDebut}–${p.heureFin}</div>
+          <div style="font-size:13px;font-weight:600;color:${couleur}">${st.zoneIcon} ${st.nom}</div>
+          <div style="font-size:11px;color:var(--mut)">${st.zoneNom} — ${st.actionNom} · prévu ${st.heureDebut}–${st.heureFin}</div>
         </div>
       </div>`;
     }).join('');
   }
   document.getElementById('tachesRetardModal').classList.add('open');
+}
+
+async function cocherSousTacheRetard(zoneId,actionId,stId,checkbox){
+  if(!checkbox.checked) return;
+  await toggleSousTacheRonde(zoneId,actionId,stId);
+  toast('✓ Fait !');
 }
 
 async function cocherPlanningRetard(planningId,checkbox){
