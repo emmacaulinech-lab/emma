@@ -8859,10 +8859,12 @@ function renderConfigBlocStep(){
   zoneActuelle.actions.forEach(action=>{
     getSousTachesDues(action).forEach(st=>{
       if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaPlanifies.has(st.id)){
-        sousTachesDisponibles.push({actionId:action.id,actionNom:action.nom,st});
+        const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
+        sousTachesDisponibles.push({actionId:action.id,actionNom:action.nom,st,severite});
       }
     });
   });
+  sousTachesDisponibles.sort((a,b)=>b.severite-a.severite);
 
   document.getElementById('configPlanningTitre').textContent=`Bloc ${cfg.blocIndex+1}/${cfg.blocs.length} — ${bloc.heureDebut}–${bloc.heureFin}`;
   document.getElementById('configPlanningBody').innerHTML=`
@@ -9620,9 +9622,20 @@ function getSousTachesDues(action){
 }
 
 // ── Mes tâches ──
+let jTachesVue='zones';
 function renderJTaches(){
   ensureJournalData();
-  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  let html=`<div style="display:flex;gap:6px;margin-bottom:14px;background:var(--bg2);border-radius:12px;padding:4px">
+    <button onclick="jTachesVue='zones';renderJTaches()" style="flex:1;padding:8px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${jTachesVue==='zones'?'white':'transparent'};color:${jTachesVue==='zones'?'var(--acc)':'var(--mut)'}">📋 Par zones</button>
+    <button onclick="jTachesVue='retard';renderJTaches()" style="flex:1;padding:8px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${jTachesVue==='retard'?'white':'transparent'};color:${jTachesVue==='retard'?'var(--acc)':'var(--mut)'}">⏰ Depuis longtemps</button>
+  </div>`;
+
+  if(jTachesVue==='retard'){
+    renderJTachesRetardLongtemps();
+    return;
+  }
+
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">📋 Zones (par ordre de priorité)</div>
     <button class="btn bd" onclick="openAjoutZone()">+ Zone</button>
   </div>`;
@@ -9650,7 +9663,7 @@ function renderJTaches(){
           <div style="display:flex;flex-direction:column;gap:4px">
             ${(action.sousTaches||[]).map(st=>`
               <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--brd)">
-                <span>${st.nom}</span>
+                <span style="cursor:pointer;color:var(--pla);text-decoration:underline dotted" onclick="ouvrirDetailSousTache('${zone.id}','${action.id}','${st.id}')">${st.nom}</span>
                 <div style="display:flex;gap:8px;align-items:center;color:var(--mut)">
                   <span>tous les ${st.freq}j · ${st.duree}min</span>
                   <button class="btn br bsm" onclick="delSousTache('${zone.id}','${action.id}','${st.id}')">✕</button>
@@ -9660,6 +9673,84 @@ function renderJTaches(){
         </div>`).join('')}
     </div>`;
   });
+  document.getElementById('jview-taches').innerHTML=html;
+}
+
+function ouvrirDetailSousTache(zoneId,actionId,stId){
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone?.actions.find(a=>a.id===actionId);
+  const st=action?.sousTaches.find(x=>x.id===stId);
+  if(!st) return;
+
+  const compteur=st.compteurFait||0;
+  const derniereFois=st.dernierFait?dlbl(st.dernierFait):'Jamais faite';
+  let prochaineFois='—';
+  if(st.dernierFait){
+    const prochaine=new Date(st.dernierFait+'T12:00:00');
+    prochaine.setDate(prochaine.getDate()+st.freq);
+    const jours=Math.floor((prochaine-new Date())/86400000);
+    prochaineFois=dlbl(prochaine.toISOString().split('T')[0])+(jours<0?` (en retard de ${Math.abs(jours)}j)`:jours===0?' (aujourd\'hui)':` (dans ${jours}j)`);
+  }
+
+  document.getElementById('stModalTitle').textContent=`${zone.icon} ${st.nom}`;
+  document.getElementById('stModalBody').innerHTML=`
+    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">${zone.nom} — ${action.nom}</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--mut)">Nombre de fois faite</span>
+        <span style="font-weight:700;color:var(--acc)">${compteur}</span>
+      </div>
+      <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--mut)">Dernière fois</span>
+        <span style="font-weight:700;color:var(--acc)">${derniereFois}</span>
+      </div>
+      <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--mut)">Prochaine fois prévue</span>
+        <span style="font-weight:700;color:var(--acc)">${prochaineFois}</span>
+      </div>
+      <div style="background:var(--bg2);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--mut)">Fréquence / Durée</span>
+        <span style="font-weight:700;color:var(--acc)">Tous les ${st.freq}j · ${st.duree}min</span>
+      </div>
+    </div>
+  `;
+  document.getElementById('sousTachesModal').classList.add('open');
+}
+
+function renderJTachesRetardLongtemps(){
+  const liste=[];
+  DB.journal.zones.forEach(zone=>{
+    zone.actions.forEach(action=>{
+      (action.sousTaches||[]).forEach(st=>{
+        const jamaisFaite=!st.dernierFait;
+        const joursRetard=jamaisFaite?Infinity:joursDepuis(st.dernierFait)-st.freq;
+        if(jamaisFaite||joursRetard>=st.freq){ // en retard d'au moins un cycle complet
+          liste.push({zone,action,st,joursRetard,jamaisFaite});
+        }
+      });
+    });
+  });
+  liste.sort((a,b)=>{
+    if(a.jamaisFaite&&!b.jamaisFaite) return -1;
+    if(!a.jamaisFaite&&b.jamaisFaite) return 1;
+    return b.joursRetard-a.joursRetard;
+  });
+
+  let html=`<div style="font-size:12px;color:var(--mut);margin-bottom:14px">${liste.length} tâche(s) jamais faite(s) ou très en retard</div>`;
+  if(!liste.length){
+    html+='<div class="empty">✅ Rien de très en retard, tout est sous contrôle !</div>';
+  } else {
+    html+=liste.map(({zone,action,st,joursRetard,jamaisFaite})=>`
+      <div style="background:white;border:1.5px solid ${jamaisFaite?'var(--dep)':'var(--warn)'};border-radius:14px;padding:12px 16px;margin-bottom:8px;cursor:pointer" onclick="ouvrirDetailSousTache('${zone.id}','${action.id}','${st.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:13px">${zone.icon} ${st.nom}</div>
+            <div style="font-size:11px;color:var(--mut)">${zone.nom} — ${action.nom}</div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${jamaisFaite?'var(--dep)':'var(--warn)'}">${jamaisFaite?'Jamais faite':'+'+joursRetard+'j de retard'}</span>
+        </div>
+      </div>`).join('');
+  }
   document.getElementById('jview-taches').innerHTML=html;
 }
 
@@ -10257,6 +10348,7 @@ async function togglePlanningFait(planningId){
     const st=action?.sousTaches.find(x=>x.id===item.stId);
     if(st){
       st.dernierFait=today;
+      st.compteurFait=(st.compteurFait||0)+1;
       const heure=new Date().toTimeString().slice(0,5);
       if(!DB.journal.historique) DB.journal.historique={};
       if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
