@@ -464,6 +464,16 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
       </div>
     </div>
 
+   <!-- Humeur du jour -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🌸 Humeur du jour</div>
+        <button class="btn bg bsm" onclick="ouvrirPopupHumeur()">+ Ajouter</button>
+      </div>
+      <div id="humeur-jour-widget"></div>
+    </div>
+
+
    <!-- Agenda du jour -->
     <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1460,6 +1470,7 @@ function popSelects(){
 function dashD(d){ dashM+=d; if(dashM>11){dashM=0;dashY++;} if(dashM<0){dashM=11;dashY--;} renderDash(); }
 
 function renderDash(){
+  renderHumeurJour();
   const mois=`${dashY}-${String(dashM+1).padStart(2,'0')}`;
   document.getElementById('dml').textContent=MOIS[dashM]+' '+dashY;
   const cM=DB.caisse.filter(t=>inM(t.date,mois)&&t.montant>0);
@@ -6943,6 +6954,34 @@ function ouvrirPopupHumeur(){
   humeurChoixActuel=[];
   document.querySelectorAll('.humeur-btn').forEach(b=>{ b.style.borderColor='var(--brd2)'; b.style.background='white'; });
   document.getElementById('humeurModal').classList.add('open');
+}
+
+function renderHumeurJour(){
+  const el=document.getElementById('humeur-jour-widget');
+  if(!el) return;
+  ensureHumeurData();
+  const today=new Date().toISOString().split('T')[0];
+  const entrees=DB.humeurs[today]||[];
+
+  if(!entrees.length){
+    el.innerHTML=`<div style="font-size:12px;color:var(--mut)">Aucune humeur enregistrée aujourd'hui</div>`;
+    return;
+  }
+
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px">
+    ${entrees.map((e,i)=>`
+      <div style="background:var(--bg2);border-radius:12px;padding:6px 10px;display:flex;align-items:center;gap:6px">
+        <span style="font-size:18px">${e.emoji}</span>
+        <span style="font-size:11px;color:var(--mut)">${e.heure}</span>
+        <span style="cursor:pointer;color:var(--dep);font-size:12px;margin-left:2px" onclick="delHumeurEntree('${today}',${i})">✕</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+async function delHumeurEntree(jour,idx){
+  DB.humeurs[jour].splice(idx,1);
+  await saveAll();
+  renderHumeurJour();
 }
    
 // ═══════════════════════════════════════
