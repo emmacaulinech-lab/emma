@@ -934,6 +934,12 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
   </div>
 </div>
+   <div class="mo" id="configPlanningModal">
+  <div class="mb" style="width:520px;max-width:96vw">
+    <h2 id="configPlanningTitre">Configurer un bloc</h2>
+    <div id="configPlanningBody"></div>
+  </div>
+</div>
 <div id="module-facturation" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Facturation LIMAGECILS</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/limagecils-facturation/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
@@ -8795,6 +8801,177 @@ async function afficherDescriptionExercice(nom){
   }
 }
 
+// ═══════════════════════════════════════
+// CONFIGURATION MANUELLE DU PLANNING
+// ═══════════════════════════════════════
+function minToStr(min){
+  return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
+}
+function strToMin(str){
+  const[h,m]=str.split(':').map(Number);
+  return h*60+m;
+}
+
+function dureeZoneDue(zone){
+  let total=0;
+  zone.actions.forEach(action=>{
+    getSousTachesDues(action).forEach(st=>total+=st.duree);
+  });
+  return total;
+}
+
+function proposerBlocsPourDispo(dispo){
+  const dureeTotale=strToMin(dispo.fin)-strToMin(dispo.debut);
+  const zonesDuBonType=DB.journal.zones.filter(z=>z.typeDefaut===dispo.type&&dureeZoneDue(z)>0);
+  const blocs=[];
+  let reste=dureeTotale;
+  let curStart=strToMin(dispo.debut);
+  for(const zone of zonesDuBonType){
+    if(reste<=0) break;
+    const dueMin=dureeZoneDue(zone);
+    const blocDuree=Math.min(reste,dueMin);
+    if(blocDuree<5) continue;
+    blocs.push({zoneId:zone.id,type:dispo.type,dureeMin:blocDuree,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+blocDuree)});
+    curStart+=blocDuree;
+    reste-=blocDuree;
+  }
+  return blocs;
+}
+
+function ouvrirConfigPlanning(){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const dispos=DB.journal.disponibilites[today]||[];
+  if(!dispos.length){toast('⚠ Ajoute au moins un créneau');return;}
+
+  const tousBlocs=[];
+  dispos.forEach(d=>{ proposerBlocsPourDispo(d).forEach(b=>tousBlocs.push(b)); });
+
+  if(!tousBlocs.length){toast('✅ Rien à planifier, tout est à jour !');return;}
+
+  window._configPlanning={blocs:tousBlocs,blocIndex:0};
+  renderConfigBlocStep();
+}
+
+function renderConfigBlocStep(){
+  const cfg=window._configPlanning;
+  if(cfg.blocIndex>=cfg.blocs.length){ finaliserConfigPlanning(); return; }
+  const bloc=cfg.blocs[cfg.blocIndex];
+  if(bloc._choix===undefined) bloc._choix=[];
+
+  const zonesDuType=DB.journal.zones.filter(z=>z.typeDefaut===bloc.type);
+  const zoneActuelle=DB.journal.zones.find(z=>z.id===bloc.zoneId);
+  const dureeChoisie=bloc._choix.reduce((s,c)=>s+c.duree,0);
+  const dureeRestante=bloc.dureeMin-dureeChoisie;
+
+  const sousTachesDisponibles=[];
+  zoneActuelle.actions.forEach(action=>{
+    getSousTachesDues(action).forEach(st=>{
+      if(!bloc._choix.some(c=>c.stId===st.id)){
+        sousTachesDisponibles.push({actionId:action.id,actionNom:action.nom,st});
+      }
+    });
+  });
+
+  document.getElementById('configPlanningTitre').textContent=`Bloc ${cfg.blocIndex+1}/${cfg.blocs.length} — ${bloc.heureDebut}–${bloc.heureFin}`;
+  document.getElementById('configPlanningBody').innerHTML=`
+    <div class="fr"><label>Zone pour ce bloc</label>
+      <select id="config-zone-select" onchange="changerZoneBloc(this.value)">
+        ${zonesDuType.map(z=>`<option value="${z.id}" ${z.id===bloc.zoneId?'selected':''}>${z.icon} ${z.nom}</option>`).join('')}
+      </select>
+    </div>
+    <div style="background:var(--bg2);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between">
+      <span style="font-size:12px;color:var(--mut)">Durée du bloc : ${bloc.dureeMin}min</span>
+      <span style="font-size:12px;font-weight:700;color:${dureeRestante<0?'var(--dep)':'var(--acc)'}">Reste : ${dureeRestante}min</span>
+    </div>
+
+    ${bloc._choix.length?`<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:8px">✓ Choisies</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
+      ${bloc._choix.map((c,i)=>`<div style="display:flex;align-items:center;gap:8px;background:var(--rec2);border-radius:8px;padding:7px 10px">
+        <span style="flex:1;font-size:12px">${c.nom}</span>
+        <span style="font-size:10px;color:var(--mut)">${c.duree}min</span>
+        <button onclick="retirerChoixBloc(${i})" style="background:none;border:none;color:var(--dep);font-size:12px;cursor:pointer">✕</button>
+      </div>`).join('')}
+    </div>`:''}
+
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:8px">Sous-tâches disponibles</div>
+    <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">
+      ${sousTachesDisponibles.length?sousTachesDisponibles.map(s=>`
+        <div onclick="ajouterChoixBloc('${s.actionId}','${s.st.id}','${s.st.nom.replace(/'/g,"\\'")}',${s.st.duree})" style="display:flex;align-items:center;gap:8px;background:white;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;cursor:pointer">
+          <span style="flex:1;font-size:12px">${s.st.nom} <span style="font-size:10px;color:var(--mut)">(${s.actionNom})</span></span>
+          <span style="font-size:10px;color:var(--acc);font-weight:700">${s.st.duree}min</span>
+        </div>`).join(''):'<div class="empty" style="padding:14px">Aucune sous-tâche restante dans cette zone</div>'}
+    </div>
+
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('configPlanningModal')">Annuler tout</button>
+      <button class="btn bg" onclick="passerBloc()">Passer ce bloc</button>
+      <button class="btn bd" onclick="validerBloc()">✓ Bloc terminé</button>
+    </div>
+  `;
+  document.getElementById('configPlanningModal').classList.add('open');
+}
+
+function changerZoneBloc(nouvelleZoneId){
+  const cfg=window._configPlanning;
+  const bloc=cfg.blocs[cfg.blocIndex];
+  bloc.zoneId=nouvelleZoneId;
+  bloc._choix=[];
+  renderConfigBlocStep();
+}
+
+function ajouterChoixBloc(actionId,stId,nom,duree){
+  const cfg=window._configPlanning;
+  const bloc=cfg.blocs[cfg.blocIndex];
+  bloc._choix.push({actionId,stId,nom,duree});
+  renderConfigBlocStep();
+}
+
+function retirerChoixBloc(idx){
+  const cfg=window._configPlanning;
+  const bloc=cfg.blocs[cfg.blocIndex];
+  bloc._choix.splice(idx,1);
+  renderConfigBlocStep();
+}
+
+function passerBloc(){
+  const cfg=window._configPlanning;
+  cfg.blocIndex++;
+  renderConfigBlocStep();
+}
+
+function validerBloc(){
+  const cfg=window._configPlanning;
+  cfg.blocIndex++;
+  renderConfigBlocStep();
+}
+
+async function finaliserConfigPlanning(){
+  ensureJournalData();
+  const cfg=window._configPlanning;
+  const today=new Date().toISOString().split('T')[0];
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+
+  cfg.blocs.forEach(bloc=>{
+    if(!bloc._choix||!bloc._choix.length) return;
+    let curMin=strToMin(bloc.heureDebut);
+    bloc._choix.forEach(c=>{
+      const finMin=curMin+c.duree;
+      DB.journal.planning[today].push({
+        id:genId(),zoneId:bloc.zoneId,actionId:c.actionId,stId:c.stId,
+        nom:c.nom,heureDebut:minToStr(curMin),heureFin:minToStr(finMin),duree:c.duree
+      });
+      curMin=finMin;
+    });
+  });
+
+  await saveAll();
+  closeMo('configPlanningModal');
+  window._configPlanning=null;
+  renderJAujourdhui();
+  toast('✓ Planning configuré !');
+}
+
 // ── Routeur d'enregistrement ──
 async function saveSportEntry(){
   const mode=document.getElementById('sportModal').dataset.mode;
@@ -9594,9 +9771,9 @@ function renderJAujourdhui(){
       </div>
     </div>
 
-    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
+   <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
       <div id="estimation-temps" style="margin-bottom:10px"></div>
-      <button class="btn bd" onclick="genererPlanningIA()" style="width:100%" ${!dispos.length?'disabled':''}>✨ Générer mon planning</button>
+      <button class="btn bd" onclick="ouvrirConfigPlanning()" style="width:100%" ${!dispos.length?'disabled':''}>✨ Configurer mon planning</button>
       ${!dispos.length?'<div style="font-size:11px;color:var(--mut);margin-top:6px;text-align:center">Ajoute au moins un créneau ci-dessus</div>':''}
     </div>
 
@@ -9771,29 +9948,20 @@ function renderPlanningTimeline(){
   heureMax=Math.ceil(heureMax/60)*60;
 
   const planning=assignerColonnesPlanning(planningBrut);
-
-  // ── Construit tous les points-repères (heures rondes + début/fin de chaque bloc + créneaux) ──
   const reperesSet=new Set();
   for(let h=heureMin;h<=heureMax;h+=60) reperesSet.add(h);
   planning.forEach(p=>{ reperesSet.add(toMin(p.heureDebut)); reperesSet.add(toMin(p.heureFin)); });
   dispos.forEach(d=>{ reperesSet.add(toMin(d.debut)); reperesSet.add(toMin(d.fin)); });
   const reperes=[...reperesSet].sort((a,b)=>a-b);
 
-  // ── Calcule une position Y non-linéaire : espace minimum garanti par tranche, proportionnel au-delà ──
-  const pxParMin=0.9;
-  const espaceMin=26; // px minimum entre deux repères consécutifs, même si très proches en temps
+  const pxParMin=0.9, espaceMin=26;
   const yMap={};
   let cumY=0;
   for(let i=0;i<reperes.length;i++){
     yMap[reperes[i]]=cumY;
-    if(i<reperes.length-1){
-      const delta=reperes[i+1]-reperes[i];
-      cumY+=Math.max(espaceMin,delta*pxParMin);
-    }
+    if(i<reperes.length-1) cumY+=Math.max(espaceMin,(reperes[i+1]-reperes[i])*pxParMin);
   }
   const hauteurTotale=cumY+20;
-
-  const maxColsGlobal=planning.length?Math.max(...planning.map(p=>p._maxCols)):1;
 
   const fondsDispo=dispos.map(d=>{
     const top=yMap[toMin(d.debut)];
@@ -9804,16 +9972,12 @@ function renderPlanningTimeline(){
 
   const gouttiere=1;
   const blocsHtml=planning.map(p=>{
-    const found=trouverAction(p.actionId);
-    const couleur=found?.zone?.couleur||'#993556';
-    const bg=couleurPastel(found?.zone?.couleur);
+    const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
+    const couleur=zone?.couleur||'#993556';
+    const bg=couleurPastel(couleur);
     const top=yMap[toMin(p.heureDebut)];
     const hgt=yMap[toMin(p.heureFin)]-top;
     const expanded=window['_blocOpen_'+p.id];
-    const nom=found?found.action.nom:(p.customNom||'Tâche');
-    const zoneIcon=found?found.zone.icon:'📌';
-    const dues=found?getSousTachesDues(found.action):[];
-    const duesIds=dues.map(st=>st.id);
     const faitBloc=!!faitMap[p.id];
     const largeurPct=100/p._maxCols;
     const leftPct=p._col*largeurPct;
@@ -9822,22 +9986,15 @@ function renderPlanningTimeline(){
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;text-align:center">
         <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:20px;height:20px;border-radius:50%;border:2px solid ${couleur};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>':''}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${zoneIcon} ${nom}</div>
+          <div style="font-weight:700;font-size:12px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${zone?.icon||'📌'} ${p.nom}</div>
           <div style="font-size:10px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin}</div>
         </div>
-        <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:${couleur};opacity:.7;font-size:12px;cursor:pointer;flex-shrink:0">✕</button>
         <span onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="color:${couleur};font-size:11px;cursor:pointer;flex-shrink:0">${expanded?'▲':'▼'}</span>
       </div>
-      ${expanded?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px" onclick="event.stopPropagation()">
-        ${found?(found.action.sousTaches||[]).map(st=>{
-          const due=duesIds.includes(st.id);
-          const faitAuj=st.dernierFait===new Date().toISOString().split('T')[0];
-          return`<div style="display:flex;align-items:center;gap:7px;background:white;border-radius:8px;padding:6px 9px">
-            <span onclick="toggleSousTacheRonde('${found.zone.id}','${found.action.id}','${st.id}')" style="width:16px;height:16px;border-radius:50%;border:2px solid ${couleur};background:${faitAuj?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitAuj?'<span style="color:white;font-size:9px">✓</span>':''}</span>
-            <span style="font-size:11px;flex:1;text-align:left">${st.nom} ${due?`<span style="color:${couleur};font-size:8px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
-            <span style="font-size:9px;color:var(--mut)">${st.duree}min</span>
-          </div>`;
-        }).join(''):'<div style="font-size:11px;color:var(--mut);background:white;border-radius:8px;padding:8px;text-align:center">Tâche libre</div>'}
+      ${expanded?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
+        <button class="btn bg bsm" onclick="ouvrirReporter('${p.id}')">⏭️ Reporter</button>
+        <button class="btn bg bsm" onclick="ouvrirRemplacer('${p.id}')">🔄 Remplacer</button>
+        <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕ Retirer</button>
       </div>`:''}
     </div>`;
   }).join('');
@@ -9847,12 +10004,11 @@ function renderPlanningTimeline(){
       <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
         ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
       </div>
-      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2);cursor:pointer">
+      <div style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2)">
         ${fondsDispo}
         ${blocsHtml}
       </div>
     </div>
-    <div style="text-align:center;font-size:11px;color:var(--mut)">💡 Clique sur une case vide pour ajouter une tâche spontanée</div>
   `;
 }
 
@@ -10061,28 +10217,118 @@ async function togglePlanningFait(planningId){
   const faitMap=DB.journal.faitAujourdhui[today];
   const item=(DB.journal.planning[today]||[]).find(p=>p.id===planningId);
   if(!item) return;
-  const found=trouverAction(item.actionId);
 
   if(faitMap[planningId]){
     delete faitMap[planningId];
   } else {
     faitMap[planningId]=true;
-    // Enregistre chaque sous-tâche due de cette action dans l'historique + met à jour dernierFait
-    if(found){
-      const dues=getSousTachesDues(found.action);
+    const zone=DB.journal.zones.find(z=>z.id===item.zoneId);
+    const action=zone?.actions.find(a=>a.id===item.actionId);
+    const st=action?.sousTaches.find(x=>x.id===item.stId);
+    if(st){
+      st.dernierFait=today;
       const heure=new Date().toTimeString().slice(0,5);
       if(!DB.journal.historique) DB.journal.historique={};
       if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
-      dues.forEach(st=>{
-        st.dernierFait=today;
-        DB.journal.historique[today].push({
-          nom:st.nom,zoneNom:found.zone.nom,zoneIcon:found.zone.icon,couleur:found.zone.couleur||'var(--acc)',
-          heure,duree:st.duree
-        });
-      });
+      DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure,duree:st.duree});
     }
   }
   await saveAll();
+  renderPlanningTimeline();
+}
+
+function ouvrirReporter(planningId){
+  const today=new Date().toISOString().split('T')[0];
+  const item=DB.journal.planning[today].find(p=>p.id===planningId);
+  if(!item) return;
+  document.getElementById('mTitle').textContent='⏭️ Reporter — '+item.nom;
+  document.getElementById('mBody').innerHTML=`
+    <div class="fr"><label>Quand ?</label>
+      <select id="reporter-type" onchange="document.getElementById('reporter-heure-wrap').style.display=this.value==='heure'?'block':'none'">
+        <option value="heure">Plus tard aujourd'hui</option>
+        <option value="prochaine">La prochaine fois</option>
+      </select>
+    </div>
+    <div class="fr" id="reporter-heure-wrap"><label>Nouvelle heure</label><input type="time" id="reporter-nouvelle-heure" value="${item.heureDebut}"></div>
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerReport('${planningId}')">✓ Confirmer</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerReport(planningId){
+  const today=new Date().toISOString().split('T')[0];
+  const type=document.getElementById('reporter-type')?.value;
+  const item=DB.journal.planning[today].find(p=>p.id===planningId);
+  if(!item) return;
+
+  if(type==='prochaine'){
+    DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==planningId);
+    toast('✓ Reporté à la prochaine fois');
+  } else {
+    const nouvelleHeure=document.getElementById('reporter-nouvelle-heure')?.value;
+    const[h,m]=nouvelleHeure.split(':').map(Number);
+    const finMin=h*60+m+item.duree;
+    item.heureDebut=nouvelleHeure;
+    item.heureFin=minToStr(finMin);
+    toast('✓ Reporté à '+nouvelleHeure);
+  }
+  await saveAll();
+  closeMo('mainModal');
+  renderJAujourdhui();
+}
+
+function ouvrirRemplacer(planningId){
+  const today=new Date().toISOString().split('T')[0];
+  const item=DB.journal.planning[today].find(p=>p.id===planningId);
+  if(!item) return;
+  const zone=DB.journal.zones.find(z=>z.id===item.zoneId);
+  const action=zone?.actions.find(a=>a.id===item.actionId);
+  if(!action) return;
+
+  const options=action.sousTaches.filter(st=>st.id!==item.stId);
+  document.getElementById('mTitle').textContent='🔄 Remplacer — '+item.nom;
+  document.getElementById('mBody').innerHTML=`
+    <div class="fr"><label>Remplacer par</label>
+      <select id="remplacer-select">
+        ${options.map(st=>`<option value="${st.id}">${st.nom} (${st.duree}min)</option>`).join('')}
+      </select>
+    </div>
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerRemplacement('${planningId}')">✓ Remplacer</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerRemplacement(planningId){
+  const today=new Date().toISOString().split('T')[0];
+  const item=DB.journal.planning[today].find(p=>p.id===planningId);
+  if(!item) return;
+  const zone=DB.journal.zones.find(z=>z.id===item.zoneId);
+  const action=zone?.actions.find(a=>a.id===item.actionId);
+  const nouveauStId=document.getElementById('remplacer-select')?.value;
+  const nouveauSt=action.sousTaches.find(st=>st.id===nouveauStId);
+  if(!nouveauSt) return;
+
+  item.stId=nouveauSt.id;
+  item.nom=nouveauSt.nom;
+  item.duree=nouveauSt.duree;
+  const[h,m]=item.heureDebut.split(':').map(Number);
+  item.heureFin=minToStr(h*60+m+nouveauSt.duree);
+
+  await saveAll();
+  closeMo('mainModal');
+  renderJAujourdhui();
+  toast('✓ Remplacé');
+}
+   
+
+function ouvrirBlocPlanning(planningId){
+  window['_blocOpen_'+planningId]=!window['_blocOpen_'+planningId];
   renderPlanningTimeline();
 }
 
