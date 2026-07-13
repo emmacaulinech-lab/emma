@@ -9984,14 +9984,22 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
     </div>`;
   }).join('');
 
+ if(clickable){
+    window._timelineYMap=yMap;
+    window._timelineReperes=reperes;
+  }
+
   return`
     <div style="display:flex;position:relative;border-radius:16px;${options.noShadow?'':'box-shadow:var(--shadow);border:1.5px solid var(--brd);'}overflow:hidden">
       <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
         ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
       </div>
-      <div ${clickable?`onclick="handleTimelineClick(event,${heureMin})"`:''} style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2);${clickable?'cursor:pointer':''}">
+      <div id="timeline-clickzone" ${clickable?`onmousemove="handleTimelineHover(event)" onmouseleave="handleTimelineLeave()" onclick="handleTimelineClick(event)"`:''} style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2);${clickable?'cursor:pointer':''}">
         ${fondsDispo}
         ${blocsHtml}
+        ${clickable?`<div id="timeline-hover-line" style="display:none;position:absolute;left:0;right:0;height:1px;background:var(--acc);z-index:40;pointer-events:none">
+          <div id="timeline-hover-label" style="position:absolute;left:6px;top:-9px;background:var(--acc);color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;font-family:'DM Mono',monospace"></div>
+        </div>`:''}
       </div>
     </div>`;
 }
@@ -10123,14 +10131,55 @@ async function toggleSousTacheRonde(zoneId,actionId,stId,span){
   renderPlanningTimeline();
 }
 
-function handleTimelineClick(event,heureMin){
+function yToMinutes(y){
+  const yMap=window._timelineYMap;
+  const reperes=window._timelineReperes;
+  if(!yMap||!reperes||!reperes.length) return null;
+
+  if(y<=yMap[reperes[0]]) return reperes[0];
+  if(y>=yMap[reperes[reperes.length-1]]) return reperes[reperes.length-1];
+
+  for(let i=0;i<reperes.length-1;i++){
+    const y1=yMap[reperes[i]], y2=yMap[reperes[i+1]];
+    if(y>=y1&&y<=y2){
+      const ratio=(y-y1)/(y2-y1);
+      const minutesExact=reperes[i]+ratio*(reperes[i+1]-reperes[i]);
+      return Math.round(minutesExact/5)*5; // arrondi au ¼ d'heure... arrondi aux 5min
+    }
+  }
+  return reperes[0];
+}
+
+function minutesToHeureStr(minutes){
+  const h=Math.floor(minutes/60), m=minutes%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function handleTimelineHover(event){
   const rect=event.currentTarget.getBoundingClientRect();
   const y=event.clientY-rect.top;
-  const pxParMin=1.6;
-  let minutes=heureMin+Math.round(y/pxParMin/15)*15;
-  const h=Math.floor(minutes/60), m=minutes%60;
-  const heureStr=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  openAjoutTacheHeure(heureStr);
+  const minutes=yToMinutes(y);
+  if(minutes===null) return;
+  const ligne=document.getElementById('timeline-hover-line');
+  const label=document.getElementById('timeline-hover-label');
+  if(!ligne||!label) return;
+  const yPos=window._timelineYMap[Object.keys(window._timelineYMap).map(Number).reduce((prev,cur)=>Math.abs(cur-minutes)<Math.abs(prev-minutes)?cur:prev)];
+  ligne.style.top=y+'px';
+  ligne.style.display='block';
+  label.textContent=minutesToHeureStr(minutes);
+}
+
+function handleTimelineLeave(){
+  const ligne=document.getElementById('timeline-hover-line');
+  if(ligne) ligne.style.display='none';
+}
+
+function handleTimelineClick(event){
+  const rect=event.currentTarget.getBoundingClientRect();
+  const y=event.clientY-rect.top;
+  const minutes=yToMinutes(y);
+  if(minutes===null) return;
+  openAjoutTacheHeure(minutesToHeureStr(minutes));
 }
 
 function openAjoutTacheHeure(heureStr){
