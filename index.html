@@ -8823,17 +8823,31 @@ function dureeZoneDue(zone){
 function proposerBlocsPourDispo(dispo){
   const dureeTotale=strToMin(dispo.fin)-strToMin(dispo.debut);
   const zonesDuBonType=DB.journal.zones.filter(z=>z.typeDefaut===dispo.type&&dureeZoneDue(z)>0);
+  if(!zonesDuBonType.length) return [];
+
+  const maxBlocDuree=60; // plafond par bloc, pour varier les zones sur un long créneau
+  const zoneRestants={};
+  zonesDuBonType.forEach(z=>zoneRestants[z.id]=dureeZoneDue(z));
+
   const blocs=[];
   let reste=dureeTotale;
   let curStart=strToMin(dispo.debut);
-  for(const zone of zonesDuBonType){
-    if(reste<=0) break;
-    const dueMin=dureeZoneDue(zone);
-    const blocDuree=Math.min(reste,dueMin);
-    if(blocDuree<5) continue;
-    blocs.push({zoneId:zone.id,type:dispo.type,dureeMin:blocDuree,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+blocDuree)});
-    curStart+=blocDuree;
-    reste-=blocDuree;
+  let progression=true;
+
+  while(reste>0&&progression){
+    progression=false;
+    for(const zone of zonesDuBonType){
+      if(reste<=0) break;
+      const disponibleZone=zoneRestants[zone.id];
+      if(disponibleZone<=0) continue;
+      const blocDuree=Math.min(reste,disponibleZone,maxBlocDuree);
+      if(blocDuree<5) continue;
+      blocs.push({zoneId:zone.id,type:dispo.type,dureeMin:blocDuree,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+blocDuree)});
+      curStart+=blocDuree;
+      reste-=blocDuree;
+      zoneRestants[zone.id]-=blocDuree;
+      progression=true;
+    }
   }
   return blocs;
 }
