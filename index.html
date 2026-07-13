@@ -9611,12 +9611,19 @@ function trouverAction(actionId){
   return null;
 }
 
+function couleurClaire(hex){
+  // Convertit une couleur hex en version pastel pour le fond du badge
+  if(!hex||!hex.startsWith('#')) return '#f0e8ee';
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},0.15)`;
+}
+
 function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
   const today=new Date().toISOString().split('T')[0];
   const planning=[...(DB.journal.planning[today]||[])].sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
-  const dispos=DB.journal.disponibilites[today]||[];
+  const dispos=[...(DB.journal.disponibilites[today]||[])].sort((a,b)=>a.debut.localeCompare(b.debut));
 
   if(!planning.length&&!dispos.length){
     el.innerHTML='';
@@ -9624,68 +9631,106 @@ function renderPlanningTimeline(){
   }
 
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+  const today0=new Date().toISOString().split('T')[0];
+  if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
+  if(!DB.journal.faitAujourdhui[today0]) DB.journal.faitAujourdhui[today0]={};
+  const faitMap=DB.journal.faitAujourdhui[today0];
 
-  // Détermine les bornes horaires de la grille
-  let heureMin=7*60, heureMax=21*60;
-  dispos.forEach(d=>{ heureMin=Math.min(heureMin,toMin(d.debut)); heureMax=Math.max(heureMax,toMin(d.fin)); });
-  planning.forEach(p=>{ heureMin=Math.min(heureMin,toMin(p.heureDebut)); heureMax=Math.max(heureMax,toMin(p.heureFin)); });
-  heureMin=Math.floor(heureMin/60)*60;
-  heureMax=Math.ceil(heureMax/60)*60;
-
-  const pxParMin=1.4;
-  const hauteurTotale=(heureMax-heureMin)*pxParMin;
-  const heuresAffichees=[];
-  for(let h=heureMin;h<=heureMax;h+=60) heuresAffichees.push(h);
-
-  let gridHtml=`<div style="display:flex;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:16px">
-    <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px">
-      ${heuresAffichees.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:00</div>`).join('')}
-    </div>
-    <div style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
-      ${dispos.map(d=>`<div style="position:absolute;top:${(toMin(d.debut)-heureMin)*pxParMin}px;left:0;right:0;height:${(toMin(d.fin)-toMin(d.debut))*pxParMin}px;background:${d.type==='pro'?'rgba(74,120,200,.06)':'rgba(232,122,154,.06)'};border-top:1px dashed var(--brd2);border-bottom:1px dashed var(--brd2)"></div>`).join('')}
-      ${planning.map(p=>{
-        const found=trouverAction(p.actionId);
-        const couleur=found?.zone?.couleur||'var(--acc)';
-        const nom=found?`${found.zone.icon} ${found.action.nom}`:'?';
-        const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
-        const h=Math.max(20,(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin);
-        return`<div onclick="ouvrirSousTachesAction('${p.actionId}')" style="position:absolute;top:${top}px;left:4px;right:4px;height:${h}px;background:${couleur}18;border:2px solid ${couleur};border-radius:8px;padding:4px 8px;cursor:pointer;overflow:hidden">
-          <div style="font-size:11px;font-weight:700;color:${couleur};line-height:1.2">${nom}</div>
-          <div style="font-size:9px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
-
-  if(!planning.length){
-    el.innerHTML=gridHtml;
-    return;
-  }
-
-  let listHtml=`<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">✏️ Modifier le planning</div>`;
-  listHtml+=planning.map((p,i)=>{
+  // ── Liste des tâches individuelles (style pilule) ──
+  let html=`<div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:8px 4px;margin-bottom:16px;box-shadow:var(--shadow)">`;
+  planning.forEach(p=>{
     const found=trouverAction(p.actionId);
-    const nom=found?`${found.zone.icon} ${found.action.nom}`:'Action supprimée';
-    return`<div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:12px 16px;margin-bottom:8px;box-shadow:var(--shadow)">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${nom}</div>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-            <input type="time" value="${p.heureDebut}" onchange="modifierHeurePlanning('${p.id}','heureDebut',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
-            <span style="font-size:11px;color:var(--mut)">→</span>
-            <input type="time" value="${p.heureFin}" onchange="modifierHeurePlanning('${p.id}','heureFin',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
+    if(!found) return;
+    const couleur=found.zone.couleur||'var(--acc)';
+    const bg=couleurClaire(found.zone.couleur);
+    const coche=!!faitMap[p.id];
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--brd)">
+      <span style="color:${couleur};opacity:.4;font-size:14px;letter-spacing:1px;cursor:grab" title="Réordonner">⋮⋮</span>
+      <span style="background:${bg};color:${couleur};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;font-family:'DM Mono',monospace;white-space:nowrap">${p.heureDebut}</span>
+      <span onclick="togglePlanningFait('${p.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${coche?couleur:'var(--brd2)'};background:${coche?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${coche?'<span style="color:white;font-size:12px">✓</span>':''}</span>
+      <span style="flex:1;font-size:13px;font-weight:600;${coche?'text-decoration:line-through;color:var(--mut)':''}">${found.zone.icon} ${found.action.nom}</span>
+      <span style="background:${bg};color:${couleur};font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap">${found.zone.nom}</span>
+      <button onclick="delPlanningItem('${p.id}')" style="background:none;border:none;color:var(--brd2);font-size:14px;cursor:pointer">✕</button>
+    </div>`;
+  });
+  html+=`<div style="text-align:center;padding:10px;margin:6px;border:1.5px dashed var(--brd2);border-radius:14px;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer" onclick="genererPlanningIA()">+ Régénérer le planning</div>`;
+  html+=`</div>`;
+
+  // ── Blocs de créneaux dépliables ──
+  const emojiCreneau=t=>t==='pro'?'💼':'☀️';
+  dispos.forEach((d,di)=>{
+    const debutMin=toMin(d.debut), finMin=toMin(d.fin);
+    const itemsCreneau=planning.filter(p=>toMin(p.heureDebut)>=debutMin&&toMin(p.heureDebut)<finMin);
+    const nbFaits=itemsCreneau.filter(p=>faitMap[p.id]).length;
+    const pct=itemsCreneau.length?Math.round(nbFaits/itemsCreneau.length*100):0;
+    const couleurBloc=d.type==='pro'?'#4a78c8':'#c89040';
+    const bgBloc=d.type==='pro'?'#eef3fc':'#fff8e8';
+    const expanded=window['_creneauOpen_'+di];
+
+    html+=`<div style="background:${bgBloc};border:1.5px solid ${couleurBloc}40;border-radius:16px;padding:12px 16px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="window._creneauOpen_${di}=!window._creneauOpen_${di};renderPlanningTimeline()">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">${emojiCreneau(d.type)}</span>
+          <div>
+            <div style="font-weight:700;font-size:13px;color:${couleurBloc}">${d.type==='pro'?'Créneau Pro':'Créneau Perso'}</div>
+            <div style="font-size:11px;color:var(--mut)">${d.debut} → ${d.fin}</div>
           </div>
         </div>
-        <div style="display:flex;gap:4px">
-          <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',-1)">▲</button>
-          <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',1)">▼</button>
-          <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕</button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;font-weight:700;color:${couleurBloc}">${nbFaits}/${itemsCreneau.length}</span>
+          <div style="width:50px;height:6px;background:white;border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${couleurBloc};border-radius:99px"></div>
+          </div>
+          <span style="color:${couleurBloc};font-size:12px">${expanded?'▲':'▼'}</span>
         </div>
       </div>
+      ${expanded?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+        ${itemsCreneau.length?itemsCreneau.map(p=>{
+          const found=trouverAction(p.actionId);
+          const coche=!!faitMap[p.id];
+          return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:10px;padding:7px 10px" onclick="ouvrirSousTachesAction('${p.actionId}')">
+            <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:18px;height:18px;border-radius:50%;border:2px solid ${coche?couleurBloc:'var(--brd2)'};background:${coche?couleurBloc:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${coche?'<span style="color:white;font-size:10px">✓</span>':''}</span>
+            <span style="font-size:12px;flex:1;${coche?'text-decoration:line-through;color:var(--mut)':''}">${found?.zone.icon||''} ${found?.action.nom||'?'}</span>
+            <span style="font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${p.heureDebut}</span>
+          </div>`;
+        }).join(''):'<div style="font-size:11px;color:var(--mut);text-align:center">Rien de planifié sur ce créneau</div>'}
+      </div>`:''}
     </div>`;
-  }).join('');
+  });
 
-  el.innerHTML=gridHtml+listHtml;
+  el.innerHTML=html;
+}
+
+async function togglePlanningFait(planningId){
+  const today=new Date().toISOString().split('T')[0];
+  if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
+  if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
+  const faitMap=DB.journal.faitAujourdhui[today];
+  const item=(DB.journal.planning[today]||[]).find(p=>p.id===planningId);
+  if(!item) return;
+  const found=trouverAction(item.actionId);
+
+  if(faitMap[planningId]){
+    delete faitMap[planningId];
+  } else {
+    faitMap[planningId]=true;
+    // Enregistre chaque sous-tâche due de cette action dans l'historique + met à jour dernierFait
+    if(found){
+      const dues=getSousTachesDues(found.action);
+      const heure=new Date().toTimeString().slice(0,5);
+      if(!DB.journal.historique) DB.journal.historique={};
+      if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
+      dues.forEach(st=>{
+        st.dernierFait=today;
+        DB.journal.historique[today].push({
+          nom:st.nom,zoneNom:found.zone.nom,zoneIcon:found.zone.icon,couleur:found.zone.couleur||'var(--acc)',
+          heure,duree:st.duree
+        });
+      });
+    }
+  }
+  await saveAll();
+  renderPlanningTimeline();
 }
 
 let historiqueJourAffiche=null;
