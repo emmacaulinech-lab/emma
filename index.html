@@ -7204,24 +7204,9 @@ const STATUT_COLORS={'Inscrite':'#4a78c8','Mail kit envoyé':'#c89040','Kit choi
 // ═══════════════════════════════════════
 // DASHBOARD HUB — soldes + notifications
 // ═══════════════════════════════════════
-function renderHubOverview(){
-  renderHumeurJour();
-  renderHubPlanningMini();
-  const soldeProEl=document.getElementById('hub-solde-pro');
-  const soldePersoEl=document.getElementById('hub-solde-perso');
-  if(!soldeProEl) return;
 
-  const soldePro=DB.banque.reduce((s,b)=>s+b.montant,PARAMS.soldeInit);
-  soldeProEl.textContent=fa(soldePro);
-
-  if(banquePersoSolde!==null){
-    soldePersoEl.textContent=(banquePersoSolde<0?'−':'')+fa(banquePersoSolde);
-  } else {
-    soldePersoEl.textContent='—';
-  }
-
+function getToutesNotifications(today){
   const notifs=[];
-  const today=new Date();
 
   const facturesRetard=facturesLimagecils.filter(f=>{
     if(f.type!=='Produits'||f.statut==='Payée') return false;
@@ -7246,48 +7231,25 @@ function renderHubOverview(){
     const j=joursRestants(e.dateFormation);
     if(j===null) return;
     const idx=STATUTS_FORMATION.indexOf(e.statut);
-
-    // Mail kit à envoyer (statut = Inscrite)
     if(idx===0){
       const urgent=j<14;
       notifs.push({icon:'✉️',txt:`${urgent?'🔴 URGENT — ':''}Envoyer mail kit à ${e.nom}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(2)`});
     }
-    // Kit à payer (statut = Mail kit envoyé ou Kit choisi, pas encore payé)
     else if((idx===1||idx===2)&&!e.financement?.paye){
       const urgent=j<7;
       notifs.push({icon:'💶',txt:`${urgent?'🔴 URGENT — ':''}Kit à payer — ${e.nom}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(0)`});
     }
-    // Kit à préparer (statut = Kit payé, dans la semaine avant formation)
     else if(idx===3&&j<=7&&j>=0){
       notifs.push({icon:'📦',txt:`Préparer le kit — ${e.nom} (J-${j})`,color:'var(--warn)',onclick:`goModule('formations');goFTab(1)`});
     }
   });
 
-
-  // Virements en attente (compta)
   const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
-  const wrapVir=document.getElementById('hub-virements-wrap');
-  const elVir=document.getElementById('hub-virements');
-  if(wrapVir&&elVir){
-    if(virementsEnAttente.length){
-      wrapVir.style.display='block';
-      const totalVir=virementsEnAttente.reduce((s,t)=>s+t.montant,0);
-      elVir.innerHTML=`
-        <div style="font-size:12px;color:var(--mut);margin-bottom:8px">${virementsEnAttente.length} virement(s) — ${fa(totalVir)}</div>
-        ${virementsEnAttente.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(t=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="goModule('compta')">
-            <span>${t.nom} <span style="color:var(--mut);font-size:11px">${t.prestation||''}</span></span>
-            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--warn)">${fa(t.montant)}</span>
-          </div>`).join('')}
-        ${virementsEnAttente.length>5?`<div style="font-size:11px;color:var(--mut);margin-top:6px">+${virementsEnAttente.length-5} autre(s)</div>`:''}
-      `;
-    } else {
-      wrapVir.style.display='none';
-    }
+  if(virementsEnAttente.length){
+    const totalVir=virementsEnAttente.reduce((s,t)=>s+t.montant,0);
+    notifs.push({icon:'⏳',txt:`${virementsEnAttente.length} virement(s) en attente (${fa(totalVir)})`,color:'var(--warn)',onclick:`goModule('compta')`});
   }
 
-
-// Prélèvements récurrents à venir (Banque perso)
   const recurrencesPerso=detectRecurrencesPerso();
   recurrencesPerso.forEach(r=>{
     const j=Math.floor((new Date(r.nextDate+'T12:00:00')-today)/86400000);
@@ -7297,7 +7259,11 @@ function renderHubOverview(){
     }
   });
 
-// Alertes budget dépassé (Banque perso)
+  const planningRetard=getPlanningEnRetard();
+  planningRetard.forEach(p=>{
+    notifs.push({icon:'⏰',txt:`À faire : ${p.nom} (prévu ${p.heureDebut}–${p.heureFin})`,color:'var(--warn)',onclick:`goModule('journal')`});
+  });
+
   const moisCourantPerso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
   banquePersoCategories.filter(c=>c.type==='dep'&&c.budget>0).forEach(cat=>{
     const spent=banquePersoTransactions.filter(t=>t.type==='dep'&&t.catId===cat.id&&t.date.startsWith(moisCourantPerso)).reduce((s,t)=>s+t.amount,0);
@@ -7306,10 +7272,36 @@ function renderHubOverview(){
     }
   });
 
-// Solde perso négatif
   if(banquePersoSolde!==null&&banquePersoSolde<0){
     notifs.push({icon:'⚠️',txt:`Compte perso à découvert : ${'−'+fa(banquePersoSolde)}`,color:'var(--dep)',onclick:`goModule('banqueperso')`});
   }
+
+  return notifs;
+}
+
+function getNotificationsOrganisables(){
+  const today=new Date();
+  return getToutesNotifications(today).filter(n=>n.icon!=='⏰');
+}
+   
+   function renderHubOverview(){
+  renderHumeurJour();
+  renderHubPlanningMini();
+  const soldeProEl=document.getElementById('hub-solde-pro');
+  const soldePersoEl=document.getElementById('hub-solde-perso');
+  if(!soldeProEl) return;
+
+  const soldePro=DB.banque.reduce((s,b)=>s+b.montant,PARAMS.soldeInit);
+  soldeProEl.textContent=fa(soldePro);
+
+  if(banquePersoSolde!==null){
+    soldePersoEl.textContent=(banquePersoSolde<0?'−':'')+fa(banquePersoSolde);
+  } else {
+    soldePersoEl.textContent='—';
+  }
+
+  const today=new Date();
+  const notifs=getToutesNotifications(today);
 
   const el=document.getElementById('hub-notifications');
   if(el){
@@ -10280,9 +10272,18 @@ function openAjoutTacheHeure(heureStr){
       toutesActions.push({id:action.id,label:`${zone.icon} ${zone.nom} — ${action.nom}`});
     });
   });
+  const notifsOrganisables=getNotificationsOrganisables();
 
   document.getElementById('mTitle').textContent='+ Ajouter une tâche à '+heureStr;
   document.getElementById('mBody').innerHTML=`
+    ${notifsOrganisables.length?`
+    <div class="fr"><label>📌 À traiter (depuis tes notifications)</label>
+      <select id="ajout-notif-existante" onchange="document.getElementById('ajout-action-existante').value='';document.getElementById('ajout-nouvelle-nom').value=''">
+        <option value="">— Aucune —</option>
+        ${notifsOrganisables.map((n,i)=>`<option value="${i}">${n.icon} ${n.txt}</option>`).join('')}
+      </select>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>`:''}
     <div class="fr"><label>Choisir une tâche existante</label>
       <select id="ajout-action-existante">
         <option value="">— Ou créer une nouvelle tâche ci-dessous —</option>
@@ -10298,6 +10299,7 @@ function openAjoutTacheHeure(heureStr){
       <div class="fr"><label>Durée (min)</label><input type="number" id="ajout-duree" value="15"></div>
     </div>
   `;
+  window._notifsOrganisablesTemp=notifsOrganisables;
   document.querySelector('#mainModal .ma').style.display='flex';
   document.querySelector('#mainModal .ma').innerHTML=`
     <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
@@ -10308,20 +10310,31 @@ function openAjoutTacheHeure(heureStr){
 async function validerAjoutTacheHeure(){
   ensureJournalData();
   const today=new Date().toISOString().split('T')[0];
+  const notifIdx=document.getElementById('ajout-notif-existante')?.value;
   const actionId=document.getElementById('ajout-action-existante')?.value;
   const nouveauNom=document.getElementById('ajout-nouvelle-nom')?.value?.trim();
   const heureDebut=document.getElementById('ajout-heure-debut')?.value;
   const duree=parseInt(document.getElementById('ajout-duree')?.value)||15;
 
-  if(!actionId&&!nouveauNom){toast('⚠ Choisis une tâche ou tape un nom');return;}
+  if(notifIdx===''&&!actionId&&!nouveauNom){toast('⚠ Choisis une option');return;}
 
   const[h,m]=heureDebut.split(':').map(Number);
   const finMin=h*60+m+duree;
   const heureFin=`${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`;
 
   const item={id:genId(),heureDebut,heureFin,duree};
-  if(actionId) item.actionId=actionId;
-  else { item.customNom=nouveauNom; item.aClasser=true; }
+  if(notifIdx!==''&&notifIdx!==undefined){
+    const notif=window._notifsOrganisablesTemp[parseInt(notifIdx)];
+    item.customNom=notif.txt;
+    item.iconOverride=notif.icon;
+    item.couleurOverride=notif.color==='var(--dep)'?'#c45858':notif.color==='var(--warn)'?'#c89040':notif.color==='var(--pla)'?'#4a78c8':'#993556';
+    item.notifOnclick=notif.onclick;
+  } else if(actionId){
+    item.actionId=actionId;
+  } else {
+    item.customNom=nouveauNom;
+    item.aClasser=true;
+  }
 
   if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
   DB.journal.planning[today].push(item);
