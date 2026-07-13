@@ -9945,6 +9945,79 @@ async function delSousTache(zoneId,actionId,stId){
   renderJTaches();
 }
 
+function renderJSemaineApercu(){
+  ensureJournalData();
+  const centre=new Date(getJournalJour()+'T12:00:00');
+  const debut=new Date(centre); debut.setDate(centre.getDate()-((centre.getDay()+6)%7));
+  const jours=[...Array(7)].map((_,i)=>{ const d=new Date(debut); d.setDate(debut.getDate()+i); return d.toISOString().split('T')[0]; });
+
+  return jours.map(j=>{
+    const planning=DB.journal.planning[j]||[];
+    const dispos=DB.journal.disponibilites[j]||[];
+    const faitMap=(DB.journal.faitAujourdhui||{})[j]||{};
+    const estJourAffiche=j===getJournalJour();
+    const totalActions=planning.length;
+    const faites=planning.filter(p=>faitMap[p.id]).length;
+
+    return`<div style="background:white;border:1.5px solid ${estJourAffiche?'var(--acc)':'var(--brd)'};border-radius:14px;padding:12px 16px;margin-bottom:10px;cursor:pointer" onclick="journalJourAffiche='${j}';renderJAujourdhui()">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:700;font-size:13px;color:${estJourAffiche?'var(--acc)':'var(--txt)'};text-transform:capitalize">${new Date(j+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'})}</span>
+        ${totalActions?`<span style="font-size:11px;color:var(--mut)">${faites}/${totalActions}</span>`:''}
+      </div>
+      ${totalActions?`<div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${planning.slice(0,6).map(p=>{
+          const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
+          const couleur=p.couleurOverride||zone?.couleur||'#993556';
+          return`<span style="background:${couleurPastel(couleur)};color:${couleur};font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid ${couleur}">${p.heureDebut} ${p.nom}</span>`;
+        }).join('')}
+        ${totalActions>6?`<span style="font-size:10px;color:var(--mut)">+${totalActions-6}</span>`:''}
+      </div>`:dispos.length?`<div style="font-size:11px;color:var(--mut)">${dispos.length} créneau(x) — pas encore configuré</div>`:'<div style="font-size:11px;color:var(--mut)">Rien de prévu</div>'}
+    </div>`;
+  }).join('');
+}
+
+function ouvrirAjoutRdvRapide(){
+  document.getElementById('mTitle').textContent='+ Ajouter un rendez-vous';
+  document.getElementById('mBody').innerHTML=`
+    <div class="fr"><label>Nom</label><input type="text" id="rdv-nom" placeholder="ex: RDV ongles, RDV dentiste"></div>
+    <div class="g2">
+      <div class="fr"><label>Date</label><input type="date" id="rdv-date" value="${getJournalJour()}"></div>
+      <div class="fr"><label>Heure</label><input type="time" id="rdv-heure" value="09:00"></div>
+    </div>
+    <div class="fr"><label>Durée (min)</label><input type="number" id="rdv-duree" value="30"></div>
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerAjoutRdvRapide()">✓ Ajouter</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerAjoutRdvRapide(){
+  ensureJournalData();
+  const nom=document.getElementById('rdv-nom')?.value?.trim();
+  const date=document.getElementById('rdv-date')?.value;
+  const heure=document.getElementById('rdv-heure')?.value;
+  const duree=parseInt(document.getElementById('rdv-duree')?.value)||30;
+  if(!nom||!date||!heure){toast('⚠ Remplis tous les champs');return;}
+
+  const[h,m]=heure.split(':').map(Number);
+  const finMin=h*60+m+duree;
+  const heureFin=minToStr(finMin);
+
+  if(!DB.journal.planning[date]) DB.journal.planning[date]=[];
+  DB.journal.planning[date].push({
+    id:genId(),customNom:nom,aClasser:true,
+    heureDebut:heure,heureFin,duree,
+    iconOverride:'📌',couleurOverride:'#993556'
+  });
+  await saveAll();
+  closeMo('mainModal');
+  journalJourAffiche=date;
+  renderJAujourdhui();
+  toast('✓ Rendez-vous ajouté !');
+}
+
 // ── Aujourd'hui ──
 function renderJAujourdhui(){
   ensureJournalData();
@@ -9968,6 +10041,13 @@ function renderJAujourdhui(){
       </div>
       <button onclick="journalJourNav(1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">›</button>
     </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;background:var(--bg2);border-radius:12px;padding:4px">
+      <button onclick="journalVue='jour';renderJAujourdhui()" style="flex:1;padding:7px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${(window.journalVue||'jour')==='jour'?'white':'transparent'};color:${(window.journalVue||'jour')==='jour'?'var(--acc)':'var(--mut)'}">📅 Jour</button>
+      <button onclick="journalVue='semaine';renderJAujourdhui()" style="flex:1;padding:7px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${window.journalVue==='semaine'?'white':'transparent'};color:${window.journalVue==='semaine'?'var(--acc)':'var(--mut)'}">📆 Semaine</button>
+    </div>
+    <button class="btn bd" onclick="ouvrirAjoutRdvRapide()" style="width:100%;margin-bottom:14px">+ Ajouter un rendez-vous</button>
+    ${window.journalVue==='semaine'?renderJSemaineApercu():''}
+    ${window.journalVue==='semaine'?'':`
     <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
       <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">⏰ Mes disponibilités aujourd'hui</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
@@ -9997,6 +10077,7 @@ function renderJAujourdhui(){
     </div>
 
     <div id="planning-timeline"></div>
+  `}
   `;
   document.getElementById('jview-aujourdhui').innerHTML=html;
   renderPlanningTimeline();
