@@ -10375,7 +10375,7 @@ function assignerColonnesPlanning(items){
 
 
 function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
-  if(!dispos.length) return '';
+  if(!dispos.length&&!planningBrut.length) return '';
   const clickable=options.clickable!==false;
 
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
