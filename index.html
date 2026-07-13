@@ -6998,18 +6998,18 @@ function ouvrirPopupHumeur(){
 
 function getSousTachesEnRetard(){
   ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
   const liste=[];
   DB.journal.zones.forEach(zone=>{
     zone.actions.forEach(action=>{
       (action.sousTaches||[]).forEach(st=>{
-        const jours=joursDepuis(st.dernierFait);
-        if(jours>=st.freq){
-          liste.push({zoneId:zone.id,actionId:action.id,stId:st.id,nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',joursRetard:jours-st.freq});
+        if(st.freq===1&&st.dernierFait!==today){
+          liste.push({zoneId:zone.id,actionId:action.id,stId:st.id,nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556'});
         }
       });
     });
   });
-  return liste.sort((a,b)=>b.joursRetard-a.joursRetard);
+  return liste;
 }
 
 function ouvrirPopupTachesRetard(){
@@ -7022,7 +7022,7 @@ function ouvrirPopupTachesRetard(){
         <input type="checkbox" onchange="cocherTacheRetard('${t.zoneId}','${t.actionId}','${t.stId}',this)" style="width:18px;height:18px;accent-color:${t.couleur}">
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600;color:${t.couleur}">${t.zoneIcon} ${t.nom}</div>
-          <div style="font-size:11px;color:var(--mut)">${t.zoneNom}${t.joursRetard>0?' · en retard de '+t.joursRetard+'j':''}</div>
+          <div style="font-size:11px;color:var(--mut)">${t.zoneNom}</div>
         </div>
       </div>`).join('');
   }
