@@ -9089,12 +9089,12 @@ async function finaliserConfigPlanning(){
     if(!bloc._choix||!bloc._choix.length) return;
     let curMin=strToMin(bloc.heureDebut);
     bloc._choix.forEach(c=>{
-      const finMin=curMin+c.duree;
+      const place=placerSansChevauchement(today,minToStr(curMin),c.duree);
       DB.journal.planning[today].push({
         id:genId(),zoneId:bloc.zoneId,actionId:c.actionId,stId:c.stId,
-        nom:c.nom,heureDebut:minToStr(curMin),heureFin:minToStr(finMin),duree:c.duree
+        nom:c.nom,heureDebut:place.heureDebut,heureFin:place.heureFin,duree:c.duree
       });
-      curMin=finMin;
+      curMin=strToMin(place.heureFin);
     });
   });
 
@@ -10065,14 +10065,12 @@ async function validerAjoutRdvRapide(){
   const duree=parseInt(document.getElementById('rdv-duree')?.value)||30;
   if(!nom||!date||!heure){toast('⚠ Remplis tous les champs');return;}
 
-  const[h,m]=heure.split(':').map(Number);
-  const finMin=h*60+m+duree;
-  const heureFin=minToStr(finMin);
+ if(!DB.journal.planning[date]) DB.journal.planning[date]=[];
+  const place=placerSansChevauchement(date,heure,duree);
 
-  if(!DB.journal.planning[date]) DB.journal.planning[date]=[];
   DB.journal.planning[date].push({
     id:genId(),customNom:nom,aClasser:true,
-    heureDebut:heure,heureFin,duree,
+    heureDebut:place.heureDebut,heureFin:place.heureFin,duree,
     iconOverride:'📌',couleurOverride:'#993556'
   });
   await saveAll();
@@ -10539,6 +10537,22 @@ function minutesToHeureStr(minutes){
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
+function placerSansChevauchement(jour,heureDebutSouhaite,duree){
+  const existants=(DB.journal.planning[jour]||[]).map(p=>({
+    debut:strToMin(p.heureDebut),fin:strToMin(p.heureFin)
+  })).sort((a,b)=>a.debut-b.debut);
+
+  let debut=strToMin(heureDebutSouhaite);
+  let placed=false;
+  while(!placed){
+    const fin=debut+duree;
+    const conflit=existants.find(e=>debut<e.fin&&fin>e.debut);
+    if(!conflit){ placed=true; }
+    else { debut=conflit.fin; }
+  }
+  return{heureDebut:minToStr(debut),heureFin:minToStr(debut+duree)};
+}
+   
 function handleTimelineHover(event){
   const rect=event.currentTarget.getBoundingClientRect();
   const y=event.clientY-rect.top;
@@ -10619,11 +10633,8 @@ async function validerAjoutTacheHeure(){
 
   if(notifIdx===''&&!actionId&&!nouveauNom){toast('⚠ Choisis une option');return;}
 
-  const[h,m]=heureDebut.split(':').map(Number);
-  const finMin=h*60+m+duree;
-  const heureFin=`${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`;
-
-  const item={id:genId(),heureDebut,heureFin,duree};
+  const place=placerSansChevauchement(today,heureDebut,duree);
+  const item={id:genId(),heureDebut:place.heureDebut,heureFin:place.heureFin,duree};
   if(notifIdx!==''&&notifIdx!==undefined){
     const notif=window._notifsOrganisablesTemp[parseInt(notifIdx)];
     item.customNom=notif.txt;
