@@ -8948,12 +8948,15 @@ function proposerBlocsPourDispo(dispo){
   return blocs;
 }
 
-function getStIdsDejaPlanifies(){
-  const ids=new Set();
-  Object.values(DB.journal.planning||{}).forEach(entries=>{
-    entries.forEach(p=>{ if(p.stId) ids.add(p.stId); });
+function getDatesPlanificationParSt(){
+  const map={};
+  Object.entries(DB.journal.planning||{}).forEach(([date,entries])=>{
+    entries.forEach(p=>{
+      if(!p.stId) return;
+      if(!map[p.stId]||date>map[p.stId]) map[p.stId]=date;
+    });
   });
-  return ids;
+  return map;
 }
 
 function ouvrirConfigPlanning(){
@@ -8982,12 +8985,20 @@ function renderConfigBlocStep(){
   const dureeChoisie=bloc._choix.reduce((s,c)=>s+c.duree,0);
   const dureeRestante=bloc.dureeMin-dureeChoisie;
 
-  const dejaPlanifies=getStIdsDejaPlanifies();
+  const datesPlanif=getDatesPlanificationParSt();
+  const dejaChoisisSession=new Set();
+  cfg.blocs.forEach(b=>{ (b._choix||[]).forEach(c=>dejaChoisisSession.add(c.stId)); });
+
   const sousTachesDisponibles=[];
   zoneActuelle.actions.forEach(action=>{
     getSousTachesDues(action).forEach(st=>{
-      const exclue=st.freq>1&&dejaPlanifies.has(st.id);
-      if(!bloc._choix.some(c=>c.stId===st.id)&&!exclue){
+      let exclueAutreJour=false;
+      if(st.freq>1&&datesPlanif[st.id]){
+        const joursDepuisPlanif=joursDepuis(datesPlanif[st.id]);
+        exclueAutreJour=joursDepuisPlanif<st.freq;
+      }
+      const exclueCetteSession=dejaChoisisSession.has(st.id);
+      if(!exclueAutreJour&&!exclueCetteSession){
         const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
         sousTachesDisponibles.push({actionId:action.id,actionNom:action.nom,st,severite});
       }
