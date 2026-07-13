@@ -9625,39 +9625,28 @@ function renderPlanningTimeline(){
   const planning=[...(DB.journal.planning[today]||[])].sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
   const dispos=[...(DB.journal.disponibilites[today]||[])].sort((a,b)=>a.debut.localeCompare(b.debut));
 
-  if(!planning.length&&!dispos.length){
+  if(!dispos.length){
     el.innerHTML='';
     return;
   }
 
-  const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
-  const today0=new Date().toISOString().split('T')[0];
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
-  if(!DB.journal.faitAujourdhui[today0]) DB.journal.faitAujourdhui[today0]={};
-  const faitMap=DB.journal.faitAujourdhui[today0];
+  if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
+  const faitMap=DB.journal.faitAujourdhui[today];
 
-  // ── Liste des tâches individuelles (style pilule) ──
-  let html=`<div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:8px 4px;margin-bottom:16px;box-shadow:var(--shadow)">`;
-  planning.forEach(p=>{
-    const found=trouverAction(p.actionId);
-    if(!found) return;
-    const couleur=found.zone.couleur||'var(--acc)';
-    const bg=couleurClaire(found.zone.couleur);
-    const coche=!!faitMap[p.id];
-    html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--brd)">
-      <span style="color:${couleur};opacity:.4;font-size:14px;letter-spacing:1px;cursor:grab" title="Réordonner">⋮⋮</span>
-      <span style="background:${bg};color:${couleur};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;font-family:'DM Mono',monospace;white-space:nowrap">${p.heureDebut}</span>
-      <span onclick="togglePlanningFait('${p.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${coche?couleur:'var(--brd2)'};background:${coche?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${coche?'<span style="color:white;font-size:12px">✓</span>':''}</span>
-      <span style="flex:1;font-size:13px;font-weight:600;${coche?'text-decoration:line-through;color:var(--mut)':''}">${found.zone.icon} ${found.action.nom}</span>
-      <span style="background:${bg};color:${couleur};font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap">${found.zone.nom}</span>
-      <button onclick="delPlanningItem('${p.id}')" style="background:none;border:none;color:var(--brd2);font-size:14px;cursor:pointer">✕</button>
-    </div>`;
-  });
-  html+=`<div style="text-align:center;padding:10px;margin:6px;border:1.5px dashed var(--brd2);border-radius:14px;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer" onclick="genererPlanningIA()">+ Régénérer le planning</div>`;
-  html+=`</div>`;
+  const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+  let heureMin=Math.min(...dispos.map(d=>toMin(d.debut)));
+  let heureMax=Math.max(...dispos.map(d=>toMin(d.fin)));
+  heureMin=Math.floor(heureMin/60)*60;
+  heureMax=Math.ceil(heureMax/60)*60;
+  const pxParMin=1.6;
+  const hauteurTotale=(heureMax-heureMin)*pxParMin;
+  const heuresAffichees=[];
+  for(let h=heureMin;h<=heureMax;h+=60) heuresAffichees.push(h);
 
-  // ── Blocs de créneaux dépliables ──
   const emojiCreneau=t=>t==='pro'?'💼':'☀️';
+
+  let blocsHtml='';
   dispos.forEach((d,di)=>{
     const debutMin=toMin(d.debut), finMin=toMin(d.fin);
     const itemsCreneau=planning.filter(p=>toMin(p.heureDebut)>=debutMin&&toMin(p.heureDebut)<finMin);
@@ -9666,8 +9655,10 @@ function renderPlanningTimeline(){
     const couleurBloc=d.type==='pro'?'#4a78c8':'#c89040';
     const bgBloc=d.type==='pro'?'#eef3fc':'#fff8e8';
     const expanded=window['_creneauOpen_'+di];
+    const top=(debutMin-heureMin)*pxParMin;
+    const hgt=Math.max(56,(finMin-debutMin)*pxParMin);
 
-    html+=`<div style="background:${bgBloc};border:1.5px solid ${couleurBloc}40;border-radius:16px;padding:12px 16px;margin-bottom:10px">
+    blocsHtml+=`<div style="position:absolute;top:${top}px;left:64px;right:0;min-height:${hgt}px;background:${bgBloc};border:1.5px solid ${couleurBloc}40;border-radius:16px;padding:12px 16px;z-index:2" onclick="event.stopPropagation()">
       <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="window._creneauOpen_${di}=!window._creneauOpen_${di};renderPlanningTimeline()">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:18px">${emojiCreneau(d.type)}</span>
@@ -9688,17 +9679,97 @@ function renderPlanningTimeline(){
         ${itemsCreneau.length?itemsCreneau.map(p=>{
           const found=trouverAction(p.actionId);
           const coche=!!faitMap[p.id];
-          return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:10px;padding:7px 10px" onclick="ouvrirSousTachesAction('${p.actionId}')">
+          const nom=found?`${found.zone.icon} ${found.action.nom}`:`📌 ${p.customNom||'Tâche'}`;
+          return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:10px;padding:7px 10px">
             <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:18px;height:18px;border-radius:50%;border:2px solid ${coche?couleurBloc:'var(--brd2)'};background:${coche?couleurBloc:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${coche?'<span style="color:white;font-size:10px">✓</span>':''}</span>
-            <span style="font-size:12px;flex:1;${coche?'text-decoration:line-through;color:var(--mut)':''}">${found?.zone.icon||''} ${found?.action.nom||'?'}</span>
+            <span onclick="${found?`ouvrirSousTachesAction('${p.actionId}')`:''}" style="font-size:12px;flex:1;cursor:${found?'pointer':'default'};${coche?'text-decoration:line-through;color:var(--mut)':''}">${nom}</span>
             <span style="font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${p.heureDebut}</span>
+            <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:var(--brd2);font-size:12px;cursor:pointer">✕</button>
           </div>`;
-        }).join(''):'<div style="font-size:11px;color:var(--mut);text-align:center">Rien de planifié sur ce créneau</div>'}
+        }).join(''):'<div style="font-size:11px;color:var(--mut);text-align:center">Rien de planifié — clique sur la frise pour ajouter</div>'}
       </div>`:''}
     </div>`;
   });
 
-  el.innerHTML=html;
+  el.innerHTML=`
+    <div style="display:flex;position:relative;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:10px">
+      <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;z-index:1">
+        ${heuresAffichees.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:00</div>`).join('')}
+      </div>
+      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer">
+        ${blocsHtml}
+      </div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--mut)">💡 Clique sur une case horaire vide pour ajouter une tâche</div>
+  `;
+}
+
+function handleTimelineClick(event,heureMin){
+  const rect=event.currentTarget.getBoundingClientRect();
+  const y=event.clientY-rect.top;
+  const pxParMin=1.6;
+  let minutes=heureMin+Math.round(y/pxParMin/15)*15;
+  const h=Math.floor(minutes/60), m=minutes%60;
+  const heureStr=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  openAjoutTacheHeure(heureStr);
+}
+
+function openAjoutTacheHeure(heureStr){
+  const toutesActions=[];
+  DB.journal.zones.forEach(zone=>{
+    zone.actions.forEach(action=>{
+      toutesActions.push({id:action.id,label:`${zone.icon} ${zone.nom} — ${action.nom}`});
+    });
+  });
+
+  document.getElementById('mTitle').textContent='+ Ajouter une tâche à '+heureStr;
+  document.getElementById('mBody').innerHTML=`
+    <div class="fr"><label>Choisir une tâche existante</label>
+      <select id="ajout-action-existante">
+        <option value="">— Ou créer une nouvelle tâche ci-dessous —</option>
+        ${toutesActions.map(a=>`<option value="${a.id}">${a.label}</option>`).join('')}
+      </select>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>
+    <div class="fr"><label>Nouvelle tâche (à classer plus tard)</label>
+      <input type="text" id="ajout-nouvelle-nom" placeholder="ex: Appeler le médecin">
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Heure début</label><input type="time" id="ajout-heure-debut" value="${heureStr}"></div>
+      <div class="fr"><label>Durée (min)</label><input type="number" id="ajout-duree" value="15"></div>
+    </div>
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerAjoutTacheHeure()">✓ Ajouter</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerAjoutTacheHeure(){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const actionId=document.getElementById('ajout-action-existante')?.value;
+  const nouveauNom=document.getElementById('ajout-nouvelle-nom')?.value?.trim();
+  const heureDebut=document.getElementById('ajout-heure-debut')?.value;
+  const duree=parseInt(document.getElementById('ajout-duree')?.value)||15;
+
+  if(!actionId&&!nouveauNom){toast('⚠ Choisis une tâche ou tape un nom');return;}
+
+  const[h,m]=heureDebut.split(':').map(Number);
+  const finMin=h*60+m+duree;
+  const heureFin=`${String(Math.floor(finMin/60)).padStart(2,'0')}:${String(finMin%60).padStart(2,'0')}`;
+
+  const item={id:genId(),heureDebut,heureFin,duree};
+  if(actionId) item.actionId=actionId;
+  else { item.customNom=nouveauNom; item.aClasser=true; }
+
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+  DB.journal.planning[today].push(item);
+  await saveAll();
+  closeMo('mainModal');
+  renderPlanningTimeline();
+  toast('✓ Tâche ajoutée');
 }
 
 async function togglePlanningFait(planningId){
