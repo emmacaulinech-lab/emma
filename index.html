@@ -1114,6 +1114,7 @@ const db = firebase.firestore();
 
 let currentUser = null;
 let userRef = null;
+let chargementReussi = false;
 
    // Connexion secondaire — lecture des factures LIMAGECILS pour les notifs
 const facturationApp = firebase.initializeApp({
@@ -1290,13 +1291,21 @@ async function loadAll() {
      await loadFactures();
     // Recharger l'agenda si données du jour disponibles
     if(agendaData) renderAgenda();
+    chargementReussi = true;
   } catch(e) {
     console.error('Load error:', e);
-    toast('Erreur de chargement: ' + e.message);
+    toast('⚠️ Erreur de chargement, sauvegarde bloquée par sécurité: ' + e.message);
+    chargementReussi = false;
   }
 }
 
-async function saveAll() {
+   async function saveAll(){
+  if(!chargementReussi){
+    console.error('🚫 Sauvegarde bloquée : le chargement initial n\'est pas terminé ou a échoué.');
+    toast('⚠️ Sauvegarde bloquée par sécurité — recharge la page');
+    return;
+  }
+  // ... reste du code existant de saveAll() inchangé
   if(!userRef) return;
   try {
     await userRef.collection('data').doc('main').set({
