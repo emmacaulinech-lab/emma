@@ -8949,8 +8949,11 @@ function proposerBlocsPourDispo(dispo){
 }
 
 function getStIdsDejaPlanifies(){
-  const today=getJournalJour();
-  return new Set((DB.journal.planning[today]||[]).map(p=>p.stId).filter(Boolean));
+  const ids=new Set();
+  Object.values(DB.journal.planning||{}).forEach(entries=>{
+    entries.forEach(p=>{ if(p.stId) ids.add(p.stId); });
+  });
+  return ids;
 }
 
 function ouvrirConfigPlanning(){
@@ -8983,7 +8986,8 @@ function renderConfigBlocStep(){
   const sousTachesDisponibles=[];
   zoneActuelle.actions.forEach(action=>{
     getSousTachesDues(action).forEach(st=>{
-      if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaPlanifies.has(st.id)){
+      const exclue=st.freq>1&&dejaPlanifies.has(st.id);
+      if(!bloc._choix.some(c=>c.stId===st.id)&&!exclue){
         const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
         sousTachesDisponibles.push({actionId:action.id,actionNom:action.nom,st,severite});
       }
