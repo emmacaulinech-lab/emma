@@ -979,9 +979,11 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
       <button id="jtab0" onclick="goJTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">📅 Aujourd'hui</button>
       <button id="jtab1" onclick="goJTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📋 Mes tâches</button>
+      <button id="jtab2" onclick="goJTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🕐 Historique</button>
     </div>
     <div id="jview-aujourdhui"></div>
     <div id="jview-taches" style="display:none"></div>
+    <div id="jview-historique" style="display:none"></div>
   </div>
 </div>
    
@@ -9303,7 +9305,7 @@ function ensureJournalData(){
 let jTabActive=0;
 function goJTab(i){
   jTabActive=i;
-  ['aujourdhui','taches'].forEach((n,j)=>{
+  ['aujourdhui','taches','historique'].forEach((n,j)=>{
     document.getElementById('jview-'+n).style.display=j===i?'block':'none';
     const btn=document.getElementById('jtab'+j);
     if(btn){
@@ -9314,6 +9316,7 @@ function goJTab(i){
   });
   if(i===0) renderJAujourdhui();
   if(i===1) renderJTaches();
+  if(i===2) renderJHistorique();
 }
 
 function renderJournalModule(){
@@ -9474,7 +9477,7 @@ function renderJAujourdhui(){
     </div>
 
     <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
-      <div style="font-size:12px;color:var(--mut);margin-bottom:10px">${nbActionsDues} action(s) à faire aujourd'hui détectées</div>
+      <div id="estimation-temps" style="margin-bottom:10px"></div>
       <button class="btn bd" onclick="genererPlanningIA()" style="width:100%" ${!dispos.length?'disabled':''}>✨ Générer mon planning</button>
       ${!dispos.length?'<div style="font-size:11px;color:var(--mut);margin-top:6px;text-align:center">Ajoute au moins un créneau ci-dessus</div>':''}
     </div>
@@ -9483,6 +9486,7 @@ function renderJAujourdhui(){
   `;
   document.getElementById('jview-aujourdhui').innerHTML=html;
   renderPlanningTimeline();
+  renderEstimationTemps();
 }
 
 async function ajouterDispo(type){
@@ -9503,13 +9507,7 @@ async function delDispo(idx){
   renderJAujourdhui();
 }
 
-async function genererPlanningIA(){
-  const apiKey=localStorage.getItem('anthropic_key');
-  if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
-  const today=new Date().toISOString().split('T')[0];
-  const dispos=DB.journal.disponibilites[today]||[];
-  if(!dispos.length){toast('⚠ Ajoute au moins un créneau');return;}
-
+function calculerActionsDues(){
   const actionsDues=[];
   DB.journal.zones.forEach((zone,zi)=>{
     zone.actions.forEach(action=>{
@@ -9523,7 +9521,44 @@ async function genererPlanningIA(){
       }
     });
   });
+  return actionsDues;
+}
 
+function renderEstimationTemps(){
+  const el=document.getElementById('estimation-temps');
+  if(!el) return;
+  const actionsDues=calculerActionsDues();
+  const totalMin=actionsDues.reduce((s,a)=>s+a.duree,0);
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+  const dureeTxt=h>0?`${h}h${m>0?String(m).padStart(2,'0'):''}`:`${m}min`;
+
+  const today=new Date().toISOString().split('T')[0];
+  const dispos=DB.journal.disponibilites[today]||[];
+  const capaciteDispo=dispos.reduce((s,d)=>{
+    const[h1,m1]=d.debut.split(':').map(Number), [h2,m2]=d.fin.split(':').map(Number);
+    return s+((h2*60+m2)-(h1*60+m1));
+  },0);
+
+  if(!actionsDues.length){
+    el.innerHTML=`<div style="font-size:12px;color:var(--rec)">✅ Tout est à jour, rien de prévu aujourd'hui !</div>`;
+    return;
+  }
+
+  const depasse=capaciteDispo>0&&totalMin>capaciteDispo;
+  el.innerHTML=`
+    <div style="font-size:13px;font-weight:700;color:var(--acc)">📊 ${actionsDues.length} action(s) à faire — environ <span style="color:var(--dep)">${dureeTxt}</span></div>
+    ${depasse?`<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠️ Ça dépasse tes créneaux dispo (${Math.floor(capaciteDispo/60)}h${String(capaciteDispo%60).padStart(2,'0')}) — l'IA priorisera et laissera le reste pour plus tard, sans stress</div>`:''}
+  `;
+}
+
+async function genererPlanningIA(){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
+  const today=new Date().toISOString().split('T')[0];
+  const dispos=DB.journal.disponibilites[today]||[];
+  if(!dispos.length){toast('⚠ Ajoute au moins un créneau');return;}
+
+  const actionsDues=calculerActionsDues();
   if(!actionsDues.length){toast('✅ Rien à planifier, tout est à jour !');return;}
 
   toast('⏳ Génération du planning...');
@@ -9544,7 +9579,8 @@ Règles :
 - Une action de type "pro" doit être placée UNIQUEMENT dans un créneau de type "pro". Une action de type "perso" UNIQUEMENT dans un créneau "perso".
 - Respecte l'ordre de priorité (les priorités basses en premier) tant qu'il reste de la place dans les créneaux.
 - Ne dépasse jamais les horaires des créneaux fournis.
-- Si tout ne rentre pas, laisse de côté les actions les moins prioritaires (ne les inclus pas dans le résultat).
+- Si le temps total dépasse la capacité disponible, ne cherche PAS à tout caser : garde uniquement les actions les plus prioritaires qui rentrent confortablement, et laisse le reste de côté (elles reviendront naturellement selon leur fréquence les prochains jours, pas de souci).
+- Répartis les actions de façon équilibrée sur la journée plutôt que de tout concentrer d'un bloc en début de créneau — laisse de petites pauses respirables entre les blocs quand c'est possible, pour ne pas surcharger le début de journée.
 - Les horaires doivent s'enchaîner sans chevauchement à l'intérieur d'un même créneau.
 
 Réponds UNIQUEMENT en JSON valide sans backticks :
@@ -9652,6 +9688,60 @@ function renderPlanningTimeline(){
   el.innerHTML=gridHtml+listHtml;
 }
 
+let historiqueJourAffiche=null;
+
+function renderJHistorique(){
+  ensureJournalData();
+  if(!DB.journal.historique) DB.journal.historique={};
+  const jours=Object.keys(DB.journal.historique).filter(j=>DB.journal.historique[j].length).sort().reverse();
+  if(!historiqueJourAffiche||!jours.includes(historiqueJourAffiche)) historiqueJourAffiche=jours[0];
+
+  if(!jours.length){
+    document.getElementById('jview-historique').innerHTML=`<div class="empty">Aucune tâche faite pour l'instant</div>`;
+    return;
+  }
+
+  const entrees=[...DB.journal.historique[historiqueJourAffiche]].sort((a,b)=>a.heure.localeCompare(b.heure));
+  const totalMin=entrees.reduce((s,e)=>s+e.duree,0);
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+
+  let html=`
+    <div class="flt">
+      <select class="fi" onchange="historiqueJourAffiche=this.value;renderJHistorique()">
+        ${jours.map(j=>`<option value="${j}" ${j===historiqueJourAffiche?'selected':''}>${dlbl(j)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">${entrees.length} tâche(s) faite(s) — ${h>0?h+'h':''}${m>0?String(m).padStart(2,'0')+'min':''}</div>
+  `;
+
+  const toMin=t=>{ const[hh,mm]=t.split(':').map(Number); return hh*60+mm; };
+  let heureMin=Math.floor(toMin(entrees[0].heure)/60)*60;
+  let heureMax=Math.ceil((toMin(entrees[entrees.length-1].heure)+30)/60)*60;
+  const pxParMin=1.4;
+  const hauteurTotale=(heureMax-heureMin)*pxParMin;
+  const heuresAffichees=[];
+  for(let hh=heureMin;hh<=heureMax;hh+=60) heuresAffichees.push(hh);
+
+  html+=`<div style="display:flex;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)">
+    <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px">
+      ${heuresAffichees.map(hh=>`<div style="position:absolute;top:${(hh-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(hh/60)).padStart(2,'0')}:00</div>`).join('')}
+    </div>
+    <div style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
+      ${entrees.map(e=>{
+        const debutMin=toMin(e.heure);
+        const top=(debutMin-heureMin)*pxParMin;
+        const hgt=Math.max(20,e.duree*pxParMin);
+        return`<div style="position:absolute;top:${top}px;left:4px;right:4px;height:${hgt}px;background:${e.couleur}18;border:2px solid ${e.couleur};border-radius:8px;padding:4px 8px;overflow:hidden">
+          <div style="font-size:11px;font-weight:700;color:${e.couleur};line-height:1.2">${e.zoneIcon} ${e.nom}</div>
+          <div style="font-size:9px;color:${e.couleur};opacity:.8">${e.heure} · ${e.duree}min</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  document.getElementById('jview-historique').innerHTML=html;
+}
+
 async function modifierHeurePlanning(id,champ,val){
   const today=new Date().toISOString().split('T')[0];
   const item=DB.journal.planning[today].find(p=>p.id===id);
@@ -9704,7 +9794,16 @@ async function marquerSousTacheFaite(zoneId,actionId,stId,checkbox){
   const zone=DB.journal.zones.find(z=>z.id===zoneId);
   const action=zone.actions.find(a=>a.id===actionId);
   const st=action.sousTaches.find(x=>x.id===stId);
-  st.dernierFait=new Date().toISOString().split('T')[0];
+  const today=new Date().toISOString().split('T')[0];
+  const heure=new Date().toTimeString().slice(0,5);
+  st.dernierFait=today;
+
+  if(!DB.journal.historique) DB.journal.historique={};
+  if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
+  DB.journal.historique[today].push({
+    nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'var(--acc)',
+    heure,duree:st.duree
+  });
   await saveAll();
   toast('✓ '+st.nom+' fait !');
 }
