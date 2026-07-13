@@ -9497,6 +9497,10 @@ function renderJAujourdhui(){
       ${!dispos.length?'<div style="font-size:11px;color:var(--mut);margin-top:6px;text-align:center">Ajoute au moins un créneau ci-dessus</div>':''}
     </div>
 
+    <div style="text-align:center;margin-bottom:10px">
+      <button class="btn bg bsm" onclick="openAjoutTacheHeure('${new Date().toTimeString().slice(0,5)}')">+ Ajouter une tâche</button>
+    </div>
+
     <div id="planning-timeline"></div>
   `;
   document.getElementById('jview-aujourdhui').innerHTML=html;
@@ -9647,100 +9651,87 @@ function assignerColonnesPlanning(items){
   return sorted;
 }
 
-let zIndexPlanningCompteur=10;
 
 function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
   const today=new Date().toISOString().split('T')[0];
-  const planningBrut=[...(DB.journal.planning[today]||[])];
-  const dispos=[...(DB.journal.disponibilites[today]||[])].sort((a,b)=>a.debut.localeCompare(b.debut));
+  const planning=[...(DB.journal.planning[today]||[])].sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
 
-  if(!dispos.length){ el.innerHTML=''; return; }
+  if(!planning.length){ el.innerHTML=''; return; }
 
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
 
-  const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
-  let heureMin=Math.min(...dispos.map(d=>toMin(d.debut)));
-  let heureMax=Math.max(...dispos.map(d=>toMin(d.fin)));
-  heureMin=Math.floor(heureMin/60)*60;
-  heureMax=Math.ceil(heureMax/60)*60;
-  const pxParMin=1.6;
-  const hauteurTotale=(heureMax-heureMin)*pxParMin;
-  const heuresAffichees=[];
-  for(let h=heureMin;h<=heureMax;h+=60) heuresAffichees.push(h);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px">
+    ${planning.map(p=>renderBlocTache(p,faitMap,today)).join('')}
+  </div>`;
+}
 
-  const planning=assignerColonnesPlanning(planningBrut);
-  const maxColsGlobal=planning.length?Math.max(...planning.map(p=>p._maxCols)):1;
-  const largeurColonne=210;
-  const largeurZoneTaches=Math.max(320,maxColsGlobal*largeurColonne);
+function couleurPastel(hex){
+  if(!hex||!hex.startsWith('#')) return 'rgba(153,53,86,.12)';
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},0.14)`;
+}
 
-  const fondsDispo=dispos.map(d=>{
-    const top=(toMin(d.debut)-heureMin)*pxParMin;
-    const hgt=(toMin(d.fin)-toMin(d.debut))*pxParMin;
-    const bg=d.type==='pro'?'rgba(37,99,235,.05)':'rgba(245,158,11,.05)';
-    return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg};border-top:1px dashed ${d.type==='pro'?'#2563eb':'#f59e0b'}30;border-bottom:1px dashed ${d.type==='pro'?'#2563eb':'#f59e0b'}30"></div>`;
-  }).join('');
+function renderBlocTache(p,faitMap,jour){
+  const found=trouverAction(p.actionId);
+  const couleur=found?.zone?.couleur||'#993556';
+  const bg=couleurPastel(found?.zone?.couleur);
+  const expanded=window['_blocOpen_'+p.id];
+  const nom=found?found.action.nom:(p.customNom||'Tâche');
+  const zoneNom=found?found.zone.nom:'—';
+  const zoneIcon=found?found.zone.icon:'📌';
+  const dues=found?getSousTachesDues(found.action):[];
+  const duesIds=dues.map(st=>st.id);
+  const faitBloc=!!faitMap[p.id];
 
-  const blocsHtml=planning.map(p=>{
-    const found=trouverAction(p.actionId);
-    const couleur=found?.zone?.couleur||'#993556';
-    const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
-    const hgt=Math.max(54,(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin);
-    const expanded=window['_blocOpen_'+p.id];
-    const z=expanded?(window['_blocZ_'+p.id]||zIndexPlanningCompteur):2;
-    const nom=found?found.action.nom:(p.customNom||'Tâche');
-    const zoneNom=found?found.zone.nom:'—';
-    const zoneIcon=found?found.zone.icon:'📌';
-    const dues=found?getSousTachesDues(found.action):[];
-    const duesIds=dues.map(st=>st.id);
-    const faitBloc=!!faitMap[p.id];
-    const left=p._col*largeurColonne+4;
-    const largeur=largeurColonne-8;
-
-    return`<div id="bloc-${p.id}" onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="position:absolute;top:${top}px;left:${left}px;width:${expanded?Math.max(largeur,260):largeur}px;min-height:${hgt}px;background:white;border:2px solid ${couleur};border-radius:12px;cursor:pointer;z-index:${z};box-shadow:${expanded?'0 10px 28px rgba(0,0,0,.18)':'0 2px 6px rgba(0,0,0,.08)'};overflow:hidden">
-      <div style="background:${couleur};padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px">
-        <div style="display:flex;align-items:center;gap:7px;flex:1;min-width:0">
-          <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:19px;height:19px;border-radius:50%;border:2px solid white;background:${faitBloc?'white':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?`<span style="color:${couleur};font-size:11px;font-weight:900">✓</span>`:''}</span>
-          <div style="min-width:0">
-            <div style="font-weight:700;font-size:11px;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${zoneIcon} ${nom}</div>
-            <div style="font-size:9px;color:white;opacity:.85">${p.heureDebut}–${p.heureFin}</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:white;opacity:.8;font-size:11px;cursor:pointer">✕</button>
-          <span style="color:white;font-size:10px">${expanded?'▲':'▼'}</span>
-        </div>
+  return`<div style="background:${bg};border:2px solid ${couleur};border-radius:14px;overflow:hidden">
+    <div onclick="ouvrirBlocPlanning('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer">
+      <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${couleur};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:12px;font-weight:900">✓</span>':''}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:${couleur}">${zoneIcon} ${nom}</div>
+        <div style="font-size:11px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin} · ${zoneNom}</div>
       </div>
-      ${expanded?`<div style="padding:8px;display:flex;flex-direction:column;gap:5px" onclick="event.stopPropagation()">
-        ${found?(found.action.sousTaches||[]).map(st=>{
-          const due=duesIds.includes(st.id);
-          return`<div style="display:flex;align-items:center;gap:7px;background:var(--bg2);border-radius:8px;padding:6px 8px">
-            <span onclick="toggleSousTacheRonde('${found.zone.id}','${found.action.id}','${st.id}',this)" data-fait="${st.dernierFait===new Date().toISOString().split('T')[0]?'1':'0'}" style="width:16px;height:16px;border-radius:50%;border:2px solid ${couleur};background:${st.dernierFait===new Date().toISOString().split('T')[0]?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${st.dernierFait===new Date().toISOString().split('T')[0]?'<span style="color:white;font-size:9px">✓</span>':''}</span>
-            <span style="font-size:11px;flex:1">${st.nom} ${due?`<span style="color:${couleur};font-size:8px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
-            <span style="font-size:9px;color:var(--mut)">${st.duree}min</span>
-          </div>`;
-        }).join(''):'<div style="font-size:11px;color:var(--mut);background:var(--bg2);border-radius:8px;padding:8px;text-align:center">Tâche libre — pas de sous-tâches</div>'}
-      </div>`:''}
-    </div>`;
-  }).join('');
-
-  el.innerHTML=`
-    <div style="overflow-x:auto;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);margin-bottom:10px">
-      <div style="display:flex;position:relative;min-width:${64+largeurZoneTaches}px">
-        <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;z-index:1;background:white;position:sticky;left:0">
-          ${heuresAffichees.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:00</div>`).join('')}
-        </div>
-        <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;min-width:${largeurZoneTaches}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer">
-          ${fondsDispo}
-          ${blocsHtml}
-        </div>
-      </div>
+      <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:${couleur};opacity:.7;font-size:13px;cursor:pointer">✕</button>
+      <span style="color:${couleur};font-size:12px">${expanded?'▲':'▼'}</span>
     </div>
-    <div style="text-align:center;font-size:11px;color:var(--mut)">💡 Clique sur une case horaire vide pour ajouter une tâche</div>
-  `;
+    ${expanded?`<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:6px">
+      ${found?(found.action.sousTaches||[]).map(st=>{
+        const due=duesIds.includes(st.id);
+        const faitAujourdhui=st.dernierFait===new Date().toISOString().split('T')[0];
+        return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:9px;padding:7px 10px">
+          <span onclick="toggleSousTacheRonde('${found.zone.id}','${found.action.id}','${st.id}',this)" style="width:17px;height:17px;border-radius:50%;border:2px solid ${couleur};background:${faitAujourdhui?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitAujourdhui?'<span style="color:white;font-size:10px">✓</span>':''}</span>
+          <span style="font-size:12px;flex:1">${st.nom} ${due?`<span style="color:${couleur};font-size:9px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
+          <span style="font-size:10px;color:var(--mut)">${st.duree}min</span>
+        </div>`;
+      }).join(''):'<div style="font-size:11px;color:var(--mut);background:white;border-radius:9px;padding:8px;text-align:center">Tâche libre — pas de sous-tâches</div>'}
+    </div>`:''}
+  </div>`;
+}
+
+function ouvrirBlocPlanning(planningId){
+  window['_blocOpen_'+planningId]=!window['_blocOpen_'+planningId];
+  renderPlanningTimeline();
+}
+
+async function toggleSousTacheRonde(zoneId,actionId,stId){
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone.actions.find(a=>a.id===actionId);
+  const st=action.sousTaches.find(x=>x.id===stId);
+  const today=new Date().toISOString().split('T')[0];
+  if(st.dernierFait===today){
+    st.dernierFait=null;
+  } else {
+    st.dernierFait=today;
+    const heure=new Date().toTimeString().slice(0,5);
+    if(!DB.journal.historique) DB.journal.historique={};
+    if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
+    DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',heure,duree:st.duree});
+  }
+  await saveAll();
+  renderPlanningTimeline();
 }
 
 function ouvrirBlocPlanning(planningId){
@@ -9881,67 +9872,82 @@ async function togglePlanningFait(planningId){
   renderPlanningTimeline();
 }
 
+let historiqueVue='jour'; // 'jour' ou 'semaine'
 let historiqueJourAffiche=null;
+let historiqueSemaineOffset=0;
 
 function renderJHistorique(){
   ensureJournalData();
   if(!DB.journal.historique) DB.journal.historique={};
-  const jours=Object.keys(DB.journal.historique).filter(j=>DB.journal.historique[j].length).sort().reverse();
-  if(!historiqueJourAffiche||!jours.includes(historiqueJourAffiche)) historiqueJourAffiche=jours[0];
 
-  if(!jours.length){
-    document.getElementById('jview-historique').innerHTML=`<div class="empty">Aucune tâche faite pour l'instant</div>`;
-    return;
-  }
+  let html=`<div style="display:flex;gap:6px;margin-bottom:14px;background:var(--bg2);border-radius:12px;padding:4px">
+    <button onclick="historiqueVue='jour';renderJHistorique()" style="flex:1;padding:7px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${historiqueVue==='jour'?'white':'transparent'};color:${historiqueVue==='jour'?'var(--acc)':'var(--mut)'}">📅 Par jour</button>
+    <button onclick="historiqueVue='semaine';renderJHistorique()" style="flex:1;padding:7px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${historiqueVue==='semaine'?'white':'transparent'};color:${historiqueVue==='semaine'?'var(--acc)':'var(--mut)'}">📆 Par semaine</button>
+  </div>`;
 
-  const entreesBrutes=DB.journal.historique[historiqueJourAffiche];
-  const totalMin=entreesBrutes.reduce((s,e)=>s+e.duree,0);
-  const h=Math.floor(totalMin/60), m=totalMin%60;
+  if(historiqueVue==='jour'){
+    const jours=Object.keys(DB.journal.historique).filter(j=>DB.journal.historique[j].length).sort().reverse();
+    if(!jours.length){ document.getElementById('jview-historique').innerHTML=html+`<div class="empty">Aucune tâche faite pour l'instant</div>`; return; }
+    if(!historiqueJourAffiche||!jours.includes(historiqueJourAffiche)) historiqueJourAffiche=jours[0];
+    const entrees=[...DB.journal.historique[historiqueJourAffiche]].sort((a,b)=>a.heure.localeCompare(b.heure));
+    const totalMin=entrees.reduce((s,e)=>s+e.duree,0);
+    const h=Math.floor(totalMin/60), m=totalMin%60;
 
-  const toMin=t=>{ const[hh,mm]=t.split(':').map(Number); return hh*60+mm; };
-  const entrees=entreesBrutes.map(e=>({...e,heureFin:(()=>{const fin=toMin(e.heure)+e.duree;return `${String(Math.floor(fin/60)).padStart(2,'0')}:${String(fin%60).padStart(2,'0')}`;})()}));
-  const entreesColonnes=assignerColonnesPlanning(entrees.map(e=>({...e,heureDebut:e.heure})));
-
-  let heureMin=Math.floor(toMin(entrees[0].heure)/60)*60;
-  let heureMax=Math.ceil((Math.max(...entrees.map(e=>toMin(e.heureFin))))/60)*60;
-  const pxParMin=1.6;
-  const hauteurTotale=(heureMax-heureMin)*pxParMin;
-  const heuresAffichees=[];
-  for(let hh=heureMin;hh<=heureMax;hh+=60) heuresAffichees.push(hh);
-
-  const maxColsGlobal=entreesColonnes.length?Math.max(...entreesColonnes.map(e=>e._maxCols)):1;
-  const largeurColonne=210;
-  const largeurZone=Math.max(320,maxColsGlobal*largeurColonne);
-
-  let html=`
-    <div class="flt">
+    html+=`<div class="flt">
       <select class="fi" onchange="historiqueJourAffiche=this.value;renderJHistorique()">
         ${jours.map(j=>`<option value="${j}" ${j===historiqueJourAffiche?'selected':''}>${dlbl(j)}</option>`).join('')}
       </select>
     </div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">${entrees.length} tâche(s) faite(s) — ${h>0?h+'h':''}${m>0?String(m).padStart(2,'0')+'min':''}</div>
-    <div style="overflow-x:auto;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd)">
-      <div style="display:flex;position:relative;min-width:${64+largeurZone}px">
-        <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;position:sticky;left:0;z-index:1">
-          ${heuresAffichees.map(hh=>`<div style="position:absolute;top:${(hh-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(hh/60)).padStart(2,'0')}:00</div>`).join('')}
-        </div>
-        <div style="flex:1;position:relative;height:${hauteurTotale}px;min-width:${largeurZone}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
-          ${entreesColonnes.map(e=>{
-            const top=(toMin(e.heure)-heureMin)*pxParMin;
-            const hgt=Math.max(46,e.duree*pxParMin);
-            const left=e._col*largeurColonne+4;
-            return`<div style="position:absolute;top:${top}px;left:${left}px;width:${largeurColonne-8}px;min-height:${hgt}px;background:white;border:2px solid ${e.couleur};border-radius:10px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.08)">
-              <div style="background:${e.couleur};padding:5px 9px">
-                <div style="font-size:11px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.zoneIcon} ${e.nom}</div>
-                <div style="font-size:9px;color:white;opacity:.85">${e.heure} · ${e.duree}min</div>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${entrees.length} tâche(s) — ${h>0?h+'h':''}${m>0?String(m).padStart(2,'0')+'min':''}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${entrees.map(e=>renderBlocHistorique(e)).join('')}
+    </div>`;
+  } else {
+    const now=new Date();
+    now.setDate(now.getDate()+historiqueSemaineOffset*7);
+    const debut=new Date(now); debut.setDate(now.getDate()-((now.getDay()+6)%7));
+    const jours=[...Array(7)].map((_,i)=>{ const d=new Date(debut); d.setDate(debut.getDate()+i); return d.toISOString().split('T')[0]; });
+    const finSem=jours[6];
+
+    let totalSemaineMin=0;
+    const parJour=jours.map(j=>{
+      const entrees=(DB.journal.historique[j]||[]);
+      totalSemaineMin+=entrees.reduce((s,e)=>s+e.duree,0);
+      return{jour:j,entrees};
+    });
+    const hSem=Math.floor(totalSemaineMin/60), mSem=totalSemaineMin%60;
+
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <button onclick="historiqueSemaineOffset--;renderJHistorique()" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer">‹</button>
+      <div style="font-size:13px;font-weight:700;color:var(--acc)">${dlbl(debut.toISOString().split('T')[0])} → ${dlbl(finSem)}</div>
+      <button onclick="historiqueSemaineOffset++;renderJHistorique()" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer">›</button>
     </div>
-  `;
+    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Total semaine : ${hSem>0?hSem+'h':''}${mSem>0?String(mSem).padStart(2,'0')+'min':''}</div>`;
+
+    parJour.forEach(({jour,entrees})=>{
+      if(!entrees.length) return;
+      const totJourMin=entrees.reduce((s,e)=>s+e.duree,0);
+      html+=`<div style="font-size:12px;font-weight:700;color:var(--acc);margin:12px 0 8px">${dlbl(jour)} <span style="font-weight:400;color:var(--mut);font-size:11px">— ${Math.floor(totJourMin/60)}h${String(totJourMin%60).padStart(2,'0')}</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${[...entrees].sort((a,b)=>a.heure.localeCompare(b.heure)).map(e=>renderBlocHistorique(e)).join('')}
+      </div>`;
+    });
+
+    if(!parJour.some(p=>p.entrees.length)) html+='<div class="empty">Rien fait cette semaine</div>';
+  }
+
   document.getElementById('jview-historique').innerHTML=html;
+}
+
+function renderBlocHistorique(e){
+  const bg=couleurPastel(e.couleur);
+  return`<div style="background:${bg};border:2px solid ${e.couleur};border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+    <span style="width:20px;height:20px;border-radius:50%;background:${e.couleur};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:white;font-size:11px;font-weight:900">✓</span></span>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:12px;color:${e.couleur}">${e.zoneIcon} ${e.nom}</div>
+      <div style="font-size:10px;color:${e.couleur};opacity:.8">${e.heure} · ${e.duree}min · ${e.zoneNom}</div>
+    </div>
+  </div>`;
 }
 
 async function modifierHeurePlanning(id,champ,val){
