@@ -409,7 +409,7 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   </div>
 
   <div style="font-size:13px;color:var(--mut);margin-bottom:20px">Choisis un espace</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;width:100%">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;width:100%" id="hub-modules-grid">
     <div class="hub-card" onclick="goModule('compta')">
       <div class="hub-card-icon">💰</div><div class="hub-card-label">Compta</div>
     </div>
@@ -427,6 +427,9 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
     <div class="hub-card" onclick="goModule('lecture')">
       <div class="hub-card-icon">📚</div><div class="hub-card-label">Lecture</div>
+    </div>
+    <div class="hub-card" onclick="goModule('journal')">
+      <div class="hub-card-icon">📔</div><div class="hub-card-label">Journal<br>& Tâches</div>
     </div>
   </div>
 </div>
@@ -888,6 +891,13 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
   </div>
 </div>
+   <div class="mo" id="sousTachesModal">
+  <div class="mb" style="width:480px;max-width:96vw">
+    <h2 id="stModalTitle">—</h2>
+    <div id="stModalBody"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('sousTachesModal')">Fermer</button></div>
+  </div>
+</div>
    <div class="mo" id="humeurModal">
   <div class="mb" style="width:420px;max-width:94vw;text-align:center">
     <h2 style="text-align:center">🌸 Comment tu te sens ?</h2>
@@ -961,6 +971,17 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     <div id="lview-biblio"></div>
     <div id="lview-progression" style="display:none"></div>
     <div id="lview-recos" style="display:none"></div>
+  </div>
+</div>
+<div id="module-journal" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">📔 Journal & Tâches</div></div>
+  <div style="padding:24px;max-width:800px;margin:0 auto;width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
+      <button id="jtab0" onclick="goJTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">📅 Aujourd'hui</button>
+      <button id="jtab1" onclick="goJTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📋 Mes tâches</button>
+    </div>
+    <div id="jview-aujourdhui"></div>
+    <div id="jview-taches" style="display:none"></div>
   </div>
 </div>
    
@@ -1185,6 +1206,7 @@ async function loadAll() {
       if(d.sport) DB.sport=JSON.parse(d.sport);
       if(d.lecture) DB.lecture=JSON.parse(d.lecture);
       if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
+      if(d.journal) DB.journal=JSON.parse(d.journal);
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1222,6 +1244,7 @@ async function saveAll() {
       sport:       JSON.stringify(DB.sport||{seances:[],mensurations:[],objectifs:[]}),
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
       humeurs:     JSON.stringify(DB.humeurs||{}),
+      journal:     JSON.stringify(DB.journal||{}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -7005,6 +7028,7 @@ function goModule(name){
     if(name==='formations') renderFormationsModule();
     if(name==='sport') renderSportModule();
     if(name==='lecture') renderLectureModule();
+    if(name==='journal') renderJournalModule();
   }
 }
 
@@ -9067,6 +9091,582 @@ async function ajouterRecoALaBiblio(){
   });
   await saveAll();
   toast('✓ Ajouté à ta liste "à lire" !');
+}
+
+// ═══════════════════════════════════════
+// MODULE JOURNAL & TÂCHES
+// ═══════════════════════════════════════
+function seedJournalZones(){
+  return [
+    {id:genId(),nom:'Pro / Admin',icon:'💼',typeDefaut:'pro',actions:[
+      {id:genId(),nom:'Gestion quotidienne',sousTaches:[
+        {id:genId(),nom:'Gérer mails',freq:1,duree:20,dernierFait:null},
+        {id:genId(),nom:'Répondre messages',freq:1,duree:15,dernierFait:null},
+        {id:genId(),nom:'Mettre à jour compta',freq:1,duree:20,dernierFait:null},
+        {id:genId(),nom:'Vérifier avis Google/réseaux',freq:1,duree:10,dernierFait:null},
+        {id:genId(),nom:'Répondre commentaires Instagram',freq:1,duree:10,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Gestion hebdomadaire',sousTaches:[
+        {id:genId(),nom:'Planifier semaine',freq:7,duree:20,dernierFait:null},
+        {id:genId(),nom:'Vérifier paiements',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Relancer clientes',freq:7,duree:20,dernierFait:null},
+        {id:genId(),nom:'Suivi factures produits franchisées',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Vérifier stock produits boutique',freq:7,duree:10,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Gestion mensuelle',sousTaches:[
+        {id:genId(),nom:'Trier papiers admin',freq:14,duree:30,dernierFait:null},
+        {id:genId(),nom:'Vérifier objectifs CA',freq:14,duree:15,dernierFait:null},
+        {id:genId(),nom:'Bilan mensuel chiffres',freq:30,duree:45,dernierFait:null},
+        {id:genId(),nom:'Envoyer factures redevance franchisées',freq:30,duree:20,dernierFait:null},
+        {id:genId(),nom:'Bilan franchisées',freq:30,duree:30,dernierFait:null},
+        {id:genId(),nom:'Vérifier budget perso',freq:30,duree:15,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Annuel',sousTaches:[
+        {id:genId(),nom:'Vérifier assurances',freq:365,duree:20,dernierFait:null},
+        {id:genId(),nom:'Vérifier abonnements',freq:365,duree:10,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Chiens',icon:'🐶',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Gamelles',sousTaches:[
+        {id:genId(),nom:'Vérifier gamelles d\'eau',freq:1,duree:5,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Cuisine',icon:'🍳',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Quotidien',sousTaches:[
+        {id:genId(),nom:'Vérifier robot (chargé + vidé)',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Lancer robot aspirateur',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Faire vaisselle / lancer lave-vaisselle',freq:1,duree:15,dernierFait:null},
+        {id:genId(),nom:'Ranger plan de travail',freq:1,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer plaques',freq:1,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer évier',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Vider lave-vaisselle',freq:2,duree:5,dernierFait:null},
+        {id:genId(),nom:'Vider poubelle cuisine',freq:2,duree:5,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Nettoyage régulier',sousTaches:[
+        {id:genId(),nom:'Laver sol cuisine',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Nettoyer surfaces cuisine',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer poubelle cuisine',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer machine à café',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Ranger tiroirs cuisine',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Faire les courses',freq:7,duree:60,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Électroménager / stocks',sousTaches:[
+        {id:genId(),nom:'Vérifier stocks cuisine',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Jeter aliments périmés',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer airfryer',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer Cookeo',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer hotte extérieur',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Dégraisser filtre hotte',freq:30,duree:15,dernierFait:null},
+        {id:genId(),nom:'Nettoyer micro-ondes',freq:30,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer frigo',freq:30,duree:20,dernierFait:null},
+        {id:genId(),nom:'Nettoyer four',freq:30,duree:30,dernierFait:null},
+        {id:genId(),nom:'Nettoyer tiroirs en profondeur',freq:30,duree:20,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Entrée',icon:'👟',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Rangement quotidien',sousTaches:[
+        {id:genId(),nom:'Ranger chaussures',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Ranger manteaux/vestes',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Lancer robot entrée',freq:1,duree:5,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Nettoyage régulier',sousTaches:[
+        {id:genId(),nom:'Nettoyer miroir entrée',freq:7,duree:5,dernierFait:null},
+        {id:genId(),nom:'Ranger placard entrée',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer portes/poignées entrée',freq:30,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer interrupteurs entrée',freq:30,duree:5,dernierFait:null},
+        {id:genId(),nom:'Désencombrer entrée',freq:30,duree:15,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Salon',icon:'🛋️',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Rangement quotidien',sousTaches:[
+        {id:genId(),nom:'Ranger objets salon',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Ranger canapé',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Dépoiler canapé',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Lancer robot salon',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer table basse',freq:2,duree:5,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Nettoyage régulier',sousTaches:[
+        {id:genId(),nom:'Laver sol salon',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Nettoyer meubles salon',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer télécommandes',freq:14,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer plinthes salon',freq:14,duree:15,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Nettoyage profond',sousTaches:[
+        {id:genId(),nom:'Nettoyer TV',freq:30,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer canapé en profondeur',freq:30,duree:20,dernierFait:null},
+        {id:genId(),nom:'Nettoyer interrupteurs/poignées salon',freq:30,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer vitres salon',freq:30,duree:15,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Chambre',icon:'🛏️',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Rangement quotidien',sousTaches:[
+        {id:genId(),nom:'Ranger affaires perso',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Aérer chambre',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Ranger table de nuit',freq:1,duree:5,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Ménage régulier',sousTaches:[
+        {id:genId(),nom:'Aspirer chambre',freq:3,duree:10,dernierFait:null},
+        {id:genId(),nom:'Aspirer sous le lit',freq:3,duree:5,dernierFait:null},
+        {id:genId(),nom:'Ranger dressing',freq:3,duree:10,dernierFait:null},
+        {id:genId(),nom:'Laver sol chambre',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Changer draps + taies',freq:7,duree:15,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Ménage profond',sousTaches:[
+        {id:genId(),nom:'Nettoyer miroir chambre',freq:14,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer surfaces chambre',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Dépoussiérer tête de lit',freq:14,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer interrupteurs chambre',freq:30,duree:5,dernierFait:null},
+        {id:genId(),nom:'Retourner matelas',freq:30,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer placards intérieur',freq:30,duree:20,dernierFait:null},
+        {id:genId(),nom:'Trier vêtements dressing',freq:30,duree:30,dernierFait:null},
+        {id:genId(),nom:'Nettoyer vitres chambre',freq:30,duree:15,dernierFait:null},
+        {id:genId(),nom:'Trier livres/magazines',freq:30,duree:15,dernierFait:null},
+        {id:genId(),nom:'Laver couette/oreillers',freq:90,duree:10,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Salle de bain',icon:'🛁',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Quotidien/régulier',sousTaches:[
+        {id:genId(),nom:'Nettoyer lavabo',freq:2,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer miroir SDB',freq:2,duree:5,dernierFait:null},
+        {id:genId(),nom:'Vider poubelle SDB',freq:2,duree:5,dernierFait:null},
+        {id:genId(),nom:'Ranger vasque SDB',freq:2,duree:5,dernierFait:null},
+        {id:genId(),nom:'Changer serviettes',freq:7,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer douche',freq:7,duree:15,dernierFait:null},
+        {id:genId(),nom:'Nettoyer robinet',freq:7,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer WC',freq:7,duree:10,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Entretien profond',sousTaches:[
+        {id:genId(),nom:'Nettoyer brosse à cheveux',freq:14,duree:5,dernierFait:null},
+        {id:genId(),nom:'Vider filtre douche',freq:14,duree:5,dernierFait:null},
+        {id:genId(),nom:'Désinfecter pinceaux maquillage',freq:30,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer poubelle SDB',freq:30,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer joints douche',freq:30,duree:15,dernierFait:null},
+        {id:genId(),nom:'Trier le maquillage',freq:30,duree:15,dernierFait:null},
+        {id:genId(),nom:'Trier produits périmés',freq:90,duree:15,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Buanderie',icon:'🧺',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Cycle de lavage',sousTaches:[
+        {id:genId(),nom:'Lancer machine',freq:2,duree:5,dernierFait:null},
+        {id:genId(),nom:'Étendre linge',freq:2,duree:10,dernierFait:null},
+        {id:genId(),nom:'Plier linge',freq:2,duree:15,dernierFait:null},
+        {id:genId(),nom:'Ranger vêtements',freq:2,duree:10,dernierFait:null}
+      ]},
+      {id:genId(),nom:'Entretien machine',sousTaches:[
+        {id:genId(),nom:'Nettoyer tambour machine',freq:14,duree:10,dernierFait:null},
+        {id:genId(),nom:'Vérifier stock lessive',freq:14,duree:5,dernierFait:null},
+        {id:genId(),nom:'Détartrer machine',freq:90,duree:20,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Maison générale',icon:'🏠',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Ménage profond global',sousTaches:[
+        {id:genId(),nom:'Dépoussiérer plafonds/coins',freq:30,duree:20,dernierFait:null},
+        {id:genId(),nom:'Nettoyer robot aspirateur',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer station robot aspirateur',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer interrupteurs dressing',freq:30,duree:5,dernierFait:null},
+        {id:genId(),nom:'Trier placard SDB',freq:30,duree:15,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Toilettes',icon:'🚽',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Nettoyage régulier',sousTaches:[
+        {id:genId(),nom:'Nettoyer WC en profondeur',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Nettoyer miroir toilettes',freq:7,duree:5,dernierFait:null},
+        {id:genId(),nom:'Nettoyer carrelage/murs toilettes',freq:30,duree:15,dernierFait:null},
+        {id:genId(),nom:'Nettoyer interrupteurs toilettes',freq:30,duree:5,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Marketing',icon:'📱',typeDefaut:'pro',actions:[
+      {id:genId(),nom:'Contenu réseaux sociaux',sousTaches:[
+        {id:genId(),nom:'Story Instagram',freq:1,duree:10,dernierFait:null},
+        {id:genId(),nom:'Filmer contenu',freq:1,duree:20,dernierFait:null},
+        {id:genId(),nom:'Prendre photo Before/After',freq:1,duree:5,dernierFait:null},
+        {id:genId(),nom:'Poster TikTok',freq:7,duree:10,dernierFait:null},
+        {id:genId(),nom:'Préparer contenu semaine suivante',freq:7,duree:30,dernierFait:null}
+      ]}
+    ]},
+    {id:genId(),nom:'Voiture',icon:'🚗',typeDefaut:'perso',actions:[
+      {id:genId(),nom:'Entretien mensuel',sousTaches:[
+        {id:genId(),nom:'Nettoyer intérieur voiture',freq:30,duree:30,dernierFait:null},
+        {id:genId(),nom:'Vérifier niveaux voiture',freq:30,duree:10,dernierFait:null}
+      ]}
+    ]}
+  ];
+}
+
+function ensureJournalData(){
+  if(!DB.journal) DB.journal={zones:seedJournalZones(),disponibilites:{},planning:{}};
+  if(!DB.journal.zones||!DB.journal.zones.length) DB.journal.zones=seedJournalZones();
+  if(!DB.journal.disponibilites) DB.journal.disponibilites={};
+  if(!DB.journal.planning) DB.journal.planning={};
+}
+
+let jTabActive=0;
+function goJTab(i){
+  jTabActive=i;
+  ['aujourdhui','taches'].forEach((n,j)=>{
+    document.getElementById('jview-'+n).style.display=j===i?'block':'none';
+    const btn=document.getElementById('jtab'+j);
+    if(btn){
+      btn.style.background=j===i?'white':'transparent';
+      btn.style.color=j===i?'var(--acc)':'var(--mut)';
+      btn.style.boxShadow=j===i?'var(--shadow)':'none';
+    }
+  });
+  if(i===0) renderJAujourdhui();
+  if(i===1) renderJTaches();
+}
+
+function renderJournalModule(){
+  ensureJournalData();
+  goJTab(jTabActive);
+}
+
+function joursDepuis(dateStr){
+  if(!dateStr) return 99999;
+  return Math.floor((new Date()-new Date(dateStr+'T12:00:00'))/86400000);
+}
+
+function getSousTachesDues(action){
+  return (action.sousTaches||[]).filter(st=>joursDepuis(st.dernierFait)>=st.freq);
+}
+
+// ── Mes tâches ──
+function renderJTaches(){
+  ensureJournalData();
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="font-family:'Cormorant Garant',serif;font-size:18px;color:var(--acc)">📋 Zones (par ordre de priorité)</div>
+    <button class="btn bd" onclick="openAjoutZone()">+ Zone</button>
+  </div>`;
+
+  DB.journal.zones.forEach((zone,zi)=>{
+    html+=`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:14px 18px;margin-bottom:12px;box-shadow:var(--shadow)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700;font-size:14px">${zone.icon} ${zone.nom} <span style="font-size:11px;color:var(--mut);font-weight:400">#${zi+1}</span></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn bg bsm" onclick="deplacerZone(${zi},-1)">▲</button>
+          <button class="btn bg bsm" onclick="deplacerZone(${zi},1)">▼</button>
+          <button class="btn bd bsm" onclick="openAjoutAction('${zone.id}')">+ Action</button>
+          <button class="btn br bsm" onclick="delZone('${zone.id}')">✕</button>
+        </div>
+      </div>
+      ${(zone.actions||[]).map(action=>`
+        <div style="background:var(--bg2);border-radius:12px;padding:10px 14px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-weight:600;font-size:13px">${action.nom}</span>
+            <div style="display:flex;gap:4px">
+              <button class="btn bg bsm" onclick="openAjoutSousTache('${zone.id}','${action.id}')">+ Sous-tâche</button>
+              <button class="btn br bsm" onclick="delAction('${zone.id}','${action.id}')">✕</button>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            ${(action.sousTaches||[]).map(st=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--brd)">
+                <span>${st.nom}</span>
+                <div style="display:flex;gap:8px;align-items:center;color:var(--mut)">
+                  <span>tous les ${st.freq}j · ${st.duree}min</span>
+                  <button class="btn br bsm" onclick="delSousTache('${zone.id}','${action.id}','${st.id}')">✕</button>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  });
+  document.getElementById('jview-taches').innerHTML=html;
+}
+
+async function deplacerZone(idx,delta){
+  const newIdx=idx+delta;
+  if(newIdx<0||newIdx>=DB.journal.zones.length) return;
+  const tmp=DB.journal.zones[idx];
+  DB.journal.zones[idx]=DB.journal.zones[newIdx];
+  DB.journal.zones[newIdx]=tmp;
+  await saveAll();
+  renderJTaches();
+}
+
+function openAjoutZone(){
+  const nom=prompt('Nom de la nouvelle zone :');
+  if(!nom) return;
+  const icon=prompt('Emoji pour cette zone (optionnel) :','📌')||'📌';
+  DB.journal.zones.push({id:genId(),nom,icon,typeDefaut:'perso',actions:[]});
+  saveAll();
+  renderJTaches();
+  toast('✓ Zone ajoutée');
+}
+
+async function delZone(zoneId){
+  if(!confirm('Supprimer cette zone et toutes ses tâches ?')) return;
+  DB.journal.zones=DB.journal.zones.filter(z=>z.id!==zoneId);
+  await saveAll();
+  renderJTaches();
+}
+
+function openAjoutAction(zoneId){
+  const nom=prompt('Nom de la nouvelle action (grand groupe) :');
+  if(!nom) return;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  zone.actions.push({id:genId(),nom,sousTaches:[]});
+  saveAll();
+  renderJTaches();
+  toast('✓ Action ajoutée');
+}
+
+async function delAction(zoneId,actionId){
+  if(!confirm('Supprimer cette action et ses sous-tâches ?')) return;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  zone.actions=zone.actions.filter(a=>a.id!==actionId);
+  await saveAll();
+  renderJTaches();
+}
+
+function openAjoutSousTache(zoneId,actionId){
+  const nom=prompt('Nom de la sous-tâche :');
+  if(!nom) return;
+  const freq=parseInt(prompt('Tous les combien de jours ? (ex: 1, 7, 30)','7'))||7;
+  const duree=parseInt(prompt('Durée en minutes ? (ex: 5, 15, 30)','10'))||10;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone.actions.find(a=>a.id===actionId);
+  action.sousTaches.push({id:genId(),nom,freq,duree,dernierFait:null});
+  saveAll();
+  renderJTaches();
+  toast('✓ Sous-tâche ajoutée');
+}
+
+async function delSousTache(zoneId,actionId,stId){
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone.actions.find(a=>a.id===actionId);
+  action.sousTaches=action.sousTaches.filter(st=>st.id!==stId);
+  await saveAll();
+  renderJTaches();
+}
+
+// ── Aujourd'hui ──
+function renderJAujourdhui(){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  if(!DB.journal.disponibilites[today]) DB.journal.disponibilites[today]=[];
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+  const dispos=DB.journal.disponibilites[today];
+  const planning=DB.journal.planning[today];
+
+  // Compter les actions dues (aperçu)
+  let nbActionsDues=0;
+  DB.journal.zones.forEach(z=>z.actions.forEach(a=>{ if(getSousTachesDues(a).length) nbActionsDues++; }));
+
+  let html=`
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">⏰ Mes disponibilités aujourd'hui</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+        ${dispos.map((d,i)=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border-radius:10px;padding:8px 12px">
+            <span style="font-size:12px;font-weight:600">${d.debut} → ${d.fin} <span style="background:${d.type==='pro'?'var(--pla2)':'var(--rose2)'};color:${d.type==='pro'?'var(--pla)':'var(--acc)'};font-size:10px;padding:2px 8px;border-radius:20px;margin-left:6px">${d.type==='pro'?'💼 Pro':'🏠 Perso'}</span></span>
+            <button class="btn br bsm" onclick="delDispo(${i})">✕</button>
+          </div>`).join('')||'<div style="font-size:12px;color:var(--mut)">Aucun créneau ajouté</div>'}
+      </div>
+      <div class="g2">
+        <div class="fr"><label>Début</label><input type="time" id="dispo-debut" value="09:00"></div>
+        <div class="fr"><label>Fin</label><input type="time" id="dispo-fin" value="12:00"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bg" onclick="ajouterDispo('perso')" style="flex:1">🏠 Ajouter (perso)</button>
+        <button class="btn bg" onclick="ajouterDispo('pro')" style="flex:1">💼 Ajouter (pro)</button>
+      </div>
+    </div>
+
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="font-size:12px;color:var(--mut);margin-bottom:10px">${nbActionsDues} action(s) à faire aujourd'hui détectées</div>
+      <button class="btn bd" onclick="genererPlanningIA()" style="width:100%" ${!dispos.length?'disabled':''}>✨ Générer mon planning</button>
+      ${!dispos.length?'<div style="font-size:11px;color:var(--mut);margin-top:6px;text-align:center">Ajoute au moins un créneau ci-dessus</div>':''}
+    </div>
+
+    <div id="planning-timeline"></div>
+  `;
+  document.getElementById('jview-aujourdhui').innerHTML=html;
+  renderPlanningTimeline();
+}
+
+async function ajouterDispo(type){
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  const debut=document.getElementById('dispo-debut')?.value;
+  const fin=document.getElementById('dispo-fin')?.value;
+  if(!debut||!fin||debut>=fin){toast('⚠ Horaires invalides');return;}
+  DB.journal.disponibilites[today].push({debut,fin,type});
+  await saveAll();
+  renderJAujourdhui();
+}
+
+async function delDispo(idx){
+  const today=new Date().toISOString().split('T')[0];
+  DB.journal.disponibilites[today].splice(idx,1);
+  await saveAll();
+  renderJAujourdhui();
+}
+
+async function genererPlanningIA(){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey){toast('⚠ Configure ta clé API dans les paramètres');return;}
+  const today=new Date().toISOString().split('T')[0];
+  const dispos=DB.journal.disponibilites[today]||[];
+  if(!dispos.length){toast('⚠ Ajoute au moins un créneau');return;}
+
+  const actionsDues=[];
+  DB.journal.zones.forEach((zone,zi)=>{
+    zone.actions.forEach(action=>{
+      const dues=getSousTachesDues(action);
+      if(dues.length){
+        actionsDues.push({
+          id:action.id,nom:`${zone.icon} ${zone.nom} — ${action.nom}`,
+          type:zone.typeDefaut,priorite:zi,
+          duree:dues.reduce((s,st)=>s+st.duree,0)
+        });
+      }
+    });
+  });
+
+  if(!actionsDues.length){toast('✅ Rien à planifier, tout est à jour !');return;}
+
+  toast('⏳ Génération du planning...');
+
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:2000,
+        messages:[{role:'user',content:`Voici des créneaux de disponibilité aujourd'hui :
+${dispos.map(d=>`- ${d.debut} à ${d.fin} (type: ${d.type==='pro'?'professionnel':'personnel/maison'})`).join('\n')}
+
+Voici les actions à planifier (id, nom, type nécessaire, priorité — 0=plus prioritaire, durée en minutes) :
+${actionsDues.map(a=>`- id:${a.id} | "${a.nom}" | type:${a.type} | priorité:${a.priorite} | durée:${a.duree}min`).join('\n')}
+
+Règles :
+- Une action de type "pro" doit être placée UNIQUEMENT dans un créneau de type "pro". Une action de type "perso" UNIQUEMENT dans un créneau "perso".
+- Respecte l'ordre de priorité (les priorités basses en premier) tant qu'il reste de la place dans les créneaux.
+- Ne dépasse jamais les horaires des créneaux fournis.
+- Si tout ne rentre pas, laisse de côté les actions les moins prioritaires (ne les inclus pas dans le résultat).
+- Les horaires doivent s'enchaîner sans chevauchement à l'intérieur d'un même créneau.
+
+Réponds UNIQUEMENT en JSON valide sans backticks :
+[{"actionId":"...","heureDebut":"09:00","heureFin":"09:20"}]`}]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message||data.error);
+    const text=data.content.map(i=>i.text||'').join('');
+    const match=text.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('Réponse invalide');
+    const suggestions=JSON.parse(match[0]);
+
+    DB.journal.planning[today]=suggestions.map(s=>({id:genId(),actionId:s.actionId,heureDebut:s.heureDebut,heureFin:s.heureFin}));
+    await saveAll();
+    renderPlanningTimeline();
+    toast('✓ Planning généré !');
+  }catch(e){
+    toast('⚠ Erreur : '+e.message);
+  }
+}
+
+function trouverAction(actionId){
+  for(const zone of DB.journal.zones){
+    const action=zone.actions.find(a=>a.id===actionId);
+    if(action) return {zone,action};
+  }
+  return null;
+}
+
+function renderPlanningTimeline(){
+  const el=document.getElementById('planning-timeline');
+  if(!el) return;
+  const today=new Date().toISOString().split('T')[0];
+  const planning=[...(DB.journal.planning[today]||[])].sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
+
+  if(!planning.length){
+    el.innerHTML='';
+    return;
+  }
+
+  el.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">🗓️ Mon planning</div>
+    ${planning.map((p,i)=>{
+      const found=trouverAction(p.actionId);
+      const nom=found?`${found.zone.icon} ${found.action.nom}`:'Action supprimée';
+      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:12px 16px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer" onclick="ouvrirSousTachesAction('${p.actionId}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:13px">${nom}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+              <input type="time" value="${p.heureDebut}" onclick="event.stopPropagation()" onchange="modifierHeurePlanning('${p.id}','heureDebut',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
+              <span style="font-size:11px;color:var(--mut)">→</span>
+              <input type="time" value="${p.heureFin}" onclick="event.stopPropagation()" onchange="modifierHeurePlanning('${p.id}','heureFin',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
+            </div>
+          </div>
+          <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+            <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',-1)">▲</button>
+            <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',1)">▼</button>
+            <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+async function modifierHeurePlanning(id,champ,val){
+  const today=new Date().toISOString().split('T')[0];
+  const item=DB.journal.planning[today].find(p=>p.id===id);
+  if(item){ item[champ]=val; await saveAll(); renderPlanningTimeline(); }
+}
+
+async function deplacerPlanning(id,delta){
+  const today=new Date().toISOString().split('T')[0];
+  const list=DB.journal.planning[today];
+  const idx=list.findIndex(p=>p.id===id);
+  const newIdx=idx+delta;
+  if(newIdx<0||newIdx>=list.length) return;
+  [list[idx],list[newIdx]]=[list[newIdx],list[idx]];
+  await saveAll();
+  renderPlanningTimeline();
+}
+
+async function delPlanningItem(id){
+  const today=new Date().toISOString().split('T')[0];
+  DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==id);
+  await saveAll();
+  renderPlanningTimeline();
+}
+
+function ouvrirSousTachesAction(actionId){
+  const found=trouverAction(actionId);
+  if(!found) return;
+  const{zone,action}=found;
+  const duesIds=getSousTachesDues(action).map(st=>st.id);
+
+  document.getElementById('stModalTitle').textContent=`${zone.icon} ${action.nom}`;
+  document.getElementById('stModalBody').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(action.sousTaches||[]).map(st=>{
+        const due=duesIds.includes(st.id);
+        return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${due?'var(--rose2)':'var(--bg2)'};border-radius:10px">
+          <input type="checkbox" onchange="marquerSousTacheFaite('${zone.id}','${action.id}','${st.id}',this)" style="width:18px;height:18px;accent-color:var(--rec)">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${st.nom} ${due?'<span style="color:var(--acc);font-size:10px;font-weight:700">SUGGÉRÉ</span>':''}</div>
+            <div style="font-size:11px;color:var(--mut)">${st.duree}min · tous les ${st.freq}j</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  document.getElementById('sousTachesModal').classList.add('open');
+}
+
+async function marquerSousTacheFaite(zoneId,actionId,stId,checkbox){
+  if(!checkbox.checked) return;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone.actions.find(a=>a.id===actionId);
+  const st=action.sousTaches.find(x=>x.id===stId);
+  st.dernierFait=new Date().toISOString().split('T')[0];
+  await saveAll();
+  toast('✓ '+st.nom+' fait !');
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
