@@ -1331,6 +1331,19 @@ async function loadAll() {
   }
 }
 
+async function sauvegarderChampSeul(nomChamp, valeur){
+  if(!userRef) return;
+  try {
+    await userRef.collection('data').doc('main').update({
+      [nomChamp]: valeur,
+      updatedAt: new Date().toISOString()
+    });
+  } catch(e) {
+    console.error('Erreur sauvegarde ciblée ('+nomChamp+'):', e);
+    toast('⚠️ Erreur de sauvegarde: '+e.message);
+  }
+}
+
 function applyParamsToUI() {
   const fields = {pTauxSoc: PARAMS.tauxSoc*100, pRedev: PARAMS.redev*100, pTva: PARAMS.tva*100, pObj: PARAMS.objectif, pSolde: PARAMS.soldeInit, objI: PARAMS.objectif, pTelPro: PARAMS.telPro||''};
   for(const [id, val] of Object.entries(fields)) {
@@ -7038,7 +7051,7 @@ async function validerHumeur(){
   const heure=new Date().toTimeString().slice(0,5);
   if(!DB.humeurs[today]) DB.humeurs[today]=[];
   humeurChoixActuel.forEach(e=>DB.humeurs[today].push({emoji:e,heure}));
-  await saveAll();
+  await sauvegarderChampSeul('humeurs', JSON.stringify(DB.humeurs));
   closeMo('humeurModal');
   humeurChoixActuel=[];
   toast('✓ Humeur enregistrée');
@@ -7080,7 +7093,7 @@ async function handlePhotoJourCapturee(event){
     if(!DB.photosJour) DB.photosJour={};
     if(!DB.photosJour[today]) DB.photosJour[today]=[];
     DB.photosJour[today].push({heure,data:base64});
-    await saveAll();
+    await sauvegarderChampSeul('photosJour', JSON.stringify(DB.photosJour));
     toast('✓ Photo enregistrée !');
     renderHumeurJour();
   }catch(e){
@@ -7246,7 +7259,7 @@ async function validerTempsLibreLibre(){
     heureDebut,heureFin,duree:trou.fin-trou.debut
   });
 
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('tempsLibreModal');
   renderJAujourdhui();
   toast('✓ "'+nom+'" enregistré !');
@@ -7268,7 +7281,7 @@ async function passerTempsLibre(){
     heureDebut,heureFin,duree:trou.fin-trou.debut
   });
 
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('tempsLibreModal');
   renderJAujourdhui();
 }
@@ -7372,7 +7385,7 @@ async function cocherTacheRetard(zoneId,actionId,stId,checkbox){
   if(!DB.journal.historique) DB.journal.historique={};
   if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
   DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',heure,duree:st.duree});
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   toast('✓ '+st.nom+' fait !');
 }
 
@@ -9359,7 +9372,7 @@ async function finaliserConfigPlanning(){
     });
   });
 
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('configPlanningModal');
   window._configPlanning=null;
   renderJAujourdhui();
@@ -10335,7 +10348,7 @@ async function validerAjoutRdvRapide(){
     heureDebut:place.heureDebut,heureFin:place.heureFin,duree,
     iconOverride:'📌',couleurOverride:'#993556'
   });
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('mainModal');
   journalJourAffiche=date;
   renderJAujourdhui();
@@ -10415,14 +10428,14 @@ async function ajouterDispo(type){
   const fin=document.getElementById('dispo-fin')?.value;
   if(!debut||!fin||debut>=fin){toast('⚠ Horaires invalides');return;}
   DB.journal.disponibilites[today].push({debut,fin,type});
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderJAujourdhui();
 }
 
 async function delDispo(idx){
   const today=getJournalJour();
   DB.journal.disponibilites[today].splice(idx,1);
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderJAujourdhui();
 }
 
@@ -10432,7 +10445,7 @@ async function modifierDispo(idx,champ,val){
   if(!d) return;
   if(champ==='debut') d.debut=val; else d.fin=val;
   if(d.debut>=d.fin){toast('⚠ L\'heure de fin doit être après le début');return;}
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderJAujourdhui();
   toast('✓ Créneau modifié');
 }
@@ -10791,7 +10804,7 @@ async function toggleSousTacheRonde(zoneId,actionId,stId){
     if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
     DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',heure,duree:st.duree});
   }
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderPlanningTimeline();
 }
 
@@ -10959,7 +10972,7 @@ async function validerAjoutTacheHeure(){
 
   if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
   DB.journal.planning[today].push(item);
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('mainModal');
   renderPlanningTimeline();
   toast('✓ Tâche ajoutée');
@@ -10989,7 +11002,7 @@ async function togglePlanningFait(planningId){
       DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure,duree:st.duree});
     }
   }
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderPlanningTimeline();
 }
 
@@ -11045,7 +11058,7 @@ async function validerReport(planningId){
     }
     toast('✓ Reporté à '+nouvelleHeure);
   }
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('mainModal');
   renderJAujourdhui();
 }
@@ -11090,7 +11103,7 @@ async function validerRemplacement(planningId){
   const[h,m]=item.heureDebut.split(':').map(Number);
   item.heureFin=minToStr(h*60+m+nouveauSt.duree);
 
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   closeMo('mainModal');
   renderJAujourdhui();
   toast('✓ Remplacé');
@@ -11278,7 +11291,7 @@ async function deplacerPlanning(id,delta){
 async function delPlanningItem(id){
   const today=getJournalJour();
   DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==id);
-  await saveAll();
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderPlanningTimeline();
 }
 
