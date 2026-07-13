@@ -924,6 +924,16 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
   </div>
 </div>
+   <div class="mo" id="tachesRetardModal">
+  <div class="mb" style="width:480px;max-width:94vw">
+    <h2>📋 Tâches en retard</h2>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Coche celles que tu as déjà faites</div>
+    <div id="tachesRetardBody" style="max-height:400px;overflow-y:auto"></div>
+    <div class="ma">
+      <button class="btn bd" onclick="closeMo('tachesRetardModal')" style="width:100%">✓ Terminé</button>
+    </div>
+  </div>
+</div>
 <div id="module-facturation" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Facturation LIMAGECILS</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/limagecils-facturation/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
@@ -1155,7 +1165,8 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
     goHub();
-    setTimeout(ouvrirPopupHumeur,600);   
+    setTimeout(ouvrirPopupHumeur,600);
+    setTimeout(ouvrirPopupTachesRetard,650);   
   } else {
     currentUser = null;
     userRef = null;
@@ -6983,6 +6994,54 @@ function ouvrirPopupHumeur(){
   humeurChoixActuel=[];
   document.querySelectorAll('.humeur-btn').forEach(b=>{ b.style.borderColor='var(--brd2)'; b.style.background='white'; });
   document.getElementById('humeurModal').classList.add('open');
+}
+
+function getSousTachesEnRetard(){
+  ensureJournalData();
+  const liste=[];
+  DB.journal.zones.forEach(zone=>{
+    zone.actions.forEach(action=>{
+      (action.sousTaches||[]).forEach(st=>{
+        const jours=joursDepuis(st.dernierFait);
+        if(jours>=st.freq){
+          liste.push({zoneId:zone.id,actionId:action.id,stId:st.id,nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',joursRetard:jours-st.freq});
+        }
+      });
+    });
+  });
+  return liste.sort((a,b)=>b.joursRetard-a.joursRetard);
+}
+
+function ouvrirPopupTachesRetard(){
+  const enRetard=getSousTachesEnRetard();
+  if(!enRetard.length){
+    document.getElementById('tachesRetardBody').innerHTML=`<div class="empty">✅ Rien en retard, bravo !</div>`;
+  } else {
+    document.getElementById('tachesRetardBody').innerHTML=enRetard.map(t=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${couleurPastel(t.couleur)};border:1.5px solid ${t.couleur};border-radius:10px;margin-bottom:6px">
+        <input type="checkbox" onchange="cocherTacheRetard('${t.zoneId}','${t.actionId}','${t.stId}',this)" style="width:18px;height:18px;accent-color:${t.couleur}">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:${t.couleur}">${t.zoneIcon} ${t.nom}</div>
+          <div style="font-size:11px;color:var(--mut)">${t.zoneNom}${t.joursRetard>0?' · en retard de '+t.joursRetard+'j':''}</div>
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('tachesRetardModal').classList.add('open');
+}
+
+async function cocherTacheRetard(zoneId,actionId,stId,checkbox){
+  if(!checkbox.checked) return;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone.actions.find(a=>a.id===actionId);
+  const st=action.sousTaches.find(x=>x.id===stId);
+  const today=new Date().toISOString().split('T')[0];
+  const heure=new Date().toTimeString().slice(0,5);
+  st.dernierFait=today;
+  if(!DB.journal.historique) DB.journal.historique={};
+  if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
+  DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',heure,duree:st.duree});
+  await saveAll();
+  toast('✓ '+st.nom+' fait !');
 }
 
 function renderHumeurJour(){
