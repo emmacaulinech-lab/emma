@@ -9098,7 +9098,7 @@ async function ajouterRecoALaBiblio(){
 // ═══════════════════════════════════════
 function seedJournalZones(){
   return [
-    {id:genId(),nom:'Pro / Admin',icon:'💼',typeDefaut:'pro',actions:[
+    {id:genId(),nom:'Pro / Admin',icon:'💼',typeDefaut:'pro',couleur:'#4a78c8',actions:[
       {id:genId(),nom:'Gestion quotidienne',sousTaches:[
         {id:genId(),nom:'Gérer mails',freq:1,duree:20,dernierFait:null},
         {id:genId(),nom:'Répondre messages',freq:1,duree:15,dernierFait:null},
@@ -9126,12 +9126,12 @@ function seedJournalZones(){
         {id:genId(),nom:'Vérifier abonnements',freq:365,duree:10,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Chiens',icon:'🐶',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Chiens',icon:'🐶',typeDefaut:'perso',couleur:'#c89040',actions:[
       {id:genId(),nom:'Gamelles',sousTaches:[
         {id:genId(),nom:'Vérifier gamelles d\'eau',freq:1,duree:5,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Cuisine',icon:'🍳',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Cuisine',icon:'🍳',typeDefaut:'perso',couleur:'#4aaa78',actions:[
       {id:genId(),nom:'Quotidien',sousTaches:[
         {id:genId(),nom:'Vérifier robot (chargé + vidé)',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Lancer robot aspirateur',freq:1,duree:5,dernierFait:null},
@@ -9163,7 +9163,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Nettoyer tiroirs en profondeur',freq:30,duree:20,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Entrée',icon:'👟',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Entrée',icon:'👟',typeDefaut:'perso',couleur:'#8b6fff',actions:[
       {id:genId(),nom:'Rangement quotidien',sousTaches:[
         {id:genId(),nom:'Ranger chaussures',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Ranger manteaux/vestes',freq:1,duree:5,dernierFait:null},
@@ -9177,7 +9177,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Désencombrer entrée',freq:30,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Salon',icon:'🛋️',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Salon',icon:'🛋️',typeDefaut:'perso',couleur:'#e87a9a',actions:[
       {id:genId(),nom:'Rangement quotidien',sousTaches:[
         {id:genId(),nom:'Ranger objets salon',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Ranger canapé',freq:1,duree:5,dernierFait:null},
@@ -9198,7 +9198,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Nettoyer vitres salon',freq:30,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Chambre',icon:'🛏️',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Chambre',icon:'🛏️',typeDefaut:'perso',couleur:'#c45878',actions:[
       {id:genId(),nom:'Rangement quotidien',sousTaches:[
         {id:genId(),nom:'Ranger affaires perso',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Aérer chambre',freq:1,duree:5,dernierFait:null},
@@ -9224,7 +9224,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Laver couette/oreillers',freq:90,duree:10,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Salle de bain',icon:'🛁',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Salle de bain',icon:'🛁',typeDefaut:'perso',couleur:'#4a9ec8',actions:[
       {id:genId(),nom:'Quotidien/régulier',sousTaches:[
         {id:genId(),nom:'Nettoyer lavabo',freq:2,duree:5,dernierFait:null},
         {id:genId(),nom:'Nettoyer miroir SDB',freq:2,duree:5,dernierFait:null},
@@ -9245,7 +9245,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Trier produits périmés',freq:90,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Buanderie',icon:'🧺',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Buanderie',icon:'🧺',typeDefaut:'perso',couleur:'#7a5fc8',actions:[
       {id:genId(),nom:'Cycle de lavage',sousTaches:[
         {id:genId(),nom:'Lancer machine',freq:2,duree:5,dernierFait:null},
         {id:genId(),nom:'Étendre linge',freq:2,duree:10,dernierFait:null},
@@ -9258,7 +9258,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Détartrer machine',freq:90,duree:20,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Maison générale',icon:'🏠',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Maison générale',icon:'🏠',typeDefaut:'perso',couleur:'#a08050',actions:[
       {id:genId(),nom:'Ménage profond global',sousTaches:[
         {id:genId(),nom:'Dépoussiérer plafonds/coins',freq:30,duree:20,dernierFait:null},
         {id:genId(),nom:'Nettoyer robot aspirateur',freq:7,duree:10,dernierFait:null},
@@ -9267,7 +9267,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Trier placard SDB',freq:30,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Toilettes',icon:'🚽',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Toilettes',icon:'🚽',typeDefaut:'perso',couleur:'#5fa8a0',actions:[
       {id:genId(),nom:'Nettoyage régulier',sousTaches:[
         {id:genId(),nom:'Nettoyer WC en profondeur',freq:7,duree:10,dernierFait:null},
         {id:genId(),nom:'Nettoyer miroir toilettes',freq:7,duree:5,dernierFait:null},
@@ -9275,7 +9275,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Nettoyer interrupteurs toilettes',freq:30,duree:5,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Marketing',icon:'📱',typeDefaut:'pro',actions:[
+    {id:genId(),nom:'Marketing',icon:'📱',typeDefaut:'pro',couleur:'#c85878',actions:[
       {id:genId(),nom:'Contenu réseaux sociaux',sousTaches:[
         {id:genId(),nom:'Story Instagram',freq:1,duree:10,dernierFait:null},
         {id:genId(),nom:'Filmer contenu',freq:1,duree:20,dernierFait:null},
@@ -9284,7 +9284,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Préparer contenu semaine suivante',freq:7,duree:30,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Voiture',icon:'🚗',typeDefaut:'perso',actions:[
+    {id:genId(),nom:'Voiture',icon:'🚗',typeDefaut:'perso',couleur:'#708090',actions:[
       {id:genId(),nom:'Entretien mensuel',sousTaches:[
         {id:genId(),nom:'Nettoyer intérieur voiture',freq:30,duree:30,dernierFait:null},
         {id:genId(),nom:'Vérifier niveaux voiture',freq:30,duree:10,dernierFait:null}
@@ -9580,36 +9580,76 @@ function renderPlanningTimeline(){
   if(!el) return;
   const today=new Date().toISOString().split('T')[0];
   const planning=[...(DB.journal.planning[today]||[])].sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
+  const dispos=DB.journal.disponibilites[today]||[];
 
-  if(!planning.length){
+  if(!planning.length&&!dispos.length){
     el.innerHTML='';
     return;
   }
 
-  el.innerHTML=`
-    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">🗓️ Mon planning</div>
-    ${planning.map((p,i)=>{
-      const found=trouverAction(p.actionId);
-      const nom=found?`${found.zone.icon} ${found.action.nom}`:'Action supprimée';
-      return`<div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:12px 16px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer" onclick="ouvrirSousTachesAction('${p.actionId}')">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="flex:1">
-            <div style="font-weight:700;font-size:13px">${nom}</div>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-              <input type="time" value="${p.heureDebut}" onclick="event.stopPropagation()" onchange="modifierHeurePlanning('${p.id}','heureDebut',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
-              <span style="font-size:11px;color:var(--mut)">→</span>
-              <input type="time" value="${p.heureFin}" onclick="event.stopPropagation()" onchange="modifierHeurePlanning('${p.id}','heureFin',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
-            </div>
-          </div>
-          <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
-            <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',-1)">▲</button>
-            <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',1)">▼</button>
-            <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕</button>
+  const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+
+  // Détermine les bornes horaires de la grille
+  let heureMin=7*60, heureMax=21*60;
+  dispos.forEach(d=>{ heureMin=Math.min(heureMin,toMin(d.debut)); heureMax=Math.max(heureMax,toMin(d.fin)); });
+  planning.forEach(p=>{ heureMin=Math.min(heureMin,toMin(p.heureDebut)); heureMax=Math.max(heureMax,toMin(p.heureFin)); });
+  heureMin=Math.floor(heureMin/60)*60;
+  heureMax=Math.ceil(heureMax/60)*60;
+
+  const pxParMin=1.4;
+  const hauteurTotale=(heureMax-heureMin)*pxParMin;
+  const heuresAffichees=[];
+  for(let h=heureMin;h<=heureMax;h+=60) heuresAffichees.push(h);
+
+  let gridHtml=`<div style="display:flex;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:16px">
+    <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px">
+      ${heuresAffichees.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:00</div>`).join('')}
+    </div>
+    <div style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
+      ${dispos.map(d=>`<div style="position:absolute;top:${(toMin(d.debut)-heureMin)*pxParMin}px;left:0;right:0;height:${(toMin(d.fin)-toMin(d.debut))*pxParMin}px;background:${d.type==='pro'?'rgba(74,120,200,.06)':'rgba(232,122,154,.06)'};border-top:1px dashed var(--brd2);border-bottom:1px dashed var(--brd2)"></div>`).join('')}
+      ${planning.map(p=>{
+        const found=trouverAction(p.actionId);
+        const couleur=found?.zone?.couleur||'var(--acc)';
+        const nom=found?`${found.zone.icon} ${found.action.nom}`:'?';
+        const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
+        const h=Math.max(20,(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin);
+        return`<div onclick="ouvrirSousTachesAction('${p.actionId}')" style="position:absolute;top:${top}px;left:4px;right:4px;height:${h}px;background:${couleur}18;border:2px solid ${couleur};border-radius:8px;padding:4px 8px;cursor:pointer;overflow:hidden">
+          <div style="font-size:11px;font-weight:700;color:${couleur};line-height:1.2">${nom}</div>
+          <div style="font-size:9px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  if(!planning.length){
+    el.innerHTML=gridHtml;
+    return;
+  }
+
+  let listHtml=`<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">✏️ Modifier le planning</div>`;
+  listHtml+=planning.map((p,i)=>{
+    const found=trouverAction(p.actionId);
+    const nom=found?`${found.zone.icon} ${found.action.nom}`:'Action supprimée';
+    return`<div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:12px 16px;margin-bottom:8px;box-shadow:var(--shadow)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">${nom}</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+            <input type="time" value="${p.heureDebut}" onchange="modifierHeurePlanning('${p.id}','heureDebut',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
+            <span style="font-size:11px;color:var(--mut)">→</span>
+            <input type="time" value="${p.heureFin}" onchange="modifierHeurePlanning('${p.id}','heureFin',this.value)" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--brd2);border-radius:6px">
           </div>
         </div>
-      </div>`;
-    }).join('')}
-  `;
+        <div style="display:flex;gap:4px">
+          <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',-1)">▲</button>
+          <button class="btn bg bsm" onclick="deplacerPlanning('${p.id}',1)">▼</button>
+          <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=gridHtml+listHtml;
 }
 
 async function modifierHeurePlanning(id,champ,val){
