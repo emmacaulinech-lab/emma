@@ -7132,37 +7132,22 @@ function getTrouTempsLibre(){
 
   const planning=(DB.journal.planning[today]||[]).map(p=>({debut:toMinLocal(p.heureDebut),fin:toMinLocal(p.heureFin)}));
   const libre=((DB.journal.tempsLibre||{})[today]||[]).map(t=>({debut:toMinLocal(t.heureDebut),fin:toMinLocal(t.heureFin)}));
-  const intervalles=[...planning,...libre].sort((a,b)=>a.debut-b.debut);
-
-  const maintenant0=new Date();
-  const minMaintenant0=maintenant0.getHours()*60+maintenant0.getMinutes();
-
-  if(!intervalles.length){
-    // Rien du tout aujourd'hui — le trou couvre depuis le début de matinée jusqu'à maintenant
-    const debutJournee=7*60; // 7h00
-    if(minMaintenant0-debutJournee>=20) return{debut:debutJournee,fin:minMaintenant0};
-    return null;
-  }
+  const intervalles=[...planning,...libre];
 
   const maintenant=new Date();
   const minMaintenant=maintenant.getHours()*60+maintenant.getMinutes();
 
-  const fusionnes=[];
-  intervalles.forEach(iv=>{
-    const last=fusionnes[fusionnes.length-1];
-    if(last&&iv.debut<=last.fin) last.fin=Math.max(last.fin,iv.fin);
-    else fusionnes.push({...iv});
-  });
+  // Si une tâche est en cours pile maintenant, rien à demander
+  const enCoursMaintenant=intervalles.some(iv=>iv.debut<=minMaintenant&&iv.fin>minMaintenant);
+  if(enCoursMaintenant) return null;
 
-  let trou=null;
-  for(let i=0;i<fusionnes.length-1;i++){
-    const trouDebut=fusionnes[i].fin, trouFin=fusionnes[i+1].debut;
-    if(trouFin-trouDebut>=20&&trouFin<=minMaintenant){ trou={debut:trouDebut,fin:trouFin}; }
-  }
-  const dernier=fusionnes[fusionnes.length-1];
-  if(minMaintenant-dernier.fin>=20){ trou={debut:dernier.fin,fin:minMaintenant}; }
+  // Sinon, trouve la dernière activité déjà terminée (peu importe les futures)
+  const debutJournee=7*60; // 7h00 par défaut si rien avant
+  const intervallesPasses=intervalles.filter(iv=>iv.fin<=minMaintenant);
+  const dernierFinPasse=intervallesPasses.length?Math.max(...intervallesPasses.map(iv=>iv.fin)):debutJournee;
 
-  return trou;
+  if(minMaintenant-dernierFinPasse>=20) return{debut:dernierFinPasse,fin:minMaintenant};
+  return null;
 }
 
 function ouvrirPopupTempsLibre(){
