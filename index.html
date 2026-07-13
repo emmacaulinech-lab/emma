@@ -8949,13 +8949,13 @@ function proposerBlocsPourDispo(dispo){
 }
 
 function getStIdsDejaPlanifies(){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   return new Set((DB.journal.planning[today]||[]).map(p=>p.stId).filter(Boolean));
 }
 
 function ouvrirConfigPlanning(){
   ensureJournalData();
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const dispos=DB.journal.disponibilites[today]||[];
   if(!dispos.length){toast('⚠ Ajoute au moins un créneau');return;}
 
@@ -9067,7 +9067,7 @@ function validerBloc(){
 async function finaliserConfigPlanning(){
   ensureJournalData();
   const cfg=window._configPlanning;
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
 
   cfg.blocs.forEach(bloc=>{
@@ -9727,7 +9727,7 @@ function goJTab(i){
       btn.style.boxShadow=j===i?'var(--shadow)':'none';
     }
   });
-  if(i===0) renderJAujourdhui();
+  if(i===0){ journalJourAffiche=new Date().toISOString().split('T')[0]; renderJAujourdhui(); }
   if(i===1) renderJTaches();
   if(i===2) renderJHistorique();
 }
@@ -9948,7 +9948,8 @@ async function delSousTache(zoneId,actionId,stId){
 // ── Aujourd'hui ──
 function renderJAujourdhui(){
   ensureJournalData();
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
+  const estAujourdhui=today===new Date().toISOString().split('T')[0];
   if(!DB.journal.disponibilites[today]) DB.journal.disponibilites[today]=[];
   if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
   const dispos=DB.journal.disponibilites[today];
@@ -9959,12 +9960,23 @@ function renderJAujourdhui(){
   DB.journal.zones.forEach(z=>z.actions.forEach(a=>{ if(getSousTachesDues(a).length) nbActionsDues++; }));
 
   let html=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <button onclick="journalJourNav(-1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">‹</button>
+      <div style="text-align:center">
+        <div style="font-family:'Cormorant Garant',serif;font-size:16px;color:var(--acc)">${dlbl(today)}</div>
+        ${!estAujourdhui?`<div style="font-size:11px;color:var(--pla);cursor:pointer" onclick="journalJourAujourdhui()">← Revenir à aujourd'hui</div>`:''}
+      </div>
+      <button onclick="journalJourNav(1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">›</button>
+    </div>
     <div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)">
       <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:10px">⏰ Mes disponibilités aujourd'hui</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
         ${dispos.map((d,i)=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border-radius:10px;padding:8px 12px">
-            <span style="font-size:12px;font-weight:600">${d.debut} → ${d.fin} <span style="background:${d.type==='pro'?'var(--pla2)':'var(--rose2)'};color:${d.type==='pro'?'var(--pla)':'var(--acc)'};font-size:10px;padding:2px 8px;border-radius:20px;margin-left:6px">${d.type==='pro'?'💼 Pro':'🏠 Perso'}</span></span>
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border-radius:10px;padding:8px 12px;gap:8px">
+            <span style="background:${d.type==='pro'?'var(--pla2)':'var(--rose2)'};color:${d.type==='pro'?'var(--pla)':'var(--acc)'};font-size:10px;padding:2px 8px;border-radius:20px;white-space:nowrap">${d.type==='pro'?'💼 Pro':'🏠 Perso'}</span>
+            <input type="time" value="${d.debut}" onchange="modifierDispo(${i},'debut',this.value)" style="font-size:12px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:8px;width:90px">
+            <span style="font-size:11px;color:var(--mut)">→</span>
+            <input type="time" value="${d.fin}" onchange="modifierDispo(${i},'fin',this.value)" style="font-size:12px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:8px;width:90px">
             <button class="btn br bsm" onclick="delDispo(${i})">✕</button>
           </div>`).join('')||'<div style="font-size:12px;color:var(--mut)">Aucun créneau ajouté</div>'}
       </div>
@@ -9993,7 +10005,7 @@ function renderJAujourdhui(){
 
 async function ajouterDispo(type){
   ensureJournalData();
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const debut=document.getElementById('dispo-debut')?.value;
   const fin=document.getElementById('dispo-fin')?.value;
   if(!debut||!fin||debut>=fin){toast('⚠ Horaires invalides');return;}
@@ -10003,10 +10015,21 @@ async function ajouterDispo(type){
 }
 
 async function delDispo(idx){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   DB.journal.disponibilites[today].splice(idx,1);
   await saveAll();
   renderJAujourdhui();
+}
+
+async function modifierDispo(idx,champ,val){
+  const today=getJournalJour();
+  const d=DB.journal.disponibilites[today][idx];
+  if(!d) return;
+  if(champ==='debut') d.debut=val; else d.fin=val;
+  if(d.debut>=d.fin){toast('⚠ L\'heure de fin doit être après le début');return;}
+  await saveAll();
+  renderJAujourdhui();
+  toast('✓ Créneau modifié');
 }
 
 function calculerActionsDues(){
@@ -10223,7 +10246,7 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
 function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const planning=DB.journal.planning[today]||[];
   const dispos=DB.journal.disponibilites[today]||[];
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
@@ -10442,7 +10465,7 @@ function openAjoutTacheHeure(heureStr){
 
 async function validerAjoutTacheHeure(){
   ensureJournalData();
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const notifIdx=document.getElementById('ajout-notif-existante')?.value;
   const actionId=document.getElementById('ajout-action-existante')?.value;
   const nouveauNom=document.getElementById('ajout-nouvelle-nom')?.value?.trim();
@@ -10478,7 +10501,7 @@ async function validerAjoutTacheHeure(){
 }
 
 async function togglePlanningFait(planningId){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
@@ -10506,7 +10529,7 @@ async function togglePlanningFait(planningId){
 }
 
 function ouvrirReporter(planningId){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const item=DB.journal.planning[today].find(p=>p.id===planningId);
   if(!item) return;
   document.getElementById('mTitle').textContent='⏭️ Reporter — '+item.nom;
@@ -10527,7 +10550,7 @@ function ouvrirReporter(planningId){
 }
 
 async function validerReport(planningId){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const type=document.getElementById('reporter-type')?.value;
   const item=DB.journal.planning[today].find(p=>p.id===planningId);
   if(!item) return;
@@ -10549,7 +10572,7 @@ async function validerReport(planningId){
 }
 
 function ouvrirRemplacer(planningId){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const item=DB.journal.planning[today].find(p=>p.id===planningId);
   if(!item) return;
   const zone=DB.journal.zones.find(z=>z.id===item.zoneId);
@@ -10573,7 +10596,7 @@ function ouvrirRemplacer(planningId){
 }
 
 async function validerRemplacement(planningId){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   const item=DB.journal.planning[today].find(p=>p.id===planningId);
   if(!item) return;
   const zone=DB.journal.zones.find(z=>z.id===item.zoneId);
@@ -10602,6 +10625,21 @@ function ouvrirBlocPlanning(planningId){
 
 let historiqueVue='jour'; // 'jour' ou 'semaine'
 let historiqueJourAffiche=null;
+   let journalJourAffiche=null;
+function getJournalJour(){
+  if(!journalJourAffiche) journalJourAffiche=new Date().toISOString().split('T')[0];
+  return journalJourAffiche;
+}
+function journalJourNav(delta){
+  const d=new Date(getJournalJour()+'T12:00:00');
+  d.setDate(d.getDate()+delta);
+  journalJourAffiche=d.toISOString().split('T')[0];
+  renderJAujourdhui();
+}
+function journalJourAujourdhui(){
+  journalJourAffiche=new Date().toISOString().split('T')[0];
+  renderJAujourdhui();
+}
 let historiqueSemaineOffset=0;
 
 function renderJHistorique(){
@@ -10758,7 +10796,7 @@ async function deplacerPlanning(id,delta){
 }
 
 async function delPlanningItem(id){
-  const today=new Date().toISOString().split('T')[0];
+  const today=getJournalJour();
   DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==id);
   await saveAll();
   renderPlanningTimeline();
