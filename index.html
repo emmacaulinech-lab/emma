@@ -9666,32 +9666,46 @@ function renderPlanningTimeline(){
   let heureMax=Math.max(...dispos.map(d=>toMin(d.fin)));
   heureMin=Math.floor(heureMin/60)*60;
   heureMax=Math.ceil(heureMax/60)*60;
-  const pxParMin=1.8;
-  const hauteurTotale=(heureMax-heureMin)*pxParMin;
 
   const planning=assignerColonnesPlanning(planningBrut);
-  const maxColsGlobal=planning.length?Math.max(...planning.map(p=>p._maxCols)):1;
 
+  // ── Construit tous les points-repères (heures rondes + début/fin de chaque bloc + créneaux) ──
   const reperesSet=new Set();
   for(let h=heureMin;h<=heureMax;h+=60) reperesSet.add(h);
   planning.forEach(p=>{ reperesSet.add(toMin(p.heureDebut)); reperesSet.add(toMin(p.heureFin)); });
+  dispos.forEach(d=>{ reperesSet.add(toMin(d.debut)); reperesSet.add(toMin(d.fin)); });
   const reperes=[...reperesSet].sort((a,b)=>a-b);
 
+  // ── Calcule une position Y non-linéaire : espace minimum garanti par tranche, proportionnel au-delà ──
+  const pxParMin=0.9;
+  const espaceMin=26; // px minimum entre deux repères consécutifs, même si très proches en temps
+  const yMap={};
+  let cumY=0;
+  for(let i=0;i<reperes.length;i++){
+    yMap[reperes[i]]=cumY;
+    if(i<reperes.length-1){
+      const delta=reperes[i+1]-reperes[i];
+      cumY+=Math.max(espaceMin,delta*pxParMin);
+    }
+  }
+  const hauteurTotale=cumY+20;
+
+  const maxColsGlobal=planning.length?Math.max(...planning.map(p=>p._maxCols)):1;
+
   const fondsDispo=dispos.map(d=>{
-    const top=(toMin(d.debut)-heureMin)*pxParMin;
-    const hgt=(toMin(d.fin)-toMin(d.debut))*pxParMin;
+    const top=yMap[toMin(d.debut)];
+    const hgt=yMap[toMin(d.fin)]-top;
     const bg=d.type==='pro'?'rgba(37,99,235,.05)':'rgba(245,158,11,.05)';
     return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg}"></div>`;
   }).join('');
 
-  const gouttiere=1; // % d'espace entre colonnes
+  const gouttiere=1;
   const blocsHtml=planning.map(p=>{
     const found=trouverAction(p.actionId);
     const couleur=found?.zone?.couleur||'#993556';
     const bg=couleurPastel(found?.zone?.couleur);
-    const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
-    const dureeReelle=(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin;
-    const hgt=Math.max(4,dureeReelle);
+    const top=yMap[toMin(p.heureDebut)];
+    const hgt=yMap[toMin(p.heureFin)]-top;
     const expanded=window['_blocOpen_'+p.id];
     const nom=found?found.action.nom:(p.customNom||'Tâche');
     const zoneIcon=found?found.zone.icon:'📌';
@@ -9728,9 +9742,9 @@ function renderPlanningTimeline(){
   el.innerHTML=`
     <div style="display:flex;position:relative;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);margin-bottom:10px;overflow:hidden">
       <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
-        ${reperes.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
+        ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
       </div>
-      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer">
+      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2);cursor:pointer">
         ${fondsDispo}
         ${blocsHtml}
       </div>
