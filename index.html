@@ -10090,18 +10090,20 @@ function renderTimelineHistorique(entrees){
   const maxCols=Math.max(1,finsColonnes.length);
 
   const blocsHtml=sorted.map(e=>{
-    const bg=couleurPastel(e.couleur);
+    const zoneActuelle=DB.journal.zones.find(z=>z.nom===e.zoneNom);
+    const couleurReelle=zoneActuelle?.couleur||e.couleur||'#993556';
+    const bg=couleurPastel(couleurReelle);
     const top=yMap[e.debutMin];
     const hgt=yMap[e.finMin]-top;
     const largeurPct=100/maxCols;
     const leftPct=e._col*largeurPct;
     const finStr=`${String(Math.floor(e.finMin/60)).padStart(2,'0')}:${String(e.finMin%60).padStart(2,'0')}`;
-    return`<div style="position:absolute;top:${top}px;left:calc(${leftPct}% + 1px);width:calc(${largeurPct}% - 2px);height:${hgt}px;background:${bg};border:2px solid ${e.couleur};border-radius:12px;padding:0 12px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;overflow:visible">
+    return`<div style="position:absolute;top:${top}px;left:calc(${leftPct}% + 1px);width:calc(${largeurPct}% - 2px);height:${hgt}px;background:${bg};border:2px solid ${couleurReelle};border-radius:12px;padding:0 12px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;overflow:visible">
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;text-align:center">
-        <span style="width:18px;height:18px;border-radius:50%;background:${e.couleur};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:white;font-size:10px;font-weight:900">✓</span></span>
+        <span style="width:18px;height:18px;border-radius:50%;background:${couleurReelle};display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:white;font-size:10px;font-weight:900">✓</span></span>
         <div style="min-width:0">
-          <div style="font-weight:700;font-size:11px;color:${e.couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.zoneIcon} ${e.nom}</div>
-          <div style="font-size:9px;color:${e.couleur};opacity:.8">${e.heure}–${finStr}</div>
+          <div style="font-weight:700;font-size:11px;color:${couleurReelle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.zoneIcon} ${e.nom}</div>
+          <div style="font-size:9px;color:${couleurReelle};opacity:.8">${e.heure}–${finStr}</div>
         </div>
       </div>
     </div>`;
