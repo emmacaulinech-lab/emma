@@ -2982,7 +2982,7 @@ async function importBanquePDF(event){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:3000,
+        model:'claude-sonnet-4-6',max_tokens:8000,
         messages:[{role:'user',content:`Voici le texte extrait d'un relevé bancaire français. Extrais tous les mouvements.
 Pour chaque mouvement : date (YYYY-MM-DD), libelle, montant (négatif=débit, positif=crédit).
 Réponds UNIQUEMENT en JSON valide sans backticks :
