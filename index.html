@@ -7092,7 +7092,7 @@ async function delHumeurEntree(jour,idx){
 function goHub(){
   document.getElementById('hubPage').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  ['facturation','formations','banqueperso','sport','lecture'].forEach(m=>{
+  ['facturation','formations','banqueperso','sport','lecture','journal'].forEach(m=>{
     document.getElementById('module-'+m).style.display='none';
   });
   renderHubOverview();
