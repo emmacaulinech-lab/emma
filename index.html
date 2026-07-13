@@ -10596,7 +10596,7 @@ function openAjoutTacheHeure(heureStr){
   DB.journal.zones.forEach(zone=>{
     zone.actions.forEach(action=>{
       getSousTachesDues(action).forEach(st=>{
-        sousTachesToutes.push({zoneId:zone.id,actionId:action.id,stId:st.id,label:`${zone.icon} ${st.nom} (${zone.nom})`,duree:st.duree});
+        sousTachesToutes.push({zoneId:zone.id,actionId:action.id,stId:st.id,stNom:st.nom,label:`${zone.icon} ${st.nom} (${zone.nom})`,duree:st.duree});
       });
     });
   });
@@ -10656,7 +10656,7 @@ async function validerAjoutTacheHeure(){
     item.notifOnclick=notif.onclick;
   } else if(stIdx!==''&&stIdx!==undefined){
     const s=window._sousTachesToutesTemp[parseInt(stIdx)];
-    item.zoneId=s.zoneId; item.actionId=s.actionId; item.stId=s.stId;
+    item.zoneId=s.zoneId; item.actionId=s.actionId; item.stId=s.stId; item.nom=s.stNom;
     duree=s.duree; // respecte la vraie durée de la sous-tâche
   } else {
     item.customNom=nouveauNom;
