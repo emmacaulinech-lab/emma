@@ -9671,10 +9671,7 @@ function renderPlanningTimeline(){
 
   const planning=assignerColonnesPlanning(planningBrut);
   const maxColsGlobal=planning.length?Math.max(...planning.map(p=>p._maxCols)):1;
-  const largeurColonne=220;
-  const largeurZoneTaches=Math.max(320,maxColsGlobal*largeurColonne);
 
-  // Repères horaires : les heures rondes + les heures de début/fin de chaque tâche
   const reperesSet=new Set();
   for(let h=heureMin;h<=heureMax;h+=60) reperesSet.add(h);
   planning.forEach(p=>{ reperesSet.add(toMin(p.heureDebut)); reperesSet.add(toMin(p.heureFin)); });
@@ -9687,31 +9684,32 @@ function renderPlanningTimeline(){
     return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg}"></div>`;
   }).join('');
 
+  const gouttiere=1; // % d'espace entre colonnes
   const blocsHtml=planning.map(p=>{
     const found=trouverAction(p.actionId);
     const couleur=found?.zone?.couleur||'#993556';
     const bg=couleurPastel(found?.zone?.couleur);
     const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
-    const hgt=Math.max(56,(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin);
+    const dureeReelle=(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin;
+    const hgt=Math.max(30,dureeReelle);
     const expanded=window['_blocOpen_'+p.id];
     const nom=found?found.action.nom:(p.customNom||'Tâche');
-    const zoneNom=found?found.zone.nom:'—';
     const zoneIcon=found?found.zone.icon:'📌';
     const dues=found?getSousTachesDues(found.action):[];
     const duesIds=dues.map(st=>st.id);
     const faitBloc=!!faitMap[p.id];
-    const left=p._col*largeurColonne+4;
-    const largeur=expanded?Math.max(largeurColonne-8,260):largeurColonne-8;
+    const largeurPct=100/p._maxCols;
+    const leftPct=p._col*largeurPct;
 
-    return`<div onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="position:absolute;top:${top}px;left:${left}px;width:${largeur}px;min-height:${hgt}px;background:${bg};border:2px solid ${couleur};border-radius:12px;padding:10px 12px;cursor:pointer;z-index:${expanded?50:2}">
-      <div style="display:flex;align-items:center;gap:8px">
+    return`<div onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="position:absolute;top:${top}px;left:calc(${leftPct}% + ${gouttiere}px);width:calc(${largeurPct}% - ${gouttiere*2}px);min-height:${hgt}px;background:${bg};border:2px solid ${couleur};border-radius:12px;padding:8px 12px;cursor:pointer;z-index:${expanded?50:2};box-sizing:border-box;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;text-align:center">
         <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:20px;height:20px;border-radius:50%;border:2px solid ${couleur};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>':''}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:11px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${zoneIcon} ${nom}</div>
+          <div style="font-weight:700;font-size:12px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${zoneIcon} ${nom}</div>
           <div style="font-size:10px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin}</div>
         </div>
-        <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:${couleur};opacity:.7;font-size:12px;cursor:pointer">✕</button>
-        <span onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="color:${couleur};font-size:11px;cursor:pointer">${expanded?'▲':'▼'}</span>
+        <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:${couleur};opacity:.7;font-size:12px;cursor:pointer;flex-shrink:0">✕</button>
+        <span onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="color:${couleur};font-size:11px;cursor:pointer;flex-shrink:0">${expanded?'▲':'▼'}</span>
       </div>
       ${expanded?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px" onclick="event.stopPropagation()">
         ${found?(found.action.sousTaches||[]).map(st=>{
@@ -9719,7 +9717,7 @@ function renderPlanningTimeline(){
           const faitAuj=st.dernierFait===new Date().toISOString().split('T')[0];
           return`<div style="display:flex;align-items:center;gap:7px;background:white;border-radius:8px;padding:6px 9px">
             <span onclick="toggleSousTacheRonde('${found.zone.id}','${found.action.id}','${st.id}')" style="width:16px;height:16px;border-radius:50%;border:2px solid ${couleur};background:${faitAuj?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitAuj?'<span style="color:white;font-size:9px">✓</span>':''}</span>
-            <span style="font-size:11px;flex:1">${st.nom} ${due?`<span style="color:${couleur};font-size:8px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
+            <span style="font-size:11px;flex:1;text-align:left">${st.nom} ${due?`<span style="color:${couleur};font-size:8px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
             <span style="font-size:9px;color:var(--mut)">${st.duree}min</span>
           </div>`;
         }).join(''):'<div style="font-size:11px;color:var(--mut);background:white;border-radius:8px;padding:8px;text-align:center">Tâche libre</div>'}
@@ -9728,15 +9726,13 @@ function renderPlanningTimeline(){
   }).join('');
 
   el.innerHTML=`
-    <div style="overflow-x:auto;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);margin-bottom:10px">
-      <div style="display:flex;position:relative;min-width:${72+largeurZoneTaches}px">
-        <div style="width:64px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;position:sticky;left:0;z-index:5">
-          ${reperes.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
-        </div>
-        <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;min-width:${largeurZoneTaches}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer">
-          ${fondsDispo}
-          ${blocsHtml}
-        </div>
+    <div style="display:flex;position:relative;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);margin-bottom:10px;overflow:hidden">
+      <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
+        ${reperes.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
+      </div>
+      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer">
+        ${fondsDispo}
+        ${blocsHtml}
       </div>
     </div>
     <div style="text-align:center;font-size:11px;color:var(--mut)">💡 Clique sur une case vide pour ajouter une tâche spontanée</div>
