@@ -398,7 +398,10 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
   <div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🌸 Humeur du jour</div>
-      <button class="btn bg bsm" onclick="ouvrirPopupHumeur()">+ Ajouter</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn bg bsm" onclick="ouvrirHistoriqueHumeurPhotos()">🕐 Historique</button>
+        <button class="btn bg bsm" onclick="ouvrirPopupHumeur()">+ Ajouter</button>
+      </div>
     </div>
     <div id="humeur-jour-widget"></div>
   </div>
@@ -924,6 +927,23 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
   </div>
 </div>
+   <input type="file" id="photoJourInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoJourCapturee(event)">
+
+<div class="mo" id="photoJourModal">
+  <div class="mb" style="width:400px;max-width:94vw;text-align:center">
+    <h2 style="text-align:center">📸 Petite photo du jour ?</h2>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:18px">Ça fait un moment — capture un instant de ta journée</div>
+    <button class="btn bd" onclick="document.getElementById('photoJourInput').click()" style="width:100%;padding:14px;font-size:14px">📷 Prendre une photo</button>
+    <button class="btn bg" onclick="closeMo('photoJourModal')" style="width:100%;margin-top:10px">Passer pour cette fois</button>
+  </div>
+</div>
+   <div class="mo" id="historiqueHumeurModal">
+  <div class="mb" style="width:500px;max-width:96vw">
+    <h2>🕐 Historique Humeur & Photos</h2>
+    <div id="historiqueHumeurBody" style="max-height:500px;overflow-y:auto"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('historiqueHumeurModal')" style="width:100%">Fermer</button></div>
+  </div>
+</div>
    <div class="mo" id="tachesRetardModal">
   <div class="mb" style="width:480px;max-width:94vw">
     <h2>📋 Tâches en retard</h2>
@@ -1172,7 +1192,8 @@ auth.onAuthStateChanged(async user => {
     await loadAll();
     goHub();
     setTimeout(ouvrirPopupHumeur,600);
-    setTimeout(ouvrirPopupTachesRetard,650);   
+    setTimeout(ouvrirPopupTachesRetard,650);
+    setTimeout(verifierRappelPhoto,700);   
   } else {
     currentUser = null;
     userRef = null;
@@ -1232,6 +1253,7 @@ async function loadAll() {
       if(d.lecture) DB.lecture=JSON.parse(d.lecture);
       if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
       if(d.journal) DB.journal=JSON.parse(d.journal);
+      if(d.photosJour) DB.photosJour=JSON.parse(d.photosJour);
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1270,6 +1292,7 @@ async function saveAll() {
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
       humeurs:     JSON.stringify(DB.humeurs||{}),
       journal:     JSON.stringify(DB.journal||{}),
+      photosJour:  JSON.stringify(DB.photosJour||{}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -6996,6 +7019,114 @@ function ensureHumeurData(){
   if(!DB.humeurs) DB.humeurs={};
 }
 
+async function handlePhotoJourCapturee(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  closeMo('photoJourModal');
+  toast('⏳ Enregistrement de la photo...');
+
+  try{
+    // Compression : redimensionne + réduit qualité pour ne pas surcharger Firestore
+    const base64=await new Promise((resolve,reject)=>{
+      const img=new Image();
+      const reader=new FileReader();
+      reader.onload=e=>{ img.src=e.target.result; };
+      reader.onerror=reject;
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        const maxW=800;
+        const scale=Math.min(1,maxW/img.width);
+        canvas.width=img.width*scale;
+        canvas.height=img.height*scale;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL('image/jpeg',0.6));
+      };
+      reader.readAsDataURL(file);
+    });
+
+    ensureHumeurData();
+    const today=new Date().toISOString().split('T')[0];
+    const heure=new Date().toTimeString().slice(0,5);
+    if(!DB.photosJour) DB.photosJour={};
+    if(!DB.photosJour[today]) DB.photosJour[today]=[];
+    DB.photosJour[today].push({heure,data:base64});
+    await saveAll();
+    toast('✓ Photo enregistrée !');
+    renderHumeurJour();
+  }catch(e){
+    toast('⚠ Erreur : '+e.message);
+  }
+  event.target.value='';
+}
+
+function verifierRappelPhoto(){
+  ensureHumeurData();
+  const today=new Date().toISOString().split('T')[0];
+  const photosAuj=(DB.photosJour||{})[today]||[];
+  const maintenant=new Date();
+
+  if(!photosAuj.length){
+    // Aucune photo aujourd'hui — propose si on est après 8h du matin
+    if(maintenant.getHours()>=8){
+      document.getElementById('photoJourModal').classList.add('open');
+    }
+    return;
+  }
+
+  const derniere=photosAuj[photosAuj.length-1];
+  const[h,m]=derniere.heure.split(':').map(Number);
+  const derniereDate=new Date();
+  derniereDate.setHours(h,m,0,0);
+  const heuresEcoulees=(maintenant-derniereDate)/3600000;
+
+  if(heuresEcoulees>=2.5){
+    document.getElementById('photoJourModal').classList.add('open');
+  }
+}
+
+const HUMEUR_SCORES={'😄':5,'🥰':5,'😌':4,'😴':3,'😰':2,'😤':2,'😢':1,'😡':1};
+const HUMEUR_EMOJI_PAR_SCORE=[null,'😢','😰','😴','😌','😄'];
+
+function calculerMoyenneHumeur(jour){
+  const entrees=(DB.humeurs||{})[jour]||[];
+  if(!entrees.length) return null;
+  const total=entrees.reduce((s,e)=>s+(HUMEUR_SCORES[e.emoji]||3),0);
+  const moyenne=Math.round(total/entrees.length);
+  return HUMEUR_EMOJI_PAR_SCORE[moyenne]||'😌';
+}
+
+function ouvrirHistoriqueHumeurPhotos(){
+  ensureHumeurData();
+  if(!DB.photosJour) DB.photosJour={};
+  const jours=[...new Set([...Object.keys(DB.humeurs),...Object.keys(DB.photosJour)])]
+    .filter(j=>(DB.humeurs[j]||[]).length||(DB.photosJour[j]||[]).length)
+    .sort().reverse();
+
+  if(!jours.length){
+    document.getElementById('historiqueHumeurBody').innerHTML='<div class="empty">Rien enregistré pour l\'instant</div>';
+  } else {
+    document.getElementById('historiqueHumeurBody').innerHTML=jours.map(j=>{
+      const humeurs=DB.humeurs[j]||[];
+      const photos=DB.photosJour[j]||[];
+      const moyenne=calculerMoyenneHumeur(j);
+      return`<div style="background:var(--bg2);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-weight:700;font-size:13px;color:var(--acc)">${dlbl(j)}</span>
+          ${moyenne?`<span style="font-size:20px" title="Moyenne du jour">${moyenne}</span>`:''}
+        </div>
+        ${humeurs.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${photos.length?'10px':'0'}">
+          ${humeurs.map(h=>`<span style="background:white;border-radius:20px;padding:4px 10px;font-size:12px">${h.emoji} <span style="color:var(--mut);font-size:10px">${h.heure}</span></span>`).join('')}
+        </div>`:''}
+        ${photos.length?`<div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${photos.map(p=>`<div style="position:relative"><img src="${p.data}" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:1.5px solid var(--brd2)"><div style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:white;font-size:9px;padding:1px 5px;border-radius:6px">${p.heure}</div></div>`).join('')}
+        </div>`:''}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('historiqueHumeurModal').classList.add('open');
+}
+   
 function ouvrirPopupHumeur(){
   humeurChoixActuel=[];
   document.querySelectorAll('.humeur-btn').forEach(b=>{ b.style.borderColor='var(--brd2)'; b.style.background='white'; });
@@ -7070,7 +7201,9 @@ function renderHumeurJour(){
     return;
   }
 
-  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px">
+  const moyenne=calculerMoyenneHumeur(today);
+  el.innerHTML=`${moyenne?`<div style="font-size:11px;color:var(--mut);margin-bottom:8px">Moyenne du jour : <span style="font-size:16px">${moyenne}</span></div>`:''}
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
     ${entrees.map((e,i)=>`
       <div style="background:var(--bg2);border-radius:12px;padding:6px 10px;display:flex;align-items:center;gap:6px">
         <span style="font-size:18px">${e.emoji}</span>
