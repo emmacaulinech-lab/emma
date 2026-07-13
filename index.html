@@ -8970,13 +8970,57 @@ function ouvrirConfigPlanning(){
   const dispos=DB.journal.disponibilites[today]||[];
   if(!dispos.length){toast('⚠ Ajoute au moins un créneau');return;}
 
+  const planningExistant=DB.journal.planning[today]||[];
+  if(planningExistant.length>0){
+    document.getElementById('mTitle').textContent='Planning déjà configuré';
+    document.getElementById('mBody').innerHTML=`
+      <div style="font-size:13px;color:var(--txt);margin-bottom:14px">Tu as déjà <strong>${planningExistant.length} tâche(s)</strong> planifiée(s) aujourd'hui.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;margin-bottom:16px">
+        ${planningExistant.sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut)).map(p=>{
+          const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
+          const couleur=p.couleurOverride||zone?.couleur||'#993556';
+          const nom=p.nom||p.customNom||'Tâche';
+          return`<div style="display:flex;align-items:center;gap:8px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:8px;padding:6px 10px">
+            <span style="font-size:11px;color:${couleur};font-weight:700">${p.heureDebut}</span>
+            <span style="font-size:12px;flex:1">${zone?.icon||p.iconOverride||'📌'} ${nom}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+    document.querySelector('#mainModal .ma').style.display='flex';
+    document.querySelector('#mainModal .ma').innerHTML=`
+      <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+      <button class="btn br" onclick="recommencerConfigPlanning()">🗑️ Tout recommencer</button>
+      <button class="btn bd" onclick="lancerConfigBlocs()">+ Ajouter d'autres tâches</button>`;
+    document.getElementById('mainModal').classList.add('open');
+    return;
+  }
+
+  lancerConfigBlocs();
+}
+
+function lancerConfigBlocs(){
+  closeMo('mainModal');
+  ensureJournalData();
+  const today=getJournalJour();
+  const dispos=DB.journal.disponibilites[today]||[];
+
   const tousBlocs=[];
   dispos.forEach(d=>{ proposerBlocsPourDispo(d).forEach(b=>tousBlocs.push(b)); });
 
-  if(!tousBlocs.length){toast('✅ Rien à planifier, tout est à jour !');return;}
+  if(!tousBlocs.length){toast('✅ Rien de plus à planifier, tout est à jour !');return;}
 
   window._configPlanning={blocs:tousBlocs,blocIndex:0};
   renderConfigBlocStep();
+}
+
+async function recommencerConfigPlanning(){
+  if(!confirm('Supprimer tout le planning déjà configuré aujourd\'hui pour recommencer à zéro ?')) return;
+  const today=getJournalJour();
+  delete DB.journal.planning[today];
+  if(DB.journal.faitAujourdhui) delete DB.journal.faitAujourdhui[today];
+  await saveAll();
+  lancerConfigBlocs();
 }
 
 function renderConfigBlocStep(){
@@ -8994,6 +9038,7 @@ function renderConfigBlocStep(){
   const datesPlanif=getDatesPlanificationParSt();
   const dejaChoisisSession=new Set();
   cfg.blocs.forEach(b=>{ (b._choix||[]).forEach(c=>dejaChoisisSession.add(c.stId)); });
+  const dejaPlanifiesAujourdhui=new Set((DB.journal.planning[getJournalJour()]||[]).map(p=>p.stId).filter(Boolean));
 
   const zonesAConsiderer=estLibre?zonesDuType:[zoneActuelle];
   const sousTachesDisponibles=[];
@@ -9005,7 +9050,7 @@ function renderConfigBlocStep(){
           const j=joursDepuis(datesPlanif[st.id]);
           exclueAutreJour=j<st.freq;
         }
-        if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaChoisisSession.has(st.id)&&!exclueAutreJour){
+        if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaChoisisSession.has(st.id)&&!exclueAutreJour&&!dejaPlanifiesAujourdhui.has(st.id)){
           const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
           sousTachesDisponibles.push({zoneId:zone.id,zoneIcon:zone.icon,zoneNom:zone.nom,actionId:action.id,actionNom:action.nom,st,severite});
         }
