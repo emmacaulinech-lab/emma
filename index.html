@@ -10379,8 +10379,11 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
   const clickable=options.clickable!==false;
 
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
-  let heureMin=Math.min(...dispos.map(d=>toMin(d.debut)));
-  let heureMax=Math.max(...dispos.map(d=>toMin(d.fin)));
+  const heuresDispos=dispos.map(d=>toMin(d.debut)).concat(dispos.map(d=>toMin(d.fin)));
+  const heuresPlanning=planningBrut.map(p=>toMin(p.heureDebut)).concat(planningBrut.map(p=>toMin(p.heureFin)));
+  const toutesHeures=[...heuresDispos,...heuresPlanning];
+  let heureMin=toutesHeures.length?Math.min(...toutesHeures):8*60;
+  let heureMax=toutesHeures.length?Math.max(...toutesHeures):18*60;
   heureMin=Math.floor(heureMin/60)*60;
   heureMax=Math.ceil(heureMax/60)*60;
 
@@ -10465,13 +10468,12 @@ function renderPlanningTimeline(){
   const today=getJournalJour();
   const planning=DB.journal.planning[today]||[];
   const dispos=DB.journal.disponibilites[today]||[];
+  if(!dispos.length&&!planning.length){ el.innerHTML=''; return; }
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
-
   el.innerHTML=genererHtmlTimeline(planning,dispos,faitMap,{clickable:true});
 }
-
 function renderHubPlanningMini(){
   ensureJournalData();
   const wrap=document.getElementById('hub-planning-wrap');
@@ -10884,7 +10886,8 @@ function getJournalJour(){
 }
 function journalJourNav(delta){
   const d=new Date(getJournalJour()+'T12:00:00');
-  d.setDate(d.getDate()+delta);
+  const pas=window.journalVue==='semaine'?delta*7:delta;
+  d.setDate(d.getDate()+pas);
   journalJourAffiche=d.toISOString().split('T')[0];
   renderJAujourdhui();
 }
