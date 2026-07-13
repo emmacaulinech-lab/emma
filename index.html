@@ -8919,9 +8919,8 @@ function dureeZoneDue(zone){
 function proposerBlocsPourDispo(dispo){
   const dureeTotale=strToMin(dispo.fin)-strToMin(dispo.debut);
   const zonesDuBonType=DB.journal.zones.filter(z=>z.typeDefaut===dispo.type&&dureeZoneDue(z)>0);
-  if(!zonesDuBonType.length) return [];
 
-  const maxBlocDuree=60; // plafond par bloc, pour varier les zones sur un long créneau
+  const maxBlocDuree=60;
   const zoneRestants={};
   zonesDuBonType.forEach(z=>zoneRestants[z.id]=dureeZoneDue(z));
 
@@ -8930,24 +8929,30 @@ function proposerBlocsPourDispo(dispo){
   let curStart=strToMin(dispo.debut);
   let progression=true;
 
-  while(reste>0&&progression){
-    progression=false;
-    for(const zone of zonesDuBonType){
-      if(reste<=0) break;
-      const disponibleZone=zoneRestants[zone.id];
-      if(disponibleZone<=0) continue;
-      const blocDuree=Math.min(reste,disponibleZone,maxBlocDuree);
-      if(blocDuree<5) continue;
-      blocs.push({zoneId:zone.id,type:dispo.type,dureeMin:blocDuree,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+blocDuree)});
-      curStart+=blocDuree;
-      reste-=blocDuree;
-      zoneRestants[zone.id]-=blocDuree;
-      progression=true;
+  if(zonesDuBonType.length){
+    while(reste>0&&progression){
+      progression=false;
+      for(const zone of zonesDuBonType){
+        if(reste<=0) break;
+        const disponibleZone=zoneRestants[zone.id];
+        if(disponibleZone<=0) continue;
+        const blocDuree=Math.min(reste,disponibleZone,maxBlocDuree);
+        if(blocDuree<5) continue;
+        blocs.push({zoneId:zone.id,type:dispo.type,dureeMin:blocDuree,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+blocDuree)});
+        curStart+=blocDuree;
+        reste-=blocDuree;
+        zoneRestants[zone.id]-=blocDuree;
+        progression=true;
+      }
     }
+  }
+
+  // Temps restant non utilisé → bloc "libre" (toutes zones confondues)
+  if(reste>=10){
+    blocs.push({zoneId:'libre',type:dispo.type,dureeMin:reste,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+reste)});
   }
   return blocs;
 }
-
 function getDatesPlanificationParSt(){
   const map={};
   Object.entries(DB.journal.planning||{}).forEach(([date,entries])=>{
@@ -8979,9 +8984,10 @@ function renderConfigBlocStep(){
   if(cfg.blocIndex>=cfg.blocs.length){ finaliserConfigPlanning(); return; }
   const bloc=cfg.blocs[cfg.blocIndex];
   if(bloc._choix===undefined) bloc._choix=[];
+  const estLibre=bloc.zoneId==='libre';
 
   const zonesDuType=DB.journal.zones.filter(z=>z.typeDefaut===bloc.type);
-  const zoneActuelle=DB.journal.zones.find(z=>z.id===bloc.zoneId);
+  const zoneActuelle=estLibre?null:DB.journal.zones.find(z=>z.id===bloc.zoneId);
   const dureeChoisie=bloc._choix.reduce((s,c)=>s+c.duree,0);
   const dureeRestante=bloc.dureeMin-dureeChoisie;
 
@@ -8989,30 +8995,35 @@ function renderConfigBlocStep(){
   const dejaChoisisSession=new Set();
   cfg.blocs.forEach(b=>{ (b._choix||[]).forEach(c=>dejaChoisisSession.add(c.stId)); });
 
+  const zonesAConsiderer=estLibre?zonesDuType:[zoneActuelle];
   const sousTachesDisponibles=[];
-  zoneActuelle.actions.forEach(action=>{
-    getSousTachesDues(action).forEach(st=>{
-      let exclueAutreJour=false;
-      if(st.freq>1&&datesPlanif[st.id]){
-        const joursDepuisPlanif=joursDepuis(datesPlanif[st.id]);
-        exclueAutreJour=joursDepuisPlanif<st.freq;
-      }
-      const exclueCetteSession=dejaChoisisSession.has(st.id);
-      if(!exclueAutreJour&&!exclueCetteSession){
-        const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
-        sousTachesDisponibles.push({actionId:action.id,actionNom:action.nom,st,severite});
-      }
+  zonesAConsiderer.forEach(zone=>{
+    zone.actions.forEach(action=>{
+      getSousTachesDues(action).forEach(st=>{
+        let exclueAutreJour=false;
+        if(st.freq>1&&datesPlanif[st.id]){
+          const j=joursDepuis(datesPlanif[st.id]);
+          exclueAutreJour=j<st.freq;
+        }
+        if(!bloc._choix.some(c=>c.stId===st.id)&&!dejaChoisisSession.has(st.id)&&!exclueAutreJour){
+          const severite=st.dernierFait?joursDepuis(st.dernierFait)-st.freq:99999;
+          sousTachesDisponibles.push({zoneId:zone.id,zoneIcon:zone.icon,zoneNom:zone.nom,actionId:action.id,actionNom:action.nom,st,severite});
+        }
+      });
     });
   });
   sousTachesDisponibles.sort((a,b)=>b.severite-a.severite);
 
   document.getElementById('configPlanningTitre').textContent=`Bloc ${cfg.blocIndex+1}/${cfg.blocs.length} — ${bloc.heureDebut}–${bloc.heureFin}`;
   document.getElementById('configPlanningBody').innerHTML=`
+    ${estLibre?`
+    <div style="background:var(--pla2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--pla)">✨ Temps libre restant — choisis parmi toutes tes zones</div>
+    `:`
     <div class="fr"><label>Zone pour ce bloc</label>
       <select id="config-zone-select" onchange="changerZoneBloc(this.value)">
         ${zonesDuType.map(z=>`<option value="${z.id}" ${z.id===bloc.zoneId?'selected':''}>${z.icon} ${z.nom}</option>`).join('')}
       </select>
-    </div>
+    </div>`}
     <div style="background:var(--bg2);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between">
       <span style="font-size:12px;color:var(--mut)">Durée du bloc : ${bloc.dureeMin}min</span>
       <span style="font-size:12px;font-weight:700;color:${dureeRestante<0?'var(--dep)':'var(--acc)'}">Reste : ${dureeRestante}min</span>
@@ -9030,10 +9041,10 @@ function renderConfigBlocStep(){
     <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;margin-bottom:8px">Sous-tâches disponibles</div>
     <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">
       ${sousTachesDisponibles.length?sousTachesDisponibles.map(s=>`
-        <div onclick="ajouterChoixBloc('${s.actionId}','${s.st.id}','${s.st.nom.replace(/'/g,"\\'")}',${s.st.duree})" style="display:flex;align-items:center;gap:8px;background:white;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;cursor:pointer">
-          <span style="flex:1;font-size:12px">${s.st.nom} <span style="font-size:10px;color:var(--mut)">(${s.actionNom})</span></span>
+        <div onclick="ajouterChoixBloc('${s.zoneId}','${s.actionId}','${s.st.id}','${s.st.nom.replace(/'/g,"\\'")}',${s.st.duree})" style="display:flex;align-items:center;gap:8px;background:white;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;cursor:pointer">
+          <span style="flex:1;font-size:12px">${s.st.nom} <span style="font-size:10px;color:var(--mut)">(${estLibre?s.zoneIcon+' '+s.zoneNom+' — ':''}${s.actionNom})</span></span>
           <span style="font-size:10px;color:var(--acc);font-weight:700">${s.st.duree}min</span>
-        </div>`).join(''):'<div class="empty" style="padding:14px">Aucune sous-tâche restante dans cette zone</div>'}
+        </div>`).join(''):'<div class="empty" style="padding:14px">Aucune sous-tâche restante</div>'}
     </div>
 
     <div class="ma">
@@ -9053,10 +9064,10 @@ function changerZoneBloc(nouvelleZoneId){
   renderConfigBlocStep();
 }
 
-function ajouterChoixBloc(actionId,stId,nom,duree){
+function ajouterChoixBloc(zoneId,actionId,stId,nom,duree){
   const cfg=window._configPlanning;
   const bloc=cfg.blocs[cfg.blocIndex];
-  bloc._choix.push({actionId,stId,nom,duree});
+  bloc._choix.push({zoneId,actionId,stId,nom,duree});
   renderConfigBlocStep();
 }
 
@@ -9091,7 +9102,7 @@ async function finaliserConfigPlanning(){
     bloc._choix.forEach(c=>{
       const place=placerSansChevauchement(today,minToStr(curMin),c.duree);
       DB.journal.planning[today].push({
-        id:genId(),zoneId:bloc.zoneId,actionId:c.actionId,stId:c.stId,
+        id:genId(),zoneId:c.zoneId,actionId:c.actionId,stId:c.stId,
         nom:c.nom,heureDebut:place.heureDebut,heureFin:place.heureFin,duree:c.duree
       });
       curMin=strToMin(place.heureFin);
@@ -10581,10 +10592,12 @@ function handleTimelineClick(event){
 }
 
 function openAjoutTacheHeure(heureStr){
-  const toutesActions=[];
+  const sousTachesToutes=[];
   DB.journal.zones.forEach(zone=>{
     zone.actions.forEach(action=>{
-      toutesActions.push({id:action.id,label:`${zone.icon} ${zone.nom} — ${action.nom}`});
+      getSousTachesDues(action).forEach(st=>{
+        sousTachesToutes.push({zoneId:zone.id,actionId:action.id,stId:st.id,label:`${zone.icon} ${st.nom} (${zone.nom})`,duree:st.duree});
+      });
     });
   });
   const notifsOrganisables=getNotificationsOrganisables();
@@ -10593,16 +10606,16 @@ function openAjoutTacheHeure(heureStr){
   document.getElementById('mBody').innerHTML=`
     ${notifsOrganisables.length?`
     <div class="fr"><label>📌 À traiter (depuis tes notifications)</label>
-      <select id="ajout-notif-existante" onchange="document.getElementById('ajout-action-existante').value='';document.getElementById('ajout-nouvelle-nom').value=''">
+      <select id="ajout-notif-existante" onchange="if(this.value!=='')document.getElementById('ajout-sous-tache-existante').value=''">
         <option value="">— Aucune —</option>
         ${notifsOrganisables.map((n,i)=>`<option value="${i}">${n.icon} ${n.txt}</option>`).join('')}
       </select>
     </div>
     <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>`:''}
-    <div class="fr"><label>Choisir une tâche existante</label>
-      <select id="ajout-action-existante">
+    <div class="fr"><label>Choisir une sous-tâche due</label>
+      <select id="ajout-sous-tache-existante" onchange="if(this.value!=='')document.getElementById('ajout-notif-existante').value=''">
         <option value="">— Ou créer une nouvelle tâche ci-dessous —</option>
-        ${toutesActions.map(a=>`<option value="${a.id}">${a.label}</option>`).join('')}
+        ${sousTachesToutes.map((s,i)=>`<option value="${i}">${s.label}</option>`).join('')}
       </select>
     </div>
     <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>
@@ -10615,38 +10628,45 @@ function openAjoutTacheHeure(heureStr){
     </div>
   `;
   window._notifsOrganisablesTemp=notifsOrganisables;
+  window._sousTachesToutesTemp=sousTachesToutes;
   document.querySelector('#mainModal .ma').style.display='flex';
   document.querySelector('#mainModal .ma').innerHTML=`
     <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
     <button class="btn bd" onclick="validerAjoutTacheHeure()">✓ Ajouter</button>`;
   document.getElementById('mainModal').classList.add('open');
 }
-
 async function validerAjoutTacheHeure(){
   ensureJournalData();
   const today=getJournalJour();
   const notifIdx=document.getElementById('ajout-notif-existante')?.value;
-  const actionId=document.getElementById('ajout-action-existante')?.value;
+  const stIdx=document.getElementById('ajout-sous-tache-existante')?.value;
   const nouveauNom=document.getElementById('ajout-nouvelle-nom')?.value?.trim();
   const heureDebut=document.getElementById('ajout-heure-debut')?.value;
-  const duree=parseInt(document.getElementById('ajout-duree')?.value)||15;
+  let duree=parseInt(document.getElementById('ajout-duree')?.value)||15;
 
-  if(notifIdx===''&&!actionId&&!nouveauNom){toast('⚠ Choisis une option');return;}
+  if((notifIdx===''||notifIdx===undefined)&&(stIdx===''||stIdx===undefined)&&!nouveauNom){toast('⚠ Choisis une option');return;}
 
-  const place=placerSansChevauchement(today,heureDebut,duree);
-  const item={id:genId(),heureDebut:place.heureDebut,heureFin:place.heureFin,duree};
+  const item={id:genId()};
+
   if(notifIdx!==''&&notifIdx!==undefined){
     const notif=window._notifsOrganisablesTemp[parseInt(notifIdx)];
     item.customNom=notif.txt;
     item.iconOverride=notif.icon;
     item.couleurOverride=notif.color==='var(--dep)'?'#c45858':notif.color==='var(--warn)'?'#c89040':notif.color==='var(--pla)'?'#4a78c8':'#993556';
     item.notifOnclick=notif.onclick;
-  } else if(actionId){
-    item.actionId=actionId;
+  } else if(stIdx!==''&&stIdx!==undefined){
+    const s=window._sousTachesToutesTemp[parseInt(stIdx)];
+    item.zoneId=s.zoneId; item.actionId=s.actionId; item.stId=s.stId;
+    duree=s.duree; // respecte la vraie durée de la sous-tâche
   } else {
     item.customNom=nouveauNom;
     item.aClasser=true;
   }
+
+  const place=placerSansChevauchement(today,heureDebut,duree);
+  item.heureDebut=place.heureDebut;
+  item.heureFin=place.heureFin;
+  item.duree=duree;
 
   if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
   DB.journal.planning[today].push(item);
