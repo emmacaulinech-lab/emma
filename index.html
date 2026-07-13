@@ -9100,7 +9100,7 @@ async function ajouterRecoALaBiblio(){
 // ═══════════════════════════════════════
 function seedJournalZones(){
   return [
-    {id:genId(),nom:'Pro / Admin',icon:'💼',typeDefaut:'pro',couleur:'#4a78c8',actions:[
+    {id:genId(),nom:'Pro / Admin',icon:'💼',typeDefaut:'pro',couleur:'#2563eb',actions:[
       {id:genId(),nom:'Gestion quotidienne',sousTaches:[
         {id:genId(),nom:'Gérer mails',freq:1,duree:20,dernierFait:null},
         {id:genId(),nom:'Répondre messages',freq:1,duree:15,dernierFait:null},
@@ -9128,13 +9128,13 @@ function seedJournalZones(){
         {id:genId(),nom:'Vérifier abonnements',freq:365,duree:10,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Chiens',icon:'🐶',typeDefaut:'perso',couleur:'#c89040',actions:[
+    {id:genId(),nom:'Chiens',icon:'🐶',typeDefaut:'perso',couleur:'#f59e0b',actions:[
       {id:genId(),nom:'Gamelles',sousTaches:[
         {id:genId(),nom:'Vérifier gamelles d\'eau',freq:1,duree:5,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Cuisine',icon:'🍳',typeDefaut:'perso',couleur:'#4aaa78',actions:[
-      {id:genId(),nom:'Quotidien',sousTaches:[
+    {id:genId(),nom:'Cuisine',icon:'🍳',typeDefaut:'perso',couleur:'#16a34a',actions:[
+        {id:genId(),nom:'Quotidien',sousTaches:[
         {id:genId(),nom:'Vérifier robot (chargé + vidé)',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Lancer robot aspirateur',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Faire vaisselle / lancer lave-vaisselle',freq:1,duree:15,dernierFait:null},
@@ -9165,7 +9165,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Nettoyer tiroirs en profondeur',freq:30,duree:20,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Entrée',icon:'👟',typeDefaut:'perso',couleur:'#8b6fff',actions:[
+    {id:genId(),nom:'Entrée',icon:'👟',typeDefaut:'perso',couleur:'#8b5cf6',actions:[
       {id:genId(),nom:'Rangement quotidien',sousTaches:[
         {id:genId(),nom:'Ranger chaussures',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Ranger manteaux/vestes',freq:1,duree:5,dernierFait:null},
@@ -9179,7 +9179,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Désencombrer entrée',freq:30,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Salon',icon:'🛋️',typeDefaut:'perso',couleur:'#e87a9a',actions:[
+    {id:genId(),nom:'Salon',icon:'🛋️',typeDefaut:'perso',couleur:'#ec4899',actions:[
       {id:genId(),nom:'Rangement quotidien',sousTaches:[
         {id:genId(),nom:'Ranger objets salon',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Ranger canapé',freq:1,duree:5,dernierFait:null},
@@ -9200,7 +9200,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Nettoyer vitres salon',freq:30,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Chambre',icon:'🛏️',typeDefaut:'perso',couleur:'#c45878',actions:[
+    {id:genId(),nom:'Chambre',icon:'🛏️',typeDefaut:'perso',couleur:'#e11d48',actions:[
       {id:genId(),nom:'Rangement quotidien',sousTaches:[
         {id:genId(),nom:'Ranger affaires perso',freq:1,duree:5,dernierFait:null},
         {id:genId(),nom:'Aérer chambre',freq:1,duree:5,dernierFait:null},
@@ -9226,7 +9226,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Laver couette/oreillers',freq:90,duree:10,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Salle de bain',icon:'🛁',typeDefaut:'perso',couleur:'#4a9ec8',actions:[
+    {id:genId(),nom:'Salle de bain',icon:'🛁',typeDefaut:'perso',couleur:'#06b6d4',actions:[
       {id:genId(),nom:'Quotidien/régulier',sousTaches:[
         {id:genId(),nom:'Nettoyer lavabo',freq:2,duree:5,dernierFait:null},
         {id:genId(),nom:'Nettoyer miroir SDB',freq:2,duree:5,dernierFait:null},
@@ -9247,7 +9247,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Trier produits périmés',freq:90,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Buanderie',icon:'🧺',typeDefaut:'perso',couleur:'#7a5fc8',actions:[
+    {id:genId(),nom:'Buanderie',icon:'🧺',typeDefaut:'perso',couleur:'#7c3aed',actions:[
       {id:genId(),nom:'Cycle de lavage',sousTaches:[
         {id:genId(),nom:'Lancer machine',freq:2,duree:5,dernierFait:null},
         {id:genId(),nom:'Étendre linge',freq:2,duree:10,dernierFait:null},
@@ -9260,7 +9260,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Détartrer machine',freq:90,duree:20,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Maison générale',icon:'🏠',typeDefaut:'perso',couleur:'#a08050',actions:[
+    {id:genId(),nom:'Maison générale',icon:'🏠',typeDefaut:'perso',couleur:'#ca8a04',actions:[
       {id:genId(),nom:'Ménage profond global',sousTaches:[
         {id:genId(),nom:'Dépoussiérer plafonds/coins',freq:30,duree:20,dernierFait:null},
         {id:genId(),nom:'Nettoyer robot aspirateur',freq:7,duree:10,dernierFait:null},
@@ -9269,7 +9269,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Trier placard SDB',freq:30,duree:15,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Toilettes',icon:'🚽',typeDefaut:'perso',couleur:'#5fa8a0',actions:[
+    {id:genId(),nom:'Toilettes',icon:'🚽',typeDefaut:'perso',couleur:'#0891b2',actions:[
       {id:genId(),nom:'Nettoyage régulier',sousTaches:[
         {id:genId(),nom:'Nettoyer WC en profondeur',freq:7,duree:10,dernierFait:null},
         {id:genId(),nom:'Nettoyer miroir toilettes',freq:7,duree:5,dernierFait:null},
@@ -9277,7 +9277,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Nettoyer interrupteurs toilettes',freq:30,duree:5,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Marketing',icon:'📱',typeDefaut:'pro',couleur:'#c85878',actions:[
+    {id:genId(),nom:'Marketing',icon:'📱',typeDefaut:'pro',couleur:'#db2777',actions:[
       {id:genId(),nom:'Contenu réseaux sociaux',sousTaches:[
         {id:genId(),nom:'Story Instagram',freq:1,duree:10,dernierFait:null},
         {id:genId(),nom:'Filmer contenu',freq:1,duree:20,dernierFait:null},
@@ -9286,7 +9286,7 @@ function seedJournalZones(){
         {id:genId(),nom:'Préparer contenu semaine suivante',freq:7,duree:30,dernierFait:null}
       ]}
     ]},
-    {id:genId(),nom:'Voiture',icon:'🚗',typeDefaut:'perso',couleur:'#708090',actions:[
+    {id:genId(),nom:'Voiture',icon:'🚗',typeDefaut:'perso',couleur:'#475569',actions:[
       {id:genId(),nom:'Entretien mensuel',sousTaches:[
         {id:genId(),nom:'Nettoyer intérieur voiture',freq:30,duree:30,dernierFait:null},
         {id:genId(),nom:'Vérifier niveaux voiture',freq:30,duree:10,dernierFait:null}
@@ -9618,6 +9618,8 @@ function couleurClaire(hex){
   return `rgba(${r},${g},${b},0.15)`;
 }
 
+let zIndexPlanningCompteur=10;
+
 function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
@@ -9644,64 +9646,77 @@ function renderPlanningTimeline(){
   const heuresAffichees=[];
   for(let h=heureMin;h<=heureMax;h+=60) heuresAffichees.push(h);
 
-  const emojiCreneau=t=>t==='pro'?'💼':'☀️';
+  // Fond des créneaux dispo (juste une teinte, pas de bloc)
+  const fondsDispo=dispos.map(d=>{
+    const top=(toMin(d.debut)-heureMin)*pxParMin;
+    const hgt=(toMin(d.fin)-toMin(d.debut))*pxParMin;
+    const bg=d.type==='pro'?'rgba(37,99,235,.05)':'rgba(245,158,11,.05)';
+    return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg};border-top:1px dashed ${d.type==='pro'?'#2563eb':'#f59e0b'}30;border-bottom:1px dashed ${d.type==='pro'?'#2563eb':'#f59e0b'}30"></div>`;
+  }).join('');
 
-  let blocsHtml='';
-  dispos.forEach((d,di)=>{
-    const debutMin=toMin(d.debut), finMin=toMin(d.fin);
-    const itemsCreneau=planning.filter(p=>toMin(p.heureDebut)>=debutMin&&toMin(p.heureDebut)<finMin);
-    const nbFaits=itemsCreneau.filter(p=>faitMap[p.id]).length;
-    const pct=itemsCreneau.length?Math.round(nbFaits/itemsCreneau.length*100):0;
-    const couleurBloc=d.type==='pro'?'#4a78c8':'#c89040';
-    const bgBloc=d.type==='pro'?'#eef3fc':'#fff8e8';
-    const expanded=window['_creneauOpen_'+di];
-    const top=(debutMin-heureMin)*pxParMin;
-    const hgt=Math.max(56,(finMin-debutMin)*pxParMin);
+  const blocsHtml=planning.map(p=>{
+    const found=trouverAction(p.actionId);
+    const couleur=found?.zone?.couleur||'#993556';
+    const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
+    const hgt=Math.max(50,(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin);
+    const expanded=window['_blocOpen_'+p.id];
+    const z=expanded?(window['_blocZ_'+p.id]||zIndexPlanningCompteur):2;
+    const nom=found?found.action.nom:(p.customNom||'Tâche');
+    const zoneNom=found?found.zone.nom:'—';
+    const zoneIcon=found?found.zone.icon:'📌';
+    const dues=found?getSousTachesDues(found.action):[];
+    const duesIds=dues.map(st=>st.id);
+    const faitBloc=!!faitMap[p.id];
 
-    blocsHtml+=`<div style="position:absolute;top:${top}px;left:64px;right:0;min-height:${hgt}px;background:${bgBloc};border:1.5px solid ${couleurBloc}40;border-radius:16px;padding:12px 16px;z-index:2" onclick="event.stopPropagation()">
-      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="window._creneauOpen_${di}=!window._creneauOpen_${di};renderPlanningTimeline()">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:18px">${emojiCreneau(d.type)}</span>
-          <div>
-            <div style="font-weight:700;font-size:13px;color:${couleurBloc}">${d.type==='pro'?'Créneau Pro':'Créneau Perso'}</div>
-            <div style="font-size:11px;color:var(--mut)">${d.debut} → ${d.fin}</div>
+    return`<div id="bloc-${p.id}" onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="position:absolute;top:${top}px;left:4px;right:4px;min-height:${hgt}px;background:${couleur}20;border:2px solid ${couleur};border-radius:14px;padding:10px 14px;cursor:pointer;z-index:${z};box-shadow:${expanded?'0 8px 24px rgba(0,0,0,.15)':'none'}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+          <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:20px;height:20px;border-radius:50%;border:2px solid ${faitBloc?couleur:'white'};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:11px">✓</span>':''}</span>
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:12px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${zoneIcon} ${nom}</div>
+            <div style="font-size:10px;color:${couleur};opacity:.75">${p.heureDebut}–${p.heureFin} · ${zoneNom}</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:12px;font-weight:700;color:${couleurBloc}">${nbFaits}/${itemsCreneau.length}</span>
-          <div style="width:50px;height:6px;background:white;border-radius:99px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${couleurBloc};border-radius:99px"></div>
-          </div>
-          <span style="color:${couleurBloc};font-size:12px">${expanded?'▲':'▼'}</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:${couleur};opacity:.6;font-size:12px;cursor:pointer">✕</button>
+          <span style="color:${couleur};font-size:11px">${expanded?'▲':'▼'}</span>
         </div>
       </div>
-      ${expanded?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
-        ${itemsCreneau.length?itemsCreneau.map(p=>{
-          const found=trouverAction(p.actionId);
-          const coche=!!faitMap[p.id];
-          const nom=found?`${found.zone.icon} ${found.action.nom}`:`📌 ${p.customNom||'Tâche'}`;
-          return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:10px;padding:7px 10px">
-            <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:18px;height:18px;border-radius:50%;border:2px solid ${coche?couleurBloc:'var(--brd2)'};background:${coche?couleurBloc:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${coche?'<span style="color:white;font-size:10px">✓</span>':''}</span>
-            <span onclick="${found?`ouvrirSousTachesAction('${p.actionId}')`:''}" style="font-size:12px;flex:1;cursor:${found?'pointer':'default'};${coche?'text-decoration:line-through;color:var(--mut)':''}">${nom}</span>
-            <span style="font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${p.heureDebut}</span>
-            <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:var(--brd2);font-size:12px;cursor:pointer">✕</button>
+      ${expanded?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:5px" onclick="event.stopPropagation()">
+        ${found?(found.action.sousTaches||[]).map(st=>{
+          const due=duesIds.includes(st.id);
+          return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:8px;padding:6px 9px">
+            <input type="checkbox" onchange="marquerSousTacheFaite('${found.zone.id}','${found.action.id}','${st.id}',this)" style="width:15px;height:15px;accent-color:${couleur}">
+            <span style="font-size:11px;flex:1">${st.nom} ${due?`<span style="color:${couleur};font-size:9px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
+            <span style="font-size:9px;color:var(--mut)">${st.duree}min</span>
           </div>`;
-        }).join(''):'<div style="font-size:11px;color:var(--mut);text-align:center">Rien de planifié — clique sur la frise pour ajouter</div>'}
+        }).join(''):'<div style="font-size:11px;color:var(--mut);background:white;border-radius:8px;padding:8px;text-align:center">Tâche libre — pas de sous-tâches</div>'}
       </div>`:''}
     </div>`;
-  });
+  }).join('');
 
   el.innerHTML=`
-    <div style="display:flex;position:relative;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:10px">
-      <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;z-index:1">
+    <div style="display:flex;position:relative;background:white;border:1.5px solid var(--brd);border-radius:16px;overflow:visible;box-shadow:var(--shadow);margin-bottom:10px">
+      <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;z-index:1;background:white">
         ${heuresAffichees.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-7}px;right:8px;font-size:10px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:00</div>`).join('')}
       </div>
-      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer">
+      <div id="timeline-clickzone" onclick="handleTimelineClick(event,${heureMin})" style="flex:1;position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px);cursor:pointer;border-radius:0 16px 16px 0">
+        ${fondsDispo}
         ${blocsHtml}
       </div>
     </div>
     <div style="text-align:center;font-size:11px;color:var(--mut)">💡 Clique sur une case horaire vide pour ajouter une tâche</div>
   `;
+}
+
+function ouvrirBlocPlanning(planningId){
+  const wasOpen=window['_blocOpen_'+planningId];
+  window['_blocOpen_'+planningId]=!wasOpen;
+  if(!wasOpen){
+    zIndexPlanningCompteur++;
+    window['_blocZ_'+planningId]=zIndexPlanningCompteur;
+  }
+  renderPlanningTimeline();
 }
 
 function handleTimelineClick(event,heureMin){
