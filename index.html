@@ -9953,27 +9953,31 @@ function renderJSemaineApercu(){
 
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
 
-  // Détermine la plage horaire globale de la semaine
-  let heureMin=8*60, heureMax=20*60;
+  // Repères communs à toute la semaine (heures rondes + début/fin de chaque tâche, tous jours confondus)
+  const reperesSet=new Set();
+  let heureMin=8*60, heureMax=18*60;
   jours.forEach(j=>{
     (DB.journal.planning[j]||[]).forEach(p=>{
       heureMin=Math.min(heureMin,toMin(p.heureDebut));
       heureMax=Math.max(heureMax,toMin(p.heureFin));
-    });
-    (DB.journal.disponibilites[j]||[]).forEach(d=>{
-      heureMin=Math.min(heureMin,toMin(d.debut));
-      heureMax=Math.max(heureMax,toMin(d.fin));
+      reperesSet.add(toMin(p.heureDebut));
+      reperesSet.add(toMin(p.heureFin));
     });
   });
   heureMin=Math.floor(heureMin/60)*60;
   heureMax=Math.ceil(heureMax/60)*60;
+  for(let h=heureMin;h<=heureMax;h+=60) reperesSet.add(h);
+  const reperes=[...reperesSet].sort((a,b)=>a-b);
 
-  const pxParMin=1.1;
-  const hauteurTotale=(heureMax-heureMin)*pxParMin;
-  const heuresAffichees=[];
-  for(let h=heureMin;h<=heureMax;h+=60) heuresAffichees.push(h);
-
-  const largeurColJour=140;
+  const espaceMin=30;
+  const pxParMin=0.7;
+  const yMap={};
+  let cumY=0;
+  for(let i=0;i<reperes.length;i++){
+    yMap[reperes[i]]=cumY;
+    if(i<reperes.length-1) cumY+=Math.max(espaceMin,(reperes[i+1]-reperes[i])*pxParMin);
+  }
+  const hauteurTotale=cumY+20;
 
   const colonnesHtml=jours.map(j=>{
     const planning=assignerColonnesPlanning(DB.journal.planning[j]||[]);
@@ -9985,36 +9989,35 @@ function renderJSemaineApercu(){
       const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
       const couleur=p.couleurOverride||zone?.couleur||'#993556';
       const bg=couleurPastel(couleur);
-      const top=(toMin(p.heureDebut)-heureMin)*pxParMin;
-      const hgt=Math.max(24,(toMin(p.heureFin)-toMin(p.heureDebut))*pxParMin);
+      const top=yMap[toMin(p.heureDebut)];
+      const hgt=yMap[toMin(p.heureFin)]-top;
       const faitBloc=!!faitMap[p.id];
       const largeurPct=100/p._maxCols;
       const leftPct=p._col*largeurPct;
       const nom=p.nom||p.customNom||'Tâche';
 
-      return`<div onclick="journalJourAffiche='${j}';window.journalVue='jour';renderJAujourdhui()" style="position:absolute;top:${top}px;left:calc(${leftPct}% + 1px);width:calc(${largeurPct}% - 2px);height:${hgt}px;background:${bg};border:1.5px solid ${couleur};border-radius:8px;padding:3px 6px;cursor:pointer;box-sizing:border-box;overflow:hidden">
-        <div style="font-size:9px;font-weight:700;color:${couleur};line-height:1.2;${faitBloc?'text-decoration:line-through;opacity:.6':''}">${zone?.icon||p.iconOverride||'📌'} ${nom}</div>
-        <div style="font-size:8px;color:${couleur};opacity:.7">${p.heureDebut}</div>
+      return`<div onclick="journalJourAffiche='${j}';window.journalVue='jour';renderJAujourdhui()" title="${nom} — ${p.heureDebut}" style="position:absolute;top:${top}px;left:calc(${leftPct}% + 1px);width:calc(${largeurPct}% - 2px);height:${hgt}px;background:${bg};border:1.5px solid ${couleur};border-radius:7px;padding:2px 5px;cursor:pointer;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:9px;font-weight:700;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${faitBloc?'text-decoration:line-through;opacity:.55':''}">${zone?.icon||p.iconOverride||'📌'} ${nom}</div>
       </div>`;
     }).join('');
 
-    return`<div style="flex-shrink:0;width:${largeurColJour}px;border-right:1px solid var(--brd)">
-      <div onclick="journalJourAffiche='${j}';window.journalVue='jour';renderJAujourdhui()" style="text-align:center;padding:8px 4px;background:${estJourAffiche?'var(--rose2)':'white'};border-bottom:1.5px solid var(--brd);cursor:pointer;position:sticky;top:0;z-index:6">
-        <div style="font-size:11px;font-weight:700;color:${estJourAffiche?'var(--acc)':'var(--txt)'};text-transform:capitalize">${new Date(j+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short'})}</div>
-        <div style="font-size:15px;font-weight:700;color:${estAujourdhuiReel?'var(--acc)':'var(--mut)'}">${new Date(j+'T12:00:00').getDate()}</div>
+    return`<div style="flex:1;min-width:0;border-right:1px solid var(--brd)">
+      <div onclick="journalJourAffiche='${j}';window.journalVue='jour';renderJAujourdhui()" style="text-align:center;padding:8px 2px;background:${estJourAffiche?'var(--rose2)':'white'};border-bottom:1.5px solid var(--brd);cursor:pointer">
+        <div style="font-size:10px;font-weight:700;color:${estJourAffiche?'var(--acc)':'var(--txt)'};text-transform:capitalize">${new Date(j+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short'})}</div>
+        <div style="font-size:14px;font-weight:700;color:${estAujourdhuiReel?'var(--acc)':'var(--mut)'}">${new Date(j+'T12:00:00').getDate()}</div>
       </div>
-      <div style="position:relative;height:${hauteurTotale}px;background:repeating-linear-gradient(to bottom, var(--bg2) 0, var(--bg2) 1px, transparent 1px, transparent ${60*pxParMin}px)">
+      <div style="position:relative;height:${hauteurTotale}px">
         ${blocsHtml}
       </div>
     </div>`;
   }).join('');
 
-  return`<div style="overflow-x:auto;border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);background:white">
-    <div style="display:flex;min-width:${56+largeurColJour*7}px">
-      <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:sticky;left:0;background:white;z-index:7">
+  return`<div style="border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);background:white;overflow:hidden">
+    <div style="display:flex">
+      <div style="width:42px;flex-shrink:0;border-right:1.5px solid var(--brd)">
         <div style="height:45px;border-bottom:1.5px solid var(--brd)"></div>
         <div style="position:relative;height:${hauteurTotale}px">
-          ${heuresAffichees.map(h=>`<div style="position:absolute;top:${(h-heureMin)*pxParMin-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:00</div>`).join('')}
+          ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-5}px;right:3px;font-size:8px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}h</div>`).join('')}
         </div>
       </div>
       ${colonnesHtml}
