@@ -9295,11 +9295,26 @@ function seedJournalZones(){
   ];
 }
 
+const COULEURS_ZONES_DEFAUT={
+  'Pro / Admin':'#2563eb','Chiens':'#f59e0b','Cuisine':'#16a34a','Entrée':'#8b5cf6',
+  'Salon':'#ec4899','Chambre':'#e11d48','Salle de bain':'#06b6d4','Buanderie':'#7c3aed',
+  'Maison générale':'#ca8a04','Toilettes':'#0891b2','Marketing':'#db2777','Voiture':'#475569'
+};
+
 function ensureJournalData(){
   if(!DB.journal) DB.journal={zones:seedJournalZones(),disponibilites:{},planning:{}};
   if(!DB.journal.zones||!DB.journal.zones.length) DB.journal.zones=seedJournalZones();
   if(!DB.journal.disponibilites) DB.journal.disponibilites={};
   if(!DB.journal.planning) DB.journal.planning={};
+
+  let migre=false;
+  DB.journal.zones.forEach(zone=>{
+    if(!zone.couleur){
+      zone.couleur=COULEURS_ZONES_DEFAUT[zone.nom]||'#993556';
+      migre=true;
+    }
+  });
+  if(migre) saveAll();
 }
 
 let jTabActive=0;
