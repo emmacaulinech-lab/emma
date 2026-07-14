@@ -2264,9 +2264,12 @@ function renderRecap(){
     // fixVarReel : fixes réelles + variables réelles HORS ACHAT/REDEVANCE/TVA (= ton calcul manuel)
     const varReelHorsRedevTva=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT'&&f.nom!=='REDEVANCE'&&f.nom!=='TVA').reduce((s,f)=>s+(f.montant||0),0);
     const fixVarReel=fixReel+varReelHorsRedevTva;
-    // redevTvaReel : redevance + TVA réelles, depuis banque (pas DB.variables dont montant=0)
-    const redevReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
-    const tvaReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+    // redevTvaReel : priorité à la ligne réconciliée manuellement (banqueIds),
+    // sinon repli sur le nom exact en banque — même logique que l'onglet Charges Variables
+    const redevManuelle=DB.variables.find(f=>f.mois===mois&&f.nom==='REDEVANCE'&&(f.banqueIds||[]).length);
+    const tvaManuelle=DB.variables.find(f=>f.mois===mois&&f.nom==='TVA'&&(f.banqueIds||[]).length);
+    const redevReelBanque=redevManuelle?redevManuelle.montant:DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+    const tvaReelBanque=tvaManuelle?tvaManuelle.montant:DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
     const redevTvaReel=redevReelBanque+tvaReelBanque;
     const totalReel=fixVarReel+redevTvaReel; // conservé pour compat (répartition hebdo)
 
@@ -4528,8 +4531,11 @@ function openSemaine(mois, idx){
   // Charges réelles (pour dernière semaine)
   const fixReelW=DB.fixes.filter(f=>f.mois===mois).reduce((s,f)=>s+f.montant,0);
   const varReelHorsRedevTva=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT'&&f.nom!=='REDEVANCE'&&f.nom!=='TVA').reduce((s,f)=>s+(f.montant||0),0);
-  const redevReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
-  const tvaReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+  // priorité à la ligne réconciliée manuellement (banqueIds), sinon repli sur le nom exact en banque
+  const redevManuelleW=DB.variables.find(f=>f.mois===mois&&f.nom==='REDEVANCE'&&(f.banqueIds||[]).length);
+  const tvaManuelleW=DB.variables.find(f=>f.mois===mois&&f.nom==='TVA'&&(f.banqueIds||[]).length);
+  const redevReelBanque=redevManuelleW?redevManuelleW.montant:DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
+  const tvaReelBanque=tvaManuelleW?tvaManuelleW.montant:DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
   const totalReel=fixReelW+varReelHorsRedevTva+redevReelBanque+tvaReelBanque;
   const isLastWeek=idx===nw-1;
   const chargeAffichee=isLastWeek?totalReel-chargeParSem*3:chargeParSem;
