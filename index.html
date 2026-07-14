@@ -2333,30 +2333,34 @@ function renderRecap(){
     const achatsW=weeks.map(wk=>DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='ACHATS'&&t.montant<0).reduce((s,t)=>s+t.montant,0));
     const achatsTot=achatsW.reduce((s,v)=>s+v,0);
 
-    const estW=weeks.map((wk,i)=>{
-  if(i<nw-1) return chargeParSemaine;
-  return totalReel - chargeParSemaine*(nw-1);
-});
+    const fixVarParSemaine=(fixEstim+varEstim-achatEstim)/4;
+    const redevTvaParSemaine=(redevAutoEstim+tvaAutoEstim)/4;
 
-    const chargesW=weeks.map((wk,i)=>estW[i]+achatsW[i]);
-    // Total charges = total réel (fixes+variables) + achats réels
+    const fixVarW=weeks.map((wk,i)=> i<nw-1 ? fixVarParSemaine : fixVarReel-fixVarParSemaine*(nw-1));
+    const redevTvaW=weeks.map((wk,i)=> i<nw-1 ? redevTvaParSemaine : redevTvaReel-redevTvaParSemaine*(nw-1));
+
     const achatsTotReel=achatsW.reduce((s,v)=>s+v,0);
-    const chargesTot=totalReel+achatsTotReel;
+    const chargesW=weeks.map((wk,i)=>fixVarW[i]+redevTvaW[i]+achatsW[i]);
+    const chargesTot=fixVarReel+redevTvaReel+achatsTotReel;
 
-    html+=row('📋 Ch. fixes+var. estimées',estW,totalReel,
+    html+=row('📋 Ch. fixes+var. réelles',fixVarW,fixVarReel,
       v=>v<0?'var(--dep)':'var(--mut)',
       (i,v)=>i>=0?`S${i+1} — ${i<nw-1?'Estimation':'Ajustement réel'}
-Estimé/sem: ${fm(chargeParSemaine)}
-Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Total RÉEL: ${fm(totalReel)}`
+Estimé/sem: ${fm(fixVarParSemaine)}
+Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Total RÉEL fixes+var: ${fm(fixVarReel)}`
     );
-        html+=row('🛒 Achats réels',achatsW,achatsTotReel,
+    html+=row('💎 Redevance + TVA réelles',redevTvaW,redevTvaReel,
+      v=>v<0?'var(--dep)':'var(--mut)',
+      (i,v)=>i>=0?`S${i+1} — ${i<nw-1?'Estimation':'Ajustement réel'}`:`Total RÉEL redevance+TVA: ${fm(redevTvaReel)}`
+    );
+    html+=row('🛒 Achats réels',achatsW,achatsTotReel,
       v=>v<0?'var(--dep)':'var(--mut)',
       (i,v)=>i>=0?`Achats S${i+1}:\n${DB.banque.filter(t=>inSem(t.date,y,m,weeks[i].s,weeks[i].e)&&t.categorie==='ACHATS').map(t=>`${t.nom}: ${fm(t.montant)}`).join('\n')||'Aucun'}`:`Total achats: ${fm(achatsTot)}`
     );
 
     html+=`<tr style="background:var(--dep2)"><td style="font-weight:700;padding:8px 10px;color:var(--dep)">💸 CHARGES TOTALES</td>
       ${chargesW.map(v=>`<td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--dep);padding:8px 9px">${fm(v)}</td>`).join('')}
-      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:900;color:var(--dep);padding:8px 9px">${fm(totalReel+achatsTotReel)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:900;color:var(--dep);padding:8px 9px">${fm(chargesTot)}</td>
     </tr>`;
 
     html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">TRÉSORERIE</td></tr>`;
