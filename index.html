@@ -2055,13 +2055,18 @@ function renderVariables(){
     const tvaReel=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
 
     let rows=DB.variables.filter(f=>f.mois===mois);
+    const redevManuelle=rows.find(f=>f.nom==='REDEVANCE'&&(f.banqueIds||[]).length);
+    const tvaManuelle=rows.find(f=>f.nom==='TVA'&&(f.banqueIds||[]).length);
     const autoRows=[
-      {nom:'REDEVANCE',montant:redevReel||0,prev:-redevPrev,auto:true,mois,formula:`Prévu = redevance déposée de ${mc(pm)}`},
-      {nom:'TVA',montant:tvaReel||0,prev:-tvaPrev,auto:true,mois,formula:`Prévu = TVA nette de ${mc(pm)}`},
+      redevManuelle
+        ?{...redevManuelle,auto:false}
+        :{nom:'REDEVANCE',montant:redevReel||0,prev:-redevPrev,auto:true,mois,formula:`Prévu = redevance déposée de ${mc(pm)}`},
+      tvaManuelle
+        ?{...tvaManuelle,auto:false}
+        :{nom:'TVA',montant:tvaReel||0,prev:-tvaPrev,auto:true,mois,formula:`Prévu = TVA nette de ${mc(pm)}`},
     ];
-
     const rowsD=rows.filter(f=>f.nom!=='REDEVANCE'&&f.nom!=='TVA').map(f=>({...f,auto:false}));
-    for(const a of autoRows) rowsD.push({id:null,...a});
+    for(const a of autoRows) rowsD.push({id:a.id||null,...a});
 
     const tot=rowsD.reduce((s,f)=>s+(f.montant||0),0);
 
