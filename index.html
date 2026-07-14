@@ -2261,12 +2261,14 @@ function renderRecap(){
     const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
     const chargeParSemaine=totalEstim/4;
 
-    // totalReel : fixes réelles + variables réelles HORS ACHAT
-    // REDEVANCE et TVA réelles = depuis banque (pas DB.variables dont montant=0)
+    // fixVarReel : fixes réelles + variables réelles HORS ACHAT/REDEVANCE/TVA (= ton calcul manuel)
     const varReelHorsRedevTva=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT'&&f.nom!=='REDEVANCE'&&f.nom!=='TVA').reduce((s,f)=>s+(f.montant||0),0);
+    const fixVarReel=fixReel+varReelHorsRedevTva;
+    // redevTvaReel : redevance + TVA réelles, depuis banque (pas DB.variables dont montant=0)
     const redevReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
     const tvaReelBanque=DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
-    const totalReel=fixReel+varReelHorsRedevTva+redevReelBanque+tvaReelBanque;
+    const redevTvaReel=redevReelBanque+tvaReelBanque;
+    const totalReel=fixVarReel+redevTvaReel; // conservé pour compat (répartition hebdo)
 
     const caisseM=DB.caisse.filter(t=>inM(t.date,mois));
     const redevTotale=redevDue(caisseM);
