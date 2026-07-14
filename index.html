@@ -3374,10 +3374,11 @@ function ouvrirRapprochementCharge(banqueId){
     ...DB.fixes.filter(f=>f.mois===mois).map(f=>({...f,type:'fixes'})),
     ...DB.variables.filter(f=>f.mois===mois).map(f=>({...f,type:'variables'}))
   ];
-  // Ajoute TVA/REDEVANCE comme options même si pas encore créées réellement
+ // Ajoute TVA/REDEVANCE comme options même si pas encore créées réellement
   const pm=prevMois(mois);
   ['TVA','REDEVANCE'].forEach(nom=>{
-    if(!chargesDispo.some(c=>c.nom===nom)){
+    const existeDeja=DB.variables.some(v=>v.nom.trim().toUpperCase()===nom&&v.mois===mois);
+    if(!existeDeja&&!chargesDispo.some(c=>c.nom===nom)){
       const prev=nom==='TVA'?-(tvaNette(pm)):-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
       chargesDispo.push({id:'virtual-'+nom,nom,type:'variables',prev,virtual:true});
     }
