@@ -3715,8 +3715,8 @@ Texte :
 ${text.slice(0,4000)}`;
     }
     const body=isPDF
-      ?{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content}]}
-      :{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[
+      ?{model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content}]}
+      :{model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
           {type:'text',text:`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
 Réponds UNIQUEMENT en JSON valide sans backticks :
@@ -3984,7 +3984,7 @@ async function suggererRapprochementIA(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:1000,
+        model:'claude-sonnet-4-6',max_tokens:3000,
         messages:[{role:'user',content:`Voici un mouvement bancaire à rapprocher :
 Libellé : "${b.nom}"
 Date : ${b.date}
@@ -6637,7 +6637,7 @@ async function importerPlanity(event){
   },
   body:JSON.stringify({
     model:'claude-sonnet-4-6',
-    max_tokens:1000,
+    max_tokens:8000,
     messages:[{
           role:'user',
           content:[
@@ -10577,7 +10577,7 @@ async function genererPlanningIA(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:2000,
+        model:'claude-sonnet-4-6',max_tokens:4000,
         messages:[{role:'user',content:`Voici des créneaux de disponibilité aujourd'hui :
 ${dispos.map(d=>`- ${d.debut} à ${d.fin} (type: ${d.type==='pro'?'professionnel':'personnel/maison'})`).join('\n')}
 
