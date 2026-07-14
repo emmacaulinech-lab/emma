@@ -1879,7 +1879,7 @@ function renderCaisse(){
         <td style="text-align:center">${
           t.reglement==='ESP'
             ?`<span class="${t.paye?'sok':'sq'}" onclick="togC('${t.id}','paye')">${t.paye?'✅':'❓'}</span>`
-            :t.reglement==='VIR'
+            :(t.reglement==='VIR'||t.reglement==='CHQ')
               ?`<span class="${t.paye?'sok':'sno'}">${t.paye?'✅':'⏳'}</span>`
               :`<span class="sok">✅</span>`
         }</td>
@@ -3358,8 +3358,8 @@ async function validerRapprochementCaisse(banqueId){
       }
       const mode=t.reglement;
       if(mode==='ESP') t.depose=true;
-      else if(mode==='CHQ') t.chqDepose=true;
-      else t.rapprocheBanque=true;
+      else if(mode==='CHQ'){ t.chqDepose=true; t.paye=true; }
+      else { t.rapprocheBanque=true; t.paye=true; }
       await saveEntry_fb('caisse',t);
       ids.push(cb.value);
     }
