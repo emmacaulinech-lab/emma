@@ -3087,6 +3087,9 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
   event.target.value='';
 }
 
+const CATEGORIES_BANQUE=['CA','Redevance','Achat','Charges fixes','Frais bancaires','Salaires','Autre'];
+
+
 function renderImportBanqueResult(){
   const el=document.getElementById('importBanqueResult');
   if(!importedMouvements.length){
@@ -3100,16 +3103,31 @@ function renderImportBanqueResult(){
   });
   const nouveaux=importedMouvements.filter((_,i)=>!doublons.has(i));
 
+  // Prestations en attente de règlement (VIR non rapprochés) — pour lier les crédits entrants
+  const prestationsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
+
   let html=`<div class="tw"><div class="card-hdr">📋 ${nouveaux.length} nouveaux mouvements <button class="btn bd bsm" onclick="importerTousMouvements()">✓ Tout importer</button></div>
-    <table><thead><tr><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>Catégorie</th><th></th></tr></thead><tbody>`;
+    <table><thead><tr><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>Catégorie</th><th>Lier à une prestation</th><th></th></tr></thead><tbody>`;
   importedMouvements.forEach((m,i)=>{
     const isDup=doublons.has(i);
-    const cat=detecterCategorieImport(m.libelle,m.montant);
+    if(!m.categorie) m.categorie=detecterCategorieImport(m.libelle,m.montant);
+    if(!m.liaisonPrestationId) m.liaisonPrestationId='';
+
     html+=`<tr style="opacity:${isDup?0.4:1}">
-      <td class="tdt">${dlbl(m.date)}</td>
-      <td style="font-weight:500;font-size:12px">${m.libelle}</td>
-      <td class="${m.montant>=0?'tp':'tn'}" style="text-align:right">${fm(m.montant,m.montant>0)}</td>
-      <td>${bdg(cat)}</td>
+      <td><input type="date" value="${m.date}" onchange="modifierMouvementImporte(${i},'date',this.value)" style="font-size:11px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px;width:120px" ${isDup?'disabled':''}></td>
+      <td><input type="text" value="${m.libelle}" onchange="modifierMouvementImporte(${i},'libelle',this.value)" style="font-size:12px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px;width:100%" ${isDup?'disabled':''}></td>
+      <td><input type="number" step="0.01" value="${m.montant}" onchange="modifierMouvementImporte(${i},'montant',parseFloat(this.value))" style="font-size:12px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px;width:90px;text-align:right" ${isDup?'disabled':''}></td>
+      <td>
+        <select onchange="modifierMouvementImporte(${i},'categorie',this.value)" style="font-size:11px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px" ${isDup?'disabled':''}>
+          ${CATEGORIES_BANQUE.map(c=>`<option value="${c}" ${m.categorie===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        ${m.montant>0?`<select onchange="modifierMouvementImporte(${i},'liaisonPrestationId',this.value)" style="font-size:11px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px" ${isDup?'disabled':''}>
+          <option value="">— Aucune —</option>
+          ${prestationsEnAttente.map(p=>`<option value="${p.id}" ${m.liaisonPrestationId===p.id?'selected':''}>${p.nom} — ${fa(p.montant)} (${dlbl(p.date)})</option>`).join('')}
+        </select>`:'<span style="font-size:11px;color:var(--mut)">—</span>'}
+      </td>
       <td>${isDup?'<span style="font-size:11px;color:var(--mut)">Déjà importé</span>':`<button class="btn bd bsm" onclick="importerMouvement(${i})">+ Ajouter</button>`}</td>
     </tr>`;
   });
@@ -3117,11 +3135,21 @@ function renderImportBanqueResult(){
   el.innerHTML=html;
 }
 
+function modifierMouvementImporte(i,champ,val){
+  importedMouvements[i][champ]=val;
+}
+
 async function importerMouvement(i){
   const m=importedMouvements[i];
-  const cat=detecterCategorieImport(m.libelle,m.montant);
   const tva=m.montant>0?Math.round(m.montant/(1+PARAMS.tva)*PARAMS.tva*100)/100:0;
-  DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:m.montant,categorie:cat,tva});
+  const nouvelleLigne={id:genId(),date:m.date,nom:m.libelle,montant:m.montant,categorie:m.categorie,tva};
+  DB.banque.push(nouvelleLigne);
+
+  if(m.liaisonPrestationId){
+    const prestation=DB.caisse.find(t=>t.id===m.liaisonPrestationId);
+    if(prestation) prestation.rapprocheBanque=true;
+  }
+
   await saveAll();
   importedMouvements.splice(i,1);
   renderImportBanqueResult();
@@ -3134,9 +3162,13 @@ async function importerTousMouvements(){
   for(const m of importedMouvements){
     const isDup=DB.banque.some(b=>b.date===m.date&&Math.abs(b.montant-m.montant)<0.01&&b.nom.toLowerCase()===m.libelle.toLowerCase());
     if(isDup) continue;
-    const cat=detecterCategorieImport(m.libelle,m.montant);
     const tva=m.montant>0?Math.round(m.montant/(1+PARAMS.tva)*PARAMS.tva*100)/100:0;
-    DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:m.montant,categorie:cat,tva});
+    DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:m.montant,categorie:m.categorie||detecterCategorieImport(m.libelle,m.montant),tva});
+
+    if(m.liaisonPrestationId){
+      const prestation=DB.caisse.find(t=>t.id===m.liaisonPrestationId);
+      if(prestation) prestation.rapprocheBanque=true;
+    }
     count++;
   }
   await saveAll();
