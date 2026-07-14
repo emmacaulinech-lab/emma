@@ -3065,12 +3065,18 @@ async function importBanqueImage(event){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:3000,
+        model:'claude-sonnet-4-6',max_tokens:8000,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
-          {type:'text',text:`Analyse ce screenshot de relevé bancaire, extrais tous les mouvements.
-Réponds UNIQUEMENT en JSON valide sans backticks :
-[{"date":"2026-01-15","libelle":"LOYER","montant":-800}]`}
+          {type:'text',text:`Analyse ce screenshot de relevé bancaire français, extrais TOUS les mouvements visibles.
+
+Pour CHAQUE mouvement, tu dois impérativement fournir :
+- date au format YYYY-NN-JJ (déduis l'année/mois si seul le jour est visible, en te basant sur le contexte du relevé)
+- libelle : le texte du mouvement tel qu'affiché
+- montant : un NOMBRE obligatoire (jamais null, jamais vide) — négatif pour un débit/dépense, positif pour un crédit/rentrée. Si le montant est ambigu, fais ta meilleure estimation à partir des chiffres visibles plutôt que de le laisser vide.
+
+Réponds UNIQUEMENT en JSON valide sans backticks, sans texte avant/après :
+[{"date":"2026-01-15","libelle":"LOYER","montant":-800},{"date":"2026-01-16","libelle":"VIR INST de Mme Dupont","montant":50}]`}
         ]}]
       })
     });
