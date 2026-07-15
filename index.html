@@ -1332,15 +1332,17 @@ async function loadAll() {
 }
 
 async function sauvegarderChampSeul(nomChamp, valeur){
-  if(!userRef) return;
+  if(!userRef) return false;
   try {
     await userRef.collection('data').doc('main').update({
       [nomChamp]: valeur,
       updatedAt: new Date().toISOString()
     });
+    return true;
   } catch(e) {
     console.error('Erreur sauvegarde ciblée ('+nomChamp+'):', e);
     toast('⚠️ Erreur de sauvegarde: '+e.message);
+    return false;
   }
 }
 
@@ -7211,7 +7213,8 @@ async function handlePhotoJourCapturee(event){
     if(!DB.photosJour) DB.photosJour={};
     if(!DB.photosJour[today]) DB.photosJour[today]=[];
     DB.photosJour[today].push({heure,data:base64});
-    await sauvegarderChampSeul('photosJour', JSON.stringify(DB.photosJour));
+    const ok=await sauvegarderChampSeul('photosJour', JSON.stringify(DB.photosJour));
+    if(!ok) throw new Error('La sauvegarde a échoué — vérifie ta connexion et réessaie');
     toast('✓ Photo enregistrée !');
     renderHumeurJour();
   }catch(e){
