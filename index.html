@@ -1274,7 +1274,7 @@ async function loadAll() {
       if(d.lecture) DB.lecture=JSON.parse(d.lecture);
       if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
       if(d.journal) DB.journal=JSON.parse(d.journal);
-      if(d.photosJour) DB.photosJour=JSON.parse(d.photosJour);
+      // photosJour chargé séparément maintenant (voir chargerPhotosJour)
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1292,6 +1292,7 @@ async function loadAll() {
     // Recharger l'agenda si données du jour disponibles
     if(agendaData) renderAgenda();
     chargementReussi = true;
+    await chargerPhotosJour();
   } catch(e) {
     console.error('Load error:', e);
     toast('⚠️ Erreur de chargement, sauvegarde bloquée par sécurité: ' + e.message);
@@ -1305,10 +1306,9 @@ async function loadAll() {
     toast('⚠️ Sauvegarde bloquée par sécurité — recharge la page');
     return;
   }
-  // ... reste du code existant de saveAll() inchangé
   if(!userRef) return;
   try {
-    await userRef.collection('data').doc('main').set({
+    await userRef.collection('data').doc('main').update({
       caisse:      JSON.stringify(DB.caisse),
       banque:      JSON.stringify(DB.banque),
       fixes:       JSON.stringify(DB.fixes),
@@ -1319,9 +1319,6 @@ async function loadAll() {
       formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
       sport:       JSON.stringify(DB.sport||{seances:[],mensurations:[],objectifs:[]}),
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
-      humeurs:     JSON.stringify(DB.humeurs||{}),
-      journal:     JSON.stringify(DB.journal||{}),
-      photosJour:  JSON.stringify(DB.photosJour||{}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -1343,6 +1340,34 @@ async function sauvegarderChampSeul(nomChamp, valeur){
     console.error('Erreur sauvegarde ciblée ('+nomChamp+'):', e);
     toast('⚠️ Erreur de sauvegarde: '+e.message);
     return false;
+  }
+}
+
+async function sauvegarderPhotosJour(){
+  if(!userRef) return false;
+  try {
+    await userRef.collection('photosJourData').doc('main').set({
+      data: JSON.stringify(DB.photosJour||{}),
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch(e) {
+    console.error('Erreur sauvegarde photos:', e);
+    toast('⚠️ Erreur sauvegarde photos: '+e.message);
+    return false;
+  }
+}
+
+async function chargerPhotosJour(){
+  if(!userRef) return;
+  try {
+    const snap=await userRef.collection('photosJourData').doc('main').get();
+    if(snap.exists){
+      const d=snap.data();
+      if(d.data) DB.photosJour=JSON.parse(d.data);
+    }
+  } catch(e) {
+    console.error('Erreur chargement photos:', e);
   }
 }
 
@@ -7213,8 +7238,8 @@ async function handlePhotoJourCapturee(event){
     if(!DB.photosJour) DB.photosJour={};
     if(!DB.photosJour[today]) DB.photosJour[today]=[];
     DB.photosJour[today].push({heure,data:base64});
-    const ok=await sauvegarderChampSeul('photosJour', JSON.stringify(DB.photosJour));
-    if(!ok) return; // le vrai message d'erreur a déjà été affiché par sauvegarderChampSeul
+    const ok=await sauvegarderPhotosJour();
+    if(!ok) return;
     toast('✓ Photo enregistrée !');
     renderHumeurJour();
   }catch(e){
