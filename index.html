@@ -10122,7 +10122,12 @@ function joursDepuis(dateStr){
 }
 
 function getSousTachesDues(action){
-  return (action.sousTaches||[]).filter(st=>joursDepuis(st.dernierFait)>=st.freq);
+  const jourRef=getJournalJour();
+  return (action.sousTaches||[]).filter(st=>{
+    if(!st.dernierFait) return true;
+    const jours=Math.floor((new Date(jourRef+'T12:00:00')-new Date(st.dernierFait+'T12:00:00'))/86400000);
+    return jours>=st.freq;
+  });
 }
 
 // ── Mes tâches ──
