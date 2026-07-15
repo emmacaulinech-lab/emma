@@ -10760,6 +10760,7 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
         ${clickable?`<span onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="color:${couleur};font-size:11px;cursor:pointer;flex-shrink:0">${expanded?'▲':'▼'}</span>`:''}
       </div>
       ${expanded?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
+        <button class="btn bg bsm" onclick="ouvrirAjustementHoraire('${p.id}')">⏱️ Ajuster horaires</button>
         <button class="btn bg bsm" onclick="ouvrirReporter('${p.id}')">⏭️ Reporter</button>
         <button class="btn bg bsm" onclick="ouvrirRemplacer('${p.id}')">🔄 Remplacer</button>
         <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕ Retirer</button>
@@ -11129,6 +11130,42 @@ async function togglePlanningFait(planningId){
   renderPlanningTimeline();
 }
 
+function ouvrirAjustementHoraire(planningId){
+  const jour=getJournalJour();
+  const item=DB.journal.planning[jour].find(p=>p.id===planningId);
+  if(!item) return;
+  document.getElementById('mTitle').textContent='⏱️ Ajuster — '+(item.nom||item.customNom);
+  document.getElementById('mBody').innerHTML=`
+    <div class="g2">
+      <div class="fr"><label>Heure début</label><input type="time" id="ajust-debut" value="${item.heureDebut}"></div>
+      <div class="fr"><label>Heure fin</label><input type="time" id="ajust-fin" value="${item.heureFin}"></div>
+    </div>
+  `;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`
+    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+    <button class="btn bd" onclick="validerAjustementHoraire('${planningId}')">✓ Enregistrer</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerAjustementHoraire(planningId){
+  const jour=getJournalJour();
+  const item=DB.journal.planning[jour].find(p=>p.id===planningId);
+  if(!item) return;
+  const nouveauDebut=document.getElementById('ajust-debut')?.value;
+  const nouveauFin=document.getElementById('ajust-fin')?.value;
+  if(!nouveauDebut||!nouveauFin||nouveauDebut>=nouveauFin){toast('⚠ Vérifie les horaires');return;}
+
+  item.heureDebut=nouveauDebut;
+  item.heureFin=nouveauFin;
+  item.duree=strToMin(nouveauFin)-strToMin(nouveauDebut);
+
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+  closeMo('mainModal');
+  renderJAujourdhui();
+  toast('✓ Horaires ajustés');
+}
+
 function ouvrirReporter(planningId){
   const today=getJournalJour();
   const item=DB.journal.planning[today].find(p=>p.id===planningId);
@@ -11262,59 +11299,100 @@ function renderJHistorique(){
   ensureJournalData();
   if(!DB.journal.historique) DB.journal.historique={};
 
-  let html=`<div style="display:flex;gap:6px;margin-bottom:14px;background:var(--bg2);border-radius:12px;padding:4px">
-    <button onclick="historiqueVue='jour';renderJHistorique()" style="flex:1;padding:7px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${historiqueVue==='jour'?'white':'transparent'};color:${historiqueVue==='jour'?'var(--acc)':'var(--mut)'}">📅 Par jour</button>
-    <button onclick="historiqueVue='semaine';renderJHistorique()" style="flex:1;padding:7px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:${historiqueVue==='semaine'?'white':'transparent'};color:${historiqueVue==='semaine'?'var(--acc)':'var(--mut)'}">📆 Par semaine</button>
-  </div>`;
+  const centre=historiqueJourAffiche||new Date().toISOString().split('T')[0];
+  const debut=new Date(centre+'T12:00:00'); debut.setDate(debut.getDate()-((debut.getDay()+6)%7));
+  const jours=[...Array(7)].map((_,i)=>{ const d=new Date(debut); d.setDate(debut.getDate()+i); return d.toISOString().split('T')[0]; });
 
-  if(historiqueVue==='jour'){
-    const jours=Object.keys(DB.journal.historique).filter(j=>DB.journal.historique[j].length).sort().reverse();
-    if(!jours.length){ document.getElementById('jview-historique').innerHTML=html+`<div class="empty">Aucune tâche faite pour l'instant</div>`; return; }
-    if(!historiqueJourAffiche||!jours.includes(historiqueJourAffiche)) historiqueJourAffiche=jours[0];
-    const entrees=DB.journal.historique[historiqueJourAffiche];
-    const totalMin=entrees.reduce((s,e)=>s+e.duree,0);
-    const h=Math.floor(totalMin/60), m=totalMin%60;
+  const totalSemaineMin=jours.reduce((s,j)=>s+(DB.journal.historique[j]||[]).reduce((s2,e)=>s2+e.duree,0),0);
+  const hSem=Math.floor(totalSemaineMin/60), mSem=totalSemaineMin%60;
 
-    html+=`<div class="flt">
-      <select class="fi" onchange="historiqueJourAffiche=this.value;renderJHistorique()">
-        ${jours.map(j=>`<option value="${j}" ${j===historiqueJourAffiche?'selected':''}>${dlbl(j)}</option>`).join('')}
-      </select>
-    </div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${entrees.length} tâche(s) — ${h>0?h+'h':''}${m>0?String(m).padStart(2,'0')+'min':''}</div>
-    ${renderTimelineHistorique(entrees)}`;
-  } else {
-    const now=new Date();
-    now.setDate(now.getDate()+historiqueSemaineOffset*7);
-    const debut=new Date(now); debut.setDate(now.getDate()-((now.getDay()+6)%7));
-    const jours=[...Array(7)].map((_,i)=>{ const d=new Date(debut); d.setDate(debut.getDate()+i); return d.toISOString().split('T')[0]; });
-    const finSem=jours[6];
-
-    let totalSemaineMin=0;
-    const parJour=jours.map(j=>{
-      const entrees=(DB.journal.historique[j]||[]);
-      totalSemaineMin+=entrees.reduce((s,e)=>s+e.duree,0);
-      return{jour:j,entrees};
-    });
-    const hSem=Math.floor(totalSemaineMin/60), mSem=totalSemaineMin%60;
-
-    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <button onclick="historiqueSemaineOffset--;renderJHistorique()" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer">‹</button>
-      <div style="font-size:13px;font-weight:700;color:var(--acc)">${dlbl(debut.toISOString().split('T')[0])} → ${dlbl(finSem)}</div>
-      <button onclick="historiqueSemaineOffset++;renderJHistorique()" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer">›</button>
-    </div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Total semaine : ${hSem>0?hSem+'h':''}${mSem>0?String(mSem).padStart(2,'0')+'min':''}</div>`;
-
-    parJour.forEach(({jour,entrees})=>{
-      if(!entrees.length) return;
-      const totJourMin=entrees.reduce((s,e)=>s+e.duree,0);
-      html+=`<div style="font-size:12px;font-weight:700;color:var(--acc);margin:12px 0 8px">${dlbl(jour)} <span style="font-weight:400;color:var(--mut);font-size:11px">— ${Math.floor(totJourMin/60)}h${String(totJourMin%60).padStart(2,'0')}</span></div>
-      ${renderTimelineHistorique(entrees)}`;
-    });
-
-    if(!parJour.some(p=>p.entrees.length)) html+='<div class="empty">Rien fait cette semaine</div>';
-  }
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <button onclick="historiqueSemaineNav(-1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer">‹</button>
+    <div style="font-size:13px;font-weight:700;color:var(--acc)">${dlbl(jours[0])} → ${dlbl(jours[6])}</div>
+    <button onclick="historiqueSemaineNav(1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer">›</button>
+  </div>
+  <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Total semaine : ${hSem>0?hSem+'h':''}${mSem>0?String(mSem).padStart(2,'0')+'min':''}</div>
+  ${renderAgendaSemaineHistorique(jours)}`;
 
   document.getElementById('jview-historique').innerHTML=html;
+}
+
+function historiqueSemaineNav(delta){
+  const d=new Date((historiqueJourAffiche||new Date().toISOString().split('T')[0])+'T12:00:00');
+  d.setDate(d.getDate()+delta*7);
+  historiqueJourAffiche=d.toISOString().split('T')[0];
+  renderJHistorique();
+}
+
+function renderAgendaSemaineHistorique(jours){
+  const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
+
+  const toutesEntrees=[];
+  jours.forEach(j=>{
+    const entreesJour=[...(DB.journal.historique[j]||[])].sort((a,b)=>toMin(a.heure)-toMin(b.heure));
+    let curFin=-Infinity;
+    entreesJour.forEach(e=>{
+      const debutReel=toMin(e.heure);
+      const debutAffiche=Math.max(debutReel,curFin);
+      const finAffiche=debutAffiche+e.duree;
+      curFin=finAffiche;
+      toutesEntrees.push({...e,jour:j,debutMin:debutAffiche,finMin:finAffiche});
+    });
+  });
+
+  if(!toutesEntrees.length) return '<div class="empty">Rien fait cette semaine</div>';
+
+  let heureMin=Math.floor(Math.min(...toutesEntrees.map(e=>e.debutMin))/60)*60;
+  let heureMax=Math.ceil(Math.max(...toutesEntrees.map(e=>e.finMin))/60)*60;
+
+  const reperesSet=new Set();
+  for(let h=heureMin;h<=heureMax;h+=60) reperesSet.add(h);
+  toutesEntrees.forEach(e=>{ reperesSet.add(e.debutMin); reperesSet.add(e.finMin); });
+  const reperes=[...reperesSet].sort((a,b)=>a-b);
+
+  const espaceMin=30, pxParMin=0.7;
+  const yMap={};
+  let cumY=0;
+  for(let i=0;i<reperes.length;i++){
+    yMap[reperes[i]]=cumY;
+    if(i<reperes.length-1) cumY+=Math.max(espaceMin,(reperes[i+1]-reperes[i])*pxParMin);
+  }
+  const hauteurTotale=cumY+20;
+
+  const colonnesHtml=jours.map(j=>{
+    const entreesJour=toutesEntrees.filter(e=>e.jour===j).sort((a,b)=>a.debutMin-b.debutMin);
+    const estAujourdhuiReel=j===new Date().toISOString().split('T')[0];
+
+    const blocsHtml=entreesJour.map(e=>{
+      const zoneActuelle=DB.journal.zones.find(z=>z.nom===e.zoneNom);
+      const couleur=zoneActuelle?.couleur||e.couleur||'#993556';
+      const top=yMap[e.debutMin];
+      const hgt=yMap[e.finMin]-top;
+      return`<div style="position:absolute;top:${top}px;left:2px;right:2px;height:${hgt}px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:8px;padding:2px 5px;box-sizing:border-box;overflow:hidden">
+        <div style="font-size:9px;font-weight:700;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.zoneIcon} ${e.nom}</div>
+      </div>`;
+    }).join('');
+
+    return`<div style="flex:1;min-width:0;border-right:1px solid var(--brd)">
+      <div style="text-align:center;padding:8px 2px;background:white;border-bottom:1.5px solid var(--brd)">
+        <div style="font-size:10px;font-weight:700;text-transform:capitalize">${new Date(j+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short'})}</div>
+        <div style="font-size:14px;font-weight:700;color:${estAujourdhuiReel?'var(--acc)':'var(--mut)'}">${new Date(j+'T12:00:00').getDate()}</div>
+      </div>
+      <div style="position:relative;height:${hauteurTotale}px">${blocsHtml}</div>
+    </div>`;
+  }).join('');
+
+  return`<div style="border-radius:16px;box-shadow:var(--shadow);border:1.5px solid var(--brd);background:white;overflow:hidden">
+    <div style="display:flex">
+      <div style="width:42px;flex-shrink:0;border-right:1.5px solid var(--brd)">
+        <div style="height:45px;border-bottom:1.5px solid var(--brd)"></div>
+        <div style="position:relative;height:${hauteurTotale}px">
+          ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-5}px;right:3px;font-size:8px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}h</div>`).join('')}
+        </div>
+      </div>
+      ${colonnesHtml}
+    </div>
+  </div>`;
 }
 
 function renderTimelineHistorique(entrees){
