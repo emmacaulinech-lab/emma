@@ -6699,6 +6699,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     const todaySave=new Date().toISOString().split('T')[0];
   localStorage.setItem('agendaData', JSON.stringify({date:todaySave, rdvs:agendaData}));
     renderAgenda();
+    await syncAgendaVersJournal();
 
  } catch(e) {
     el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur : ${e.message||JSON.stringify(e)}</div>`;
@@ -6779,6 +6780,34 @@ const encaissee=DB.caisse.some(t=>t.nom===r.nom&&t.montant>0&&Math.abs((new Date
 
   el.innerHTML=html;
   setTimeout(checkNouvellesPrestations, 100);
+}
+
+async function syncAgendaVersJournal(){
+  if(!agendaData||!agendaData.length) return;
+  ensureJournalData();
+  const today=new Date().toISOString().split('T')[0];
+  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
+
+  const emmaRdv=agendaData.filter(r=>r.praticien==='Emma'&&r.heure_debut&&r.heure_fin);
+  let ajoutes=0;
+  emmaRdv.forEach(r=>{
+    const nom=`${r.nom}${r.prestation?' — '+r.prestation:''}`;
+    const dejaLa=DB.journal.planning[today].some(p=>p.nom===nom&&p.heureDebut===r.heure_debut);
+    if(dejaLa) return;
+    const[h1,m1]=r.heure_debut.split(':').map(Number);
+    const[h2,m2]=r.heure_fin.split(':').map(Number);
+    DB.journal.planning[today].push({
+      id:genId(),customNom:nom,nom,
+      heureDebut:r.heure_debut,heureFin:r.heure_fin,
+      duree:(h2*60+m2)-(h1*60+m1),
+      couleurOverride:'#e87a9a',iconOverride:'💅'
+    });
+    ajoutes++;
+  });
+  if(ajoutes>0){
+    await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+    toast(`✓ ${ajoutes} RDV ajouté(s) à ton planning du jour`);
+  }
 }
 
 function prefillFromAgenda(nom, prestation, praticien){
