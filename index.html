@@ -7214,7 +7214,7 @@ async function handlePhotoJourCapturee(event){
     if(!DB.photosJour[today]) DB.photosJour[today]=[];
     DB.photosJour[today].push({heure,data:base64});
     const ok=await sauvegarderChampSeul('photosJour', JSON.stringify(DB.photosJour));
-    if(!ok) throw new Error('La sauvegarde a échoué — vérifie ta connexion et réessaie');
+    if(!ok) return; // le vrai message d'erreur a déjà été affiché par sauvegarderChampSeul
     toast('✓ Photo enregistrée !');
     renderHumeurJour();
   }catch(e){
