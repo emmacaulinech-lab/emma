@@ -7255,10 +7255,7 @@ function verifierRappelPhoto(){
   const maintenant=new Date();
 
   if(!photosAuj.length){
-    // Aucune photo aujourd'hui — propose si on est après 8h du matin
-    if(maintenant.getHours()>=8){
-      document.getElementById('photoJourModal').classList.add('open');
-    }
+    document.getElementById('photoJourModal').classList.add('open');
     return;
   }
 
@@ -7268,7 +7265,7 @@ function verifierRappelPhoto(){
   derniereDate.setHours(h,m,0,0);
   const heuresEcoulees=(maintenant-derniereDate)/3600000;
 
-  if(heuresEcoulees>=2.5){
+  if(heuresEcoulees>=1){
     document.getElementById('photoJourModal').classList.add('open');
   }
 }
