@@ -7799,6 +7799,49 @@ function getNotificationsOrganisables(){
 // MODULE FORMATIONS
 // ═══════════════════════════════════════
 
+const CORRESPONDANCE_FORMATION_KIT={
+  'coaching-1j':{kits:['coaching1j'],auto:true},
+  'coaching-2j':{kits:['coaching2j'],auto:true},
+  'lashlift':{kits:['lashlift'],auto:true},
+  'perfectionnement-1j':{kits:['coaching1j'],auto:true},
+  'debutant-5j':{choix:[['starter'],['extra','lashup']],auto:false},
+  'debutant-express-3j':{kits:['starter'],auto:true}
+};
+
+const LABELS_TYPE_FORMATION={
+  'coaching-1j':'Coaching Privé (1 jour)',
+  'coaching-2j':'Coaching Privé (2 jours)',
+  'lashlift':'Lash Lift Coréen',
+  'perfectionnement-1j':'Perfectionnement 1 Jour',
+  'debutant-5j':'DEBUTANT (5 jours)',
+  'debutant-express-3j':'DEBUTANT EXPRESS (3 jours)'
+};
+
+function normaliserTypeFormation(formationRaw, dateDebut, dateFin){
+  const txt=(formationRaw||'').toLowerCase();
+  const nbJours=dateDebut&&dateFin
+    ?Math.round((new Date(dateFin)-new Date(dateDebut))/86400000)+1
+    :1;
+
+  if(txt.includes('perfectionnement')) return 'perfectionnement-1j';
+  if(txt.includes('lash lift')) return 'lashlift';
+  if(txt.includes('express')) return 'debutant-express-3j';
+  if(txt.includes('debutant')||txt.includes('débutant')) return 'debutant-5j';
+  if(txt.includes('coaching')) return nbJours>=2?'coaching-2j':'coaching-1j';
+  return null;
+}
+
+function construireKitsSelonFormation(typeNormalise){
+  const correspondance=CORRESPONDANCE_FORMATION_KIT[typeNormalise];
+  if(!correspondance) return construireKits(['starter'],null); // fallback si type inconnu
+
+  if(correspondance.auto){
+    return construireKits(correspondance.kits,null);
+  }
+  // Type "choix" (comme DEBUTANT) — on prend la première option par défaut, à ajuster ensuite dans la fiche
+  return construireKits(correspondance.choix[0],null);
+}
+   
 const KITS_CONTENU={
   'starter':{label:'Kit Starter (189€)',prix:189,items:['2 boîtes de cils LIMAGECILS','1 colle professionnelle','10 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 nettoyant','1 scotch professionnel','5 marguerites']},
   'extra':{label:'Kit Extra (319€)',prix:319,items:['7 boîtes de cils LIMAGECILS','2 colles professionnelles','15 patches hydrogel','50 tigettes','50 brossettes','50 microtigettes','1 ventilateur professionnel','1 support palette','1 pince saisie','1 pince isolation','1 boîte pinces','1 préparateur','1 nettoyant','1 fixateur','1 crème remover']},
@@ -7872,11 +7915,10 @@ async function importPlanningFormations(event){
       body:JSON.stringify({
         model:'claude-sonnet-4-6',max_tokens:4000,
         messages:[{role:'user',content:`Voici un planning de formations avec les étudiantes inscrites. Extrais toutes les étudiantes.
-Pour chaque étudiante donne : nom (Prénom Nom), tel, email, financement ("cpf" ou "perso"), dateDebut (YYYY-MM-DD, année 2026 si non précisée), lieu, formation (nom du type de formation, ex: "Coaching Privé", "Débutant", "Perfectionnement").
+Pour chaque étudiante donne : nom (Prénom Nom), tel, email, financement ("cpf" ou "perso"), dateDebut (YYYY-MM-DD, année 2026 si non précisée), dateFin (YYYY-MM-DD, même jour que dateDebut si une seule journée), lieu, formation (nom exact du type de formation tel qu'écrit, ex: "Coaching Privé", "DEBUTANT", "DEBUTANT EXPRESS", "Lash Lift Coréen", "Perfectionnement 1 Jour").
 Ignore les lignes d'absence de l'équipe (Isabelle, Giulia, Danielle absentes).
 Réponds UNIQUEMENT en JSON valide sans backticks :
-[{"nom":"SESTINI Samantha","tel":"06.45.18.17.20","email":"samanthasestini@icloud.com","financement":"cpf","dateDebut":"2026-06-23","lieu":"Porto-Vecchio","formation":"Coaching Privé"}]
-
+[{"nom":"SESTINI Samantha","tel":"06.45.18.17.20","email":"samanthasestini@icloud.com","financement":"cpf","dateDebut":"2026-06-23","dateFin":"2026-06-23","lieu":"Porto-Vecchio","formation":"Coaching Privé"}]
 Texte du planning :
 ${fullText.slice(0,10000)}`}]
       })
@@ -7933,6 +7975,7 @@ function renderImportFormationsResult(){
 async function importerEtudianteFormation(i){
   ensureFormationsData();
   const e=importedEtudiantes[i];
+  const typeNormalise=normaliserTypeFormation(e.formation,e.dateDebut,e.dateFin);
   const etu={
     id:genId(),
     nom:e.nom,
@@ -7941,10 +7984,12 @@ async function importerEtudianteFormation(i){
     statut:'Inscrite',
     formation:'kit-cils',
     formationType:e.formation||'',
+    formationTypeNormalise:typeNormalise,
     dateFormation:e.dateDebut||'',
+    dateFinFormation:e.dateFin||e.dateDebut||'',
     lieu:e.lieu||'',
     financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-    kits:construireKits(['starter'],null),
+    kits:construireKitsSelonFormation(typeNormalise),
     notes:''
   };
   DB.formations.etudiantes.push(etu);
@@ -7963,6 +8008,7 @@ async function importerToutesEtudiantesFormation(){
       x.nom.toLowerCase().trim()===e.nom.toLowerCase().trim()&&x.dateFormation===e.dateDebut
     );
     if(exists) continue;
+    const typeNormalise=normaliserTypeFormation(e.formation,e.dateDebut,e.dateFin);
     DB.formations.etudiantes.push({
       id:genId(),
       nom:e.nom,
@@ -7971,10 +8017,12 @@ async function importerToutesEtudiantesFormation(){
       statut:'Inscrite',
       formation:'kit-cils',
       formationType:e.formation||'',
+      formationTypeNormalise:typeNormalise,
       dateFormation:e.dateDebut||'',
+      dateFinFormation:e.dateFin||e.dateDebut||'',
       lieu:e.lieu||'',
       financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-      kits:construireKits(['starter'],null),
+      kits:construireKitsSelonFormation(typeNormalise),
       notes:''
     });
     count++;
@@ -8099,7 +8147,19 @@ function openEtudianteModal(id=null){
     </div>
     <div class="g2">
   <div class="fr"><label>Date début formation</label><input type="date" id="fe-date-formation" value="${e?.dateFormation||''}"></div>
+  <div class="fr"><label>Date fin formation</label><input type="date" id="fe-date-fin-formation" value="${e?.dateFinFormation||e?.dateFormation||''}"></div>
+</div>
+<div class="g2">
   <div class="fr"><label>Lieu</label><input type="text" id="fe-lieu" value="${e?.lieu||''}"></div>
+  <div class="fr"><label>Type de formation</label>
+    <select id="fe-type-formation">
+      <option value="">— Non défini —</option>
+      ${Object.entries(LABELS_TYPE_FORMATION).map(([k,label])=>`<option value="${k}" ${e?.formationTypeNormalise===k?'selected':''}>${label}</option>`).join('')}
+    </select>
+  </div>
+</div>
+<div style="text-align:right;margin-bottom:10px">
+  <button type="button" class="btn bg bsm" onclick="suggererKitsFormation()">✨ Suggérer les kits selon le type</button>
 </div>
 <div class="fr"><label>Kit(s) choisi(s) <span style="font-size:10px;color:var(--mut)">(sélection multiple possible)</span></label>
   <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:8px">
@@ -8131,6 +8191,25 @@ function openEtudianteModal(id=null){
   document.getElementById('formationModal').dataset.editId=id||'';
   document.getElementById('formationModal').classList.add('open');
   document.getElementById('saveEtudianteBtn').disabled=false;
+}
+
+function suggererKitsFormation(){
+  const type=document.getElementById('fe-type-formation')?.value;
+  if(!type){toast('⚠ Choisis d\'abord un type de formation');return;}
+  const correspondance=CORRESPONDANCE_FORMATION_KIT[type];
+  if(!correspondance){toast('⚠ Type inconnu');return;}
+
+  const kitsACocher=correspondance.auto?correspondance.kits:correspondance.choix[0];
+
+  document.querySelectorAll('.fe-kit-check').forEach(cb=>{
+    cb.checked=kitsACocher.includes(cb.value);
+  });
+
+  if(!correspondance.auto){
+    toast('💡 Choix par défaut : '+kitsACocher.join(' + ')+' — modifiable ci-dessous');
+  } else {
+    toast('✓ Kit(s) suggéré(s) coché(s)');
+  }
 }
 
 function construireKits(typesChoisis,kitsExistants){
@@ -8169,7 +8248,9 @@ async function saveEtudiante(){
     statut:document.getElementById('fe-statut')?.value||'Inscrite',
     formation:document.getElementById('fe-formation')?.value||'gestion-finance',
     dateFormation:document.getElementById('fe-date-formation')?.value||'',
+    dateFinFormation:document.getElementById('fe-date-fin-formation')?.value||'',
     lieu:document.getElementById('fe-lieu')?.value?.trim()||'',
+    formationTypeNormalise:document.getElementById('fe-type-formation')?.value||'',
     financement:{
       type:document.getElementById('fe-fin-type')?.value||'perso',
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
