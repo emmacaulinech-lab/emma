@@ -1282,6 +1282,7 @@ async function loadAll() {
       if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
       if(d.journal) DB.journal=JSON.parse(d.journal);
       // photosJour chargé séparément maintenant (voir chargerPhotosJour)
+      if(d.todos) DB.todos=JSON.parse(d.todos);
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
