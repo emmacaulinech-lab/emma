@@ -1293,6 +1293,7 @@ async function loadAll() {
       if(d.journal) DB.journal=JSON.parse(d.journal);
       // photosJour chargé séparément maintenant (voir chargerPhotosJour)
       if(d.todos) DB.todos=JSON.parse(d.todos);
+      await chargerAgendaImporte();
     } else {
       const paramsDoc = await userRef.collection('settings').doc('params').get();
       if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
@@ -1308,7 +1309,13 @@ async function loadAll() {
      await loadCV();
      await loadFactures();
     // Recharger l'agenda si données du jour disponibles
-    if(agendaData) renderAgenda();
+    if(agendaData){
+      setTimeout(()=>{
+        const dateInput=document.getElementById('agenda-date');
+        if(dateInput&&window._agendaDateChargee) dateInput.value=window._agendaDateChargee;
+        renderAgenda();
+      },300);
+    }
     chargementReussi = true;
     await chargerPhotosJour();
   } catch(e) {
@@ -1387,6 +1394,26 @@ async function chargerPhotosJour(){
     });
   } catch(e) {
     console.error('Erreur chargement photos:', e);
+  }
+}
+
+async function sauvegarderAgendaImporte(){
+  const dateVal=document.getElementById('agenda-date')?.value||new Date().toISOString().split('T')[0];
+  await sauvegarderChampSeul('agendaImporte', JSON.stringify({date:dateVal, data:agendaData||null}));
+}
+
+async function chargerAgendaImporte(){
+  if(!userRef) return;
+  try{
+    const snap=await userRef.collection('data').doc('main').get();
+    const d=snap.data();
+    if(d&&d.agendaImporte){
+      const obj=JSON.parse(d.agendaImporte);
+      agendaData=obj.data||null;
+      window._agendaDateChargee=obj.date||null;
+    }
+  }catch(e){
+    console.error('Erreur chargement agenda importé:',e);
   }
 }
 
@@ -6745,6 +6772,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     const todaySave=new Date().toISOString().split('T')[0];
   localStorage.setItem('agendaData', JSON.stringify({date:todaySave, rdvs:agendaData}));
     renderAgenda();
+    await sauvegarderAgendaImporte();
     await syncAgendaVersJournal();
 
  } catch(e) {
@@ -6821,7 +6849,7 @@ const encaissee=DB.caisse.some(t=>t.nom===r.nom&&t.montant>0&&Math.abs((new Date
       <span style="font-size:12px;font-weight:700;color:var(--rec)">💰 CA estimé total</span>
       <span style="font-family:'Cormorant Garant',serif;font-size:20px;font-weight:700;color:var(--rec)">${fa(totalCA)}</span>
     </div>
-    <div style="font-size:10px;color:var(--mut);margin-top:8px;text-align:right">${agendaData.length} RDV importés · <span style="cursor:pointer;text-decoration:underline" onclick="agendaData=null;renderAgenda()">Effacer</span></div>
+    <div style="font-size:10px;color:var(--mut);margin-top:8px;text-align:right">${agendaData.length} RDV importés · <span style="cursor:pointer;text-decoration:underline" onclick="agendaData=null;sauvegarderAgendaImporte();renderAgenda()">Effacer</span></div>
   `;
 
   el.innerHTML=html;
