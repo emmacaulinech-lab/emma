@@ -406,7 +406,14 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
     </div>
     <div id="humeur-jour-widget"></div>
   </div>
-
+<div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📝 À faire</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <input type="text" id="todo-input" placeholder="Note rapide..." style="flex:1;padding:8px 12px;border:1.5px solid var(--brd2);border-radius:10px;font-size:13px" onkeypress="if(event.key==='Enter')ajouterTodo()">
+      <button class="btn bd bsm" onclick="ajouterTodo()">+ Ajouter</button>
+    </div>
+    <div id="todos-list"></div>
+  </div>
   <div id="hub-virements-wrap" style="display:none;background:white;border:1.5px solid var(--brd2);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:10px">⏳ Virements en attente</div>
     <div id="hub-virements"></div>
@@ -7761,6 +7768,7 @@ function getNotificationsOrganisables(){
 }
    
    function renderHubOverview(){
+  renderTodos();
   renderHumeurJour();
   renderHubPlanningMini();
   const soldeProEl=document.getElementById('hub-solde-pro');
@@ -10162,6 +10170,106 @@ function goJTab(i){
   if(i===0){ journalJourAffiche=new Date().toISOString().split('T')[0]; renderJAujourdhui(); scrollVersMaintenant(); }
   if(i===1) renderJTaches();
   if(i===2) renderJHistorique();
+}
+
+// ═══════════════════════════════════════
+// À FAIRE — Dashboard Compta
+// ═══════════════════════════════════════
+function ensureTodosData(){
+  if(!DB.todos) DB.todos=[];
+}
+
+function renderTodos(){
+  ensureTodosData();
+  const el=document.getElementById('todos-list');
+  if(!el) return;
+  if(!DB.todos.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--mut)">Rien à faire pour l\'instant</div>';
+    return;
+  }
+  el.innerHTML=DB.todos.map(t=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:6px">
+      <span style="flex:1;font-size:13px">${t.texte}</span>
+      <button class="btn bg bsm" onclick="ouvrirConvertirTodo('${t.id}')" title="Enregistrer comme sous-tâche">🔗</button>
+      <button class="btn br bsm" onclick="delTodo('${t.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function ajouterTodo(){
+  const input=document.getElementById('todo-input');
+  const texte=input?.value?.trim();
+  if(!texte){toast('⚠ Écris quelque chose d\'abord');return;}
+  ensureTodosData();
+  DB.todos.push({id:genId(),texte,date:new Date().toISOString().split('T')[0]});
+  input.value='';
+  await sauvegarderChampSeul('todos', JSON.stringify(DB.todos));
+  renderTodos();
+}
+
+async function delTodo(id){
+  ensureTodosData();
+  DB.todos=DB.todos.filter(t=>t.id!==id);
+  await sauvegarderChampSeul('todos', JSON.stringify(DB.todos));
+  renderTodos();
+}
+
+function ouvrirConvertirTodo(todoId){
+  ensureJournalData();
+  const todo=DB.todos.find(t=>t.id===todoId);
+  if(!todo) return;
+
+  document.getElementById('convertirTodoBody').innerHTML=`
+    <div style="background:var(--bg2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px">${todo.texte}</div>
+    <div class="fr"><label>Zone</label>
+      <select id="convertir-zone" onchange="majActionsConvertir()">
+        ${DB.journal.zones.map(z=>`<option value="${z.id}">${z.icon} ${z.nom}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fr"><label>Action (grand groupe)</label>
+      <select id="convertir-action"></select>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Fréquence (tous les X jours)</label><input type="number" id="convertir-freq" value="7"></div>
+      <div class="fr"><label>Durée (min)</label><input type="number" id="convertir-duree" value="15"></div>
+    </div>
+  `;
+  document.getElementById('convertirTodoModal').dataset.todoId=todoId;
+  majActionsConvertir();
+  document.getElementById('convertirTodoModal').classList.add('open');
+}
+
+function majActionsConvertir(){
+  const zoneId=document.getElementById('convertir-zone')?.value;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const select=document.getElementById('convertir-action');
+  if(!zone||!select) return;
+  select.innerHTML=zone.actions.map(a=>`<option value="${a.id}">${a.nom}</option>`).join('');
+}
+
+async function validerConvertirTodo(){
+  const todoId=document.getElementById('convertirTodoModal').dataset.todoId;
+  const todo=DB.todos.find(t=>t.id===todoId);
+  if(!todo) return;
+
+  const zoneId=document.getElementById('convertir-zone')?.value;
+  const actionId=document.getElementById('convertir-action')?.value;
+  const freq=parseInt(document.getElementById('convertir-freq')?.value)||7;
+  const duree=parseInt(document.getElementById('convertir-duree')?.value)||15;
+
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone?.actions.find(a=>a.id===actionId);
+  if(!action){toast('⚠ Choisis une zone et une action');return;}
+
+  action.sousTaches.push({id:genId(),nom:todo.texte,freq,duree,dernierFait:null});
+  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+
+  DB.todos=DB.todos.filter(t=>t.id!==todoId);
+  await sauvegarderChampSeul('todos', JSON.stringify(DB.todos));
+
+  closeMo('convertirTodoModal');
+  renderTodos();
+  toast('✓ Ajouté comme sous-tâche dans '+zone.nom+' !');
 }
 
 function renderJournalModule(){
