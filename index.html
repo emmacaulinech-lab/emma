@@ -1350,16 +1350,17 @@ async function sauvegarderChampSeul(nomChamp, valeur){
   }
 }
 
-async function sauvegarderPhotosJour(){
+async function sauvegarderPhotosJour(dateStr){
   if(!userRef) return false;
   try {
-    await userRef.collection('photosJourData').doc('main').set({
-      data: JSON.stringify(DB.photosJour||{}),
+    const photosDuJour=DB.photosJour[dateStr]||[];
+    await userRef.collection('photosParJour').doc(dateStr).set({
+      entries: photosDuJour,
       updatedAt: new Date().toISOString()
     });
     return true;
   } catch(e) {
-    console.error('Erreur sauvegarde photos:', e);
+    console.error('Erreur sauvegarde photos du '+dateStr+':', e);
     toast('⚠️ Erreur sauvegarde photos: '+e.message);
     return false;
   }
@@ -1368,11 +1369,11 @@ async function sauvegarderPhotosJour(){
 async function chargerPhotosJour(){
   if(!userRef) return;
   try {
-    const snap=await userRef.collection('photosJourData').doc('main').get();
-    if(snap.exists){
-      const d=snap.data();
-      if(d.data) DB.photosJour=JSON.parse(d.data);
-    }
+    const snap=await userRef.collection('photosParJour').get();
+    DB.photosJour={};
+    snap.forEach(doc=>{
+      DB.photosJour[doc.id]=doc.data().entries||[];
+    });
   } catch(e) {
     console.error('Erreur chargement photos:', e);
   }
@@ -7245,7 +7246,7 @@ async function handlePhotoJourCapturee(event){
     if(!DB.photosJour) DB.photosJour={};
     if(!DB.photosJour[today]) DB.photosJour[today]=[];
     DB.photosJour[today].push({heure,data:base64});
-    const ok=await sauvegarderPhotosJour();
+    const ok=await sauvegarderPhotosJour(today);
     if(!ok) return;
     toast('✓ Photo enregistrée !');
     renderHumeurJour();
