@@ -656,13 +656,27 @@ textarea:focus {
 
 <div class="hub" id="hubPage" style="display:none;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;padding:40px 20px">
   <section class="emma-home-hero">
-    <div>
-      <div class="emma-home-kicker">EMMA OS · Vue d’ensemble</div>
-      <div class="emma-home-title">Bonjour Emma</div>
-      <div class="emma-home-subtitle">Tout ce qui mérite ton attention aujourd’hui, sans chercher dans tous tes espaces.</div>
+  <div>
+    <div class="emma-home-kicker" id="emma-date">AUJOURD’HUI</div>
+
+    <div class="emma-home-title">
+      Bonjour Emma
     </div>
-    <button class="emma-brain-button" type="button" aria-label="Assistant EMMA" title="Assistant EMMA">✦</button>
-  </section>
+
+    <div class="emma-home-subtitle" id="emma-resume-jour">
+      Je prépare ta journée…
+    </div>
+  </div>
+
+  <button
+    class="emma-brain-button"
+    type="button"
+    aria-label="Assistant EMMA"
+    title="Assistant EMMA"
+  >
+    ✦
+  </button>
+</section>
 
   <div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:18px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -8138,6 +8152,7 @@ function getNotificationsOrganisables(){
 }
    
    function renderHubOverview(){
+  renderEmmaAccueilIntelligent();
   renderTodos();
   renderHumeurJour();
   renderHubPlanningMini();
@@ -8164,6 +8179,7 @@ function getNotificationsOrganisables(){
       :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
   }
 }
+
 
 // ═══════════════════════════════════════
 // MODULE FORMATIONS
@@ -12120,6 +12136,34 @@ async function marquerSousTacheFaite(zoneId,actionId,stId,checkbox){
   });
   await saveAll();
   toast('✓ '+st.nom+' fait !');
+}
+
+function renderEmmaAccueilIntelligent() {
+  const maintenant = new Date();
+
+  const dateEl = document.getElementById('emma-date');
+  const resumeEl = document.getElementById('emma-resume-jour');
+
+  if (dateEl) {
+    dateEl.textContent = maintenant
+      .toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+      })
+      .toUpperCase();
+  }
+
+  if (resumeEl) {
+    const notifications = getToutesNotifications(maintenant);
+
+    if (notifications.length > 0) {
+      resumeEl.textContent = notifications[0].txt;
+    } else {
+      resumeEl.textContent =
+        "Tout est sous contrôle aujourd’hui. Profite de ta journée ♡";
+    }
+  }
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
