@@ -850,6 +850,128 @@ font-weight:700;
     }
 
 }
+
+/* ===== COMPTA ===== */
+
+.compta-card{
+
+    grid-column:span 2;
+
+    text-align:left;
+
+}
+
+.hub-card-header{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+}
+
+.hub-card-title{
+
+    display:flex;
+
+    flex-direction:column;
+
+}
+
+.hub-card-small{
+
+    font-size:12px;
+
+    color:#999;
+
+}
+
+.compta-solde{
+
+    font-size:34px;
+
+    font-weight:800;
+
+    margin:20px 0;
+
+}
+
+.compta-actions{
+
+    display:flex;
+
+    gap:10px;
+
+    margin-bottom:18px;
+
+}
+
+.mini-action{
+
+    flex:1;
+
+    border:none;
+
+    border-radius:12px;
+
+    padding:10px;
+
+    cursor:pointer;
+
+    background:#f7f7f7;
+
+    font-weight:600;
+
+}
+
+.mini-action:hover{
+
+    background:#ececec;
+
+}
+
+.compta-info{
+
+    display:grid;
+
+    grid-template-columns:1fr 1fr;
+
+    gap:12px;
+
+    margin-bottom:18px;
+
+}
+
+.compta-info div{
+
+    background:#fafafa;
+
+    padding:12px;
+
+    border-radius:12px;
+
+    font-size:13px;
+
+}
+
+.compta-info strong{
+
+    display:block;
+
+    margin-top:6px;
+
+    font-size:17px;
+
+}
+
+.hub-card-open{
+
+    font-weight:700;
+
+    color:#d9798c;
+
+}
    
 </style>
 </head>
@@ -996,9 +1118,61 @@ font-weight:700;
     </div>
 
 </div>
-    <div class="hub-card" onclick="goModule('compta')">
-      <div class="hub-card-icon">💰</div><div class="hub-card-label">Compta</div>
+    <div class="hub-card compta-card" onclick="goModule('compta')">
+
+    <div class="hub-card-header">
+
+        <div class="hub-card-icon">💰</div>
+
+        <div class="hub-card-title">
+
+            <div class="hub-card-label">Compta</div>
+
+            <div class="hub-card-small">
+                Disponible
+            </div>
+
+        </div>
+
     </div>
+
+    <div class="compta-solde">
+        -- €
+    </div>
+
+    <div class="compta-actions">
+
+        <button class="mini-action">
+            📅 Planity
+        </button>
+
+        <button class="mini-action">
+            🏦 Banque
+        </button>
+
+    </div>
+
+    <div class="compta-info">
+
+        <div>
+            📈 CA estimé
+            <strong>-- €</strong>
+        </div>
+
+        <div>
+            🧾 TVA
+            <strong>0 facture</strong>
+        </div>
+
+    </div>
+
+    <div class="hub-card-open">
+
+        Continuer →
+
+    </div>
+
+</div>
     <div class="hub-card" onclick="goModule('facturation')">
       <div class="hub-card-icon">🧾</div><div class="hub-card-label">Facturation<br>LIMAGECILS</div>
     </div>
