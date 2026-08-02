@@ -7585,6 +7585,30 @@ await syncAgendaVersJournal();
   event.target.value='';
 }
 
+function checkCorrespondancesPrestations(){
+
+    if(!agendaData) return;
+
+    const inconnues=[];
+
+    agendaData.forEach(r=>{
+
+        if(findPrix(r.prestation)===0){
+
+            if(!inconnues.includes(r.prestation)){
+
+                inconnues.push(r.prestation);
+
+            }
+
+        }
+
+    });
+
+    console.log("Prestations inconnues :", inconnues);
+
+}
+
 function renderAgenda(){
   const el=document.getElementById('agenda-widget');
   if(!agendaData||!agendaData.length){
