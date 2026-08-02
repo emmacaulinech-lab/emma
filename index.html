@@ -7589,16 +7589,14 @@ function checkCorrespondancesPrestations(){
 
     if(!agendaData) return;
 
-    const inconnues=[];
+    const inconnues = [];
 
-    agendaData.forEach(r=>{
+    agendaData.forEach(r => {
 
-        if(findPrix(r.prestation)===0){
+        if(getPrixPrestation(r.prestation) === 0){
 
             if(!inconnues.includes(r.prestation)){
-
                 inconnues.push(r.prestation);
-
             }
 
         }
@@ -7608,7 +7606,6 @@ function checkCorrespondancesPrestations(){
     console.log("Prestations inconnues :", inconnues);
 
 }
-
 function renderAgenda(){
   const el=document.getElementById('agenda-widget');
   if(!agendaData||!agendaData.length){
@@ -7623,41 +7620,39 @@ function renderAgenda(){
     if(cols[p]) cols[p].push(rdv);
   }
 
-  // CA estimé par praticien
-  const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
-    // Recherche insensible à la casse et aux espaces
-    const findPrix = (prestation) => {
+function getPrixPrestation(prestation){
 
-if(PARAMS.correspondancesPrestations?.[prestation]){
-    prestation=PARAMS.correspondancesPrestations[prestation];
-}
+    if(!prestation || !PARAMS.prixPrestations) return 0;
 
-  if (!prestation || !PARAMS.prixPrestations) return 0;
+    if(PARAMS.correspondancesPrestations?.[prestation]){
+        prestation = PARAMS.correspondancesPrestations[prestation];
+    }
 
-  // 1. Correspondance exacte
-  if (PARAMS.prixPrestations[prestation])
-    return PARAMS.prixPrestations[prestation];
+    if(PARAMS.prixPrestations[prestation])
+        return PARAMS.prixPrestations[prestation];
 
-  // 2. Correspondance insensible à la casse
-  const exacte = Object.keys(PARAMS.prixPrestations).find(k =>
-    k.toLowerCase().trim() === prestation.toLowerCase().trim()
-  );
-
-  if (exacte)
-    return PARAMS.prixPrestations[exacte];
-
-  // 3. Correspondance partielle (NOUVEAU)
-  const partielle = Object.keys(PARAMS.prixPrestations)
-    .sort((a, b) => b.length - a.length)
-    .find(k =>
-      prestation.toLowerCase().includes(k.toLowerCase())
+    const exacte = Object.keys(PARAMS.prixPrestations).find(k =>
+        k.toLowerCase().trim() === prestation.toLowerCase().trim()
     );
 
-  return partielle ? PARAMS.prixPrestations[partielle] : 0;
+    if(exacte)
+        return PARAMS.prixPrestations[exacte];
 
-};
-    const prix=findPrix(r.prestation);
-    // Pour les autos, on prend uniquement la part société (tauxSoc)
+    const partielle = Object.keys(PARAMS.prixPrestations)
+        .sort((a,b)=>b.length-a.length)
+        .find(k =>
+            prestation.toLowerCase().includes(k.toLowerCase())
+        );
+
+    return partielle ? PARAMS.prixPrestations[partielle] : 0;
+
+}
+
+  // CA estimé par praticien
+  const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
+   
+const prix = getPrixPrestation(r.prestation);
+     // Pour les autos, on prend uniquement la part société (tauxSoc)
     const part=(praticien==='MARIE'||praticien==='GIULIA')?prix*PARAMS.tauxSoc:prix;
     return s+part;
   },0);
