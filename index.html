@@ -7470,6 +7470,7 @@ async function updatePrixPrestation(nom, val){
   toast('✓ Prix mis à jour');
 }
 
+
 // ═══════════════════════════════════════
 // AGENDA PLANITY
 // ═══════════════════════════════════════
@@ -7591,16 +7592,32 @@ function renderAgenda(){
   // CA estimé par praticien
   const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
     // Recherche insensible à la casse et aux espaces
-    const findPrix=(prestation)=>{
-      if(!prestation||!PARAMS.prixPrestations) return 0;
-      // Correspondance exacte d'abord
-      if(PARAMS.prixPrestations[prestation]) return PARAMS.prixPrestations[prestation];
-      // Correspondance insensible à la casse
-      const key=Object.keys(PARAMS.prixPrestations).find(k=>
-        k.toLowerCase().trim()===prestation.toLowerCase().trim()
-      );
-      return key?PARAMS.prixPrestations[key]:0;
-    };
+    const findPrix = (prestation) => {
+
+  if (!prestation || !PARAMS.prixPrestations) return 0;
+
+  // 1. Correspondance exacte
+  if (PARAMS.prixPrestations[prestation])
+    return PARAMS.prixPrestations[prestation];
+
+  // 2. Correspondance insensible à la casse
+  const exacte = Object.keys(PARAMS.prixPrestations).find(k =>
+    k.toLowerCase().trim() === prestation.toLowerCase().trim()
+  );
+
+  if (exacte)
+    return PARAMS.prixPrestations[exacte];
+
+  // 3. Correspondance partielle (NOUVEAU)
+  const partielle = Object.keys(PARAMS.prixPrestations)
+    .sort((a, b) => b.length - a.length)
+    .find(k =>
+      prestation.toLowerCase().includes(k.toLowerCase())
+    );
+
+  return partielle ? PARAMS.prixPrestations[partielle] : 0;
+
+};
     const prix=findPrix(r.prestation);
     // Pour les autos, on prend uniquement la part société (tauxSoc)
     const part=(praticien==='MARIE'||praticien==='GIULIA')?prix*PARAMS.tauxSoc:prix;
