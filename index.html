@@ -7471,6 +7471,33 @@ async function updatePrixPrestation(nom, val){
   toast('✓ Prix mis à jour');
 }
 
+function getPrixPrestation(prestation){
+
+    if(!prestation || !PARAMS.prixPrestations) return 0;
+
+    if(PARAMS.correspondancesPrestations?.[prestation]){
+        prestation = PARAMS.correspondancesPrestations[prestation];
+    }
+
+    if(PARAMS.prixPrestations[prestation])
+        return PARAMS.prixPrestations[prestation];
+
+    const exacte = Object.keys(PARAMS.prixPrestations).find(k =>
+        k.toLowerCase().trim() === prestation.toLowerCase().trim()
+    );
+
+    if(exacte)
+        return PARAMS.prixPrestations[exacte];
+
+    const partielle = Object.keys(PARAMS.prixPrestations)
+        .sort((a,b)=>b.length-a.length)
+        .find(k =>
+            prestation.toLowerCase().includes(k.toLowerCase())
+        );
+
+    return partielle ? PARAMS.prixPrestations[partielle] : 0;
+
+}
 
 // ═══════════════════════════════════════
 // AGENDA PLANITY
@@ -7700,33 +7727,7 @@ function renderAgenda(){
     if(cols[p]) cols[p].push(rdv);
   }
 
-function getPrixPrestation(prestation){
 
-    if(!prestation || !PARAMS.prixPrestations) return 0;
-
-    if(PARAMS.correspondancesPrestations?.[prestation]){
-        prestation = PARAMS.correspondancesPrestations[prestation];
-    }
-
-    if(PARAMS.prixPrestations[prestation])
-        return PARAMS.prixPrestations[prestation];
-
-    const exacte = Object.keys(PARAMS.prixPrestations).find(k =>
-        k.toLowerCase().trim() === prestation.toLowerCase().trim()
-    );
-
-    if(exacte)
-        return PARAMS.prixPrestations[exacte];
-
-    const partielle = Object.keys(PARAMS.prixPrestations)
-        .sort((a,b)=>b.length-a.length)
-        .find(k =>
-            prestation.toLowerCase().includes(k.toLowerCase())
-        );
-
-    return partielle ? PARAMS.prixPrestations[partielle] : 0;
-
-}
 
   // CA estimé par praticien
   const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
