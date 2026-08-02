@@ -698,6 +698,81 @@ textarea:focus {
     margin-top:2px;
 
 }
+
+/* ===== GLOW CARD ===== */
+
+.glow-card{
+
+    position:relative;
+
+    overflow:hidden;
+
+    background:linear-gradient(
+        135deg,
+        #FFE9F0 0%,
+        #FFF8F5 45%,
+        #F3F8FF 100%
+    ) !important;
+
+}
+
+.glow-card::before{
+
+    content:"";
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+    radial-gradient(circle at top right,
+    rgba(255,255,255,.8),
+    transparent 45%);
+
+    pointer-events:none;
+
+}
+
+.glow-card .hub-card-icon{
+
+    background:white;
+
+    box-shadow:
+    0 8px 20px rgba(0,0,0,.08);
+
+}
+
+.hub-card-subtitle{
+
+    margin-top:8px;
+
+    font-size:11px;
+
+    color:#8b7f84;
+
+    text-align:center;
+
+    line-height:1.4;
+
+}
+
+.glow-score{
+
+    margin-top:16px;
+
+    padding:6px 14px;
+
+    border-radius:30px;
+
+    background:white;
+
+    font-weight:800;
+
+    color:#d9798c;
+
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+
+}
    
 </style>
 </head>
@@ -826,9 +901,21 @@ textarea:focus {
     <div class="hub-card" onclick="goModule('banqueperso')">
       <div class="hub-card-icon">👛</div><div class="hub-card-label">Banque perso</div>
     </div>
-    <div class="hub-card" onclick="goModule('sport')">
-      <div class="hub-card-icon">🏋️</div><div class="hub-card-label">Sport</div>
-    </div>
+    <div class="hub-card glow-card" onclick="goModule('glow')">
+  <div class="hub-card-icon">✨</div>
+
+  <div class="hub-card-label">
+      Glow
+  </div>
+
+  <div class="hub-card-subtitle">
+      Aujourd'hui • Nutrition • Sport
+  </div>
+
+  <div class="glow-score">
+      82%
+  </div>
+</div>
     <div class="hub-card" onclick="goModule('lecture')">
       <div class="hub-card-icon">📚</div><div class="hub-card-label">Lecture</div>
     </div>
