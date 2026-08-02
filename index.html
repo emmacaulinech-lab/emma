@@ -7606,6 +7606,86 @@ function checkCorrespondancesPrestations(){
     console.log("Prestations inconnues :", inconnues);
 
 }
+
+function openCorrespondancesPrestations(){
+
+  const inconnues = [];
+
+  agendaData.forEach(r=>{
+
+    if(getPrixPrestation(r.prestation)===0){
+
+      if(!inconnues.includes(r.prestation))
+        inconnues.push(r.prestation);
+
+    }
+
+  });
+
+  if(!inconnues.length){
+
+    toast("✅ Toutes les prestations sont reconnues");
+    return;
+
+  }
+
+  document.getElementById("cliMT").textContent="🔗 Correspondances Planity";
+
+  document.getElementById("cliMB").innerHTML=inconnues.map((nom,i)=>`
+
+    <div style="background:var(--bg2);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+
+      <div style="font-size:11px;color:var(--mut);margin-bottom:8px">
+        La prestation Planity :
+      </div>
+
+      <div style="font-weight:700;margin-bottom:12px">
+        ${nom}
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+
+        <select
+            id="correspondance-${i}"
+            style="flex:1;font-size:12px;padding:6px 10px;border-radius:10px">
+
+          ${Object.keys(PARAMS.prixPrestations).map(p=>`
+
+            <option value="${p}">${p}</option>
+
+          `).join("")}
+
+        </select>
+
+        <button
+          class="btn bgrn bsm"
+          onclick="associerPrestation('${nom.replace(/'/g,"\\'")}',document.getElementById('correspondance-${i}').value)"
+        >
+
+        Associer
+
+        </button>
+
+      </div>
+
+      <button
+        class="btn"
+        style="margin-top:10px"
+        onclick="creerNouvellePrestation('${nom.replace(/'/g,"\\'")}')"
+      >
+
+        ➕ Créer cette prestation
+
+      </button>
+
+    </div>
+
+  `).join("");
+
+  document.getElementById("clientModal").classList.add("open");
+
+}
+   
 function renderAgenda(){
   const el=document.getElementById('agenda-widget');
   if(!agendaData||!agendaData.length){
