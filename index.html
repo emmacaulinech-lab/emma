@@ -773,6 +773,86 @@ textarea:focus {
     box-shadow:0 8px 18px rgba(0,0,0,.08);
 
 }
+
+/* ===== GLOW CARD ===== */
+
+.glow-score-circle{
+
+width:82px;
+height:82px;
+
+border-radius:50%;
+
+display:flex;
+align-items:center;
+justify-content:center;
+
+background:
+conic-gradient(
+#d9798c 82%,
+rgba(255,255,255,.5) 82%
+);
+
+padding:6px;
+
+}
+
+.glow-score-circle span{
+
+display:flex;
+align-items:center;
+justify-content:center;
+
+width:100%;
+height:100%;
+
+border-radius:50%;
+
+background:white;
+
+font-weight:800;
+
+color:#d9798c;
+
+font-size:18px;
+
+}
+
+.glow-actions{
+
+display:grid;
+
+grid-template-columns:repeat(4,1fr);
+
+gap:10px;
+
+margin-top:10px;
+
+}
+
+.glow-actions div{
+
+padding:12px;
+
+border-radius:14px;
+
+background:rgba(255,255,255,.55);
+
+text-align:center;
+
+font-size:12px;
+
+font-weight:700;
+
+}
+
+@media (max-width:760px){
+
+    .glow-card{
+        grid-column:span 2 !important;
+    }
+
+}
    
 </style>
 </head>
@@ -888,7 +968,7 @@ textarea:focus {
     <div id="hub-planning-mini"></div>
   </div>
   <div style="font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--mut);font-weight:800;margin:10px auto 16px;max-width:1040px;width:100%">Tes espaces</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;width:100%" id="hub-modules-grid">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1040px;width:100%" id="hub-modules-grid">
     <div class="hub-card" onclick="goModule('compta')">
       <div class="hub-card-icon">💰</div><div class="hub-card-label">Compta</div>
     </div>
@@ -901,20 +981,37 @@ textarea:focus {
     <div class="hub-card" onclick="goModule('banqueperso')">
       <div class="hub-card-icon">👛</div><div class="hub-card-label">Banque perso</div>
     </div>
-    <div class="hub-card glow-card" onclick="goModule('glow')">
-  <div class="hub-card-icon">✨</div>
+    <div class="hub-card glow-card"
+     style="grid-column:span 3;"
+     onclick="goModule('glow')">
 
-  <div class="hub-card-label">
-      Glow
-  </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:18px">
 
-  <div class="hub-card-subtitle">
-      Aujourd'hui • Nutrition • Sport
-  </div>
+        <div>
 
-  <div class="glow-score">
-      82%
-  </div>
+            <div style="font-size:12px;color:#b58b93;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">
+                ✨ Glow
+            </div>
+
+            <div style="font-size:26px;font-family:'Cormorant Garamond',serif;font-weight:700;margin-top:6px;">
+                Prends soin de toi aujourd'hui
+            </div>
+
+        </div>
+
+        <div class="glow-score-circle">
+            <span>82%</span>
+        </div>
+
+    </div>
+
+    <div class="glow-actions">
+        <div>💧 Eau</div>
+        <div>🏋️ Sport</div>
+        <div>🥗 Nutrition</div>
+        <div>🌙 Sommeil</div>
+    </div>
+
 </div>
     <div class="hub-card" onclick="goModule('lecture')">
       <div class="hub-card-icon">📚</div><div class="hub-card-label">Lecture</div>
