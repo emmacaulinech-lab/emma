@@ -1136,9 +1136,13 @@ font-weight:700;
 
     </div>
 
-    <div class="compta-solde">
-        -- €
-    </div>
+    <div
+    class="compta-solde"
+    id="compta-solde">
+
+    -- €
+
+</div>
 
     <div class="compta-actions">
 
@@ -1156,12 +1160,20 @@ font-weight:700;
 
         <div>
             📈 CA estimé
-            <strong>-- €</strong>
+            <strong id="compta-ca">
+
+-- €
+
+</strong>
         </div>
 
         <div>
             🧾 TVA
-            <strong>0 facture</strong>
+            <strong id="compta-tva">
+
+0 facture
+
+</strong>
         </div>
 
     </div>
@@ -8622,6 +8634,7 @@ function getNotificationsOrganisables(){
       ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="${n.onclick||''}"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
       :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
   }
+   renderComptaCard();
 }
 
 
@@ -12608,6 +12621,14 @@ function renderEmmaAccueilIntelligent() {
         "Tout est sous contrôle aujourd’hui. Profite de ta journée ♡";
     }
   }
+}
+
+function renderComptaCard(){
+
+    const solde = document.getElementById("hub-solde-pro")?.textContent || "--";
+
+    document.getElementById("compta-solde").textContent = solde;
+
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
