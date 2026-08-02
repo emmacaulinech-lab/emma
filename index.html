@@ -2049,6 +2049,7 @@ let PARAMS = {
   objectif: 6000,
   soldeInit: 3161.58,
   prixPrestations: {},
+  correspondancesPrestations:{},
 };
 
 async function loadAll() {
@@ -7558,13 +7559,22 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     const match=clean.match(/\[[\s\S]*\]/);
     if(!match) throw new Error('Pas de JSON trouvé dans: '+clean);
     
-    agendaData=JSON.parse(match[0]);
-    // Sauvegarder avec la date du jour
-    const todaySave=new Date().toISOString().split('T')[0];
-  localStorage.setItem('agendaData', JSON.stringify({date:todaySave, rdvs:agendaData}));
-    renderAgenda();
-    await sauvegarderAgendaImporte();
-    await syncAgendaVersJournal();
+    agendaData = JSON.parse(match[0]);
+
+// Vérifie les prestations non reconnues
+checkCorrespondancesPrestations();
+
+// Sauvegarder avec la date du jour
+const todaySave = new Date().toISOString().split('T')[0];
+localStorage.setItem('agendaData', JSON.stringify({
+    date: todaySave,
+    rdvs: agendaData
+}));
+
+renderAgenda();
+
+await sauvegarderAgendaImporte();
+await syncAgendaVersJournal();
 
  } catch(e) {
     el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur : ${e.message||JSON.stringify(e)}</div>`;
@@ -7593,6 +7603,10 @@ function renderAgenda(){
   const caEstime=(rdvs, praticien)=>rdvs.reduce((s,r)=>{
     // Recherche insensible à la casse et aux espaces
     const findPrix = (prestation) => {
+
+if(PARAMS.correspondancesPrestations?.[prestation]){
+    prestation=PARAMS.correspondancesPrestations[prestation];
+}
 
   if (!prestation || !PARAMS.prixPrestations) return 0;
 
