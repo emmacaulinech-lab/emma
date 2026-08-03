@@ -10643,9 +10643,23 @@ function demarrerChronoGlow(){
 
     if(glowTimer) return;
 
+    if(DB.glow.entrainement.chrono <= 0){
+
+        const seance = (DB.glowSeances || []).find(s =>
+            s.id === DB.glow.entrainement.seanceId
+        );
+
+        const exercice = seance?.exercices?.[
+            DB.glow.entrainement.exerciceIndex
+        ];
+
+        DB.glow.entrainement.chrono =
+            extraireSecondesExerciceGlow(exercice);
+    }
+
     DB.glow.entrainement.enPause = false;
 
-    glowTimer = setInterval(async ()=>{
+    glowTimer = setInterval(() => {
 
         if(DB.glow.entrainement.chrono > 0){
 
@@ -10655,18 +10669,15 @@ function demarrerChronoGlow(){
 
         }else{
 
-    clearInterval(glowTimer);
+            clearInterval(glowTimer);
+            glowTimer = null;
 
-    glowTimer = null;
+            DB.glow.entrainement.enPause = false;
 
-    DB.glow.entrainement.enPause = false;
-
-    renderLecteurSeance();
-
-}
+            renderLecteurSeance();
+        }
 
     },1000);
-
 }
 
 function pauseChronoGlow(){
@@ -10702,14 +10713,17 @@ async function commencerSeance(id){
         return;
     }
 
+    const planTemps = calculerPlanTempsSeanceGlow(seance);
+
     DB.glow.entrainement = {
         actif: true,
         seanceId: id,
         exerciceIndex: 0,
-        chrono: extraireSecondesExerciceGlow(
-            seance.exercices[0]
-        ),
-        enPause: false
+        chrono:
+            planTemps[0]?.dureeSecondes || 30,
+        enPause: false,
+        planTemps,
+        phase: "exercice"
     };
 
     await saveAll();
@@ -11780,39 +11794,120 @@ function renderExerciceGlow(){
     `;
 }
 
-function extraireSecondesExerciceGlow(exercice){
+function calculerPlanTempsSeanceGlow(seance){
 
-    if(!exercice) return 0;
+    if(!seance?.exercices?.length) return [];
 
-    if(exercice.duree){
+    const totalSecondes = Number(seance.duree || 0) * 60;
 
-        const texte = String(exercice.duree).toLowerCase();
+    const echauffements = seance.exercices.filter(ex =>
+        ex.type === "echauffement"
+    );
 
-        const minutes = texte.match(/(\d+)\s*min/);
+    const etirements = seance.exercices.filter(ex =>
+        ex.type === "etirement"
+    );
 
-        if(minutes){
-            return Number(minutes[1]) * 60;
+    const exercicesPrincipaux = seance.exercices.filter(ex =>
+        ex.type !== "echauffement" &&
+        ex.type !== "etirement"
+    );
+
+    // Répartition du temps total
+    const tempsEchauffement = Math.round(totalSecondes * 0.12);
+    const tempsEtirement = Math.round(totalSecondes * 0.10);
+    const tempsPrincipal =
+        totalSecondes -
+        tempsEchauffement -
+        tempsEtirement;
+
+    // Environ 15 % de la partie principale pour les repos
+    const tempsReposTotal = Math.round(tempsPrincipal * 0.15);
+    const tempsExercicesTotal = tempsPrincipal - tempsReposTotal;
+
+    const dureeEchauffement = echauffements.length
+        ? Math.floor(tempsEchauffement / echauffements.length)
+        : 0;
+
+    const dureeEtirement = etirements.length
+        ? Math.floor(tempsEtirement / etirements.length)
+        : 0;
+
+    const dureeExercice = exercicesPrincipaux.length
+        ? Math.floor(tempsExercicesTotal / exercicesPrincipaux.length)
+        : 0;
+
+    const dureeRepos = exercicesPrincipaux.length > 1
+        ? Math.floor(
+            tempsReposTotal /
+            (exercicesPrincipaux.length - 1)
+        )
+        : 0;
+
+    let tempsDistribue = 0;
+
+    const plan = seance.exercices.map((exercice, index) => {
+
+        let dureeSecondes = 0;
+        let reposSecondes = 0;
+
+        if(exercice.type === "echauffement"){
+
+            dureeSecondes = dureeEchauffement;
+
+        }else if(exercice.type === "etirement"){
+
+            dureeSecondes = dureeEtirement;
+
+        }else{
+
+            dureeSecondes = dureeExercice;
+
+            const estDernierExercicePrincipal =
+                exercice ===
+                exercicesPrincipaux[
+                    exercicesPrincipaux.length - 1
+                ];
+
+            reposSecondes = estDernierExercicePrincipal
+                ? 0
+                : dureeRepos;
         }
 
-        const secondes = texte.match(/(\d+)\s*sec/);
+        tempsDistribue += dureeSecondes + reposSecondes;
 
-        if(secondes){
-            return Number(secondes[1]);
-        }
+        return {
+            exerciceIndex: index,
+            dureeSecondes,
+            reposSecondes
+        };
+    });
+
+    // Corrige les éventuelles secondes perdues par les arrondis
+    const difference = totalSecondes - tempsDistribue;
+
+    if(plan.length && difference !== 0){
+        plan[plan.length - 1].dureeSecondes += difference;
     }
 
-    if(exercice.repetitions){
+    return plan;
+}
 
-        const secondes = String(exercice.repetitions)
-            .toLowerCase()
-            .match(/(\d+)\s*sec/);
+function extraireSecondesExerciceGlow(exercice, exerciceIndex){
 
-        if(secondes){
-            return Number(secondes[1]);
-        }
+    const entrainement = DB.glow?.entrainement;
+
+    const planExercice =
+        entrainement?.planTemps?.find(item =>
+            item.exerciceIndex === exerciceIndex
+        );
+
+    if(planExercice){
+        return planExercice.dureeSecondes;
     }
 
-    return 0;
+    // Sécurité si le plan n’existe pas
+    return Number(exercice?.dureeSecondes) || 30;
 }
 
 function exerciceGlowPrecedent(){
@@ -11835,7 +11930,10 @@ function exerciceGlowPrecedent(){
             seance.exercices[entrainement.exerciceIndex];
 
         entrainement.chrono =
-            extraireSecondesExerciceGlow(exercicePrecedent);
+           extraireSecondesExerciceGlow(
+    exercicePrecedent,
+    entrainement.exerciceIndex
+);
 
         entrainement.enPause = false;
 
@@ -11865,7 +11963,10 @@ function exerciceGlowSuivant(){
             seance.exercices[entrainement.exerciceIndex];
 
         entrainement.chrono =
-            extraireSecondesExerciceGlow(exerciceSuivant);
+            extraireSecondesExerciceGlow(
+    exerciceSuivant,
+    entrainement.exerciceIndex
+);
 
         entrainement.enPause = false;
 
