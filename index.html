@@ -9720,17 +9720,31 @@ async function copyEmailToClipboard(){
 
 function calculGlowScore(){
 
-    let score = 0;
+    const detail = {
+        eau: 0,
+        humeur: 0,
+        activite: 0,
+        sommeil: 0,
+        nutrition: 0,
+        lecture: 0,
+        photo: 0
+    };
 
     // 💧 Eau (20 pts)
-    score += Math.round((DB.glow.eau || 0) / 8 * 20);
+    detail.eau = Math.round((DB.glow.eau || 0) / 8 * 20);
 
     // 😊 Humeur (10 pts)
     if(DB.glow.humeur){
-        score += 10;
+        detail.humeur = 10;
     }
 
-    return score;
+    const total = Object.values(detail)
+        .reduce((a,b)=>a+b,0);
+
+    return {
+        total,
+        detail
+    };
 
 }
    
@@ -9741,9 +9755,11 @@ function calculGlowScore(){
     const eau = DB.glow.eau || 0;
 
     // Score provisoire basé sur l’hydratation
-    const glowScore = calculGlowScore();
+    const score = calculGlowScore();
 
-    DB.glow.glowScore = calculGlowScore();
+const glowScore = score.total;
+
+DB.glow.glowScore = glowScore;
 
     if(nouveauJour){
         await saveAll();
@@ -9843,6 +9859,40 @@ function calculGlowScore(){
             </div>
 
         </div>
+
+<div style="
+margin-top:20px;
+display:grid;
+gap:8px;
+font-size:13px;
+">
+
+${[
+["💧 Hydratation",score.detail.eau],
+["😊 Humeur",score.detail.humeur],
+["🏃 Activité",score.detail.activite],
+["🌙 Sommeil",score.detail.sommeil],
+["🍽️ Nutrition",score.detail.nutrition],
+["📖 Lecture",score.detail.lecture],
+["📸 Photo",score.detail.photo]
+].map(l=>`
+
+<div style="
+display:flex;
+justify-content:space-between;
+">
+
+<span>${l[0]}</span>
+
+<b style="color:var(--acc)">
++${l[1]}
+</b>
+
+</div>
+
+`).join("")}
+
+</div>
 
       <div style="
     background:rgba(255,255,255,.60);
