@@ -2082,164 +2082,174 @@ let DB = {
         priorite: 5
     }
 ],
-
-glowSeances: [
+glowExercices: [
   {
-    id: "taille_01",
-    objectif: "taille",
-    nom: "Taille marquée • A",
-    niveau: 1,
-    duree: 15,
-    materiel: ["tapis"],
+    id: "echauffement_taille",
+    nom: "Échauffement taille",
+    type: "echauffement",
+    categorie: "mobilite",
+
+    media: {
+      type: "image",
+      fichier: ""
+    },
+
     description:
-      "Une séance courte pour renforcer la sangle abdominale, travailler la stabilité et dessiner la taille.",
+      "Mobilise doucement le bassin et le buste avant de commencer.",
 
-    exercices: [
-      {
-        id: "echauffement_taille_01",
-        nom: "Échauffement taille",
-        type: "echauffement",
-        categorie: "mobilite",
-        duree: "2 min",
+    conseils: [
+      "Fais des mouvements lents",
+      "Garde les épaules détendues",
+      "Respire profondément"
+    ],
 
-        media: {
-          type: "image",
-          fichier: ""
-        },
-
-        description:
-          "Mobilise doucement le bassin et le buste avant de commencer.",
-
-        conseils: [
-          "Fais des mouvements lents",
-          "Garde les épaules détendues",
-          "Respire profondément"
-        ],
-
-        erreurs: [
-          "Ne force pas l’amplitude",
-          "Ne fais pas de mouvements brusques"
-        ]
-      },
-
-      {
-        id: "russian_twist_01",
-        nom: "Russian Twist",
-        type: "exercice",
-        categorie: "abdominaux",
-        repetitions: "3 × 20",
-        repos: "30 sec",
-
-        media: {
-          type: "image",
-          fichier: ""
-        },
-
-        description:
-          "Assieds-toi, incline légèrement le buste vers l’arrière et tourne le haut du corps de gauche à droite.",
-
-        conseils: [
-          "Garde le dos droit",
-          "Contracte les abdominaux",
-          "Tourne le buste, pas seulement les bras",
-          "Garde les mouvements contrôlés"
-        ],
-
-        erreurs: [
-          "Ne creuse pas le bas du dos",
-          "Ne tourne pas uniquement les bras",
-          "Ne va pas trop vite"
-        ]
-      },
-
-      {
-        id: "dead_bug_01",
-        nom: "Dead Bug",
-        type: "exercice",
-        categorie: "gainage",
-        repetitions: "3 × 12",
-        repos: "30 sec",
-
-        media: {
-          type: "image",
-          fichier: ""
-        },
-
-        description:
-          "Allongée sur le dos, tends lentement une jambe et le bras opposé sans décoller les lombaires du sol.",
-
-        conseils: [
-          "Plaque le bas du dos au tapis",
-          "Contracte le ventre pendant tout le mouvement",
-          "Travaille lentement",
-          "Réduis l’amplitude si ton dos se creuse"
-        ],
-
-        erreurs: [
-          "Ne décolle pas les lombaires",
-          "Ne bloque pas ta respiration",
-          "Ne tends pas trop bas si tu perds le contrôle"
-        ]
-      },
-
-      {
-        id: "planche_01",
-        nom: "Planche",
-        type: "exercice",
-        categorie: "gainage",
-        repetitions: "3 × 30 sec",
-        repos: "30 sec",
-
-        media: {
-          type: "image",
-          fichier: ""
-        },
-
-        description:
-          "Place-toi sur les avant-bras et les pointes de pieds en maintenant le corps aligné.",
-
-        conseils: [
-          "Garde le bassin dans l’alignement",
-          "Contracte les fessiers et les abdominaux",
-          "Éloigne les épaules des oreilles",
-          "Respire régulièrement"
-        ],
-
-        erreurs: [
-          "Ne creuse pas le bas du dos",
-          "Ne monte pas trop les fesses",
-          "Ne laisse pas tomber la tête"
-        ]
-      },
-
-      {
-        id: "etirement_taille_01",
-        nom: "Étirement de fin",
-        type: "etirement",
-        categorie: "recuperation",
-        duree: "2 min",
-
-        media: {
-          type: "image",
-          fichier: ""
-        },
-
-        description:
-          "Étire doucement les côtés de la taille, les abdominaux et le bas du dos.",
-
-        conseils: [
-          "Respire lentement",
-          "Maintiens chaque position quelques secondes",
-          "Relâche les épaules"
-        ],
-
-        erreurs: [
-          "Ne force pas l’étirement",
-          "Ne fais pas de rebonds",
-          "Arrête si une douleur apparaît"
-        ]
-      }
+    erreurs: [
+      "Ne force pas l’amplitude",
+      "Ne fais pas de mouvements brusques"
     ]
+  },
+
+  {
+    id: "russian_twist",
+    nom: "Russian Twist",
+    type: "exercice",
+    categorie: "abdominaux",
+
+    media: {
+      type: "image",
+      fichier: ""
+    },
+
+    description:
+      "Assieds-toi, incline légèrement le buste vers l’arrière et tourne le haut du corps de gauche à droite.",
+
+    conseils: [
+      "Garde le dos droit",
+      "Contracte les abdominaux",
+      "Tourne le buste, pas seulement les bras",
+      "Garde les mouvements contrôlés"
+    ],
+
+    erreurs: [
+      "Ne creuse pas le bas du dos",
+      "Ne tourne pas uniquement les bras",
+      "Ne va pas trop vite"
+    ]
+  },
+
+  {
+    id: "dead_bug",
+    nom: "Dead Bug",
+    type: "exercice",
+    categorie: "gainage",
+
+    media: {
+      type: "image",
+      fichier: ""
+    },
+
+    description:
+      "Allongée sur le dos, tends lentement une jambe et le bras opposé en gardant les lombaires au sol.",
+
+    conseils: [
+      "Plaque le bas du dos au tapis",
+      "Contracte le ventre",
+      "Travaille lentement",
+      "Expire pendant l’extension"
+    ],
+
+    erreurs: [
+      "Ne décolle pas les lombaires",
+      "Ne bloque pas ta respiration",
+      "Réduis l’amplitude si ton dos se creuse"
+    ]
+  },
+
+  {
+    id: "planche",
+    nom: "Planche",
+    type: "exercice",
+    categorie: "gainage",
+
+    media: {
+      type: "image",
+      fichier: ""
+    },
+
+    description:
+      "Place-toi sur les avant-bras et maintiens le corps aligné.",
+
+    conseils: [
+      "Contracte les abdominaux",
+      "Serre légèrement les fessiers",
+      "Éloigne les épaules des oreilles",
+      "Respire régulièrement"
+    ],
+
+    erreurs: [
+      "Ne creuse pas le bas du dos",
+      "Ne monte pas trop les fesses",
+      "Ne laisse pas tomber la tête"
+    ]
+  },
+
+  {
+    id: "etirement_taille",
+    nom: "Étirement de fin",
+    type: "etirement",
+    categorie: "recuperation",
+
+    media: {
+      type: "image",
+      fichier: ""
+    },
+
+    description:
+      "Étire doucement la taille, les abdominaux et le bas du dos.",
+
+    conseils: [
+      "Respire lentement",
+      "Relâche les épaules",
+      "Maintiens chaque position quelques secondes"
+    ],
+
+    erreurs: [
+      "Ne force pas l’étirement",
+      "Ne fais pas de rebonds",
+      "Arrête si une douleur apparaît"
+    ]
+  }
+],
+glowSeances: [
+
+    {
+  id: "taille_01",
+  objectif: "taille",
+  nom: "Taille marquée • A",
+  niveau: 1,
+  duree: 15,
+  materiel: ["tapis"],
+  description:
+    "Une séance courte pour renforcer la sangle abdominale, travailler la stabilité et dessiner la taille.",
+
+  exercices: [
+    {
+      exerciceId: "echauffement_taille"
+    },
+    {
+      exerciceId: "russian_twist"
+    },
+    {
+      exerciceId: "dead_bug"
+    },
+    {
+      exerciceId: "planche"
+    },
+    {
+      exerciceId: "etirement_taille"
+    }
+  ]
+},
   },
    {
   id: "taille_10",
@@ -10632,6 +10642,13 @@ function getSeanceGlowRecommandee(){
         )[0];
 }
 
+function getExerciceGlow(id){
+
+    return (DB.glowExercices || []).find(exercice =>
+        exercice.id === id
+    ) || null;
+}
+
 let glowSeanceEnCours = {
     id: null,
     exerciceIndex: 0
@@ -10649,12 +10666,18 @@ function demarrerChronoGlow(){
             s.id === DB.glow.entrainement.seanceId
         );
 
-        const exercice = seance?.exercices?.[
-            DB.glow.entrainement.exerciceIndex
-        ];
+        const reference = seance?.exercices?.[
+    DB.glow.entrainement.exerciceIndex
+];
+
+const exercice = getExerciceGlow(
+    reference?.exerciceId
+);
 
         DB.glow.entrainement.chrono =
-            extraireSecondesExerciceGlow(exercice);
+            extraireSecondesExerciceGlow(exercice,
+            DB.glow.entrainement.exerciceIndex
+);
     }
 
     DB.glow.entrainement.enPause = false;
@@ -10759,8 +10782,11 @@ function renderLecteurSeance(){
         return;
     }
 
-    const exercice =
-        seance.exercices[entrainement.exerciceIndex];
+    const reference =
+    seance.exercices[entrainement.exerciceIndex];
+
+const exercice =
+    getExerciceGlow(reference?.exerciceId);
 
     if(!exercice){
         document.getElementById("glow-content").innerHTML = `
@@ -11926,8 +11952,11 @@ function exerciceGlowPrecedent(){
 
         entrainement.exerciceIndex--;
 
-        const exercicePrecedent =
-            seance.exercices[entrainement.exerciceIndex];
+        const referencePrecedente =
+    seance.exercices[entrainement.exerciceIndex];
+
+const exercicePrecedent =
+    getExerciceGlow(referencePrecedente?.exerciceId);
 
         entrainement.chrono =
            extraireSecondesExerciceGlow(
@@ -11959,8 +11988,11 @@ function exerciceGlowSuivant(){
     ){
         entrainement.exerciceIndex++;
 
-        const exerciceSuivant =
-            seance.exercices[entrainement.exerciceIndex];
+        const referenceSuivante =
+    seance.exercices[entrainement.exerciceIndex];
+
+const exerciceSuivant =
+    getExerciceGlow(referenceSuivante?.exerciceId);
 
         entrainement.chrono =
             extraireSecondesExerciceGlow(
