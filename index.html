@@ -10580,29 +10580,35 @@ function getSeanceGlowRecommandee(){
     const recommandation = recommanderProgrammeGlow();
 
     const tempsDisponible =
-        DB.glow.activite?.tempsDisponible || 15;
+        Number(DB.glow.activite?.tempsDisponible || 15);
 
-    const seancesObjectif = (DB.glowSeances || []).filter(seance =>
+    let seancesDisponibles = (DB.glowSeances || []).filter(seance =>
         seance.objectif === recommandation.id
     );
 
-    if(!seancesObjectif.length){
-        return DB.glowSeances?.[0] || null;
+    // Tant qu’aucune séance n’existe pour l’objectif recommandé,
+    // utiliser toutes les séances réellement disponibles.
+    if(!seancesDisponibles.length){
+        seancesDisponibles = DB.glowSeances || [];
     }
 
-    // 1. Priorité à une séance qui correspond exactement au temps choisi
-    const seanceExacte = seancesObjectif.find(seance =>
-        Number(seance.duree) === Number(tempsDisponible)
+    if(!seancesDisponibles.length){
+        return null;
+    }
+
+    // 1. Séance correspondant exactement au temps choisi
+    const seanceExacte = seancesDisponibles.find(seance =>
+        Number(seance.duree) === tempsDisponible
     );
 
     if(seanceExacte){
         return seanceExacte;
     }
 
-    // 2. Sinon, prendre la plus longue séance qui tient dans le temps disponible
-    const seancesCompatibles = seancesObjectif
+    // 2. Sinon, la plus longue séance qui tient dans le temps disponible
+    const seancesCompatibles = seancesDisponibles
         .filter(seance =>
-            Number(seance.duree) <= Number(tempsDisponible)
+            Number(seance.duree) <= tempsDisponible
         )
         .sort((a,b) =>
             Number(b.duree) - Number(a.duree)
@@ -10612,8 +10618,8 @@ function getSeanceGlowRecommandee(){
         return seancesCompatibles[0];
     }
 
-    // 3. Sinon, prendre la séance la plus courte
-    return [...seancesObjectif]
+    // 3. Sinon, la séance la plus courte
+    return [...seancesDisponibles]
         .sort((a,b) =>
             Number(a.duree) - Number(b.duree)
         )[0];
