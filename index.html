@@ -10693,11 +10693,22 @@ async function commencerSeance(id){
 
     initialiserGlowDuJour();
 
+    const seance = (DB.glowSeances || []).find(s =>
+        s.id === id
+    );
+
+    if(!seance){
+        toast("Séance introuvable");
+        return;
+    }
+
     DB.glow.entrainement = {
         actif: true,
         seanceId: id,
         exerciceIndex: 0,
-        chrono: 45,
+        chrono: extraireSecondesExerciceGlow(
+            seance.exercices[0]
+        ),
         enPause: false
     };
 
@@ -11769,28 +11780,96 @@ function renderExerciceGlow(){
     `;
 }
 
+function extraireSecondesExerciceGlow(exercice){
+
+    if(!exercice) return 0;
+
+    if(exercice.duree){
+
+        const texte = String(exercice.duree).toLowerCase();
+
+        const minutes = texte.match(/(\d+)\s*min/);
+
+        if(minutes){
+            return Number(minutes[1]) * 60;
+        }
+
+        const secondes = texte.match(/(\d+)\s*sec/);
+
+        if(secondes){
+            return Number(secondes[1]);
+        }
+    }
+
+    if(exercice.repetitions){
+
+        const secondes = String(exercice.repetitions)
+            .toLowerCase()
+            .match(/(\d+)\s*sec/);
+
+        if(secondes){
+            return Number(secondes[1]);
+        }
+    }
+
+    return 0;
+}
+
 function exerciceGlowPrecedent(){
 
-    if(glowSeanceEnCours.exerciceIndex > 0){
-        glowSeanceEnCours.exerciceIndex--;
-        renderExerciceGlow();
+    stopChronoGlow();
+
+    const entrainement = DB.glow.entrainement;
+
+    const seance = (DB.glowSeances || []).find(s =>
+        s.id === entrainement.seanceId
+    );
+
+    if(!seance) return;
+
+    if(entrainement.exerciceIndex > 0){
+
+        entrainement.exerciceIndex--;
+
+        const exercicePrecedent =
+            seance.exercices[entrainement.exerciceIndex];
+
+        entrainement.chrono =
+            extraireSecondesExerciceGlow(exercicePrecedent);
+
+        entrainement.enPause = false;
+
+        renderLecteurSeance();
     }
 }
 
 function exerciceGlowSuivant(){
 
-    const seance = DB.glowSeances.find(item =>
-        item.id === glowSeanceEnCours.id
+    stopChronoGlow();
+
+    const entrainement = DB.glow.entrainement;
+
+    const seance = (DB.glowSeances || []).find(s =>
+        s.id === entrainement.seanceId
     );
 
     if(!seance) return;
 
     if(
-        glowSeanceEnCours.exerciceIndex <
+        entrainement.exerciceIndex <
         seance.exercices.length - 1
     ){
-        glowSeanceEnCours.exerciceIndex++;
-        renderExerciceGlow();
+        entrainement.exerciceIndex++;
+
+        const exerciceSuivant =
+            seance.exercices[entrainement.exerciceIndex];
+
+        entrainement.chrono =
+            extraireSecondesExerciceGlow(exerciceSuivant);
+
+        entrainement.enPause = false;
+
+        renderLecteurSeance();
     }else{
         renderFinSeanceGlow();
     }
