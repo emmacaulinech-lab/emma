@@ -7674,6 +7674,7 @@ function openCorrespondancesPrestations(){
 
         <select
             id="correspondance-${i}"
+            data-planity="${nom}"
             style="flex:1;font-size:12px;padding:6px 10px;border-radius:10px">
 
           ${Object.keys(PARAMS.prixPrestations).map(p=>`
@@ -7684,14 +7685,6 @@ function openCorrespondancesPrestations(){
 
         </select>
 
-        <button
-          class="btn bgrn bsm"
-          onclick="associerPrestation('${nom.replace(/'/g,"\\'")}',document.getElementById('correspondance-${i}').value)"
-        >
-
-        Associer
-
-        </button>
 
       </div>
 
@@ -7709,7 +7702,46 @@ function openCorrespondancesPrestations(){
 
   `).join("");
 
+   document.getElementById("cliMB").innerHTML += `
+
+<div style="display:flex;justify-content:flex-end;margin-top:16px">
+
+<button
+    class="btn bgrn"
+    onclick="enregistrerCorrespondances()"
+>
+
+💾 Enregistrer les correspondances
+
+</button>
+
+</div>
+
+`;
+
   document.getElementById("clientModal").classList.add("open");
+
+}
+
+async function enregistrerCorrespondances(){
+
+    const selects = document.querySelectorAll("[id^='correspondance-']");
+
+    selects.forEach(select=>{
+
+        const prestationPlanity = select.dataset.planity;
+
+        PARAMS.correspondancesPrestations[prestationPlanity] = select.value;
+
+    });
+
+    await saveAll();
+
+    closeMo("clientModal");
+
+    renderAgenda();
+
+    toast("✅ Correspondances enregistrées");
 
 }
    
