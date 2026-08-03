@@ -9717,6 +9717,22 @@ async function copyEmailToClipboard(){
 
     return false;
 }
+
+function calculGlowScore(){
+
+    let score = 0;
+
+    // 💧 Eau (20 pts)
+    score += Math.round((DB.glow.eau || 0) / 8 * 20);
+
+    // 😊 Humeur (10 pts)
+    if(DB.glow.humeur){
+        score += 10;
+    }
+
+    return score;
+
+}
    
    async function renderGlowModule(){
 
@@ -9725,9 +9741,9 @@ async function copyEmailToClipboard(){
     const eau = DB.glow.eau || 0;
 
     // Score provisoire basé sur l’hydratation
-    const glowScore = Math.round((eau / 8) * 100);
+    const glowScore = calculGlowScore();
 
-    DB.glow.glowScore = glowScore;
+    DB.glow.glowScore = calculGlowScore();
 
     if(nouveauJour){
         await saveAll();
