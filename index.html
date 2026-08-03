@@ -7671,14 +7671,16 @@ function openCorrespondancesPrestations(inconnues){
       </div>
 
       <button
-        class="btn"
-        style="margin-top:10px"
-        onclick="creerNouvellePrestation('${nom.replace(/'/g,"\\'")}')"
-      >
+    class="btn"
+    style="margin-top:10px"
+    onclick="afficherCreationPrestation(${i},'${nom.replace(/'/g,"\\'")}')"
+>
 
-        ➕ Créer cette prestation
+➕ Nouvelle prestation
 
-      </button>
+</button>
+
+<div id="creation-prestation-${i}"></div>
 
     </div>
 
@@ -7703,6 +7705,78 @@ function openCorrespondancesPrestations(inconnues){
 
   document.getElementById("clientModal").classList.add("open");
 
+}
+
+function afficherCreationPrestation(index, nom){
+
+    document.getElementById("creation-prestation-"+index).innerHTML = `
+
+        <div style="
+            margin-top:12px;
+            padding:12px;
+            background:white;
+            border-radius:12px;
+            border:1px solid var(--brd2);
+        ">
+
+            <div style="font-size:11px;color:var(--mut);margin-bottom:8px">
+                Nouvelle prestation
+            </div>
+
+            <input
+                id="nouveau-nom-${index}"
+                value="${nom}"
+                placeholder="Nom"
+                style="width:100%;margin-bottom:8px"
+            >
+
+            <input
+                id="nouveau-prix-${index}"
+                type="number"
+                placeholder="Prix (€)"
+                style="width:100%;margin-bottom:10px"
+            >
+
+            <button
+                class="btn bgrn"
+                onclick="creerNouvellePrestation(${index})"
+            >
+
+                ✓ Créer
+
+            </button>
+
+        </div>
+
+    `;
+
+}
+
+async function creerNouvellePrestation(index){
+
+    const nom =
+        document.getElementById("nouveau-nom-"+index).value.trim();
+
+    const prix =
+        parseFloat(document.getElementById("nouveau-prix-"+index).value)||0;
+
+    if(!nom){
+
+        toast("Nom obligatoire");
+
+        return;
+
+    }
+
+    PARAMS.prixPrestations[nom]=prix;
+
+    PARAMS.correspondancesPrestations[nom]=nom;
+
+    await saveAll();
+
+    toast("✅ Prestation créée");
+
+checkCorrespondancesPrestations();
 }
 
 async function enregistrerCorrespondances(){
