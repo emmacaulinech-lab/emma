@@ -10399,7 +10399,14 @@ async function copyEmailToClipboard(){
                 minutes: 0
             },
             humeur: "",
-           sommeil: null
+           sommeil: null,
+           entrainement: {
+    actif: false,
+    seanceId: "",
+    exerciceIndex: 0,
+    chrono: 0,
+    enPause: false
+},
         };
 
         return true;
@@ -10629,6 +10636,61 @@ let glowSeanceEnCours = {
     id: null,
     exerciceIndex: 0
 };
+
+async function commencerSeance(id){
+
+    initialiserGlowDuJour();
+
+    DB.glow.entrainement = {
+        actif: true,
+        seanceId: id,
+        exerciceIndex: 0,
+        chrono: 0,
+        enPause: false
+    };
+
+    await saveAll();
+
+    renderGlowModule();
+}
+
+async function quitterSeance(){
+
+    DB.glow.entrainement.actif = false;
+
+    await saveAll();
+
+    renderGlowModule();
+}
+
+function renderLecteurSeance(){
+
+    document.getElementById("glow-content").innerHTML = `
+    
+        <div style="
+            background:white;
+            border-radius:28px;
+            padding:40px;
+            text-align:center;
+        ">
+
+            <h1>🏋️ Mode entraînement</h1>
+
+            <p>
+                Le lecteur arrive à l'étape suivante...
+            </p>
+
+            <button
+                class="btn"
+                onclick="quitterSeance()"
+            >
+                Quitter
+            </button>
+
+        </div>
+
+    `;
+}
    
    async function renderGlowModule(){
 
@@ -10639,6 +10701,13 @@ let glowSeanceEnCours = {
     const glowScore = score.total;
     const recommandation = recommanderProgrammeGlow();
     const seanceRecommandee = getSeanceGlowRecommandee();
+
+   if(DB.glow.entrainement?.actif){
+
+    renderLecteurSeance();
+
+    return;
+}
 
     DB.glow.glowScore = glowScore;
 
@@ -11081,17 +11150,12 @@ let glowSeanceEnCours = {
 
     </div>
 
-    <button
-        class="btn bd"
-        onclick="ouvrirSeanceGlow('${seanceRecommandee.id}')"
-        style="
-            width:100%;
-            justify-content:center;
-            padding:12px;
-        "
-    >
-        ▶ Commencer la séance
-    </button>
+   <button
+    class="btn"
+    onclick="commencerSeance('${seanceRecommandee.id}')"
+>
+    ▶ Commencer la séance
+</button>
 
 ` : `
 
