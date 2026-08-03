@@ -9706,9 +9706,8 @@ async function copyEmailToClipboard(){
             eau: 0,
             glowScore: 0,
             activite: {
-                termine: false,
-                progression: 0
-            },
+    minutes: 0
+},
             lecture: {
                 minutes: 0
             },
@@ -9755,6 +9754,28 @@ if(DB.glow.sommeil >= 8){
 }else if(DB.glow.sommeil >= 6){
 
     detail.sommeil = 10;
+
+}
+
+// 🏃 Activité (20 pts)
+
+const minutesActivite = DB.glow.activite?.minutes || 0;
+
+if(minutesActivite >= 45){
+
+    detail.activite = 20;
+
+}else if(minutesActivite >= 30){
+
+    detail.activite = 15;
+
+}else if(minutesActivite >= 20){
+
+    detail.activite = 10;
+
+}else if(minutesActivite >= 10){
+
+    detail.activite = 5;
 
 }
 
@@ -10051,6 +10072,51 @@ function renderGlowAccueil(){
 
         </div>
 
+<div style="
+    background:rgba(255,255,255,.60);
+    border:1px solid rgba(255,255,255,.85);
+    border-radius:26px;
+    padding:24px;
+    box-shadow:var(--shadow);
+    margin-bottom:18px;
+">
+
+    <h2 style="
+        font-family:'Cormorant Garamond',serif;
+        font-size:22px;
+        margin-bottom:18px;
+    ">
+        🏃 Activité
+    </h2>
+
+    <div style="
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+    ">
+
+        ${[0,10,20,30,45,60].map(m=>`
+
+            <button
+                onclick="setActivite(${m})"
+                class="btn bg"
+                style="
+                    min-width:70px;
+                    border-radius:16px;
+                    ${DB.glow.activite?.minutes===m ? "background:#FFE5EF;" : ""}
+                "
+            >
+
+                ${m===0 ? "Repos" : m+" min"}
+
+            </button>
+
+        `).join("")}
+
+    </div>
+
+</div>      
+
 
         <!-- HYDRATATION -->
         <div style="
@@ -10140,6 +10206,18 @@ async function setSommeil(heures){
     initialiserGlowDuJour();
 
     DB.glow.sommeil = heures;
+
+    await saveAll();
+
+    renderGlowModule();
+
+}
+
+async function setActivite(minutes){
+
+    initialiserGlowDuJour();
+
+    DB.glow.activite.minutes = minutes;
 
     await saveAll();
 
