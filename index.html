@@ -1106,8 +1106,8 @@ font-weight:700;
         </div>
 
         <div class="glow-score-circle">
-            <span>82%</span>
-        </div>
+    <span id="hub-glow-score">0%</span>
+</div>
 
     </div>
 
@@ -8674,6 +8674,7 @@ function goHub(){
   });
   setEmmaNav('accueil');
   renderHubOverview();
+  renderGlowAccueil();
 }
 
 function goModule(name){
@@ -9766,19 +9767,27 @@ if(DB.glow.sommeil >= 8){
     };
 
 }
+
+function renderGlowAccueil(){
+
+    const el = document.getElementById("hub-glow-score");
+
+    if(!el) return;
+
+    const score = calculGlowScore();
+
+    el.textContent = score.total + "%";
+}
    
    async function renderGlowModule(){
 
     const nouveauJour = initialiserGlowDuJour();
-
     const eau = DB.glow.eau || 0;
 
-    // Score provisoire basé sur l’hydratation
     const score = calculGlowScore();
+    const glowScore = score.total;
 
-const glowScore = score.total;
-
-DB.glow.glowScore = glowScore;
+    DB.glow.glowScore = glowScore;
 
     if(nouveauJour){
         await saveAll();
@@ -9806,6 +9815,7 @@ DB.glow.glowScore = glowScore;
 
     document.getElementById("glow-content").innerHTML = `
 
+        <!-- GLOW SCORE -->
         <div style="
             background:rgba(255,255,255,.60);
             border:1px solid rgba(255,255,255,.85);
@@ -9877,175 +9887,172 @@ DB.glow.glowScore = glowScore;
                     : "Ton score augmentera avec tes habitudes du jour"}
             </div>
 
+            <div style="
+                margin-top:20px;
+                display:grid;
+                gap:8px;
+                font-size:13px;
+                text-align:left;
+            ">
+
+                ${[
+                    ["💧 Hydratation", score.detail.eau, 20],
+                    ["😊 Humeur", score.detail.humeur, 10],
+                    ["🏃 Activité", score.detail.activite, 20],
+                    ["🌙 Sommeil", score.detail.sommeil, 20],
+                    ["🍽️ Nutrition", score.detail.nutrition, 15],
+                    ["📖 Lecture", score.detail.lecture, 10],
+                    ["📸 Photo", score.detail.photo, 5]
+                ].map(l => `
+
+                    <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        font-size:13px;
+                    ">
+                        <span>${l[0]}</span>
+                        <b style="color:var(--acc)">
+                            ${l[1]} / ${l[2]}
+                        </b>
+                    </div>
+
+                `).join("")}
+
+            </div>
+
+            <div style="margin-top:22px">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    font-size:13px;
+                    margin-bottom:8px;
+                ">
+                    <span>Progression du jour</span>
+                    <b>${glowScore}%</b>
+                </div>
+
+                <div style="
+                    height:12px;
+                    background:#F4EEF1;
+                    border-radius:999px;
+                    overflow:hidden;
+                ">
+                    <div style="
+                        width:${glowScore}%;
+                        height:100%;
+                        background:linear-gradient(90deg,#F8B7C8,#D9798C);
+                        border-radius:999px;
+                        transition:.4s;
+                    "></div>
+                </div>
+
+            </div>
+
         </div>
 
-<div style="
-margin-top:20px;
-display:grid;
-gap:8px;
-font-size:13px;
-">
 
-${[
-["💧 Hydratation",score.detail.eau],
-["😊 Humeur",score.detail.humeur],
-["🏃 Activité",score.detail.activite],
-["🌙 Sommeil",score.detail.sommeil],
-["🍽️ Nutrition",score.detail.nutrition],
-["📖 Lecture",score.detail.lecture],
-["📸 Photo",score.detail.photo]
-].map(l=>`
-
-<div style="margin-top:22px">
-
-    <div style="
-        display:flex;
-        justify-content:space-between;
-        font-size:13px;
-        margin-bottom:8px;
-    ">
-
-        <span>Progression du jour</span>
-
-        <b>${glowScore}%</b>
-
-    </div>
-
-    <div style="
-        height:12px;
-        background:#F4EEF1;
-        border-radius:999px;
-        overflow:hidden;
-    ">
-
+        <!-- HUMEUR -->
         <div style="
-            width:${glowScore}%;
-            height:100%;
-            background:linear-gradient(90deg,#F8B7C8,#D9798C);
-            border-radius:999px;
-            transition:.4s;
-        "></div>
-
-    </div>
-
-</div>
-
-<div style="
-display:flex;
-justify-content:space-between;
-">
-
-<span>${l[0]}</span>
-
-<b style="color:var(--acc)">
-+${l[1]}
-</b>
-
-</div>
-
-`).join("")}
-
-</div>
-
-      <div style="
-    background:rgba(255,255,255,.60);
-    border:1px solid rgba(255,255,255,.85);
-    border-radius:26px;
-    padding:24px;
-    box-shadow:var(--shadow);
-    margin-bottom:18px;
-">
-
-    <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        margin-bottom:18px;
-    ">
-
-        <h2 style="
-            font-family:'Cormorant Garamond',serif;
-            font-size:22px;
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+            margin-bottom:18px;
         ">
-            😊 Humeur
-        </h2>
 
-        <div style="font-size:13px;color:var(--mut)">
-            ${DB.glow.humeur || "Aucune"}
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:18px;
+            ">
+
+                <h2 style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:22px;
+                ">
+                    😊 Humeur
+                </h2>
+
+                <div style="font-size:13px;color:var(--mut)">
+                    ${DB.glow.humeur || "Aucune"}
+                </div>
+
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+
+                ${["😍","😊","🙂","😐","😔","😴"].map(e => `
+
+                    <button
+                        onclick="setHumeur('${e}')"
+                        class="btn bg"
+                        style="
+                            font-size:22px;
+                            width:52px;
+                            height:52px;
+                            border-radius:16px;
+                            ${DB.glow.humeur === e ? "background:#FFE5EF;" : ""}
+                        "
+                    >
+                        ${e}
+                    </button>
+
+                `).join("")}
+
+            </div>
+
         </div>
 
-    </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <!-- SOMMEIL -->
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+            margin-bottom:18px;
+        ">
 
-        ${["😍","😊","🙂","😐","😔","😴"].map(e=>`
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:22px;
+                margin-bottom:18px;
+            ">
+                🌙 Sommeil
+            </h2>
 
-            <button
-                onclick="setHumeur('${e}')"
-                class="btn bg"
-                style="
-                    font-size:22px;
-                    width:52px;
-                    height:52px;
-                    border-radius:16px;
-                    ${DB.glow.humeur===e ? "background:#FFE5EF;" : ""}
-                "
-            >
+            <div style="
+                display:flex;
+                gap:8px;
+                flex-wrap:wrap;
+            ">
 
-                ${e}
+                ${[4,5,6,7,8,9].map(h => `
 
-            </button>
+                    <button
+                        onclick="setSommeil(${h})"
+                        class="btn bg"
+                        style="
+                            min-width:60px;
+                            border-radius:16px;
+                            ${DB.glow.sommeil === h ? "background:#FFE5EF;" : ""}
+                        "
+                    >
+                        ${h} h
+                    </button>
 
-        `).join("")}
+                `).join("")}
 
-    </div>
+            </div>
 
-</div>
-
-<div style="
-    background:rgba(255,255,255,.60);
-    border:1px solid rgba(255,255,255,.85);
-    border-radius:26px;
-    padding:24px;
-    box-shadow:var(--shadow);
-    margin-bottom:18px;
-">
-
-    <h2 style="
-        font-family:'Cormorant Garamond',serif;
-        font-size:22px;
-        margin-bottom:18px;
-    ">
-        🌙 Sommeil
-    </h2>
-
-    <div style="
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-    ">
-
-        ${[4,5,6,7,8,9].map(h=>`
-
-           <button
-    onclick="setSommeil(${h})"
-    class="btn bg"
-                style="
-                    min-width:60px;
-                    border-radius:16px;
-                    ${DB.glow.sommeil===h ? "background:#FFE5EF;" : ""}
-                "
-            >
-                ${h} h
-            </button>
-
-        `).join("")}
-
-    </div>
-
-</div>
+        </div>
 
 
+        <!-- HYDRATATION -->
         <div style="
             background:rgba(255,255,255,.60);
             border:1px solid rgba(255,255,255,.85);
