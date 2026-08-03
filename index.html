@@ -1806,24 +1806,18 @@ font-weight:700;
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">👛 Banque perso</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/banqueperso/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
 </div>
-<div id="module-sport" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
-  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🏋️ Sport</div></div>
-  <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
-    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px;flex-wrap:wrap">
-  <button id="stab0" onclick="goSTab(0)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">🏋️ Séances</button>
-  <button id="stab1" onclick="goSTab(1)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">⚖️ Poids</button>
-  <button id="stab2" onclick="goSTab(2)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🎯 Objectifs</button>
-  <button id="stab3" onclick="goSTab(3)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Calendrier</button>
-  <button id="stab4" onclick="goSTab(4)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">💪 Programme</button>
-  <button id="stab5" onclick="goSTab(5)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🍽️ Repas</button>
-</div>
-<div id="sview-seances"></div>
-<div id="sview-poids" style="display:none"></div>
-<div id="sview-objectifs" style="display:none"></div>
-<div id="sview-calendrier" style="display:none"></div>
-<div id="sview-programme" style="display:none"></div>
-<div id="sview-repas" style="display:none"></div>
+<div id="module-glow" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
+
+  <div class="module-hdr">
+    <button class="logout-btn" onclick="goHub()">← Accueil</button>
+    <div class="module-hdr-title">✨ Glow</div>
   </div>
+
+  <div id="glow-content"
+       style="padding:24px;max-width:900px;margin:0 auto;width:100%">
+
+  </div>
+
 </div>
 <div id="module-lecture" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">📚 Lecture</div></div>
@@ -8701,9 +8695,9 @@ function goModule(name){
     document.getElementById('app').classList.remove('visible');
     document.getElementById('module-'+name).style.display='flex';
     if(name==='formations') renderFormationsModule();
-    if(name==='sport') renderSportModule();
     if(name==='lecture') renderLectureModule();
     if(name==='journal') renderJournalModule();
+    if(name==='glow') renderGlowModule();
   }
 }
 
