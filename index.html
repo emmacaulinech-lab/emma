@@ -10393,6 +10393,7 @@ async function copyEmailToClipboard(){
             minutes: 0,
             terminee: false,
             tempsDisponible: 15,
+            objectifForce: ""
             },
             lecture: {
                 minutes: 0
@@ -10577,21 +10578,20 @@ function recommanderProgrammeGlow(){
 
 function getSeanceGlowRecommandee(){
 
-    const recommandation = recommanderProgrammeGlow();
+    const recommandationAuto = recommanderProgrammeGlow();
+
+    const objectifChoisi =
+        DB.glow.activite?.objectifForce ||
+        recommandationAuto.id;
 
     const tempsDisponible =
         Number(DB.glow.activite?.tempsDisponible || 15);
 
-    let seancesDisponibles = (DB.glowSeances || []).filter(seance =>
-        seance.objectif === recommandation.id
+    const seancesDisponibles = (DB.glowSeances || []).filter(seance =>
+        seance.objectif === objectifChoisi
     );
 
-    // Tant qu’aucune séance n’existe pour l’objectif recommandé,
-    // utiliser toutes les séances réellement disponibles.
-    if(!seancesDisponibles.length){
-        seancesDisponibles = DB.glowSeances || [];
-    }
-
+    // Aucune séance créée pour cette zone
     if(!seancesDisponibles.length){
         return null;
     }
@@ -10605,7 +10605,7 @@ function getSeanceGlowRecommandee(){
         return seanceExacte;
     }
 
-    // 2. Sinon, la plus longue séance qui tient dans le temps disponible
+    // 2. Sinon, la plus longue séance compatible
     const seancesCompatibles = seancesDisponibles
         .filter(seance =>
             Number(seance.duree) <= tempsDisponible
@@ -10942,6 +10942,65 @@ let glowSeanceEnCours = {
     ">
         ${recommandation.raison}
     </div>
+
+    <div style="margin-bottom:18px">
+
+    <div style="
+        font-size:12px;
+        font-weight:800;
+        color:var(--mut);
+        margin-bottom:9px;
+    ">
+        Quelle zone veux-tu travailler ?
+    </div>
+
+    <div style="
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+    ">
+
+        <button
+            class="btn bg"
+            onclick="setObjectifGlow('')"
+            style="
+                ${
+                    !DB.glow.activite?.objectifForce
+                        ? "background:#FFE5EF !important;color:var(--acc);"
+                        : ""
+                }
+            "
+        >
+            ✨ Automatique
+        </button>
+
+        ${[
+            ["taille", "🔥 Taille"],
+            ["fessiers", "🍑 Fessiers"],
+            ["posture", "🤍 Posture"],
+            ["cardio", "❤️ Cardio"],
+            ["jambes", "🦵 Jambes"]
+        ].map(zone => `
+
+            <button
+                class="btn bg"
+                onclick="setObjectifGlow('${zone[0]}')"
+                style="
+                    ${
+                        DB.glow.activite?.objectifForce === zone[0]
+                            ? "background:#FFE5EF !important;color:var(--acc);"
+                            : ""
+                    }
+                "
+            >
+                ${zone[1]}
+            </button>
+
+        `).join("")}
+
+    </div>
+
+</div>
 
     <div style="
         display:flex;
@@ -11606,6 +11665,22 @@ async function setTempsDisponibleGlow(minutes){
     initialiserGlowDuJour();
 
     DB.glow.activite.tempsDisponible = minutes;
+
+    await saveAll();
+
+    renderGlowModule();
+}
+
+async function setObjectifGlow(objectif){
+
+    initialiserGlowDuJour();
+
+    DB.glow.activite.objectifForce = objectif;
+
+    // On annule l’ancienne séance du jour si la zone change
+    DB.glow.activite.objectif = "";
+    DB.glow.activite.minutes = 0;
+    DB.glow.activite.terminee = false;
 
     await saveAll();
 
