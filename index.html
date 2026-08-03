@@ -2031,9 +2031,38 @@ auth.onAuthStateChanged(async user => {
 // DATA — Firebase Firestore
 // ═══════════════════════════════════════
 let DB = {
-  caisse: [], banque: [], fixes: [], variables: [],
+  caisse: [],
+  banque: [],
+  fixes: [],
+  variables: [],
   salaires: [],
-  prestations: ['Pose complète - Volume Russe','Remplissage 4 semaines','Remplissage 3 semaines','Remplissage 2 semaines','Retouche','Browlift','Lashlift coréen','Rehaussement cils','Acompte','Autre'],
+  prestations: [
+    'Pose complète - Volume Russe',
+    'Remplissage 4 semaines',
+    'Remplissage 3 semaines',
+    'Remplissage 2 semaines',
+    'Retouche',
+    'Browlift',
+    'Lashlift coréen',
+    'Rehaussement cils',
+    'Acompte',
+    'Autre'
+  ],
+
+  glow: {
+    date: "",
+    eau: 0,
+    glowScore: 0,
+    sport: {
+      termine: false,
+      progression: 0
+    },
+    lecture: {
+      minutes: 0
+    },
+    humeur: null
+  },
+
   boutique: {
     produits: [],
     lots: [],
