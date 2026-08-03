@@ -7630,31 +7630,13 @@ function checkCorrespondancesPrestations(){
 
     });
 
-    console.log("Prestations inconnues :", inconnues);
-
-}
-
-function openCorrespondancesPrestations(){
-
-  const inconnues = [];
-
-  agendaData.forEach(r=>{
-
-    if(getPrixPrestation(r.prestation)===0){
-
-      if(!inconnues.includes(r.prestation))
-        inconnues.push(r.prestation);
-
+    if(inconnues.length){
+        openCorrespondancesPrestations(inconnues);
     }
 
-  });
+}
+function openCorrespondancesPrestations(inconnues){
 
-  if(!inconnues.length){
-
-    toast("✅ Toutes les prestations sont reconnues");
-    return;
-
-  }
 
   document.getElementById("cliMT").textContent="🔗 Correspondances Planity";
 
