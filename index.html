@@ -9991,8 +9991,9 @@ justify-content:space-between;
 
         ${[4,5,6,7,8,9].map(h=>`
 
-            <button
-                class="btn bg"
+           <button
+    onclick="setSommeil(${h})"
+    class="btn bg"
                 style="
                     min-width:60px;
                     border-radius:16px;
@@ -10084,6 +10085,18 @@ async function setHumeur(humeur){
     initialiserGlowDuJour();
 
     DB.glow.humeur = humeur;
+
+    await saveAll();
+
+    renderGlowModule();
+
+}
+
+async function setSommeil(heures){
+
+    initialiserGlowDuJour();
+
+    DB.glow.sommeil = heures;
 
     await saveAll();
 
