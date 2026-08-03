@@ -10637,6 +10637,58 @@ let glowSeanceEnCours = {
     exerciceIndex: 0
 };
 
+let glowTimer = null;
+
+function demarrerChronoGlow(){
+
+    if(glowTimer) return;
+
+    DB.glow.entrainement.enPause = false;
+
+    glowTimer = setInterval(async ()=>{
+
+        if(DB.glow.entrainement.chrono > 0){
+
+            DB.glow.entrainement.chrono--;
+
+            renderLecteurSeance();
+
+        }else{
+
+    clearInterval(glowTimer);
+
+    glowTimer = null;
+
+    DB.glow.entrainement.enPause = false;
+
+    renderLecteurSeance();
+
+}
+
+    },1000);
+
+}
+
+function pauseChronoGlow(){
+
+    clearInterval(glowTimer);
+
+    glowTimer = null;
+
+    DB.glow.entrainement.enPause = true;
+
+    renderLecteurSeance();
+
+}
+
+function stopChronoGlow(){
+
+    clearInterval(glowTimer);
+
+    glowTimer = null;
+
+}
+
 async function commencerSeance(id){
 
     initialiserGlowDuJour();
@@ -10645,7 +10697,7 @@ async function commencerSeance(id){
         actif: true,
         seanceId: id,
         exerciceIndex: 0,
-        chrono: 0,
+        chrono: 45,
         enPause: false
     };
 
@@ -10656,6 +10708,8 @@ async function commencerSeance(id){
 
 async function quitterSeance(){
 
+   stopChronoGlow();
+
     DB.glow.entrainement.actif = false;
 
     await saveAll();
@@ -10665,30 +10719,219 @@ async function quitterSeance(){
 
 function renderLecteurSeance(){
 
+    const entrainement = DB.glow.entrainement;
+
+    const seance = (DB.glowSeances || []).find(s =>
+        s.id === entrainement.seanceId
+    );
+
+    if(!seance){
+        document.getElementById("glow-content").innerHTML = `
+            <div style="padding:30px;text-align:center">
+                Séance introuvable.
+            </div>
+        `;
+        return;
+    }
+
+    const exercice =
+        seance.exercices[entrainement.exerciceIndex];
+
+    if(!exercice){
+        document.getElementById("glow-content").innerHTML = `
+            <div style="padding:30px;text-align:center">
+                Exercice introuvable.
+            </div>
+        `;
+        return;
+    }
+
+    const chrono = entrainement.chrono || 0;
+
+    const minutes = String(
+        Math.floor(chrono / 60)
+    ).padStart(2,"0");
+
+    const secondes = String(
+        chrono % 60
+    ).padStart(2,"0");
+
     document.getElementById("glow-content").innerHTML = `
-    
+
         <div style="
             background:white;
             border-radius:28px;
-            padding:40px;
+            padding:30px 24px;
             text-align:center;
+            box-shadow:var(--shadow);
         ">
 
-            <h1>🏋️ Mode entraînement</h1>
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:18px;
+            ">
 
-            <p>
-                Le lecteur arrive à l'étape suivante...
-            </p>
+                <button
+                    class="btn bg"
+                    onclick="quitterSeance()"
+                >
+                    ← Quitter
+                </button>
 
-            <button
-                class="btn"
-                onclick="quitterSeance()"
-            >
-                Quitter
-            </button>
+                <div style="
+                    font-size:12px;
+                    color:var(--mut);
+                    font-weight:700;
+                ">
+                    Exercice ${entrainement.exerciceIndex + 1}
+                    / ${seance.exercices.length}
+                </div>
+
+            </div>
+
+            <div style="
+                font-size:11px;
+                color:var(--acc);
+                font-weight:800;
+                text-transform:uppercase;
+                letter-spacing:.1em;
+                margin-bottom:8px;
+            ">
+                ${seance.nom}
+            </div>
+
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:32px;
+                margin-bottom:12px;
+            ">
+                ${exercice.nom}
+            </h2>
+
+            <div style="
+                font-size:14px;
+                color:var(--mut);
+                margin-bottom:22px;
+            ">
+                ${exercice.description || ""}
+            </div>
+
+            <div style="
+                width:190px;
+                height:190px;
+                border-radius:50%;
+                margin:0 auto 24px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                background:linear-gradient(135deg,#FFE5EF,#F4F7FF);
+                border:8px solid rgba(217,121,140,.18);
+                box-shadow:var(--shadow);
+            ">
+
+                <div style="
+                    font-family:'DM Mono',monospace;
+                    font-size:42px;
+                    font-weight:700;
+                    color:var(--acc);
+                ">
+                    ${minutes}:${secondes}
+                </div>
+
+            </div>
+
+            <div style="
+                display:flex;
+                justify-content:center;
+                gap:10px;
+                flex-wrap:wrap;
+                margin-bottom:18px;
+            ">
+
+                ${
+                    !glowTimer && !entrainement.enPause
+                        ? `
+                            <button
+                                class="btn bd"
+                                onclick="demarrerChronoGlow()"
+                            >
+                                ▶ Démarrer
+                            </button>
+                        `
+                        : ""
+                }
+
+                ${
+                    glowTimer
+                        ? `
+                            <button
+                                class="btn bg"
+                                onclick="pauseChronoGlow()"
+                            >
+                                ⏸ Pause
+                            </button>
+                        `
+                        : ""
+                }
+
+                ${
+                    !glowTimer && entrainement.enPause
+                        ? `
+                            <button
+                                class="btn bd"
+                                onclick="demarrerChronoGlow()"
+                            >
+                                ▶ Reprendre
+                            </button>
+                        `
+                        : ""
+                }
+
+            </div>
+
+            <div style="
+                display:flex;
+                gap:10px;
+                margin-top:20px;
+            ">
+
+                <button
+                    class="btn bg"
+                    onclick="exerciceGlowPrecedent()"
+                    style="
+                        flex:1;
+                        justify-content:center;
+                        ${
+                            entrainement.exerciceIndex === 0
+                                ? "visibility:hidden;"
+                                : ""
+                        }
+                    "
+                >
+                    ← Précédent
+                </button>
+
+                <button
+                    class="btn bd"
+                    onclick="exerciceGlowSuivant()"
+                    style="
+                        flex:1;
+                        justify-content:center;
+                    "
+                >
+                    ${
+                        entrainement.exerciceIndex ===
+                        seance.exercices.length - 1
+                            ? "Terminer 🎉"
+                            : "Suivant →"
+                    }
+                </button>
+
+            </div>
 
         </div>
-
     `;
 }
    
