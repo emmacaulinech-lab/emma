@@ -10578,6 +10578,7 @@ function recommanderProgrammeGlow(){
 function getSeanceGlowRecommandee(){
 
     const recommandation = recommanderProgrammeGlow();
+
     const tempsDisponible =
         DB.glow.activite?.tempsDisponible || 15;
 
@@ -10589,19 +10590,33 @@ function getSeanceGlowRecommandee(){
         return DB.glowSeances?.[0] || null;
     }
 
-    // Séances qui tiennent dans le temps disponible
+    // 1. Priorité à une séance qui correspond exactement au temps choisi
+    const seanceExacte = seancesObjectif.find(seance =>
+        Number(seance.duree) === Number(tempsDisponible)
+    );
+
+    if(seanceExacte){
+        return seanceExacte;
+    }
+
+    // 2. Sinon, prendre la plus longue séance qui tient dans le temps disponible
     const seancesCompatibles = seancesObjectif
-        .filter(seance => seance.duree <= tempsDisponible)
-        .sort((a,b) => b.duree - a.duree);
+        .filter(seance =>
+            Number(seance.duree) <= Number(tempsDisponible)
+        )
+        .sort((a,b) =>
+            Number(b.duree) - Number(a.duree)
+        );
 
     if(seancesCompatibles.length){
         return seancesCompatibles[0];
     }
 
-    // Si aucune séance n’est assez courte,
-    // prendre la plus courte de cet objectif
+    // 3. Sinon, prendre la séance la plus courte
     return [...seancesObjectif]
-        .sort((a,b) => a.duree - b.duree)[0];
+        .sort((a,b) =>
+            Number(a.duree) - Number(b.duree)
+        )[0];
 }
 
 let glowSeanceEnCours = {
