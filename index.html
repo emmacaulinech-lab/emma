@@ -2089,6 +2089,7 @@ async function loadAll() {
       }
       if(d.formations) DB.formations=JSON.parse(d.formations);
       if(d.lecture) DB.lecture=JSON.parse(d.lecture);
+      if(d.glow) DB.glow = JSON.parse(d.glow);
       if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
       if(d.journal) DB.journal=JSON.parse(d.journal);
       // photosJour chargé séparément maintenant (voir chargerPhotosJour)
@@ -2143,6 +2144,7 @@ async function loadAll() {
       salaires:    JSON.stringify(DB.salaires),
       formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
+      glow: JSON.stringify(DB.glow || {}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
     });
@@ -9893,6 +9895,40 @@ ${[
 ["📖 Lecture",score.detail.lecture],
 ["📸 Photo",score.detail.photo]
 ].map(l=>`
+
+<div style="margin-top:22px">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        font-size:13px;
+        margin-bottom:8px;
+    ">
+
+        <span>Progression du jour</span>
+
+        <b>${glowScore}%</b>
+
+    </div>
+
+    <div style="
+        height:12px;
+        background:#F4EEF1;
+        border-radius:999px;
+        overflow:hidden;
+    ">
+
+        <div style="
+            width:${glowScore}%;
+            height:100%;
+            background:linear-gradient(90deg,#F8B7C8,#D9798C);
+            border-radius:999px;
+            transition:.4s;
+        "></div>
+
+    </div>
+
+</div>
 
 <div style="
 display:flex;
