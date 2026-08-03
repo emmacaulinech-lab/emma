@@ -9692,54 +9692,14 @@ async function copyEmailToClipboard(){
 // ═══════════════════════════════════════
 // MODULE GLOW
 // ═══════════════════════════════════════
-   function renderGlowModule(){
+   function initialiserGlowDuJour(){
 
-    const eau = DB.glow?.eau || 0;
+    const aujourdHui = new Date().toISOString().split("T")[0];
 
-    let ronds = "";
+    if(!DB.glow || DB.glow.date !== aujourdHui){
 
-    for(let i=1;i<=8;i++){
-
-        ronds += `
-            <span
-                onclick="setEau(${i})"
-                style="
-                    cursor:pointer;
-                    font-size:28px;
-                    margin-right:6px;
-                    user-select:none;
-                ">
-                ${i<=eau ? "🩷" : "🤍"}
-            </span>
-        `;
-
-    }
-
-    document.getElementById("glow-content").innerHTML = `
-
-        <div class="glass">
-
-            <h2 style="margin-bottom:20px">💧 Hydratation</h2>
-
-            <div style="margin-bottom:18px">
-                ${ronds}
-            </div>
-
-            <div style="font-size:14px;color:var(--mut)">
-                ${eau} / 8 verres
-            </div>
-
-        </div>
-
-    `;
-
-}
-
-async function setEau(nb){
-
-    if(!DB.glow){
         DB.glow = {
-            date: "",
+            date: aujourdHui,
             eau: 0,
             glowScore: 0,
             sport: {
@@ -9751,14 +9711,192 @@ async function setEau(nb){
             },
             humeur: null
         };
+
+        return true;
     }
 
-    DB.glow.eau = DB.glow.eau === nb ? nb - 1 : nb;
+    return false;
+}
+   
+   async function renderGlowModule(){
+
+    const nouveauJour = initialiserGlowDuJour();
+
+    const eau = DB.glow.eau || 0;
+
+    // Score provisoire basé sur l’hydratation
+    const glowScore = Math.round((eau / 8) * 100);
+
+    DB.glow.glowScore = glowScore;
+
+    if(nouveauJour){
+        await saveAll();
+    }
+
+    let ronds = "";
+
+    for(let i = 1; i <= 8; i++){
+
+        ronds += `
+            <span
+                onclick="setEau(${i})"
+                style="
+                    cursor:pointer;
+                    font-size:28px;
+                    margin-right:6px;
+                    user-select:none;
+                    transition:transform .15s;
+                "
+            >
+                ${i <= eau ? "🩷" : "🤍"}
+            </span>
+        `;
+    }
+
+    document.getElementById("glow-content").innerHTML = `
+
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+            margin-bottom:18px;
+            text-align:center;
+        ">
+
+            <div style="
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:.12em;
+                color:var(--mut);
+                font-weight:800;
+                margin-bottom:14px;
+            ">
+                ✨ Glow Score
+            </div>
+
+            <div style="
+                width:130px;
+                height:130px;
+                border-radius:50%;
+                margin:0 auto 12px;
+                padding:8px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                background:conic-gradient(
+                    var(--acc) ${glowScore}%,
+                    rgba(255,255,255,.55) ${glowScore}%
+                );
+            ">
+
+                <div style="
+                    width:100%;
+                    height:100%;
+                    border-radius:50%;
+                    background:white;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    flex-direction:column;
+                ">
+
+                    <div style="
+                        font-family:'Cormorant Garamond',serif;
+                        font-size:38px;
+                        font-weight:700;
+                        color:var(--acc);
+                        line-height:1;
+                    ">
+                        ${glowScore}%
+                    </div>
+
+                    <div style="font-size:11px;color:var(--mut);margin-top:5px">
+                        Aujourd’hui
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div style="font-size:12px;color:var(--mut)">
+                ${eau === 8
+                    ? "Objectif hydratation atteint ✨"
+                    : "Ton score augmentera avec tes habitudes du jour"}
+            </div>
+
+        </div>
+
+
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:20px;
+            ">
+
+                <h2 style="
+                    font-family:'Cormorant Garamond',serif;
+                    color:var(--txt);
+                    font-size:22px;
+                ">
+                    💧 Hydratation
+                </h2>
+
+                <div style="
+                    background:var(--bg2);
+                    color:var(--acc);
+                    padding:6px 12px;
+                    border-radius:20px;
+                    font-size:12px;
+                    font-weight:800;
+                ">
+                    ${eau * 250} mL / 2 L
+                </div>
+
+            </div>
+
+            <div style="
+                display:flex;
+                flex-wrap:wrap;
+                gap:4px;
+                margin-bottom:16px;
+            ">
+                ${ronds}
+            </div>
+
+            <div style="font-size:13px;color:var(--mut)">
+                ${eau} / 8 verres
+            </div>
+
+        </div>
+    `;
+}
+
+async function setEau(nb){
+
+    initialiserGlowDuJour();
+
+    DB.glow.eau = DB.glow.eau === nb
+        ? nb - 1
+        : nb;
+
+    DB.glow.glowScore = Math.round(
+        (DB.glow.eau / 8) * 100
+    );
 
     await saveAll();
 
     renderGlowModule();
-
 }
 
 // ═══════════════════════════════════════
