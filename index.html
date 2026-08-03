@@ -2050,6 +2050,198 @@ let DB = {
     },
 
     historiqueGlow: [],
+   glowProgrammes: [
+    {
+        id: "taille",
+        nom: "🔥 Taille marquée",
+        frequence: 3,
+        priorite: 1
+    },
+    {
+        id: "fessiers",
+        nom: "🍑 Fesses galbées",
+        frequence: 2,
+        priorite: 2
+    },
+    {
+        id: "posture",
+        nom: "🤍 Posture élégante",
+        frequence: 2,
+        priorite: 3
+    },
+    {
+        id: "cardio",
+        nom: "❤️ Cardio / Elliptique",
+        frequence: 2,
+        priorite: 4
+    },
+    {
+        id: "jambes",
+        nom: "🦵 Jambes fines",
+        frequence: 1,
+        priorite: 5
+    }
+],
+
+glowSeances: [
+  {
+    id: "taille_01",
+    objectif: "taille",
+    nom: "Taille marquée • A",
+    niveau: 1,
+    duree: 15,
+    materiel: ["tapis"],
+    description:
+      "Une séance courte pour renforcer la sangle abdominale, travailler la stabilité et dessiner la taille.",
+
+    exercices: [
+      {
+        id: "echauffement_taille_01",
+        nom: "Échauffement taille",
+        type: "echauffement",
+        categorie: "mobilite",
+        duree: "2 min",
+
+        media: {
+          type: "image",
+          fichier: ""
+        },
+
+        description:
+          "Mobilise doucement le bassin et le buste avant de commencer.",
+
+        conseils: [
+          "Fais des mouvements lents",
+          "Garde les épaules détendues",
+          "Respire profondément"
+        ],
+
+        erreurs: [
+          "Ne force pas l’amplitude",
+          "Ne fais pas de mouvements brusques"
+        ]
+      },
+
+      {
+        id: "russian_twist_01",
+        nom: "Russian Twist",
+        type: "exercice",
+        categorie: "abdominaux",
+        repetitions: "3 × 20",
+        repos: "30 sec",
+
+        media: {
+          type: "image",
+          fichier: ""
+        },
+
+        description:
+          "Assieds-toi, incline légèrement le buste vers l’arrière et tourne le haut du corps de gauche à droite.",
+
+        conseils: [
+          "Garde le dos droit",
+          "Contracte les abdominaux",
+          "Tourne le buste, pas seulement les bras",
+          "Garde les mouvements contrôlés"
+        ],
+
+        erreurs: [
+          "Ne creuse pas le bas du dos",
+          "Ne tourne pas uniquement les bras",
+          "Ne va pas trop vite"
+        ]
+      },
+
+      {
+        id: "dead_bug_01",
+        nom: "Dead Bug",
+        type: "exercice",
+        categorie: "gainage",
+        repetitions: "3 × 12",
+        repos: "30 sec",
+
+        media: {
+          type: "image",
+          fichier: ""
+        },
+
+        description:
+          "Allongée sur le dos, tends lentement une jambe et le bras opposé sans décoller les lombaires du sol.",
+
+        conseils: [
+          "Plaque le bas du dos au tapis",
+          "Contracte le ventre pendant tout le mouvement",
+          "Travaille lentement",
+          "Réduis l’amplitude si ton dos se creuse"
+        ],
+
+        erreurs: [
+          "Ne décolle pas les lombaires",
+          "Ne bloque pas ta respiration",
+          "Ne tends pas trop bas si tu perds le contrôle"
+        ]
+      },
+
+      {
+        id: "planche_01",
+        nom: "Planche",
+        type: "exercice",
+        categorie: "gainage",
+        repetitions: "3 × 30 sec",
+        repos: "30 sec",
+
+        media: {
+          type: "image",
+          fichier: ""
+        },
+
+        description:
+          "Place-toi sur les avant-bras et les pointes de pieds en maintenant le corps aligné.",
+
+        conseils: [
+          "Garde le bassin dans l’alignement",
+          "Contracte les fessiers et les abdominaux",
+          "Éloigne les épaules des oreilles",
+          "Respire régulièrement"
+        ],
+
+        erreurs: [
+          "Ne creuse pas le bas du dos",
+          "Ne monte pas trop les fesses",
+          "Ne laisse pas tomber la tête"
+        ]
+      },
+
+      {
+        id: "etirement_taille_01",
+        nom: "Étirement de fin",
+        type: "etirement",
+        categorie: "recuperation",
+        duree: "2 min",
+
+        media: {
+          type: "image",
+          fichier: ""
+        },
+
+        description:
+          "Étire doucement les côtés de la taille, les abdominaux et le bas du dos.",
+
+        conseils: [
+          "Respire lentement",
+          "Maintiens chaque position quelques secondes",
+          "Relâche les épaules"
+        ],
+
+        erreurs: [
+          "Ne force pas l’étirement",
+          "Ne fais pas de rebonds",
+          "Arrête si une douleur apparaît"
+        ]
+      }
+    ]
+  }
+],
 
   boutique: {
     produits: [],
@@ -9898,6 +10090,28 @@ function recommanderProgrammeGlow(){
         raison
     };
 }
+
+function getSeanceGlowRecommandee(){
+
+    const recommandation = recommanderProgrammeGlow();
+
+    const seancesObjectif = (DB.glowSeances || []).filter(seance =>
+        seance.objectif === recommandation.id
+    );
+
+    if(seancesObjectif.length){
+        return seancesObjectif[0];
+    }
+
+    // Temporairement, si aucune séance n’existe encore
+    // pour l’objectif recommandé, on affiche la première disponible.
+    return DB.glowSeances?.[0] || null;
+}
+
+let glowSeanceEnCours = {
+    id: null,
+    exerciceIndex: 0
+};
    
    async function renderGlowModule(){
 
@@ -9907,6 +10121,7 @@ function recommanderProgrammeGlow(){
     const score = calculGlowScore();
     const glowScore = score.total;
     const recommandation = recommanderProgrammeGlow();
+    const seanceRecommandee = getSeanceGlowRecommandee();
 
     DB.glow.glowScore = glowScore;
 
@@ -10218,46 +10433,60 @@ function recommanderProgrammeGlow(){
         margin-bottom:16px;
     ">
 
-        ${[10,15,20,30].map(minutes => `
+        ${seanceRecommandee ? `
 
-            <button
-                onclick="choisirProgrammeGlow(
-                    '${recommandation.id}',
-                    ${minutes}
-                )"
-                class="btn bg"
-                style="
-                    min-width:72px;
-                    border-radius:16px;
-                    ${
-                        DB.glow.activite?.objectif === recommandation.id &&
-                        DB.glow.activite?.minutes === minutes
-                            ? "background:#FFE5EF;"
-                            : ""
-                    }
-                "
-            >
-                ${minutes} min
-            </button>
+    <div style="
+        background:rgba(255,255,255,.55);
+        border-radius:18px;
+        padding:14px 16px;
+        margin-bottom:16px;
+    ">
 
-        `).join("")}
+        <div style="
+            font-size:16px;
+            font-weight:800;
+            margin-bottom:5px;
+        ">
+            ${seanceRecommandee.nom}
+        </div>
+
+        <div style="
+            font-size:12px;
+            color:var(--mut);
+            line-height:1.6;
+        ">
+            ⏱️ ${seanceRecommandee.duree} minutes<br>
+            ⭐ Niveau ${seanceRecommandee.niveau}<br>
+            🧰 ${
+                seanceRecommandee.materiel.length
+                    ? seanceRecommandee.materiel.join(", ")
+                    : "Sans matériel"
+            }
+        </div>
 
     </div>
 
     <button
         class="btn bd"
-        onclick="terminerProgrammeGlow()"
-        style="width:100%;justify-content:center"
+        onclick="ouvrirSeanceGlow('${seanceRecommandee.id}')"
+        style="
+            width:100%;
+            justify-content:center;
+            padding:12px;
+        "
     >
-        ${
-            DB.glow.activite?.terminee
-                ? "✅ Séance terminée"
-                : "✓ Terminer la séance"
-        }
+        ▶ Commencer la séance
     </button>
 
-</div>
+` : `
 
+    <div style="font-size:13px;color:var(--mut)">
+        Aucune séance disponible pour le moment.
+    </div>
+
+`}
+
+</div>
 
         <!-- HYDRATATION -->
         <div style="
@@ -10311,6 +10540,468 @@ function recommanderProgrammeGlow(){
 
         </div>
     `;
+}
+
+function ouvrirSeanceGlow(seanceId){
+
+    const seance = DB.glowSeances.find(item =>
+        item.id === seanceId
+    );
+
+    if(!seance){
+        toast("Séance introuvable");
+        return;
+    }
+
+    glowSeanceEnCours = {
+        id: seanceId,
+        exerciceIndex: 0
+    };
+
+    renderExerciceGlow();
+}
+
+function renderExerciceGlow(){
+
+    const seance = DB.glowSeances.find(item =>
+        item.id === glowSeanceEnCours.id
+    );
+
+    if(!seance){
+        renderGlowModule();
+        return;
+    }
+
+    const index = glowSeanceEnCours.exerciceIndex;
+    const exercice = seance.exercices[index];
+
+    if(!exercice){
+        renderFinSeanceGlow();
+        return;
+    }
+
+    const progression = Math.round(
+        ((index + 1) / seance.exercices.length) * 100
+    );
+
+    document.getElementById("glow-content").innerHTML = `
+
+        <div style="
+            background:rgba(255,255,255,.68);
+            border:1px solid rgba(255,255,255,.88);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:12px;
+                margin-bottom:20px;
+            ">
+
+                <button
+                    class="btn bg bsm"
+                    onclick="quitterSeanceGlow()"
+                >
+                    ← Quitter
+                </button>
+
+                <div style="
+                    font-size:12px;
+                    color:var(--mut);
+                    font-weight:700;
+                ">
+                    ${index + 1} / ${seance.exercices.length}
+                </div>
+
+            </div>
+
+            <div style="
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:.1em;
+                color:var(--acc);
+                font-weight:800;
+                margin-bottom:8px;
+            ">
+                ${seance.nom}
+            </div>
+
+            <div style="
+                height:9px;
+                background:#F4EEF1;
+                border-radius:999px;
+                overflow:hidden;
+                margin-bottom:24px;
+            ">
+                <div style="
+                    width:${progression}%;
+                    height:100%;
+                    background:linear-gradient(90deg,#F8B7C8,#D9798C);
+                    border-radius:999px;
+                    transition:.35s;
+                "></div>
+            </div>
+
+            <div style="
+                min-height:180px;
+                border-radius:22px;
+                background:linear-gradient(135deg,#FFF0F5,#F3F8FF);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                margin-bottom:20px;
+                padding:20px;
+                text-align:center;
+            ">
+
+                ${
+                    exercice.media?.fichier
+                        ? `<img
+                            src="${exercice.media.fichier}"
+                            alt="${exercice.nom}"
+                            style="
+                                max-width:100%;
+                                max-height:250px;
+                                border-radius:18px;
+                            "
+                        >`
+                        : `<div>
+                            <div style="font-size:45px;margin-bottom:10px">
+                                🏃‍♀️
+                            </div>
+                            <div style="font-size:12px;color:var(--mut)">
+                                Illustration à ajouter
+                            </div>
+                        </div>`
+                }
+
+            </div>
+
+            <div style="
+                font-size:11px;
+                color:var(--mut);
+                text-transform:uppercase;
+                letter-spacing:.08em;
+                margin-bottom:6px;
+            ">
+                ${exercice.type || "Exercice"}
+            </div>
+
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:30px;
+                margin-bottom:10px;
+            ">
+                ${exercice.nom}
+            </h2>
+
+            <div style="
+                display:flex;
+                gap:8px;
+                flex-wrap:wrap;
+                margin-bottom:18px;
+            ">
+
+                ${exercice.repetitions ? `
+                    <span style="
+                        background:var(--bg2);
+                        color:var(--acc);
+                        padding:6px 12px;
+                        border-radius:20px;
+                        font-size:12px;
+                        font-weight:800;
+                    ">
+                        🔁 ${exercice.repetitions}
+                    </span>
+                ` : ""}
+
+                ${exercice.duree ? `
+                    <span style="
+                        background:var(--bg2);
+                        color:var(--acc);
+                        padding:6px 12px;
+                        border-radius:20px;
+                        font-size:12px;
+                        font-weight:800;
+                    ">
+                        ⏱️ ${exercice.duree}
+                    </span>
+                ` : ""}
+
+                ${exercice.repos ? `
+                    <span style="
+                        background:var(--pla2);
+                        color:var(--pla);
+                        padding:6px 12px;
+                        border-radius:20px;
+                        font-size:12px;
+                        font-weight:800;
+                    ">
+                        💤 Repos ${exercice.repos}
+                    </span>
+                ` : ""}
+
+            </div>
+
+            <div style="
+                font-size:14px;
+                line-height:1.7;
+                margin-bottom:18px;
+            ">
+                ${exercice.description}
+            </div>
+
+            <div style="
+                background:#F0FFF8;
+                border-radius:18px;
+                padding:16px;
+                margin-bottom:12px;
+            ">
+
+                <div style="
+                    font-weight:800;
+                    margin-bottom:8px;
+                    color:var(--rec);
+                ">
+                    💡 Conseils
+                </div>
+
+                ${(exercice.conseils || []).map(conseil => `
+                    <div style="
+                        font-size:13px;
+                        line-height:1.6;
+                        margin-bottom:4px;
+                    ">
+                        ✓ ${conseil}
+                    </div>
+                `).join("")}
+
+            </div>
+
+            <div style="
+                background:#FFF7F0;
+                border-radius:18px;
+                padding:16px;
+                margin-bottom:22px;
+            ">
+
+                <div style="
+                    font-weight:800;
+                    margin-bottom:8px;
+                    color:var(--warn);
+                ">
+                    ⚠️ Erreurs à éviter
+                </div>
+
+                ${(exercice.erreurs || []).map(erreur => `
+                    <div style="
+                        font-size:13px;
+                        line-height:1.6;
+                        margin-bottom:4px;
+                    ">
+                        • ${erreur}
+                    </div>
+                `).join("")}
+
+            </div>
+
+            <div style="
+                display:flex;
+                gap:10px;
+            ">
+
+                <button
+                    class="btn bg"
+                    onclick="exerciceGlowPrecedent()"
+                    style="
+                        flex:1;
+                        justify-content:center;
+                        ${index === 0 ? "visibility:hidden;" : ""}
+                    "
+                >
+                    ← Précédent
+                </button>
+
+                <button
+                    class="btn bd"
+                    onclick="exerciceGlowSuivant()"
+                    style="
+                        flex:1;
+                        justify-content:center;
+                    "
+                >
+                    ${
+                        index === seance.exercices.length - 1
+                            ? "Terminer 🎉"
+                            : "Suivant →"
+                    }
+                </button>
+
+            </div>
+
+        </div>
+    `;
+}
+
+function exerciceGlowPrecedent(){
+
+    if(glowSeanceEnCours.exerciceIndex > 0){
+        glowSeanceEnCours.exerciceIndex--;
+        renderExerciceGlow();
+    }
+}
+
+function exerciceGlowSuivant(){
+
+    const seance = DB.glowSeances.find(item =>
+        item.id === glowSeanceEnCours.id
+    );
+
+    if(!seance) return;
+
+    if(
+        glowSeanceEnCours.exerciceIndex <
+        seance.exercices.length - 1
+    ){
+        glowSeanceEnCours.exerciceIndex++;
+        renderExerciceGlow();
+    }else{
+        renderFinSeanceGlow();
+    }
+}
+
+function quitterSeanceGlow(){
+
+    glowSeanceEnCours = {
+        id: null,
+        exerciceIndex: 0
+    };
+
+    renderGlowModule();
+}
+
+function renderFinSeanceGlow(){
+
+    const seance = DB.glowSeances.find(item =>
+        item.id === glowSeanceEnCours.id
+    );
+
+    if(!seance) return;
+
+    document.getElementById("glow-content").innerHTML = `
+
+        <div style="
+            background:linear-gradient(135deg,#FFF0F5,#FFF9F7,#F3F8FF);
+            border:1px solid rgba(255,255,255,.9);
+            border-radius:28px;
+            padding:36px 24px;
+            box-shadow:var(--shadow);
+            text-align:center;
+        ">
+
+            <div style="font-size:60px;margin-bottom:16px">
+                🎉
+            </div>
+
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:34px;
+                margin-bottom:10px;
+            ">
+                Bravo Emma !
+            </h2>
+
+            <div style="
+                font-size:15px;
+                margin-bottom:8px;
+            ">
+                Tu as terminé :
+            </div>
+
+            <div style="
+                font-size:20px;
+                font-weight:800;
+                color:var(--acc);
+                margin-bottom:10px;
+            ">
+                ${seance.nom}
+            </div>
+
+            <div style="
+                font-size:13px;
+                color:var(--mut);
+                margin-bottom:24px;
+            ">
+                ${seance.duree} minutes consacrées à toi ✨
+            </div>
+
+            <button
+                class="btn bd"
+                onclick="validerFinSeanceGlow()"
+                style="
+                    width:100%;
+                    justify-content:center;
+                    padding:12px;
+                "
+            >
+                ✅ Enregistrer ma séance
+            </button>
+
+        </div>
+    `;
+}
+
+async function validerFinSeanceGlow(){
+
+    const seance = DB.glowSeances.find(item =>
+        item.id === glowSeanceEnCours.id
+    );
+
+    if(!seance) return;
+
+    initialiserGlowDuJour();
+
+    DB.glow.activite = {
+        objectif: seance.objectif,
+        minutes: seance.duree,
+        terminee: true,
+        seanceId: seance.id
+    };
+
+    const entree = {
+        date: DB.glow.date,
+        objectif: seance.objectif,
+        seanceId: seance.id,
+        minutes: seance.duree,
+        terminee: true
+    };
+
+    const indexExistant = DB.historiqueGlow.findIndex(item =>
+        item.date === entree.date &&
+        item.seanceId === entree.seanceId
+    );
+
+    if(indexExistant >= 0){
+        DB.historiqueGlow[indexExistant] = entree;
+    }else{
+        DB.historiqueGlow.push(entree);
+    }
+
+    glowSeanceEnCours = {
+        id: null,
+        exerciceIndex: 0
+    };
+
+    await saveAll();
+
+    renderGlowModule();
+    renderGlowAccueil();
+
+    toast("✨ Séance enregistrée");
 }
 
 async function setEau(nb){
