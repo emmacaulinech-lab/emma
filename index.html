@@ -382,7 +382,7 @@ body::before {
 #module-facturation,
 #module-formations,
 #module-banqueperso,
-#module-sport,
+#module-glow,
 #module-lecture,
 #module-journal {
   background: transparent !important;
@@ -1675,16 +1675,6 @@ font-weight:700;
 </div>
   </div>
 </div>
-   <div class="mo" id="sportModal">
-  <div class="mb" style="width:500px;max-width:96vw">
-    <h2 id="sModalTitle">—</h2>
-    <div id="sModalBody"></div>
-    <div class="ma">
-      <button class="btn bg" onclick="closeMo('sportModal')">Annuler</button>
-      <button class="btn bd" id="saveSportBtn" onclick="saveSportEntry()">Enregistrer</button>
-    </div>
-  </div>
-</div>
 <div class="mo" id="livreModal">
   <div class="mb" style="width:500px;max-width:96vw">
     <h2 id="lModalTitle">—</h2>
@@ -2098,7 +2088,6 @@ async function loadAll() {
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
       }
       if(d.formations) DB.formations=JSON.parse(d.formations);
-      if(d.sport) DB.sport=JSON.parse(d.sport);
       if(d.lecture) DB.lecture=JSON.parse(d.lecture);
       if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
       if(d.journal) DB.journal=JSON.parse(d.journal);
@@ -2153,7 +2142,6 @@ async function loadAll() {
       boutique:    JSON.stringify(DB.boutique),
       salaires:    JSON.stringify(DB.salaires),
       formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
-      sport:       JSON.stringify(DB.sport||{seances:[],mensurations:[],objectifs:[]}),
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
       params:      JSON.stringify(PARAMS),
       updatedAt:   new Date().toISOString()
@@ -8679,7 +8667,7 @@ async function delHumeurEntree(jour,idx){
 function goHub(){
   document.getElementById('hubPage').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  ['facturation','formations','banqueperso','sport','lecture','journal'].forEach(m=>{
+  ['facturation','formations','banqueperso','glow','lecture','journal'].forEach(m=>{
     document.getElementById('module-'+m).style.display='none';
   });
   setEmmaNav('accueil');
@@ -9749,7 +9737,23 @@ async function copyEmailToClipboard(){
 
 async function setEau(nb){
 
-    DB.glow.eau = nb;
+    if(!DB.glow){
+        DB.glow = {
+            date: "",
+            eau: 0,
+            glowScore: 0,
+            sport: {
+                termine: false,
+                progression: 0
+            },
+            lecture: {
+                minutes: 0
+            },
+            humeur: null
+        };
+    }
+
+    DB.glow.eau = DB.glow.eau === nb ? nb - 1 : nb;
 
     await saveAll();
 
@@ -10039,13 +10043,6 @@ async function finaliserConfigPlanning(){
   toast('✓ Planning configuré !');
 }
 
-// ── Routeur d'enregistrement ──
-async function saveSportEntry(){
-  const mode=document.getElementById('sportModal').dataset.mode;
-  if(mode==='seance') await saveSeance();
-  else if(mode==='mensuration') await saveMensuration();
-  else if(mode==='objectif') await saveObjectif();
-}
 
 
 // ═══════════════════════════════════════
