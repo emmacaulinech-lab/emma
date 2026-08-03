@@ -9709,7 +9709,7 @@ async function copyEmailToClipboard(){
             lecture: {
                 minutes: 0
             },
-            humeur: null
+            humeur: ""
         };
 
         return true;
@@ -9828,6 +9828,61 @@ async function copyEmailToClipboard(){
 
         </div>
 
+      <div style="
+    background:rgba(255,255,255,.60);
+    border:1px solid rgba(255,255,255,.85);
+    border-radius:26px;
+    padding:24px;
+    box-shadow:var(--shadow);
+    margin-bottom:18px;
+">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:18px;
+    ">
+
+        <h2 style="
+            font-family:'Cormorant Garamond',serif;
+            font-size:22px;
+        ">
+            😊 Humeur
+        </h2>
+
+        <div style="font-size:13px;color:var(--mut)">
+            ${DB.glow.humeur || "Aucune"}
+        </div>
+
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+
+        ${["😍","😊","🙂","😐","😔","😴"].map(e=>`
+
+            <button
+                onclick="setHumeur('${e}')"
+                class="btn bg"
+                style="
+                    font-size:22px;
+                    width:52px;
+                    height:52px;
+                    border-radius:16px;
+                    ${DB.glow.humeur===e ? "background:#FFE5EF;" : ""}
+                "
+            >
+
+                ${e}
+
+            </button>
+
+        `).join("")}
+
+    </div>
+
+</div>
+
 
         <div style="
             background:rgba(255,255,255,.60);
@@ -9897,6 +9952,18 @@ async function setEau(nb){
     await saveAll();
 
     renderGlowModule();
+}
+
+async function setHumeur(humeur){
+
+    initialiserGlowDuJour();
+
+    DB.glow.humeur = humeur;
+
+    await saveAll();
+
+    renderGlowModule();
+
 }
 
 // ═══════════════════════════════════════
