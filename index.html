@@ -9702,14 +9702,15 @@ async function copyEmailToClipboard(){
             date: aujourdHui,
             eau: 0,
             glowScore: 0,
-            sport: {
+            activite: {
                 termine: false,
                 progression: 0
             },
             lecture: {
                 minutes: 0
             },
-            humeur: ""
+            humeur: "",
+           sommeil: null
         };
 
         return true;
@@ -9737,6 +9738,22 @@ function calculGlowScore(){
     if(DB.glow.humeur){
         detail.humeur = 10;
     }
+
+   // 🌙 Sommeil (20 pts)
+
+if(DB.glow.sommeil >= 8){
+
+    detail.sommeil = 20;
+
+}else if(DB.glow.sommeil >= 7){
+
+    detail.sommeil = 15;
+
+}else if(DB.glow.sommeil >= 6){
+
+    detail.sommeil = 10;
+
+}
 
     const total = Object.values(detail)
         .reduce((a,b)=>a+b,0);
@@ -9941,6 +9958,48 @@ justify-content:space-between;
 
                 ${e}
 
+            </button>
+
+        `).join("")}
+
+    </div>
+
+</div>
+
+<div style="
+    background:rgba(255,255,255,.60);
+    border:1px solid rgba(255,255,255,.85);
+    border-radius:26px;
+    padding:24px;
+    box-shadow:var(--shadow);
+    margin-bottom:18px;
+">
+
+    <h2 style="
+        font-family:'Cormorant Garamond',serif;
+        font-size:22px;
+        margin-bottom:18px;
+    ">
+        🌙 Sommeil
+    </h2>
+
+    <div style="
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+    ">
+
+        ${[4,5,6,7,8,9].map(h=>`
+
+            <button
+                class="btn bg"
+                style="
+                    min-width:60px;
+                    border-radius:16px;
+                    ${DB.glow.sommeil===h ? "background:#FFE5EF;" : ""}
+                "
+            >
+                ${h} h
             </button>
 
         `).join("")}
