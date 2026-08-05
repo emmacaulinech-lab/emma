@@ -2149,12 +2149,6 @@ let DB = {
         priorite: 3
     },
     {
-        id: "cardio",
-        nom: "❤️ Cardio / Elliptique",
-        frequence: 2,
-        priorite: 4
-    },
-    {
         id: "jambes",
         nom: "🦵 Jambes fines",
         frequence: 1,
@@ -2441,6 +2435,149 @@ glowExercices: [
     "Ne tire pas sur la nuque",
     "Ne tends pas les jambes si tu perds le contrôle"
   ]
+},
+{
+  id: "echauffement_fessiers",
+  nom: "Échauffement fessiers",
+  type: "echauffement",
+  categorie: "mobilite",
+  media: { type: "image", fichier: "" },
+  description:
+    "Mobilise les hanches et active doucement les fessiers avant la séance.",
+  conseils: [
+    "Bouge lentement",
+    "Garde le ventre légèrement contracté",
+    "Respire profondément"
+  ],
+  erreurs: [
+    "Ne force pas l’amplitude",
+    "Ne fais pas de mouvements brusques"
+  ]
+},
+
+{
+  id: "pont_fessier",
+  nom: "Pont fessier",
+  type: "exercice",
+  categorie: "fessiers",
+  media: { type: "image", fichier: "" },
+  description:
+    "Allongée sur le dos, pousse dans les talons et monte le bassin en contractant les fessiers.",
+  conseils: [
+    "Serre les fessiers en haut",
+    "Garde les genoux alignés",
+    "Monte sans cambrer",
+    "Redescends lentement"
+  ],
+  erreurs: [
+    "Ne pousse pas avec les lombaires",
+    "Ne laisse pas les genoux partir vers l’intérieur",
+    "Ne monte pas trop haut"
+  ]
+},
+
+{
+  id: "donkey_kick",
+  nom: "Donkey Kick",
+  type: "exercice",
+  categorie: "fessiers",
+  media: { type: "image", fichier: "" },
+  description:
+    "À quatre pattes, pousse un pied vers le plafond sans creuser le bas du dos.",
+  conseils: [
+    "Garde le bassin stable",
+    "Contracte le fessier en haut",
+    "Travaille lentement",
+    "Garde le genou plié"
+  ],
+  erreurs: [
+    "Ne cambre pas le dos",
+    "Ne tourne pas le bassin",
+    "Ne lance pas la jambe"
+  ]
+},
+
+{
+  id: "fire_hydrant",
+  nom: "Fire Hydrant",
+  type: "exercice",
+  categorie: "fessiers",
+  media: { type: "image", fichier: "" },
+  description:
+    "À quatre pattes, ouvre le genou sur le côté sans faire pivoter le bassin.",
+  conseils: [
+    "Contracte les abdominaux",
+    "Reste stable",
+    "Monte dans une amplitude contrôlée",
+    "Garde le dos neutre"
+  ],
+  erreurs: [
+    "Ne tourne pas le buste",
+    "Ne monte pas trop haut",
+    "Ne creuse pas le dos"
+  ]
+},
+
+{
+  id: "abduction_cote",
+  nom: "Abduction allongée",
+  type: "exercice",
+  categorie: "fessiers",
+  media: { type: "image", fichier: "" },
+  description:
+    "Allongée sur le côté, monte la jambe supérieure en gardant le bassin stable.",
+  conseils: [
+    "Garde la pointe du pied légèrement vers l’avant",
+    "Contracte le côté du fessier",
+    "Travaille lentement",
+    "Garde la taille engagée"
+  ],
+  erreurs: [
+    "Ne bascule pas le bassin vers l’arrière",
+    "Ne monte pas la jambe trop haut",
+    "Ne donne pas d’élan"
+  ]
+},
+
+{
+  id: "frog_pump",
+  nom: "Frog Pump",
+  type: "exercice",
+  categorie: "fessiers",
+  media: { type: "image", fichier: "" },
+  description:
+    "Allongée sur le dos, colle les plantes de pieds et monte le bassin en serrant les fessiers.",
+  conseils: [
+    "Garde les genoux ouverts",
+    "Serre fort les fessiers en haut",
+    "Travaille avec une amplitude contrôlée",
+    "Expire en montant"
+  ],
+  erreurs: [
+    "Ne cambre pas le dos",
+    "Ne pousse pas avec les épaules",
+    "Ne va pas trop vite"
+  ]
+},
+
+{
+  id: "etirement_fessiers",
+  nom: "Étirement fessiers",
+  type: "etirement",
+  categorie: "recuperation",
+  media: { type: "image", fichier: "" },
+  description:
+    "Relâche les fessiers et les hanches après la séance.",
+  conseils: [
+    "Respire lentement",
+    "Maintiens chaque position",
+    "Reste dans une amplitude confortable"
+  ],
+  erreurs: [
+    "Ne force pas",
+    "Ne fais pas de rebonds",
+    "Arrête si une douleur apparaît"
+  ]
 }
 ],
 glowSeances: [
@@ -2530,7 +2667,81 @@ glowSeances: [
   { exerciceId: "hollow_hold_adapte" },
   { exerciceId: "etirement_taille" }
 ]
-}
+},
+{
+    id: "fessiers_10",
+    objectif: "fessiers",
+    nom: "Fessiers galbés • A",
+    niveau: 1,
+    duree: 10,
+    materiel: ["tapis"],
+    description:
+        "Une séance courte pour activer les fessiers.",
+
+    exercices: [
+        { exerciceId: "echauffement_fessiers", duree: "auto", repos: "auto" },
+        { exerciceId: "pont_fessier", duree: "auto", repos: "auto" },
+        { exerciceId: "donkey_kick", duree: "auto", repos: "auto" },
+        { exerciceId: "etirement_fessiers", duree: "auto", repos: "auto" }
+    ]
+},
+   {
+    id: "fessiers_15",
+    objectif: "fessiers",
+    nom: "Fessiers galbés • B",
+    niveau: 1,
+    duree: 15,
+    materiel: ["tapis"],
+    description:
+        "Renforcer les fessiers tout en travaillant le contrôle des mouvements.",
+
+    exercices: [
+        { exerciceId: "echauffement_fessiers", duree: "auto", repos: "auto" },
+        { exerciceId: "pont_fessier", duree: "auto", repos: "auto" },
+        { exerciceId: "donkey_kick", duree: "auto", repos: "auto" },
+        { exerciceId: "fire_hydrant", duree: "auto", repos: "auto" },
+        { exerciceId: "etirement_fessiers", duree: "auto", repos: "auto" }
+    ]
+},
+   {
+    id: "fessiers_20",
+    objectif: "fessiers",
+    nom: "Fessiers galbés • C",
+    niveau: 2,
+    duree: 20,
+    materiel: ["tapis"],
+    description:
+        "Développer la tonicité des fessiers avec davantage de volume.",
+
+    exercices: [
+        { exerciceId: "echauffement_fessiers", duree: "auto", repos: "auto" },
+        { exerciceId: "pont_fessier", duree: "auto", repos: "auto" },
+        { exerciceId: "donkey_kick", duree: "auto", repos: "auto" },
+        { exerciceId: "fire_hydrant", duree: "auto", repos: "auto" },
+        { exerciceId: "abduction_cote", duree: "auto", repos: "auto" },
+        { exerciceId: "etirement_fessiers", duree: "auto", repos: "auto" }
+    ]
+},
+   {
+    id: "fessiers_30",
+    objectif: "fessiers",
+    nom: "Fessiers galbés • D",
+    niveau: 2,
+    duree: 30,
+    materiel: ["tapis"],
+    description:
+        "Une séance complète pour renforcer et galber les fessiers.",
+
+    exercices: [
+        { exerciceId: "echauffement_fessiers", duree: "auto", repos: "auto" },
+        { exerciceId: "pont_fessier", duree: "auto", repos: "auto" },
+        { exerciceId: "donkey_kick", duree: "auto", repos: "auto" },
+        { exerciceId: "fire_hydrant", duree: "auto", repos: "auto" },
+        { exerciceId: "abduction_cote", duree: "auto", repos: "auto" },
+        { exerciceId: "frog_pump", duree: "auto", repos: "auto" },
+        { exerciceId: "etirement_fessiers", duree: "auto", repos: "auto" }
+    ]
+},
 ],
 
   boutique: {
@@ -10323,11 +10534,6 @@ function recommanderProgrammeGlow(){
             frequence: 2
         },
         {
-            id: "cardio",
-            label: "❤️ Cardio / Elliptique",
-            frequence: 2
-        },
-        {
             id: "jambes",
             label: "🦵 Jambes fines",
             frequence: 1
@@ -11146,7 +11352,6 @@ const exercice =
             ["taille", "🔥 Taille"],
             ["fessiers", "🍑 Fessiers"],
             ["posture", "🤍 Posture"],
-            ["cardio", "❤️ Cardio"],
             ["jambes", "🦵 Jambes"]
         ].map(zone => `
 
