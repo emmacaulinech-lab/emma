@@ -2050,6 +2050,85 @@ let DB = {
     },
 
     historiqueGlow: [],
+   glowObjectifs: [
+
+{
+    id:"taille",
+
+    nom:"Taille marquée",
+
+    icone:"✨",
+
+    couleur:"#FAD7E5",
+
+    description:
+        "Affiner visuellement la taille et renforcer la sangle abdominale.",
+
+    muscles:[
+        "Transverse",
+        "Obliques",
+        "Grand droit"
+    ]
+},
+
+{
+    id:"fessiers",
+
+    nom:"Fessiers galbés",
+
+    icone:"🍑",
+
+    couleur:"#FFD9C7",
+
+    description:
+        "Galber les fessiers, les remonter et améliorer leur tonicité.",
+
+    muscles:[
+        "Grand fessier",
+        "Moyen fessier",
+        "Ischio-jambiers"
+    ]
+},
+
+{
+    id:"posture",
+
+    nom:"Posture élégante",
+
+    icone:"🤍",
+
+    couleur:"#DCEFFF",
+
+    description:
+        "Redresser la posture, ouvrir les épaules et renforcer le dos.",
+
+    muscles:[
+        "Trapèzes",
+        "Rhomboïdes",
+        "Érecteurs du rachis"
+    ]
+},
+
+{
+    id:"jambes",
+
+    nom:"Jambes fines",
+
+    icone:"🦵",
+
+    couleur:"#E7F5E8",
+
+    description:
+        "Tonifier les jambes tout en limitant la prise de volume.",
+
+    muscles:[
+        "Quadriceps",
+        "Mollets",
+        "Adducteurs"
+    ]
+}
+
+],
    glowProgrammes: [
     {
         id: "taille",
@@ -10203,6 +10282,14 @@ if(DB.glow.activite?.terminee){
         total,
         detail
     };
+
+}
+
+function getObjectifGlow(id){
+
+    return (DB.glowObjectifs || []).find(o =>
+        o.id === id
+    ) || null;
 
 }
 
