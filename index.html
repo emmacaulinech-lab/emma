@@ -2578,8 +2578,153 @@ glowExercices: [
     "Ne fais pas de rebonds",
     "Arrête si une douleur apparaît"
   ]
+},
+{
+  id: "echauffement_posture",
+  nom: "Échauffement posture",
+  type: "echauffement",
+  categorie: "mobilite",
+  media: { type: "image", fichier: "" },
+  description:
+    "Mobilise doucement les épaules, la nuque et le haut du dos.",
+  conseils: [
+    "Fais des mouvements lents",
+    "Garde la nuque longue",
+    "Respire profondément"
+  ],
+  erreurs: [
+    "Ne hausse pas les épaules",
+    "Ne force pas les rotations"
+  ]
+},
+
+{
+  id: "wall_angel",
+  nom: "Wall Angel",
+  type: "exercice",
+  categorie: "posture",
+  media: { type: "image", fichier: "" },
+  description:
+    "Dos contre un mur, fais glisser lentement les bras vers le haut en gardant les épaules ouvertes.",
+  conseils: [
+    "Garde le dos contre le mur",
+    "Rentre légèrement le menton",
+    "Descends les épaules",
+    "Travaille lentement"
+  ],
+  erreurs: [
+    "Ne cambre pas le bas du dos",
+    "Ne décolle pas les bras trop vite",
+    "Ne hausse pas les épaules"
+  ]
+},
+
+{
+  id: "rowing_elastique",
+  nom: "Rowing avec élastique",
+  type: "exercice",
+  categorie: "dos",
+  media: { type: "image", fichier: "" },
+  description:
+    "Tire l’élastique vers toi en rapprochant les omoplates.",
+  conseils: [
+    "Garde les coudes proches du corps",
+    "Serre les omoplates",
+    "Garde la poitrine ouverte",
+    "Relâche lentement"
+  ],
+  erreurs: [
+    "Ne tire pas avec la nuque",
+    "Ne hausse pas les épaules",
+    "Ne cambre pas le dos"
+  ]
+},
+
+{
+  id: "bird_dog_posture",
+  nom: "Bird Dog posture",
+  type: "exercice",
+  categorie: "stabilite",
+  media: { type: "image", fichier: "" },
+  description:
+    "À quatre pattes, tends un bras et la jambe opposée sans bouger le bassin.",
+  conseils: [
+    "Garde le dos neutre",
+    "Contracte le ventre",
+    "Allonge-toi plutôt que de monter haut",
+    "Travaille lentement"
+  ],
+  erreurs: [
+    "Ne cambre pas le dos",
+    "Ne tourne pas le bassin",
+    "Ne lève pas la tête"
+  ]
+},
+
+{
+  id: "superman_leger",
+  nom: "Superman léger",
+  type: "exercice",
+  categorie: "dos",
+  media: { type: "image", fichier: "" },
+  description:
+    "Allongée sur le ventre, décolle légèrement les bras et la poitrine sans forcer les lombaires.",
+  conseils: [
+    "Garde la nuque neutre",
+    "Monte peu mais contrôle",
+    "Serre légèrement les omoplates",
+    "Respire normalement"
+  ],
+  erreurs: [
+    "Ne lève pas trop haut",
+    "Ne casse pas la nuque",
+    "Ne force pas avec le bas du dos"
+  ]
+},
+
+{
+  id: "ouverture_poitrine",
+  nom: "Ouverture de poitrine",
+  type: "exercice",
+  categorie: "posture",
+  media: { type: "image", fichier: "" },
+  description:
+    "Ouvre les bras sur les côtés en rapprochant doucement les omoplates.",
+  conseils: [
+    "Garde les épaules basses",
+    "Rentre légèrement le menton",
+    "Ouvre sans cambrer",
+    "Respire profondément"
+  ],
+  erreurs: [
+    "Ne hausse pas les épaules",
+    "Ne pousse pas la poitrine excessivement",
+    "Ne bloque pas la respiration"
+  ]
+},
+
+{
+  id: "etirement_posture",
+  nom: "Étirement posture",
+  type: "etirement",
+  categorie: "recuperation",
+  media: { type: "image", fichier: "" },
+  description:
+    "Relâche la nuque, les épaules et le haut du dos.",
+  conseils: [
+    "Respire lentement",
+    "Relâche complètement les épaules",
+    "Maintiens chaque position"
+  ],
+  erreurs: [
+    "Ne tire pas brutalement sur la nuque",
+    "Ne force pas l’étirement",
+    "Arrête si une douleur apparaît"
+  ]
 }
 ],
+glowIllustrations: [],
+historiqueSeances: [],
 glowSeances: [
 
     {
@@ -10504,6 +10649,79 @@ function getObjectifGlow(id){
 
 }
 
+function getIllustrationGlow(id){
+
+    return (DB.glowIllustrations || []).find(i =>
+        i.id === id
+    ) || null;
+
+}
+
+function getHistoriqueObjectifGlow(objectif){
+
+    return (DB.glow.historiqueSeances || []).filter(s =>
+        s.objectif === objectif
+    );
+
+}
+
+function derniereSeanceGlow(objectif){
+
+    const historique =
+        getHistoriqueObjectifGlow(objectif);
+
+    if(!historique.length){
+        return null;
+    }
+
+    return historique.at(-1);
+
+}
+
+function choisirMeilleureSeanceGlow(){
+
+    const recommandation = recommanderProgrammeGlow();
+
+    const objectif =
+        DB.glow.activite?.objectifForce ||
+        recommandation.id;
+
+    const temps =
+        Number(DB.glow.activite?.tempsDisponible || 15);
+
+    const seances = (DB.glowSeances || [])
+
+        .filter(s =>
+            s.objectif === objectif &&
+            Number(s.duree) === temps
+        );
+
+    if(!seances.length){
+        return null;
+    }
+
+    const historique =
+        getHistoriqueObjectifGlow(objectif);
+
+    // aucune séance faite
+    if(!historique.length){
+        return seances[0];
+    }
+
+    // dernière séance réalisée
+    const derniere =
+        historique[historique.length - 1];
+
+    // on évite de reproposer la même
+    const suivante =
+        seances.find(s =>
+            s.id !== derniere.seanceId
+        );
+
+    return suivante || seances[0];
+
+}
+   
 function renderGlowAccueil(){
 
     const el = document.getElementById("hub-glow-score");
@@ -11005,8 +11223,7 @@ const exercice =
     const score = calculGlowScore();
     const glowScore = score.total;
     const recommandation = recommanderProgrammeGlow();
-    const seanceRecommandee = getSeanceGlowRecommandee();
-
+    const seanceRecommandee = choisirMeilleureSeanceGlow();
    if(DB.glow.entrainement?.actif){
 
     renderLecteurSeance();
@@ -12123,6 +12340,17 @@ async function validerFinSeanceGlow(){
         minutes: seance.duree,
         terminee: true
     };
+
+   DB.glow.historiqueSeances =
+    DB.glow.historiqueSeances || [];
+
+DB.glow.historiqueSeances.push({
+    date: DB.glow.date,
+    objectif: seance.objectif,
+    seanceId: seance.id,
+    duree: seance.duree,
+    score: calculGlowScore().total
+});
 
     const indexExistant = DB.historiqueGlow.findIndex(item =>
         item.date === entree.date &&
