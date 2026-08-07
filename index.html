@@ -2848,7 +2848,59 @@ glowExercices: [
   ]
 }
 ],
-glowIllustrations: [],
+glowIllustrations: {
+
+  echauffement_taille: {
+    image: "assets/glow/echauffement_taille.webp",
+    video: null,
+    animation: null,
+    respiration: "Respire profondément pendant toute la mobilisation.",
+    conseils: [],
+    erreurs: [],
+    muscles: ["Bassin", "Abdominaux", "Obliques"]
+  },
+
+  russian_twist: {
+    image: "assets/glow/russian_twist.webp",
+    video: null,
+    animation: null,
+    respiration: "Expire pendant la rotation du buste.",
+    conseils: [],
+    erreurs: [],
+    muscles: ["Obliques", "Abdominaux"]
+  },
+
+  dead_bug: {
+    image: "assets/glow/dead_bug.webp",
+    video: null,
+    animation: null,
+    respiration: "Expire lorsque tu tends le bras et la jambe.",
+    conseils: [],
+    erreurs: [],
+    muscles: ["Transverse", "Abdominaux profonds"]
+  },
+
+  planche: {
+    image: "assets/glow/planche.webp",
+    video: null,
+    animation: null,
+    respiration: "Respire régulièrement sans bloquer.",
+    conseils: [],
+    erreurs: [],
+    muscles: ["Transverse", "Abdominaux", "Fessiers", "Épaules"]
+  },
+
+  etirement_taille: {
+    image: "assets/glow/etirement_taille.webp",
+    video: null,
+    animation: null,
+    respiration: "Expire lentement pendant l’étirement.",
+    conseils: [],
+    erreurs: [],
+    muscles: ["Obliques", "Abdominaux", "Lombaires"]
+  }
+
+},
 historiqueSeances: [],
 glowSeances: [
 
@@ -10776,10 +10828,23 @@ function getObjectifGlow(id){
 
 function getIllustrationGlow(id){
 
-    return (
-        DB.glowIllustrations?.[id]
-        || "assets/glow/default.webp"
-    );
+    return DB.glowIllustrations?.[id] || {
+
+        image:"assets/glow/default.webp",
+
+        video:null,
+
+        animation:null,
+
+        conseils:[],
+
+        erreurs:[],
+
+        respiration:"",
+
+        muscles:[]
+
+    };
 
 }
 
@@ -11172,8 +11237,11 @@ const exercice =
         return;
     }
 
-   const illustration =
+   const illustrationData =
     getIllustrationGlow(exercice.illustration);
+
+const illustration =
+    illustrationData.image;
 
     const chrono = entrainement.chrono || 0;
 
@@ -12050,10 +12118,9 @@ function renderExerciceGlow(){
                 text-align:center;
             ">
 
-                ${
-                    exercice.media?.fichier
+                ${illustration
                         ? `<img
-                            src="${exercice.media.fichier}"
+                            src="${illustration}"
                             alt="${exercice.nom}"
                             style="
                                 max-width:100%;
