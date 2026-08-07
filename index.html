@@ -11042,6 +11042,7 @@ function demarrerChronoGlow(){
         const exercice =
             getExerciceGlow(reference?.exerciceId);
 
+        // Fin de l’exercice : lancer le repos
         if(!entrainement.enRepos){
 
             const repos =
@@ -11055,16 +11056,22 @@ function demarrerChronoGlow(){
 
                 renderLecteurSeance();
 
+                // Le repos démarre automatiquement
+                setTimeout(() => {
+                    demarrerChronoGlow();
+                }, 50);
+
                 return;
             }
         }
 
+        // Fin du repos : passer à l’exercice suivant
         entrainement.enRepos = false;
         entrainement.phase = "exercice";
 
-        exerciceGlowSuivant();
+        exerciceGlowSuivant(true);
 
-    },1000);
+    }, 1000);
 }
 
 function pauseChronoGlow(){
@@ -11165,6 +11172,10 @@ const exercice =
 
     const chrono = entrainement.chrono || 0;
 
+   const estRepos =
+    entrainement.enRepos ||
+    entrainement.phase === "repos";
+
     const minutes = String(
         Math.floor(chrono / 60)
     ).padStart(2,"0");
@@ -11224,7 +11235,7 @@ const exercice =
                 font-size:32px;
                 margin-bottom:12px;
             ">
-                ${exercice.nom}
+                ${estRepos ? "Repos" : exercice.nom}
             </h2>
 
             <div style="
@@ -11232,32 +11243,54 @@ const exercice =
                 color:var(--mut);
                 margin-bottom:22px;
             ">
-                ${exercice.description || ""}
+                ${
+    estRepos
+        ? "Respire, relâche les muscles et prépare-toi pour le prochain mouvement."
+        : exercice.description || ""
+}
             </div>
 
             <div style="
-                width:190px;
-                height:190px;
-                border-radius:50%;
-                margin:0 auto 24px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                background:linear-gradient(135deg,#FFE5EF,#F4F7FF);
-                border:8px solid rgba(217,121,140,.18);
-                box-shadow:var(--shadow);
-            ">
+    width:190px;
+    height:190px;
+    border-radius:50%;
+    margin:0 auto 24px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    background:${
+        estRepos
+            ? "linear-gradient(135deg,#F0FFF8,#E6F1E8)"
+            : "linear-gradient(135deg,#FFE5EF,#F4F7FF)"
+    };
+    border:8px solid ${
+        estRepos
+            ? "rgba(121,163,132,.18)"
+            : "rgba(217,121,140,.18)"
+    };
+    box-shadow:var(--shadow);
+">
 
-                <div style="
-                    font-family:'DM Mono',monospace;
-                    font-size:42px;
-                    font-weight:700;
-                    color:var(--acc);
-                ">
-                    ${minutes}:${secondes}
-                </div>
+    <div style="
+        font-size:12px;
+        color:var(--mut);
+        font-weight:800;
+        margin-bottom:6px;
+    ">
+        ${estRepos ? "RÉCUPÉRATION" : "EXERCICE"}
+    </div>
 
-            </div>
+    <div style="
+        font-family:'DM Mono',monospace;
+        font-size:42px;
+        font-weight:700;
+        color:${estRepos ? "var(--rec)" : "var(--acc)"};
+    ">
+        ${minutes}:${secondes}
+    </div>
+
+</div>
 
             <div style="
                 display:flex;
@@ -12336,7 +12369,7 @@ function exerciceGlowPrecedent(){
     }
 }
 
-function exerciceGlowSuivant(){
+function exerciceGlowSuivant(demarrageAutomatique = false){
 
     stopChronoGlow();
 
@@ -12370,6 +12403,14 @@ function exerciceGlowSuivant(){
         entrainement.phase = "exercice";
 
         renderLecteurSeance();
+
+        if(demarrageAutomatique){
+
+            setTimeout(() => {
+                demarrerChronoGlow();
+            }, 50);
+
+        }
 
     }else{
 
