@@ -10776,9 +10776,10 @@ function getObjectifGlow(id){
 
 function getIllustrationGlow(id){
 
-    return (DB.glowIllustrations || []).find(i =>
-        i.id === id
-    ) || null;
+    return (
+        DB.glowIllustrations?.[id]
+        || "assets/glow/default.webp"
+    );
 
 }
 
@@ -11042,6 +11043,7 @@ function demarrerChronoGlow(){
         const exercice =
             getExerciceGlow(reference?.exerciceId);
 
+
         // Fin de l’exercice : lancer le repos
         if(!entrainement.enRepos){
 
@@ -11170,6 +11172,9 @@ const exercice =
         return;
     }
 
+   const illustration =
+    getIllustrationGlow(exercice.illustration);
+
     const chrono = entrainement.chrono || 0;
 
    const estRepos =
@@ -11229,6 +11234,23 @@ const exercice =
             ">
                 ${seance.nom}
             </div>
+
+         <div style="
+    margin-bottom:22px;
+    text-align:center;
+">
+
+    <img
+        src="${illustration}"
+        style="
+            width:220px;
+            max-width:100%;
+            border-radius:22px;
+            box-shadow:var(--shadow);
+        "
+    >
+
+</div>
 
             <h2 style="
                 font-family:'Cormorant Garamond',serif;
