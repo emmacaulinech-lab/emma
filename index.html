@@ -2050,6 +2050,7 @@ let DB = {
     },
 
     historiqueGlow: [],
+   seanceGeneree: null,
    glowObjectifs: [
 
 {
@@ -2159,694 +2160,1443 @@ glowExercices: [
   {
     id: "echauffement_taille",
     nom: "Échauffement taille",
+    objectif: ["taille"],
     type: "echauffement",
     categorie: "mobilite",
-  illustration: "echauffement_taille",
-  dureeParDefaut: 60,
-  reposParDefaut: 0,
-  niveau: 1,
-  muscles: ["Bassin", "Abdominaux", "Obliques"],
-
+    illustration: "echauffement_taille",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Bassin", "Abdominaux", "Obliques"],
     media: {
       type: "image",
       fichier: ""
     },
-
-    description:
-      "Mobilise doucement le bassin et le buste avant de commencer.",
-
-    conseils: [
-      "Fais des mouvements lents",
-      "Garde les épaules détendues",
-      "Respire profondément"
-    ],
-
-    erreurs: [
-      "Ne force pas l’amplitude",
-      "Ne fais pas de mouvements brusques"
-    ]
+    description: "Mobilise doucement le bassin et le buste avant de commencer.",
+    conseils: ["Fais des mouvements lents", "Garde les épaules détendues", "Respire profondément"],
+    erreurs: ["Ne force pas l’amplitude", "Ne fais pas de mouvements brusques"]
   },
-
   {
     id: "russian_twist",
     nom: "Russian Twist",
+    objectif: ["taille"],
     type: "exercice",
     categorie: "abdominaux",
-  illustration: "russian_twist",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Obliques", "Abdominaux"],
-
+    illustration: "russian_twist",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Obliques", "Abdominaux"],
     media: {
       type: "image",
       fichier: ""
     },
-
-    description:
-      "Assieds-toi, incline légèrement le buste vers l’arrière et tourne le haut du corps de gauche à droite.",
-
-    conseils: [
-      "Garde le dos droit",
-      "Contracte les abdominaux",
-      "Tourne le buste, pas seulement les bras",
-      "Garde les mouvements contrôlés"
-    ],
-
-    erreurs: [
-      "Ne creuse pas le bas du dos",
-      "Ne tourne pas uniquement les bras",
-      "Ne va pas trop vite"
-    ]
+    description: "Assieds-toi, incline légèrement le buste vers l’arrière et tourne le haut du corps de gauche à droite.",
+    conseils: ["Garde le dos droit", "Contracte les abdominaux", "Tourne le buste, pas seulement les bras"],
+    erreurs: ["Ne creuse pas le bas du dos", "Ne va pas trop vite"]
   },
-
   {
     id: "dead_bug",
     nom: "Dead Bug",
+    objectif: ["taille"],
     type: "exercice",
     categorie: "gainage",
-  illustration: "dead_bug",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Transverse", "Abdominaux profonds"],
-
+    illustration: "dead_bug",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Transverse", "Abdominaux profonds"],
     media: {
       type: "image",
       fichier: ""
     },
-
-    description:
-      "Allongée sur le dos, tends lentement une jambe et le bras opposé en gardant les lombaires au sol.",
-
-    conseils: [
-      "Plaque le bas du dos au tapis",
-      "Contracte le ventre",
-      "Travaille lentement",
-      "Expire pendant l’extension"
-    ],
-
-    erreurs: [
-      "Ne décolle pas les lombaires",
-      "Ne bloque pas ta respiration",
-      "Réduis l’amplitude si ton dos se creuse"
-    ]
+    description: "Allongée sur le dos, tends lentement une jambe et le bras opposé en gardant les lombaires au sol.",
+    conseils: ["Plaque le bas du dos au tapis", "Contracte le ventre", "Expire pendant l’extension"],
+    erreurs: ["Ne décolle pas les lombaires", "Ne bloque pas ta respiration"]
   },
-
+  {
+    id: "planche_genoux",
+    nom: "Planche sur les genoux",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "gainage",
+    illustration: "planche_genoux",
+    dureeParDefaut: 35,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Transverse", "Abdominaux", "Épaules"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Maintiens une ligne droite entre les épaules, les hanches et les genoux.",
+    conseils: ["Contracte les abdominaux", "Serre légèrement les fessiers"],
+    erreurs: ["Ne creuse pas le bas du dos", "Ne recule pas trop les hanches"]
+  },
+  {
+    id: "bird_dog",
+    nom: "Bird Dog",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "stabilite",
+    illustration: "bird_dog",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Abdominaux profonds", "Lombaires", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, tends simultanément un bras et la jambe opposée en gardant le bassin stable.",
+    conseils: ["Garde le dos neutre", "Contracte le ventre", "Travaille lentement"],
+    erreurs: ["Ne cambre pas le dos", "Ne tourne pas le bassin"]
+  },
   {
     id: "planche",
     nom: "Planche",
+    objectif: ["taille"],
     type: "exercice",
     categorie: "gainage",
-  illustration: "planche",
-  dureeParDefaut: 35,
-  reposParDefaut: 20,
-  niveau: 2,
-  muscles: ["Transverse", "Abdominaux", "Fessiers", "Épaules"],
-
+    illustration: "planche",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Transverse", "Abdominaux", "Fessiers", "Épaules"],
     media: {
       type: "image",
       fichier: ""
     },
-
-    description:
-      "Place-toi sur les avant-bras et maintiens le corps aligné.",
-
-    conseils: [
-      "Contracte les abdominaux",
-      "Serre légèrement les fessiers",
-      "Éloigne les épaules des oreilles",
-      "Respire régulièrement"
-    ],
-
-    erreurs: [
-      "Ne creuse pas le bas du dos",
-      "Ne monte pas trop les fesses",
-      "Ne laisse pas tomber la tête"
-    ]
+    description: "Place-toi sur les avant-bras et maintiens le corps aligné.",
+    conseils: ["Contracte les abdominaux", "Serre légèrement les fessiers"],
+    erreurs: ["Ne creuse pas le bas du dos", "Ne monte pas trop les fesses"]
   },
-
+  {
+    id: "planche_toucher_epaule",
+    nom: "Planche avec toucher d’épaule",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "gainage",
+    illustration: "planche_toucher_epaule",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Abdominaux", "Épaules", "Stabilisateurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "En position de planche, touche alternativement chaque épaule sans faire pivoter le bassin.",
+    conseils: ["Écarte légèrement les pieds", "Garde le bassin stable"],
+    erreurs: ["Ne balance pas les hanches", "Ne va pas trop vite"]
+  },
+  {
+    id: "planche_laterale_genoux",
+    nom: "Planche latérale sur les genoux",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "obliques",
+    illustration: "planche_laterale_genoux",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Obliques", "Moyen fessier", "Épaules"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Maintiens une planche latérale sur l’avant-bras et les genoux.",
+    conseils: ["Garde les hanches hautes", "Respire régulièrement"],
+    erreurs: ["Ne laisse pas tomber le bassin", "Ne bloque pas ta respiration"]
+  },
+  {
+    id: "planche_laterale",
+    nom: "Planche latérale",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "obliques",
+    illustration: "planche_laterale",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Obliques", "Transverse", "Épaules"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Maintiens ton corps aligné sur un avant-bras et le côté du pied.",
+    conseils: ["Garde les hanches relevées", "Respire régulièrement"],
+    erreurs: ["Ne laisse pas tomber le bassin", "Ne tourne pas le buste"]
+  },
+  {
+    id: "hollow_hold_adapte",
+    nom: "Hollow Hold adapté",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "abdominaux",
+    illustration: "hollow_hold_adapte",
+    dureeParDefaut: 30,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Transverse", "Grand droit", "Fléchisseurs de hanche"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Décolle légèrement les épaules et garde les jambes pliées en maintenant les lombaires au sol.",
+    conseils: ["Plaque le bas du dos au tapis", "Garde les jambes pliées si nécessaire"],
+    erreurs: ["Ne creuse pas le dos", "Ne tire pas sur la nuque"]
+  },
+  {
+    id: "reverse_crunch",
+    nom: "Crunch inversé",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "abdominaux",
+    illustration: "reverse_crunch",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Grand droit", "Transverse"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Ramène doucement les genoux vers la poitrine en enroulant légèrement le bassin.",
+    conseils: ["Expire en ramenant les genoux", "Garde le mouvement contrôlé"],
+    erreurs: ["Ne donne pas d’élan", "Ne creuse pas le dos"]
+  },
+  {
+    id: "heel_taps",
+    nom: "Touchers de talons",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "obliques",
+    illustration: "heel_taps",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Obliques", "Grand droit"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le dos, rapproche alternativement chaque main du talon du même côté.",
+    conseils: ["Garde les épaules légèrement décollées", "Contracte le ventre"],
+    erreurs: ["Ne tire pas sur la nuque", "Ne balance pas le buste"]
+  },
+  {
+    id: "toe_taps",
+    nom: "Toe Taps",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "abdominaux",
+    illustration: "toe_taps",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Transverse", "Abdominaux profonds"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Depuis une position jambes à 90°, descends alternativement un pied vers le sol.",
+    conseils: ["Garde les lombaires au tapis", "Expire en descendant"],
+    erreurs: ["Ne creuse pas le dos", "Ne laisse pas tomber la jambe"]
+  },
+  {
+    id: "bear_hold",
+    nom: "Bear Hold",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "gainage",
+    illustration: "bear_hold",
+    dureeParDefaut: 30,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Transverse", "Quadriceps", "Épaules"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, décolle légèrement les genoux du sol et maintiens.",
+    conseils: ["Garde le dos neutre", "Pousse le sol avec les mains"],
+    erreurs: ["Ne monte pas trop les hanches", "Ne bloque pas la respiration"]
+  },
+  {
+    id: "mountain_climber_lent",
+    nom: "Mountain Climber lent",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "gainage",
+    illustration: "mountain_climber_lent",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Abdominaux", "Épaules", "Fléchisseurs de hanche"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Depuis la planche, ramène lentement un genou puis l’autre vers la poitrine.",
+    conseils: ["Reste stable", "Contracte le ventre"],
+    erreurs: ["Ne saute pas", "Ne balance pas les hanches"]
+  },
+  {
+    id: "vacuum_debout",
+    nom: "Vacuum debout",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "respiration",
+    illustration: "vacuum_debout",
+    dureeParDefaut: 30,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Transverse"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, expire puis rentre doucement le ventre en gardant une respiration contrôlée.",
+    conseils: ["Garde une posture droite", "Fais des contractions modérées"],
+    erreurs: ["Ne force pas l’apnée", "Arrête si tu te sens étourdie"]
+  },
+  {
+    id: "rotation_bassin_debout",
+    nom: "Rotations de bassin",
+    objectif: ["taille"],
+    type: "exercice",
+    categorie: "mobilite",
+    illustration: "rotation_bassin_debout",
+    dureeParDefaut: 35,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Obliques", "Hanches"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, effectue des rotations lentes du bassin en gardant le haut du corps stable.",
+    conseils: ["Garde les genoux souples", "Travaille lentement"],
+    erreurs: ["Ne force pas l’amplitude", "Ne verrouille pas les genoux"]
+  },
   {
     id: "etirement_taille",
-    nom: "Étirement de fin",
+    nom: "Étirement taille",
+    objectif: ["taille"],
     type: "etirement",
     categorie: "recuperation",
-  illustration: "etirement_taille",
-  dureeParDefaut: 60,
-  reposParDefaut: 0,
-  niveau: 1,
-  muscles: ["Obliques", "Abdominaux", "Lombaires"],
-
+    illustration: "etirement_taille",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Obliques", "Abdominaux", "Lombaires"],
     media: {
       type: "image",
       fichier: ""
     },
-
-    description:
-      "Étire doucement la taille, les abdominaux et le bas du dos.",
-
-    conseils: [
-      "Respire lentement",
-      "Relâche les épaules",
-      "Maintiens chaque position quelques secondes"
-    ],
-
-    erreurs: [
-      "Ne force pas l’étirement",
-      "Ne fais pas de rebonds",
-      "Arrête si une douleur apparaît"
-    ]
+    description: "Étire doucement la taille, les abdominaux et le bas du dos.",
+    conseils: ["Respire lentement", "Relâche les épaules"],
+    erreurs: ["Ne force pas l’étirement", "Ne fais pas de rebonds"]
   },
-
-{
-  id: "planche_genoux",
-  nom: "Planche sur les genoux",
-  type: "exercice",
-  categorie: "gainage",
-  illustration: "planche_genoux",
-  dureeParDefaut: 35,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Transverse", "Abdominaux", "Épaules"],
-  media: {
-    type: "image",
-    fichier: ""
+  {
+    id: "echauffement_fessiers",
+    nom: "Échauffement fessiers",
+    objectif: ["fessiers"],
+    type: "echauffement",
+    categorie: "mobilite",
+    illustration: "echauffement_fessiers",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Hanches", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Mobilise les hanches et active doucement les fessiers avant la séance.",
+    conseils: ["Bouge lentement", "Respire profondément"],
+    erreurs: ["Ne force pas l’amplitude", "Ne fais pas de mouvements brusques"]
   },
-  description:
-    "Place-toi sur les avant-bras et les genoux en maintenant une ligne droite entre les épaules, les hanches et les genoux.",
-  conseils: [
-    "Contracte les abdominaux",
-    "Serre légèrement les fessiers",
-    "Garde les épaules loin des oreilles",
-    "Respire régulièrement"
-  ],
-  erreurs: [
-    "Ne creuse pas le bas du dos",
-    "Ne recule pas trop les hanches",
-    "Ne laisse pas tomber la tête"
-  ]
-},
-
-{
-  id: "bird_dog",
-  nom: "Bird Dog",
-  type: "exercice",
-  categorie: "stabilite",
-  illustration: "bird_dog",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Abdominaux profonds", "Lombaires", "Fessiers"],
-  media: {
-    type: "image",
-    fichier: ""
+  {
+    id: "pont_fessier",
+    nom: "Pont fessier",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "pont_fessier",
+    dureeParDefaut: 45,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Grand fessier", "Ischio-jambiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le dos, pousse dans les talons et monte le bassin.",
+    conseils: ["Serre les fessiers en haut", "Garde les genoux alignés"],
+    erreurs: ["Ne pousse pas avec les lombaires", "Ne laisse pas les genoux rentrer"]
   },
-  description:
-    "À quatre pattes, tends simultanément un bras et la jambe opposée en gardant le bassin stable.",
-  conseils: [
-    "Garde le dos neutre",
-    "Contracte le ventre",
-    "Travaille lentement",
-    "Marque une courte pause en position tendue"
-  ],
-  erreurs: [
-    "Ne cambre pas le dos",
-    "Ne lève pas la jambe trop haut",
-    "Ne tourne pas le bassin"
-  ]
-},
-
-{
-  id: "planche_toucher_epaule",
-  nom: "Planche avec toucher d’épaule",
-  type: "exercice",
-  categorie: "gainage",
-  illustration: "planche_toucher_epaule",
-  dureeParDefaut: 40,
-  reposParDefaut: 20,
-  niveau: 2,
-  muscles: ["Abdominaux", "Épaules", "Stabilisateurs"],
-  media: {
-    type: "image",
-    fichier: ""
+  {
+    id: "donkey_kick",
+    nom: "Donkey Kick",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "donkey_kick",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Grand fessier", "Moyen fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, pousse un pied vers le plafond.",
+    conseils: ["Garde le bassin stable", "Contracte le fessier en haut"],
+    erreurs: ["Ne cambre pas le dos", "Ne tourne pas le bassin"]
   },
-  description:
-    "En position de planche, touche alternativement chaque épaule sans faire pivoter le bassin.",
-  conseils: [
-    "Écarte légèrement les pieds",
-    "Contracte les abdominaux",
-    "Garde le bassin stable",
-    "Travaille lentement"
-  ],
-  erreurs: [
-    "Ne balance pas les hanches",
-    "Ne creuse pas le dos",
-    "Ne va pas trop vite"
-  ]
-},
-
-{
-  id: "planche_laterale_genoux",
-  nom: "Planche latérale sur les genoux",
-  type: "exercice",
-  categorie: "obliques",
-  illustration: "planche_laterale_genoux",
-  dureeParDefaut: 35,
-  reposParDefaut: 20,
-  niveau: 1,
-  muscles: ["Obliques", "Moyen fessier", "Épaules"],
-  media: {
-    type: "image",
-    fichier: ""
+  {
+    id: "fire_hydrant",
+    nom: "Fire Hydrant",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "fire_hydrant",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Moyen fessier", "Petit fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, ouvre le genou sur le côté.",
+    conseils: ["Contracte les abdominaux", "Reste stable"],
+    erreurs: ["Ne tourne pas le buste", "Ne monte pas trop haut"]
   },
-  description:
-    "Maintiens une planche latérale sur l’avant-bras et les genoux en gardant les hanches relevées.",
-  conseils: [
-    "Aligne les épaules, le bassin et les genoux",
-    "Garde les hanches hautes",
-    "Contracte la taille",
-    "Respire régulièrement"
-  ],
-  erreurs: [
-    "Ne laisse pas tomber le bassin",
-    "Ne tourne pas les épaules",
-    "Ne bloque pas ta respiration"
-  ]
-},
-
-{
-  id: "planche_laterale",
-  nom: "Planche latérale",
-  type: "exercice",
-  categorie: "obliques",
-  illustration: "planche_laterale",
-  dureeParDefaut: 35,
-  reposParDefaut: 20,
-  niveau: 2,
-  muscles: ["Obliques", "Transverse", "Épaules"],
-  media: {
-    type: "image",
-    fichier: ""
+  {
+    id: "abduction_cote",
+    nom: "Abduction allongée",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "abduction_cote",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Moyen fessier", "Petit fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le côté, monte la jambe supérieure.",
+    conseils: ["Pointe du pied légèrement vers l’avant", "Travaille lentement"],
+    erreurs: ["Ne bascule pas le bassin", "Ne donne pas d’élan"]
   },
-  description:
-    "Maintiens ton corps aligné sur un avant-bras et le côté du pied afin de renforcer les obliques.",
-  conseils: [
-    "Garde les hanches relevées",
-    "Aligne la tête, le bassin et les jambes",
-    "Contracte les abdominaux",
-    "Respire régulièrement"
-  ],
-  erreurs: [
-    "Ne laisse pas tomber le bassin",
-    "Ne tourne pas le buste",
-    "Ne bloque pas ta respiration"
-  ]
-},
-
-{
-  id: "hollow_hold_adapte",
-  nom: "Hollow Hold adapté",
-  type: "exercice",
-  categorie: "abdominaux",
-  illustration: "hollow_hold_adapte",
-  dureeParDefaut: 30,
-  reposParDefaut: 20,
-  niveau: 2,
-  muscles: ["Transverse", "Grand droit", "Fléchisseurs de hanche"],
-  media: {
-    type: "image",
-    fichier: ""
+  {
+    id: "frog_pump",
+    nom: "Frog Pump",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "frog_pump",
+    dureeParDefaut: 45,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Grand fessier", "Adducteurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le dos, colle les plantes de pieds et monte le bassin.",
+    conseils: ["Garde les genoux ouverts", "Serre les fessiers en haut"],
+    erreurs: ["Ne cambre pas le dos", "Ne va pas trop vite"]
   },
-  description:
-    "Allongée sur le dos, décolle légèrement les épaules et maintiens les jambes pliées en gardant les lombaires au sol.",
-  conseils: [
-    "Plaque le bas du dos au tapis",
-    "Rentre légèrement le ventre",
-    "Garde les jambes pliées si nécessaire",
-    "Respire régulièrement"
-  ],
-  erreurs: [
-    "Ne creuse pas le dos",
-    "Ne tire pas sur la nuque",
-    "Ne tends pas les jambes si tu perds le contrôle"
-  ]
-},
-{
-  id: "echauffement_fessiers",
-  nom: "Échauffement fessiers",
-  type: "echauffement",
-  categorie: "mobilite",
-  illustration: "echauffement_fessiers",
-  dureeParDefaut: 60,
-  reposParDefaut: 0,
-  niveau: 1,
-  muscles: ["Hanches", "Fessiers"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Mobilise les hanches et active doucement les fessiers avant la séance.",
-  conseils: [
-    "Bouge lentement",
-    "Garde le ventre légèrement contracté",
-    "Respire profondément"
-  ],
-  erreurs: [
-    "Ne force pas l’amplitude",
-    "Ne fais pas de mouvements brusques"
-  ]
-},
-
-{
-  id: "pont_fessier",
-  nom: "Pont fessier",
-  type: "exercice",
-  categorie: "fessiers",
-  illustration: "pont_fessier",
-  dureeParDefaut: 45,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Grand fessier", "Ischio-jambiers"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Allongée sur le dos, pousse dans les talons et monte le bassin en contractant les fessiers.",
-  conseils: [
-    "Serre les fessiers en haut",
-    "Garde les genoux alignés",
-    "Monte sans cambrer",
-    "Redescends lentement"
-  ],
-  erreurs: [
-    "Ne pousse pas avec les lombaires",
-    "Ne laisse pas les genoux partir vers l’intérieur",
-    "Ne monte pas trop haut"
-  ]
-},
-
-{
-  id: "donkey_kick",
-  nom: "Donkey Kick",
-  type: "exercice",
-  categorie: "fessiers",
-  illustration: "donkey_kick",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Grand fessier", "Moyen fessier"],
-  media: { type: "image", fichier: "" },
-  description:
-    "À quatre pattes, pousse un pied vers le plafond sans creuser le bas du dos.",
-  conseils: [
-    "Garde le bassin stable",
-    "Contracte le fessier en haut",
-    "Travaille lentement",
-    "Garde le genou plié"
-  ],
-  erreurs: [
-    "Ne cambre pas le dos",
-    "Ne tourne pas le bassin",
-    "Ne lance pas la jambe"
-  ]
-},
-
-{
-  id: "fire_hydrant",
-  nom: "Fire Hydrant",
-  type: "exercice",
-  categorie: "fessiers",
-  illustration: "fire_hydrant",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Moyen fessier", "Petit fessier"],
-  media: { type: "image", fichier: "" },
-  description:
-    "À quatre pattes, ouvre le genou sur le côté sans faire pivoter le bassin.",
-  conseils: [
-    "Contracte les abdominaux",
-    "Reste stable",
-    "Monte dans une amplitude contrôlée",
-    "Garde le dos neutre"
-  ],
-  erreurs: [
-    "Ne tourne pas le buste",
-    "Ne monte pas trop haut",
-    "Ne creuse pas le dos"
-  ]
-},
-
-{
-  id: "abduction_cote",
-  nom: "Abduction allongée",
-  type: "exercice",
-  categorie: "fessiers",
-  illustration: "abduction_cote",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Moyen fessier", "Petit fessier"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Allongée sur le côté, monte la jambe supérieure en gardant le bassin stable.",
-  conseils: [
-    "Garde la pointe du pied légèrement vers l’avant",
-    "Contracte le côté du fessier",
-    "Travaille lentement",
-    "Garde la taille engagée"
-  ],
-  erreurs: [
-    "Ne bascule pas le bassin vers l’arrière",
-    "Ne monte pas la jambe trop haut",
-    "Ne donne pas d’élan"
-  ]
-},
-
-{
-  id: "frog_pump",
-  nom: "Frog Pump",
-  type: "exercice",
-  categorie: "fessiers",
-  illustration: "frog_pump",
-  dureeParDefaut: 45,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Grand fessier", "Adducteurs"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Allongée sur le dos, colle les plantes de pieds et monte le bassin en serrant les fessiers.",
-  conseils: [
-    "Garde les genoux ouverts",
-    "Serre fort les fessiers en haut",
-    "Travaille avec une amplitude contrôlée",
-    "Expire en montant"
-  ],
-  erreurs: [
-    "Ne cambre pas le dos",
-    "Ne pousse pas avec les épaules",
-    "Ne va pas trop vite"
-  ]
-},
-
-{
-  id: "etirement_fessiers",
-  nom: "Étirement fessiers",
-  type: "etirement",
-  categorie: "recuperation",
-  illustration: "etirement_fessiers",
-  dureeParDefaut: 60,
-  reposParDefaut: 0,
-  niveau: 1,
-  muscles: ["Fessiers", "Hanches"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Relâche les fessiers et les hanches après la séance.",
-  conseils: [
-    "Respire lentement",
-    "Maintiens chaque position",
-    "Reste dans une amplitude confortable"
-  ],
-  erreurs: [
-    "Ne force pas",
-    "Ne fais pas de rebonds",
-    "Arrête si une douleur apparaît"
-  ]
-},
-{
-  id: "echauffement_posture",
-  nom: "Échauffement posture",
-  type: "echauffement",
-  categorie: "mobilite",
-  illustration: "echauffement_posture",
-  dureeParDefaut: 60,
-  reposParDefaut: 0,
-  niveau: 1,
-  muscles: ["Épaules", "Nuque", "Haut du dos"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Mobilise doucement les épaules, la nuque et le haut du dos.",
-  conseils: [
-    "Fais des mouvements lents",
-    "Garde la nuque longue",
-    "Respire profondément"
-  ],
-  erreurs: [
-    "Ne hausse pas les épaules",
-    "Ne force pas les rotations"
-  ]
-},
-
-{
-  id: "wall_angel",
-  nom: "Wall Angel",
-  type: "exercice",
-  categorie: "posture",
-  illustration: "wall_angel",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Rhomboïdes", "Trapèzes moyens", "Épaules"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Dos contre un mur, fais glisser lentement les bras vers le haut en gardant les épaules ouvertes.",
-  conseils: [
-    "Garde le dos contre le mur",
-    "Rentre légèrement le menton",
-    "Descends les épaules",
-    "Travaille lentement"
-  ],
-  erreurs: [
-    "Ne cambre pas le bas du dos",
-    "Ne décolle pas les bras trop vite",
-    "Ne hausse pas les épaules"
-  ]
-},
-
-{
-  id: "rowing_elastique",
-  nom: "Rowing avec élastique",
-  type: "exercice",
-  categorie: "dos",
-  illustration: "rowing_elastique",
-  dureeParDefaut: 45,
-  reposParDefaut: 20,
-  niveau: 1,
-  muscles: ["Rhomboïdes", "Grand dorsal", "Trapèzes"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Tire l’élastique vers toi en rapprochant les omoplates.",
-  conseils: [
-    "Garde les coudes proches du corps",
-    "Serre les omoplates",
-    "Garde la poitrine ouverte",
-    "Relâche lentement"
-  ],
-  erreurs: [
-    "Ne tire pas avec la nuque",
-    "Ne hausse pas les épaules",
-    "Ne cambre pas le dos"
-  ]
-},
-
-{
-  id: "bird_dog_posture",
-  nom: "Bird Dog posture",
-  type: "exercice",
-  categorie: "stabilite",
-  illustration: "bird_dog_posture",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Érecteurs du rachis", "Abdominaux profonds", "Fessiers"],
-  media: { type: "image", fichier: "" },
-  description:
-    "À quatre pattes, tends un bras et la jambe opposée sans bouger le bassin.",
-  conseils: [
-    "Garde le dos neutre",
-    "Contracte le ventre",
-    "Allonge-toi plutôt que de monter haut",
-    "Travaille lentement"
-  ],
-  erreurs: [
-    "Ne cambre pas le dos",
-    "Ne tourne pas le bassin",
-    "Ne lève pas la tête"
-  ]
-},
-
-{
-  id: "superman_leger",
-  nom: "Superman léger",
-  type: "exercice",
-  categorie: "dos",
-  illustration: "superman_leger",
-  dureeParDefaut: 35,
-  reposParDefaut: 20,
-  niveau: 1,
-  muscles: ["Érecteurs du rachis", "Rhomboïdes", "Fessiers"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Allongée sur le ventre, décolle légèrement les bras et la poitrine sans forcer les lombaires.",
-  conseils: [
-    "Garde la nuque neutre",
-    "Monte peu mais contrôle",
-    "Serre légèrement les omoplates",
-    "Respire normalement"
-  ],
-  erreurs: [
-    "Ne lève pas trop haut",
-    "Ne casse pas la nuque",
-    "Ne force pas avec le bas du dos"
-  ]
-},
-
-{
-  id: "ouverture_poitrine",
-  nom: "Ouverture de poitrine",
-  type: "exercice",
-  categorie: "posture",
-  illustration: "ouverture_poitrine",
-  dureeParDefaut: 40,
-  reposParDefaut: 15,
-  niveau: 1,
-  muscles: ["Pectoraux", "Rhomboïdes", "Épaules"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Ouvre les bras sur les côtés en rapprochant doucement les omoplates.",
-  conseils: [
-    "Garde les épaules basses",
-    "Rentre légèrement le menton",
-    "Ouvre sans cambrer",
-    "Respire profondément"
-  ],
-  erreurs: [
-    "Ne hausse pas les épaules",
-    "Ne pousse pas la poitrine excessivement",
-    "Ne bloque pas la respiration"
-  ]
-},
-
-{
-  id: "etirement_posture",
-  nom: "Étirement posture",
-  type: "etirement",
-  categorie: "recuperation",
-  illustration: "etirement_posture",
-  dureeParDefaut: 60,
-  reposParDefaut: 0,
-  niveau: 1,
-  muscles: ["Nuque", "Épaules", "Haut du dos"],
-  media: { type: "image", fichier: "" },
-  description:
-    "Relâche la nuque, les épaules et le haut du dos.",
-  conseils: [
-    "Respire lentement",
-    "Relâche complètement les épaules",
-    "Maintiens chaque position"
-  ],
-  erreurs: [
-    "Ne tire pas brutalement sur la nuque",
-    "Ne force pas l’étirement",
-    "Arrête si une douleur apparaît"
-  ]
-}
+  {
+    id: "hip_thrust_sol",
+    nom: "Hip Thrust au sol",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "hip_thrust_sol",
+    dureeParDefaut: 45,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Grand fessier", "Ischio-jambiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Monte le bassin en contractant fortement les fessiers.",
+    conseils: ["Pousse dans les talons", "Garde le menton légèrement rentré"],
+    erreurs: ["Ne cambre pas", "Ne pousse pas sur les pointes"]
+  },
+  {
+    id: "pont_fessier_une_jambe",
+    nom: "Pont fessier une jambe",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "pont_fessier_une_jambe",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Grand fessier", "Ischio-jambiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Effectue un pont fessier en gardant une jambe décollée.",
+    conseils: ["Garde le bassin horizontal", "Pousse dans le talon au sol"],
+    erreurs: ["Ne tourne pas le bassin", "Ne cambre pas"]
+  },
+  {
+    id: "abduction_elastique",
+    nom: "Abduction avec élastique",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "abduction_elastique",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["élastique"],
+    muscles: ["Moyen fessier", "Petit fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Avec un élastique autour des cuisses, ouvre les genoux.",
+    conseils: ["Garde la tension constante", "Travaille lentement"],
+    erreurs: ["Ne relâche pas brutalement", "Ne compense pas avec le dos"]
+  },
+  {
+    id: "marche_laterale_elastique",
+    nom: "Marche latérale avec élastique",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "marche_laterale_elastique",
+    dureeParDefaut: 45,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["élastique"],
+    muscles: ["Moyen fessier", "Petit fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Effectue de petits pas latéraux en maintenant la tension.",
+    conseils: ["Garde les genoux souples", "Garde les pieds parallèles"],
+    erreurs: ["Ne rapproche pas complètement les pieds", "Ne te redresse pas à chaque pas"]
+  },
+  {
+    id: "kickback_debout",
+    nom: "Kickback debout",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "kickback_debout",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Grand fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, tends une jambe vers l’arrière sans cambrer.",
+    conseils: ["Tiens-toi à un support si besoin", "Contracte le fessier"],
+    erreurs: ["Ne donne pas d’élan", "Ne cambre pas"]
+  },
+  {
+    id: "squat_sumo_leger",
+    nom: "Squat sumo léger",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "squat_sumo_leger",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Fessiers", "Adducteurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Pieds larges, descends légèrement en gardant les genoux dans l’axe.",
+    conseils: ["Pousse les genoux vers l’extérieur", "Garde le dos droit"],
+    erreurs: ["Ne laisse pas les genoux rentrer", "Ne descends pas trop bas si inconfort"]
+  },
+  {
+    id: "squat_pulse",
+    nom: "Squat pulses",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "squat_pulse",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["aucun"],
+    muscles: ["Fessiers", "Quadriceps"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Maintiens une petite amplitude de squat et effectue de courtes pulsations.",
+    conseils: ["Garde la poitrine ouverte", "Pousse dans les talons"],
+    erreurs: ["Ne rebondis pas brutalement", "Ne laisse pas les genoux rentrer"]
+  },
+  {
+    id: "fente_arriere_courte",
+    nom: "Fente arrière courte",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "fente_arriere_courte",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Fessiers", "Quadriceps"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Recule un pied et fléchis légèrement les deux jambes.",
+    conseils: ["Garde le genou avant aligné", "Pousse dans le talon avant"],
+    erreurs: ["Ne laisse pas le genou rentrer", "Ne chute pas vers l’avant"]
+  },
+  {
+    id: "step_back_tap",
+    nom: "Step Back Tap",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "step_back_tap",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Fessiers", "Stabilisateurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Recule alternativement un pied en touchant légèrement le sol.",
+    conseils: ["Garde les genoux souples", "Reste gainée"],
+    erreurs: ["Ne balance pas le buste", "Ne va pas trop vite"]
+  },
+  {
+    id: "clam_shell",
+    nom: "Clamshell",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "clam_shell",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Moyen fessier", "Petit fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le côté, genoux pliés, ouvre le genou supérieur.",
+    conseils: ["Garde les pieds ensemble", "Travaille lentement"],
+    erreurs: ["Ne roule pas le bassin en arrière", "Ne donne pas d’élan"]
+  },
+  {
+    id: "clam_shell_elastique",
+    nom: "Clamshell avec élastique",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "clam_shell_elastique",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis", "élastique"],
+    muscles: ["Moyen fessier", "Petit fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Effectue un clamshell avec un élastique au-dessus des genoux.",
+    conseils: ["Garde le bassin fixe", "Contrôle la fermeture"],
+    erreurs: ["Ne laisse pas l’élastique claquer", "Ne tourne pas le buste"]
+  },
+  {
+    id: "extension_hanche_genou_flechi",
+    nom: "Extension de hanche genou fléchi",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "extension_hanche_genou_flechi",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Grand fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, pousse le pied vers le plafond en gardant le genou fléchi.",
+    conseils: ["Garde le ventre engagé", "Travaille lentement"],
+    erreurs: ["Ne cambre pas", "Ne monte pas trop haut"]
+  },
+  {
+    id: "abduction_quatre_pattes",
+    nom: "Abduction à quatre pattes",
+    objectif: ["fessiers"],
+    type: "exercice",
+    categorie: "fessiers",
+    illustration: "abduction_quatre_pattes",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Moyen fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Depuis quatre pattes, tends une jambe sur le côté.",
+    conseils: ["Garde les épaules au-dessus des mains", "Contracte le ventre"],
+    erreurs: ["Ne tourne pas le bassin", "Ne lance pas la jambe"]
+  },
+  {
+    id: "etirement_fessiers",
+    nom: "Étirement fessiers",
+    objectif: ["fessiers"],
+    type: "etirement",
+    categorie: "recuperation",
+    illustration: "etirement_fessiers",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Fessiers", "Hanches"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Relâche les fessiers et les hanches après la séance.",
+    conseils: ["Respire lentement", "Maintiens chaque position"],
+    erreurs: ["Ne force pas", "Ne fais pas de rebonds"]
+  },
+  {
+    id: "echauffement_posture",
+    nom: "Échauffement posture",
+    objectif: ["posture"],
+    type: "echauffement",
+    categorie: "mobilite",
+    illustration: "echauffement_posture",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Épaules", "Nuque", "Haut du dos"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Mobilise doucement les épaules, la nuque et le haut du dos.",
+    conseils: ["Fais des mouvements lents", "Respire profondément"],
+    erreurs: ["Ne hausse pas les épaules", "Ne force pas les rotations"]
+  },
+  {
+    id: "wall_angel",
+    nom: "Wall Angel",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "posture",
+    illustration: "wall_angel",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["mur"],
+    muscles: ["Rhomboïdes", "Trapèzes moyens", "Épaules"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Dos contre un mur, fais glisser lentement les bras vers le haut.",
+    conseils: ["Garde le dos contre le mur", "Descends les épaules"],
+    erreurs: ["Ne cambre pas le bas du dos", "Ne hausse pas les épaules"]
+  },
+  {
+    id: "rowing_elastique",
+    nom: "Rowing avec élastique",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "dos",
+    illustration: "rowing_elastique",
+    dureeParDefaut: 45,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["élastique"],
+    muscles: ["Rhomboïdes", "Grand dorsal", "Trapèzes"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Tire l’élastique vers toi en rapprochant les omoplates.",
+    conseils: ["Garde les coudes proches du corps", "Serre les omoplates"],
+    erreurs: ["Ne tire pas avec la nuque", "Ne cambre pas le dos"]
+  },
+  {
+    id: "bird_dog_posture",
+    nom: "Bird Dog posture",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "stabilite",
+    illustration: "bird_dog_posture",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Érecteurs du rachis", "Abdominaux profonds", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, tends un bras et la jambe opposée.",
+    conseils: ["Garde le dos neutre", "Allonge-toi plutôt que de monter haut"],
+    erreurs: ["Ne cambre pas", "Ne tourne pas le bassin"]
+  },
+  {
+    id: "superman_leger",
+    nom: "Superman léger",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "dos",
+    illustration: "superman_leger",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Érecteurs du rachis", "Rhomboïdes", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le ventre, décolle légèrement les bras et la poitrine.",
+    conseils: ["Garde la nuque neutre", "Monte peu mais contrôle"],
+    erreurs: ["Ne lève pas trop haut", "Ne force pas avec les lombaires"]
+  },
+  {
+    id: "ouverture_poitrine",
+    nom: "Ouverture de poitrine",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "posture",
+    illustration: "ouverture_poitrine",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Pectoraux", "Rhomboïdes", "Épaules"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Ouvre les bras sur les côtés en rapprochant doucement les omoplates.",
+    conseils: ["Garde les épaules basses", "Ouvre sans cambrer"],
+    erreurs: ["Ne hausse pas les épaules", "Ne pousse pas la poitrine excessivement"]
+  },
+  {
+    id: "chin_tuck",
+    nom: "Rentrée du menton",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "posture",
+    illustration: "chin_tuck",
+    dureeParDefaut: 30,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["mur"],
+    muscles: ["Fléchisseurs profonds du cou"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Recule doucement le menton sans baisser la tête.",
+    conseils: ["Garde le regard horizontal", "Relâche les épaules"],
+    erreurs: ["Ne baisse pas la tête", "Ne force pas la nuque"]
+  },
+  {
+    id: "wall_slide",
+    nom: "Wall Slide",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "posture",
+    illustration: "wall_slide",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["mur"],
+    muscles: ["Épaules", "Rhomboïdes", "Trapèzes"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Fais glisser les avant-bras contre le mur vers le haut.",
+    conseils: ["Garde les côtes rentrées", "Maintiens les épaules basses"],
+    erreurs: ["Ne cambre pas le dos", "Ne force pas si les épaules tirent"]
+  },
+  {
+    id: "reverse_fly_elastique",
+    nom: "Reverse Fly avec élastique",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "dos",
+    illustration: "reverse_fly_elastique",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["élastique"],
+    muscles: ["Rhomboïdes", "Deltoïdes postérieurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Écarte les bras contre la résistance de l’élastique.",
+    conseils: ["Garde les épaules basses", "Contrôle le retour"],
+    erreurs: ["Ne cambre pas", "Ne verrouille pas les coudes"]
+  },
+  {
+    id: "pull_apart_elastique",
+    nom: "Band Pull Apart",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "dos",
+    illustration: "pull_apart_elastique",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["élastique"],
+    muscles: ["Rhomboïdes", "Deltoïdes postérieurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Bras tendus devant toi, écarte l’élastique.",
+    conseils: ["Garde les bras à hauteur d’épaules", "Serre les omoplates"],
+    erreurs: ["Ne hausse pas les épaules", "Ne cambre pas"]
+  },
+  {
+    id: "cobra_legere",
+    nom: "Cobra légère",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "mobilite",
+    illustration: "cobra_legere",
+    dureeParDefaut: 30,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Pectoraux", "Abdominaux", "Colonne thoracique"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le ventre, relève doucement le haut du buste.",
+    conseils: ["Garde la nuque longue", "Respire profondément"],
+    erreurs: ["Ne force pas les lombaires", "Ne verrouille pas les coudes"]
+  },
+  {
+    id: "thoracic_rotation",
+    nom: "Rotation thoracique",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "mobilite",
+    illustration: "thoracic_rotation",
+    dureeParDefaut: 40,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Colonne thoracique", "Obliques"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "À quatre pattes, passe un bras sous l’autre puis ouvre-le vers le plafond.",
+    conseils: ["Bouge depuis le haut du dos", "Garde le bassin stable"],
+    erreurs: ["Ne force pas l’épaule", "Ne tourne pas le bassin"]
+  },
+  {
+    id: "scapular_retraction",
+    nom: "Rétraction des omoplates",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "posture",
+    illustration: "scapular_retraction",
+    dureeParDefaut: 35,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Rhomboïdes", "Trapèzes moyens"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, rapproche doucement les omoplates sans lever les épaules.",
+    conseils: ["Serre doucement", "Relâche lentement"],
+    erreurs: ["Ne cambre pas", "Ne hausse pas les épaules"]
+  },
+  {
+    id: "y_raise_sol",
+    nom: "Y Raise au sol",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "dos",
+    illustration: "y_raise_sol",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Trapèzes inférieurs", "Deltoïdes"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le ventre, lève légèrement les bras en forme de Y.",
+    conseils: ["Garde la nuque neutre", "Monte peu"],
+    erreurs: ["Ne cambre pas", "Ne hausse pas les épaules"]
+  },
+  {
+    id: "w_raise_sol",
+    nom: "W Raise au sol",
+    objectif: ["posture"],
+    type: "exercice",
+    categorie: "dos",
+    illustration: "w_raise_sol",
+    dureeParDefaut: 35,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["tapis"],
+    muscles: ["Rhomboïdes", "Trapèzes moyens"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le ventre, forme un W avec les bras et décolle légèrement les mains.",
+    conseils: ["Serre les omoplates", "Contrôle le mouvement"],
+    erreurs: ["Ne force pas les lombaires", "Ne donne pas d’élan"]
+  },
+  {
+    id: "etirement_posture",
+    nom: "Étirement posture",
+    objectif: ["posture"],
+    type: "etirement",
+    categorie: "recuperation",
+    illustration: "etirement_posture",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Nuque", "Épaules", "Haut du dos"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Relâche la nuque, les épaules et le haut du dos.",
+    conseils: ["Respire lentement", "Relâche complètement les épaules"],
+    erreurs: ["Ne tire pas brutalement sur la nuque", "Ne force pas l’étirement"]
+  },
+  {
+    id: "echauffement_jambes",
+    nom: "Échauffement jambes",
+    objectif: ["jambes"],
+    type: "echauffement",
+    categorie: "mobilite",
+    illustration: "echauffement_jambes",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Hanches", "Chevilles", "Jambes"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Mobilise les hanches, les genoux et les chevilles avant la séance.",
+    conseils: ["Commence doucement", "Garde les genoux souples"],
+    erreurs: ["Ne force pas les articulations", "Ne fais pas de mouvements brusques"]
+  },
+  {
+    id: "marche_sur_place",
+    nom: "Marche sur place",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "marche_sur_place",
+    dureeParDefaut: 45,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Mollets", "Quadriceps", "Hanches"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Marche sur place à rythme modéré en déroulant le pied.",
+    conseils: ["Garde une posture droite", "Respire régulièrement"],
+    erreurs: ["Ne tape pas les pieds au sol", "Ne verrouille pas les genoux"]
+  },
+  {
+    id: "elevation_mollets",
+    nom: "Élévations de mollets",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "elevation_mollets",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Mollets"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Monte sur la pointe des pieds puis redescends lentement.",
+    conseils: ["Garde le corps droit", "Monte de façon contrôlée"],
+    erreurs: ["Ne rebondis pas", "Ne tourne pas les chevilles"]
+  },
+  {
+    id: "abduction_debout",
+    nom: "Abduction debout",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "abduction_debout",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Moyen fessier", "Abducteurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, écarte une jambe sur le côté sans incliner le buste.",
+    conseils: ["Garde le bassin stable", "Travaille lentement"],
+    erreurs: ["Ne penche pas le buste", "Ne donne pas d’élan"]
+  },
+  {
+    id: "adduction_cote",
+    nom: "Adduction allongée",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "adduction_cote",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Adducteurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée sur le côté, soulève doucement la jambe du dessous.",
+    conseils: ["Garde le bassin stable", "Contracte l’intérieur de la cuisse"],
+    erreurs: ["Ne donne pas d’élan", "Ne roule pas le bassin"]
+  },
+  {
+    id: "leg_extension_assise",
+    nom: "Extension de jambe assise",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "leg_extension_assise",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["chaise"],
+    muscles: ["Quadriceps"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Assise sur une chaise, tends une jambe puis redescends lentement.",
+    conseils: ["Garde le dos droit", "Contrôle la descente"],
+    erreurs: ["Ne claque pas le genou", "Ne balance pas la jambe"]
+  },
+  {
+    id: "hamstring_curl_debout",
+    nom: "Flexion ischio debout",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "hamstring_curl_debout",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Ischio-jambiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, rapproche le talon de la fesse sans avancer le genou.",
+    conseils: ["Garde les genoux côte à côte", "Reste droite"],
+    erreurs: ["Ne cambre pas", "Ne balance pas la jambe"]
+  },
+  {
+    id: "side_step",
+    nom: "Pas latéraux",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "side_step",
+    dureeParDefaut: 45,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Abducteurs", "Fessiers", "Mollets"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Effectue des pas latéraux souples d’un côté puis de l’autre.",
+    conseils: ["Garde les genoux légèrement fléchis", "Reste légère sur les pieds"],
+    erreurs: ["Ne croise pas les pieds", "Ne verrouille pas les genoux"]
+  },
+  {
+    id: "squat_chaise",
+    nom: "Squat vers chaise",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "squat_chaise",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["chaise"],
+    muscles: ["Quadriceps", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Descends les hanches vers une chaise puis remonte.",
+    conseils: ["Pousse les hanches en arrière", "Garde les genoux dans l’axe"],
+    erreurs: ["Ne laisse pas les genoux rentrer", "Ne tombe pas sur la chaise"]
+  },
+  {
+    id: "fente_statique_courte",
+    nom: "Fente statique courte",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "fente_statique_courte",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Quadriceps", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "En position de fente courte, fléchis légèrement les deux jambes puis remonte.",
+    conseils: ["Garde le buste droit", "Pousse dans le talon avant"],
+    erreurs: ["Ne laisse pas le genou rentrer", "Ne descends pas trop bas"]
+  },
+  {
+    id: "step_up_bas",
+    nom: "Step-up bas",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "step_up_bas",
+    dureeParDefaut: 40,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["marche"],
+    muscles: ["Quadriceps", "Fessiers", "Mollets"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Monte sur une petite marche puis redescends de façon contrôlée.",
+    conseils: ["Pose tout le pied", "Pousse dans le talon"],
+    erreurs: ["Ne saute pas", "Ne laisse pas le genou rentrer"]
+  },
+  {
+    id: "wall_sit_court",
+    nom: "Chaise au mur courte",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "wall_sit_court",
+    dureeParDefaut: 30,
+    reposParDefaut: 20,
+    niveau: 2,
+    materiel: ["mur"],
+    muscles: ["Quadriceps", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Dos au mur, maintiens une légère flexion des genoux.",
+    conseils: ["Garde le dos au mur", "Respire régulièrement"],
+    erreurs: ["Ne descends pas trop bas", "Ne bloque pas la respiration"]
+  },
+  {
+    id: "leg_circle",
+    nom: "Cercles de jambe",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "leg_circle",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Hanches", "Adducteurs", "Abducteurs"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Allongée, dessine de petits cercles contrôlés avec une jambe.",
+    conseils: ["Garde le bassin stable", "Fais de petits cercles"],
+    erreurs: ["Ne balance pas la jambe", "Ne creuse pas le dos"]
+  },
+  {
+    id: "pont_adducteurs",
+    nom: "Pont avec coussin entre les genoux",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "pont_adducteurs",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["tapis", "coussin"],
+    muscles: ["Adducteurs", "Fessiers"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Effectue un pont fessier en pressant légèrement un coussin entre les genoux.",
+    conseils: ["Presse doucement le coussin", "Serre les fessiers"],
+    erreurs: ["Ne serre pas excessivement", "Ne cambre pas"]
+  },
+  {
+    id: "mobilite_chevilles",
+    nom: "Mobilité des chevilles",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "mobilite",
+    illustration: "mobilite_chevilles",
+    dureeParDefaut: 35,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Chevilles", "Mollets"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Effectue des mouvements contrôlés de cheville.",
+    conseils: ["Travaille lentement", "Fais les deux côtés"],
+    erreurs: ["Ne force pas une amplitude douloureuse", "Ne va pas trop vite"]
+  },
+  {
+    id: "kick_lateral_bas",
+    nom: "Petit kick latéral",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "kick_lateral_bas",
+    dureeParDefaut: 40,
+    reposParDefaut: 15,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Abducteurs", "Moyen fessier"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Debout, lève légèrement une jambe sur le côté puis redescends.",
+    conseils: ["Garde le buste droit", "Travaille doucement"],
+    erreurs: ["Ne donne pas d’élan", "Ne monte pas trop haut"]
+  },
+  {
+    id: "marche_talon_pointe",
+    nom: "Marche talon-pointe",
+    objectif: ["jambes"],
+    type: "exercice",
+    categorie: "jambes",
+    illustration: "marche_talon_pointe",
+    dureeParDefaut: 40,
+    reposParDefaut: 10,
+    niveau: 1,
+    materiel: ["aucun"],
+    muscles: ["Mollets", "Tibial antérieur", "Chevilles"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Alterne quelques pas sur les talons puis sur les pointes.",
+    conseils: ["Fais de petits pas", "Utilise un support si besoin"],
+    erreurs: ["Ne va pas trop vite", "Ne fais pas sur sol glissant"]
+  },
+  {
+    id: "etirement_jambes",
+    nom: "Étirement jambes",
+    objectif: ["jambes"],
+    type: "etirement",
+    categorie: "recuperation",
+    illustration: "etirement_jambes",
+    dureeParDefaut: 60,
+    reposParDefaut: 0,
+    niveau: 1,
+    materiel: ["tapis"],
+    muscles: ["Quadriceps", "Ischio-jambiers", "Mollets"],
+    media: {
+      type: "image",
+      fichier: ""
+    },
+    description: "Étire doucement l’avant et l’arrière des jambes ainsi que les mollets.",
+    conseils: ["Respire lentement", "Reste dans une amplitude confortable"],
+    erreurs: ["Ne force pas", "Ne fais pas de rebonds"]
+  }
 ],
 glowIllustrations: {
 
@@ -11062,10 +11812,115 @@ function getSeanceGlowRecommandee(){
         )[0];
 }
 
+function genererSeanceGlowLegacy(){
+
+    const objectif =
+        DB.glow.activite?.objectifForce ||
+        recommanderProgrammeGlow().id;
+
+    const temps =
+        Number(DB.glow.activite?.tempsDisponible || 15);
+
+    const exercices = (DB.glowExercices || []).filter(exercice =>
+        exercice.objectif.includes(objectif)
+    );
+
+    return {
+
+        id: "temp",
+
+        nom: "Séance personnalisée",
+
+        objectif,
+
+        duree: temps,
+
+        exercices
+
+    };
+
+}
+
+function genererSeanceGlow(){
+
+    const objectif =
+        DB.glow.activite?.objectifForce ||
+        recommanderProgrammeGlow().id;
+
+    const temps =
+        Number(DB.glow.activite?.tempsDisponible || 15);
+
+    const exercices = (DB.glowExercices || []).filter(exercice =>
+        exercice.objectif.includes(objectif)
+    );
+
+    // Mélange les exercices
+    const melanges = [...exercices]
+        .sort(() => Math.random() - 0.5);
+
+    const seance = [];
+
+    let tempsTotal = 0;
+
+    for(const exercice of melanges){
+
+        if(
+            tempsTotal + exercice.dureeParDefaut >
+            temps * 60
+        ){
+            continue;
+        }
+
+        seance.push({
+            exerciceId: exercice.id
+        });
+
+        tempsTotal +=
+            exercice.dureeParDefaut +
+            exercice.reposParDefaut;
+    }
+
+    return {
+
+        id: "ia",
+
+        nom: "Séance personnalisée",
+
+        objectif,
+
+        duree: temps,
+
+        exercices: seance
+
+    };
+
+}
+
 function getExerciceGlow(id){
 
     return (DB.glowExercices || []).find(exercice =>
         exercice.id === id
+    ) || null;
+}
+
+function getSeanceEnCoursGlow(){
+
+    // Priorité à une séance générée dynamiquement
+    if(DB.glow?.seanceGeneree){
+        return DB.glow.seanceGeneree;
+    }
+
+    // Sinon on garde l'ancien système temporairement
+    const seanceId =
+        DB.glow?.entrainement?.seanceId ||
+        glowSeanceEnCours?.id;
+
+    if(!seanceId){
+        return null;
+    }
+
+    return (DB.glowSeances || []).find(seance =>
+        seance.id === seanceId
     ) || null;
 }
 
@@ -11098,9 +11953,7 @@ function demarrerChronoGlow(){
         clearInterval(glowTimer);
         glowTimer = null;
 
-        const seance = (DB.glowSeances || []).find(s =>
-            s.id === entrainement.seanceId
-        );
+        const seance = getSeanceEnCoursGlow();
 
         const reference =
             seance?.exercices?.[entrainement.exerciceIndex];
@@ -11165,9 +12018,8 @@ async function commencerSeance(id){
 
     initialiserGlowDuJour();
 
-    const seance = (DB.glowSeances || []).find(s =>
-        s.id === id
-    );
+    const seance = genererSeanceGlow();
+   DB.glow.seanceGeneree = seance;
 
     if(!seance){
         toast("Séance introuvable");
@@ -11209,9 +12061,7 @@ function renderLecteurSeance(){
 
     const entrainement = DB.glow.entrainement;
 
-    const seance = (DB.glowSeances || []).find(s =>
-        s.id === entrainement.seanceId
-    );
+    const seance = getSeanceEnCoursGlow();
 
     if(!seance){
         document.getElementById("glow-content").innerHTML = `
@@ -12023,9 +12873,7 @@ function ouvrirSeanceGlow(seanceId){
 
 function renderExerciceGlow(){
 
-    const seance = DB.glowSeances.find(item =>
-        item.id === glowSeanceEnCours.id
-    );
+    const seance = getSeanceEnCoursGlow();
 
     if(!seance){
         renderGlowModule();
@@ -12427,9 +13275,7 @@ function exerciceGlowPrecedent(){
 
     const entrainement = DB.glow.entrainement;
 
-    const seance = (DB.glowSeances || []).find(s =>
-        s.id === entrainement.seanceId
-    );
+const seance = getSeanceEnCoursGlow();
 
     if(!seance) return;
 
@@ -12464,9 +13310,7 @@ function exerciceGlowSuivant(demarrageAutomatique = false){
 
     const entrainement = DB.glow.entrainement;
 
-    const seance = (DB.glowSeances || []).find(s =>
-        s.id === entrainement.seanceId
-    );
+    const seance = getSeanceEnCoursGlow();
 
     if(!seance) return;
 
@@ -12520,9 +13364,7 @@ function quitterSeanceGlow(){
 
 function renderFinSeanceGlow(){
 
-    const seance = DB.glowSeances.find(item =>
-        item.id === glowSeanceEnCours.id
-    );
+    const seance = getSeanceEnCoursGlow();
 
     if(!seance) return;
 
@@ -12591,9 +13433,7 @@ function renderFinSeanceGlow(){
 
 async function validerFinSeanceGlow(){
 
-    const seance = DB.glowSeances.find(item =>
-        item.id === glowSeanceEnCours.id
-    );
+    const seance = getSeanceEnCoursGlow();
 
     if(!seance) return;
 
