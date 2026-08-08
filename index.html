@@ -11580,7 +11580,7 @@ function getIllustrationGlow(id){
 
     return DB.glowIllustrations?.[id] || {
 
-        image:"assets/glow/default.webp",
+        image:null,
 
         video:null,
 
@@ -11592,12 +11592,13 @@ function getIllustrationGlow(id){
 
         respiration:"",
 
-        muscles:[]
+        muscles:[],
+
+        disponible:false
 
     };
 
 }
-
 function getHistoriqueObjectifGlow(objectif){
 
     return (DB.glow.historiqueSeances || []).filter(s =>
@@ -12269,15 +12270,52 @@ const illustration =
     text-align:center;
 ">
 
-    <img
-        src="${illustration}"
-        style="
+   ${illustration
+    ? `
+        <img
+            src="${illustration}"
+            alt="${exercice.nom}"
+            style="
+                width:220px;
+                max-width:100%;
+                border-radius:22px;
+                box-shadow:var(--shadow);
+            "
+        >
+    `
+    : `
+        <div style="
             width:220px;
             max-width:100%;
+            height:220px;
+            margin:auto;
             border-radius:22px;
+            background:var(--soft);
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
             box-shadow:var(--shadow);
-        "
-    >
+            color:var(--mut);
+        ">
+            <div style="
+                font-size:42px;
+                margin-bottom:12px;
+            ">
+                ✦
+            </div>
+
+            <div style="
+                font-size:13px;
+                font-weight:700;
+                text-align:center;
+                padding:0 20px;
+            ">
+                ${estRepos ? "Temps de repos" : exercice.nom}
+            </div>
+        </div>
+    `
+}
 
 </div>
 
