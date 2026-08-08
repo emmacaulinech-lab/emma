@@ -3600,15 +3600,36 @@ glowExercices: [
 ],
 glowIllustrations: {
 
-  echauffement_taille: {
+ echauffement_taille: {
+
     image: null,
+
+    frames: [
+        "assets/glow/echauffement_taille_01.webp",
+        "assets/glow/echauffement_taille_02.webp",
+        "assets/glow/echauffement_taille_03.webp",
+        "assets/glow/echauffement_taille_04.webp"
+    ],
+
+    frameDuration: 650,
+
     video: null,
     animation: null,
-    respiration: "Respire profondément pendant toute la mobilisation.",
+
+    respiration:
+        "Respire profondément pendant toute la mobilisation.",
+
     conseils: [],
+
     erreurs: [],
-    muscles: ["Bassin", "Abdominaux", "Obliques"]
-  },
+
+    muscles: [
+        "Bassin",
+        "Abdominaux",
+        "Obliques"
+    ]
+
+},
 
   russian_twist: {
     image: null,
@@ -11668,15 +11689,22 @@ function getIllustrationGlow(id){
     return DB.glowIllustrations?.[illustrationId] || {
 
         image: null,
+
+        frames: [],
+        frameDuration: 650,
+
         video: null,
         animation: null,
+
         conseils: [],
         erreurs: [],
         respiration: "",
         muscles: [],
+
         disponible: false
 
     };
+
 }
    
 function getHistoriqueObjectifGlow(objectif){
@@ -12282,8 +12310,18 @@ const exercice =
    const illustrationData =
     getIllustrationGlow(exercice.id);
 
+const frames =
+    illustrationData.frames || [];
+
+const frameDuration =
+    Number(illustrationData.frameDuration || 650);
+
 const illustration =
-    illustrationData.image;
+    frames.length
+        ? frames[
+            Math.floor(Date.now() / frameDuration) % frames.length
+        ]
+        : illustrationData.image;
 
     const chrono = entrainement.chrono || 0;
 
