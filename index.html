@@ -11847,53 +11847,138 @@ function genererSeanceGlow(){
         DB.glow.activite?.objectifForce ||
         recommanderProgrammeGlow().id;
 
-    const temps =
+    const tempsMinutes =
         Number(DB.glow.activite?.tempsDisponible || 15);
 
-    const exercices = (DB.glowExercices || []).filter(exercice =>
-        exercice.objectif.includes(objectif)
+    const tempsCible = tempsMinutes * 60;
+
+    const tous = (DB.glowExercices || []).filter(exercice =>
+        exercice.objectif?.includes(objectif)
     );
 
-    // Mélange les exercices
-    const melanges = [...exercices]
+    // 1. On sépare les différents types
+    const echauffements = tous.filter(exercice =>
+        exercice.type === "echauffement"
+    );
+
+    const etirements = tous.filter(exercice =>
+        exercice.type === "etirement"
+    );
+
+    const principaux = tous.filter(exercice =>
+        exercice.type === "exercice"
+    );
+
+    // 2. Choix aléatoire dans une liste
+    function choisirAleatoire(liste){
+        if(!liste.length) return null;
+
+        return liste[
+            Math.floor(Math.random() * liste.length)
+        ];
+    }
+
+    const echauffement = choisirAleatoire(echauffements);
+    const etirement = choisirAleatoire(etirements);
+
+    // 3. Temps déjà réservé
+    let tempsUtilise = 0;
+
+    if(echauffement){
+        tempsUtilise +=
+            Number(echauffement.dureeParDefaut || 0);
+    }
+
+    if(etirement){
+        tempsUtilise +=
+            Number(etirement.dureeParDefaut || 0);
+    }
+
+    // 4. Nombre d'exercices principaux souhaité
+    let nombreCible;
+
+    if(tempsMinutes <= 10){
+        nombreCible = 4;
+    }else if(tempsMinutes <= 15){
+        nombreCible = 6;
+    }else if(tempsMinutes <= 20){
+        nombreCible = 8;
+    }else{
+        nombreCible = 10;
+    }
+
+    // 5. Mélange des exercices principaux
+    const melanges = [...principaux]
         .sort(() => Math.random() - 0.5);
 
-    const seance = [];
+    const selection = [];
 
-    let tempsTotal = 0;
+    let derniereCategorie = null;
 
     for(const exercice of melanges){
 
+        if(selection.length >= nombreCible){
+            break;
+        }
+
+        // On évite autant que possible
+        // deux catégories identiques à la suite
         if(
-            tempsTotal + exercice.dureeParDefaut >
-            temps * 60
+            exercice.categorie === derniereCategorie &&
+            principaux.length > nombreCible
         ){
             continue;
         }
 
-        seance.push({
+        const duree =
+            Number(exercice.dureeParDefaut || 0);
+
+        const repos =
+            Number(exercice.reposParDefaut || 0);
+
+        const cout = duree + repos;
+
+        // On garde de la place pour la fin
+        if(tempsUtilise + cout > tempsCible){
+            continue;
+        }
+
+        selection.push(exercice);
+
+        tempsUtilise += cout;
+
+        derniereCategorie = exercice.categorie;
+    }
+
+    // 6. Construction de la séance finale
+    const exercicesFinal = [];
+
+    if(echauffement){
+        exercicesFinal.push({
+            exerciceId: echauffement.id
+        });
+    }
+
+    selection.forEach(exercice => {
+        exercicesFinal.push({
             exerciceId: exercice.id
         });
+    });
 
-        tempsTotal +=
-            exercice.dureeParDefaut +
-            exercice.reposParDefaut;
+    if(etirement){
+        exercicesFinal.push({
+            exerciceId: etirement.id
+        });
     }
 
     return {
-
         id: "ia",
-
         nom: "Séance personnalisée",
-
-        objectif,
-
-        duree: temps,
-
-        exercices: seance
-
+        objectif: objectif,
+        duree: tempsMinutes,
+        dureeReelle: tempsUtilise,
+        exercices: exercicesFinal
     };
-
 }
 
 function getExerciceGlow(id){
