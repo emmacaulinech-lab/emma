@@ -11865,9 +11865,36 @@ function genererSeanceGlow(){
         exercice.type === "etirement"
     );
 
-    const principaux = tous.filter(exercice =>
-        exercice.type === "exercice"
-    );
+    const niveauUtilisateur =
+    Number(DB.glow.activite?.niveau || 1);
+
+const principaux = tous.filter(exercice =>
+    exercice.type === "exercice" &&
+    Number(exercice.niveau || 1) <= niveauUtilisateur
+);
+
+// Exercices réalisés récemment
+const exercicesRecents = new Set(
+    (DB.historiqueGlow || [])
+        .slice(-3)
+        .flatMap(seance =>
+            (seance.exercices || []).map(exercice =>
+                exercice.exerciceId || exercice.id
+            )
+        )
+);
+
+// Priorité aux exercices non réalisés récemment
+const principauxPrioritaires = principaux.filter(exercice =>
+    !exercicesRecents.has(exercice.id)
+);
+
+// Si on n'a pas assez d'exercices disponibles,
+// on réautorise toute la bibliothèque
+const poolExercices =
+    principauxPrioritaires.length >= 4
+        ? principauxPrioritaires
+        : principaux;
 
     // 2. Choix aléatoire dans une liste
     function choisirAleatoire(liste){
@@ -11908,7 +11935,7 @@ function genererSeanceGlow(){
     }
 
     // 5. Mélange des exercices principaux
-    const melanges = [...principaux]
+    const melanges = [...poolExercices]
         .sort(() => Math.random() - 0.5);
 
     const selection = [];
@@ -11972,11 +11999,10 @@ function genererSeanceGlow(){
     }
 
     return {
-        id: "ia",
+        id: `ia_${Date.now()}`,
         nom: "Séance personnalisée",
         objectif: objectif,
         duree: tempsMinutes,
-        dureeReelle: tempsUtilise,
         exercices: exercicesFinal
     };
 }
@@ -13532,13 +13558,21 @@ async function validerFinSeanceGlow(){
     };
 
     const entree = {
-        date: DB.glow.date,
-        objectif: seance.objectif,
-        seanceId: seance.id,
-        minutes: seance.duree,
-        terminee: true
-    };
+    date: DB.glow.date,
 
+    objectif: seance.objectif,
+
+    seanceId: seance.id,
+
+    minutes: seance.duree,
+
+    terminee: true,
+
+    exercices: (seance.exercices || []).map(exercice => ({
+        exerciceId: exercice.exerciceId || exercice.id
+    }))
+};
+    
    DB.glow.historiqueSeances =
     DB.glow.historiqueSeances || [];
 
