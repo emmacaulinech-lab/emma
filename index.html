@@ -11576,29 +11576,109 @@ function getObjectifGlow(id){
 
 }
 
+const glowIllustrationMap = {
+
+    // TAILLE
+    echauffement_taille: "echauffement_taille",
+    russian_twist: "russian_twist",
+    dead_bug: "dead_bug",
+    planche_genoux: "planche",
+    bird_dog: "bird_dog",
+    planche: "planche",
+    planche_toucher_epaule: "planche",
+    planche_laterale_genoux: "planche_laterale",
+    planche_laterale: "planche_laterale",
+    hollow_hold_adapte: "hollow_hold",
+    reverse_crunch: "reverse_crunch",
+    heel_taps: "heel_taps",
+    toe_taps: "toe_taps",
+    bear_hold: "bear_hold",
+    mountain_climber_lent: "mountain_climber",
+    vacuum_debout: "vacuum_debout",
+    rotation_bassin_debout: "rotation_bassin",
+    etirement_taille: "etirement_taille",
+
+    // FESSIERS
+    echauffement_fessiers: "echauffement_fessiers",
+    pont_fessier: "pont_fessier",
+    donkey_kick: "donkey_kick",
+    fire_hydrant: "fire_hydrant",
+    abduction_cote: "abduction_cote",
+    frog_pump: "frog_pump",
+    hip_thrust_sol: "pont_fessier",
+    pont_fessier_une_jambe: "pont_fessier",
+    abduction_elastique: "abduction_cote",
+    marche_laterale_elastique: "marche_laterale",
+    kickback_debout: "kickback_debout",
+    squat_sumo_leger: "squat_sumo",
+    squat_pulse: "squat",
+    fente_arriere_courte: "fente_arriere",
+    step_back_tap: "step_back",
+    clam_shell: "clam_shell",
+    clam_shell_elastique: "clam_shell",
+    extension_hanche_genou_flechi: "donkey_kick",
+    abduction_quatre_pattes: "fire_hydrant",
+    etirement_fessiers: "etirement_fessiers",
+
+    // POSTURE
+    echauffement_posture: "echauffement_posture",
+    wall_angel: "wall_angel",
+    rowing_elastique: "rowing_elastique",
+    bird_dog_posture: "bird_dog",
+    superman_leger: "superman",
+    ouverture_poitrine: "ouverture_poitrine",
+    chin_tuck: "chin_tuck",
+    wall_slide: "wall_angel",
+    reverse_fly_elastique: "reverse_fly",
+    pull_apart_elastique: "pull_apart",
+    cobra_legere: "cobra",
+    thoracic_rotation: "thoracic_rotation",
+    scapular_retraction: "ouverture_poitrine",
+    y_raise_sol: "y_raise",
+    w_raise_sol: "w_raise",
+    etirement_posture: "etirement_posture",
+
+    // JAMBES
+    echauffement_jambes: "echauffement_jambes",
+    marche_sur_place: "marche_sur_place",
+    elevation_mollets: "elevation_mollets",
+    abduction_debout: "abduction_debout",
+    adduction_cote: "adduction_cote",
+    leg_extension_assise: "leg_extension",
+    hamstring_curl_debout: "hamstring_curl",
+    side_step: "marche_laterale",
+    squat_chaise: "squat",
+    fente_statique_courte: "fente_arriere",
+    step_up_bas: "step_up",
+    wall_sit_court: "wall_sit",
+    leg_circle: "leg_circle",
+    pont_adducteurs: "pont_fessier",
+    mobilite_chevilles: "mobilite_chevilles",
+    kick_lateral_bas: "abduction_debout",
+    marche_talon_pointe: "marche_talon_pointe",
+    etirement_jambes: "etirement_jambes"
+
+};
+
 function getIllustrationGlow(id){
 
-    return DB.glowIllustrations?.[id] || {
+    const illustrationId =
+        glowIllustrationMap[id] || id;
 
-        image:null,
+    return DB.glowIllustrations?.[illustrationId] || {
 
-        video:null,
-
-        animation:null,
-
-        conseils:[],
-
-        erreurs:[],
-
-        respiration:"",
-
-        muscles:[],
-
-        disponible:false
+        image: null,
+        video: null,
+        animation: null,
+        conseils: [],
+        erreurs: [],
+        respiration: "",
+        muscles: [],
+        disponible: false
 
     };
-
 }
+   
 function getHistoriqueObjectifGlow(objectif){
 
     return (DB.glow.historiqueSeances || []).filter(s =>
@@ -12200,7 +12280,7 @@ const exercice =
     }
 
    const illustrationData =
-    getIllustrationGlow(exercice.illustration);
+    getIllustrationGlow(exercice.id);
 
 const illustration =
     illustrationData.image;
