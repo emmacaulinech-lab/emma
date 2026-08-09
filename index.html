@@ -24363,10 +24363,185 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
 
     (zone.actions || []).forEach(action => {
 
-        const sousTachesDues =
-            getSousTachesDues(action);
+        const sousTachesCandidates =
+    (action.sousTaches || [])
+    .filter(st => {
 
-        sousTachesDues.forEach(st => {
+        // =========================
+        // PROJET
+        // =========================
+
+        const estForcee =
+            idsTachesForcees.has(st.id);
+
+        if(
+            st.nature === "projet" &&
+            !estForcee
+        ){
+            return false;
+        }
+
+
+        // =========================
+        // DÉTECTION PHOTO
+        // =========================
+
+        const etatPiece =
+            DB.journal.etatPieces?.[zone.id];
+
+        const detecteeParPhoto =
+            !!(
+                etatPiece &&
+                Array.isArray(
+                    etatPiece.tachesDetectees
+                ) &&
+                etatPiece.tachesDetectees.includes(
+                    st.id
+                )
+            );
+
+
+        // =========================
+        // TÂCHE FORCÉE
+        // =========================
+
+        if(estForcee){
+            return true;
+        }
+
+
+        // =========================
+        // TÂCHE SELON L'ÉTAT
+        // =========================
+
+        if(st.declenchement === "etat"){
+            return detecteeParPhoto;
+        }
+
+
+        // =========================
+        // TÂCHE MIXTE
+        // =========================
+
+        // Une tâche mixte peut entrer :
+        // - parce que la photo l'a détectée
+        // - OU parce que sa fréquence est due.
+
+        if(st.declenchement === "mixte"){
+
+            if(detecteeParPhoto){
+                return true;
+            }
+
+            return (
+                getSousTachesDues(action)
+                .some(due => due.id === st.id)
+            );
+        }
+
+
+        // =========================
+        // TÂCHE À FRÉQUENCE
+        // =========================
+
+        return (
+            getSousTachesDues(action)
+            .some(due => due.id === st.id)
+        );
+
+    });
+
+
+sousTachesCandidates.forEach(st => {const sousTachesCandidates =
+    (action.sousTaches || [])
+    .filter(st => {
+
+        // =========================
+        // PROJET
+        // =========================
+
+        const estForcee =
+            idsTachesForcees.has(st.id);
+
+        if(
+            st.nature === "projet" &&
+            !estForcee
+        ){
+            return false;
+        }
+
+
+        // =========================
+        // DÉTECTION PHOTO
+        // =========================
+
+        const etatPiece =
+            DB.journal.etatPieces?.[zone.id];
+
+        const detecteeParPhoto =
+            !!(
+                etatPiece &&
+                Array.isArray(
+                    etatPiece.tachesDetectees
+                ) &&
+                etatPiece.tachesDetectees.includes(
+                    st.id
+                )
+            );
+
+
+        // =========================
+        // TÂCHE FORCÉE
+        // =========================
+
+        if(estForcee){
+            return true;
+        }
+
+
+        // =========================
+        // TÂCHE SELON L'ÉTAT
+        // =========================
+
+        if(st.declenchement === "etat"){
+            return detecteeParPhoto;
+        }
+
+
+        // =========================
+        // TÂCHE MIXTE
+        // =========================
+
+        // Une tâche mixte peut entrer :
+        // - parce que la photo l'a détectée
+        // - OU parce que sa fréquence est due.
+
+        if(st.declenchement === "mixte"){
+
+            if(detecteeParPhoto){
+                return true;
+            }
+
+            return (
+                getSousTachesDues(action)
+                .some(due => due.id === st.id)
+            );
+        }
+
+
+        // =========================
+        // TÂCHE À FRÉQUENCE
+        // =========================
+
+        return (
+            getSousTachesDues(action)
+            .some(due => due.id === st.id)
+        );
+
+    });
+
+
+sousTachesCandidates.forEach(st => {
 
             const score =
                 calculerScoreTacheJournal(
@@ -24428,75 +24603,75 @@ const minutesPersoLibres =
 
 
 // =========================
-// BUDGET MAISON
+// BUDGET MAISON INTELLIGENT
 // =========================
 
-let budgetMaison = 30;
-let maxTachesMaison = 2;
+// Le budget dépend du vrai temps personnel disponible.
+// Il n'y a plus de nombre maximum arbitraire de tâches.
+
+let pourcentageMaison = 0;
+let plafondMaison = 0;
+let minimumMaison = 0;
 
 switch(charge.niveau){
 
     case "legere":
-
-        budgetMaison = Math.min(
-            60,
-            Math.round(
-                minutesPersoLibres * 0.25
-            )
-        );
-
-        maxTachesMaison = 3;
-
+        // Journée légère :
+        // on peut vraiment avancer dans la maison.
+        pourcentageMaison = 0.40;
+        plafondMaison = 120;
+        minimumMaison = 45;
         break;
-
 
     case "normale":
-
-        budgetMaison = Math.min(
-            45,
-            Math.round(
-                minutesPersoLibres * 0.20
-            )
-        );
-
-        maxTachesMaison = 3;
-
+        pourcentageMaison = 0.30;
+        plafondMaison = 90;
+        minimumMaison = 30;
         break;
-
 
     case "chargee":
-
-        budgetMaison = Math.min(
-            25,
-            Math.round(
-                minutesPersoLibres * 0.12
-            )
-        );
-
-        maxTachesMaison = 2;
-
+        pourcentageMaison = 0.20;
+        plafondMaison = 60;
+        minimumMaison = 20;
         break;
-
 
     case "saturee":
-
-        budgetMaison = Math.min(
-            15,
-            Math.round(
-                minutesPersoLibres * 0.08
-            )
-        );
-
-        maxTachesMaison = 1;
-
+        // Même une journée saturée peut contenir
+        // quelques actions très rapides/importantes.
+        pourcentageMaison = 0.10;
+        plafondMaison = 30;
+        minimumMaison = 10;
         break;
+
+    default:
+        pourcentageMaison = 0.30;
+        plafondMaison = 90;
+        minimumMaison = 30;
 }
 
-budgetMaison =
-    minutesPersoLibres > 0
-        ? Math.max(10, budgetMaison)
-        : 0;
+let budgetMaison = 0;
 
+if(minutesPersoLibres > 0){
+
+    budgetMaison =
+        Math.round(
+            minutesPersoLibres *
+            pourcentageMaison
+        );
+
+    budgetMaison =
+        Math.max(
+            minimumMaison,
+            budgetMaison
+        );
+
+    budgetMaison =
+        Math.min(
+            plafondMaison,
+            budgetMaison,
+            minutesPersoLibres
+        );
+}
 
 // =========================
 // CLASSEMENT INTELLIGENT
@@ -24532,18 +24707,10 @@ tachesCandidates.sort((a,b) => {
 // =========================
 
 let tempsMaison = 0;
-let nbTachesMaison = 0;
 
 const zonesChoisies = new Map();
 
 for(const tache of tachesCandidates){
-
-    if(
-    !tache.forcee &&
-    nbTachesMaison >= maxTachesMaison
-){
-    continue;
-}
 
     if(
     !tache.forcee &&
@@ -24553,14 +24720,31 @@ for(const tache of tachesCandidates){
 }
 
 
-    // Maximum 2 tâches de la même zone
-    // dans une même proposition.
-    const nbDansZone =
-        zonesChoisies.get(tache.zoneId) || 0;
+   // =========================
+// ÉQUILIBRE ENTRE LES PIÈCES
+// =========================
 
-    if(
+const nbDansZone =
+    zonesChoisies.get(tache.zoneId) || 0;
+
+// On évite qu'une seule pièce monopolise
+// toute la proposition.
+//
+// Mais une pièce réellement prioritaire
+// peut recevoir davantage de tâches.
+let maxDansZone = 4;
+
+if(tache.score >= 70){
+    maxDansZone = 6;
+}
+
+if(tache.score >= 100){
+    maxDansZone = 8;
+}
+
+if(
     !tache.forcee &&
-    nbDansZone >= 2
+    nbDansZone >= maxDansZone
 ){
     continue;
 }
@@ -24634,8 +24818,6 @@ for(const tache of tachesCandidates){
 
     tempsMaison +=
         tache.duree;
-
-    nbTachesMaison++;
 
 
     zonesChoisies.set(
@@ -27857,7 +28039,17 @@ function ouvrirSousTachesAction(actionId){
           <input type="checkbox" onchange="marquerSousTacheFaite('${zone.id}','${action.id}','${st.id}',this)" style="width:18px;height:18px;accent-color:var(--rec)">
           <div style="flex:1">
             <div style="font-size:13px;font-weight:600">${st.nom} ${due?'<span style="color:var(--acc);font-size:10px;font-weight:700">SUGGÉRÉ</span>':''}</div>
-            <div style="font-size:11px;color:var(--mut)">${st.duree}min · tous les ${st.freq}j</div>
+            <div style="font-size:11px;color:var(--mut)">
+    ${st.duree}min · ${
+        st.nature === "projet"
+            ? "🎯 Projet"
+            : st.declenchement === "etat"
+                ? "📷 Selon l’état"
+                : st.declenchement === "mixte"
+                    ? `📷 + tous les ${st.freq}j`
+                    : `tous les ${st.freq}j`
+    }
+</div>
           </div>
         </div>`;
       }).join('')}
