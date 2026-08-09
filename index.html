@@ -14670,41 +14670,40 @@ function renderGlowNutrition(){
 
                     ${bloc.options.map((option,index) => `
 
-                        <div style="
-                            background:rgba(255,255,255,.50);
-                            border-radius:18px;
-                            padding:14px 16px;
-                        ">
+<div style="
+    background:rgba(255,255,255,.50);
+    border-radius:18px;
+    padding:14px 16px;
+">
 
-                            <div style="
-                                font-size:13px;
-                                font-weight:800;
-                                line-height:1.5;
-                                margin-bottom:8px;
-                            ">
-                                ${option.join(" · ")}
-                            </div>
+    <div style="
+        font-size:13px;
+        font-weight:800;
+        line-height:1.5;
+        margin-bottom:8px;
+    ">
+        ${option.join(" · ")}
+    </div>
 
-                            ${
-                                <button
-    class="btn bg bsm"
-    onclick='choisirRepasSuggereGlow(
-        "${bloc.type}",
-        ${JSON.stringify(option)}
-    )'
->
-    ${
-        bloc.type === "diner"
-            ? "🌙 Choisir pour ce soir"
-            : bloc.type === "dejeuner"
-            ? "☀️ Choisir ce déjeuner"
-            : "🍓 Choisir cette collation"
-    }
-</button>
+    <button
+        class="btn bg bsm"
+        onclick='choisirRepasSuggereGlow(
+            "${bloc.type}",
+            ${JSON.stringify(option)}
+        )'
+    >
+        ${
+            bloc.type === "diner"
+                ? "🌙 Choisir pour ce soir"
+                : bloc.type === "dejeuner"
+                ? "☀️ Choisir ce déjeuner"
+                : "🍓 Choisir cette collation"
+        }
+    </button>
 
-                        </div>
+</div>
 
-                    `).join("")}
+`).join("")}
 
                 </div>
 
