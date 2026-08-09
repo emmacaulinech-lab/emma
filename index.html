@@ -18169,6 +18169,8 @@ function ensureJournalData(){
   if(!DB.journal.zones||!DB.journal.zones.length) DB.journal.zones=seedJournalZones();
   if(!DB.journal.disponibilites) DB.journal.disponibilites={};
   if(!DB.journal.planning) DB.journal.planning={};
+  if(!DB.journal.etatPieces){DB.journal.etatPieces = {};}
+  if(!DB.journal.tachesForcees){DB.journal.tachesForcees = {};}
 
   let migre=false;
   DB.journal.zones.forEach(zone=>{
@@ -18694,12 +18696,15 @@ const proposition =
       <button class="btn bd" onclick="ouvrirConfigPlanning()" style="width:100%" ${!dispos.length?'disabled':''}>✨ Configurer mon planning</button>
       ${!dispos.length?'<div style="font-size:11px;color:var(--mut);margin-top:6px;text-align:center">Ajoute au moins un créneau ci-dessus</div>':''}
     </div>
+<div id="journal-etat-maison"></div>
+
 <div id="planning-intelligent-preview"></div>
 
 <div id="planning-timeline"></div>
   `}
   `;
   document.getElementById('jview-aujourdhui').innerHTML=html;
+  renderEtatMaisonJournal(today);
   renderPreviewPlanningIntelligent(proposition);
   renderPlanningTimeline();
   renderEstimationTemps();
@@ -18857,6 +18862,240 @@ function getChargeJournee(date){
     };
 }
 
+function calculerScoreTacheJournal(zone, action, st, date){
+
+    const aujourdHui =
+        new Date(date + "T12:00:00");
+
+    let joursDepuis = 999;
+
+    if(st.dernierFait){
+
+        joursDepuis = Math.floor(
+            (
+                aujourdHui -
+                new Date(st.dernierFait + "T12:00:00")
+            ) / 86400000
+        );
+
+    }
+
+    const frequence =
+        Math.max(
+            1,
+            Number(st.freq || 1)
+        );
+
+    const duree =
+        Math.max(
+            1,
+            Number(st.duree || 10)
+        );
+
+    const ratioRetard =
+        joursDepuis / frequence;
+
+    let score = 0;
+
+
+    // =========================
+    // RETARD
+    // =========================
+
+    if(!st.dernierFait){
+        score += 35;
+    }
+
+    else if(ratioRetard >= 2){
+        score += 40;
+    }
+
+    else if(ratioRetard >= 1.5){
+        score += 30;
+    }
+
+    else if(ratioRetard >= 1){
+        score += 20;
+    }
+
+    else if(ratioRetard >= 0.75){
+        score += 8;
+    }
+
+
+    // =========================
+    // PRIORITÉ DE LA ZONE
+    // =========================
+
+    const indexZone =
+        DB.journal.zones.findIndex(
+            z => z.id === zone.id
+        );
+
+    score += Math.max(
+        0,
+        12 - indexZone * 2
+    );
+
+
+    // =========================
+    // TÂCHE RAPIDE
+    // =========================
+
+    if(duree <= 10){
+        score += 8;
+    }
+
+    else if(duree <= 20){
+        score += 4;
+    }
+
+    else if(duree >= 45){
+        score -= 6;
+    }
+
+
+    // =========================
+    // ÉVITER LES RÉPÉTITIONS
+    // =========================
+
+    const historique =
+        DB.journal.faitAujourdhui || {};
+
+    const derniersJours =
+        Object.keys(historique)
+        .sort()
+        .reverse()
+        .slice(0,3);
+
+    const faiteRecemment =
+        derniersJours.some(jour =>
+            historique[jour]?.[st.id]
+        );
+
+    if(faiteRecemment){
+        score -= 18;
+    }
+
+
+    // =========================
+    // SIGNAL VISUEL FUTUR
+    // =========================
+
+    const etatPiece =
+        DB.journal.etatPieces?.[zone.id];
+
+    if(etatPiece){
+
+        if(etatPiece.score <= 40){
+            score += 20;
+        }
+
+        else if(etatPiece.score <= 60){
+            score += 10;
+        }
+
+        if(
+            Array.isArray(etatPiece.tachesDetectees) &&
+            etatPiece.tachesDetectees.includes(st.id)
+        ){
+            score += 25;
+        }
+
+    }
+
+
+    return Math.round(score);
+}
+
+function calculerScorePieceJournal(zone, date){
+
+    const actions =
+        zone.actions || [];
+
+    const scores = [];
+
+    actions.forEach(action => {
+
+        const sousTaches =
+            action.sousTaches || [];
+
+        sousTaches.forEach(st => {
+
+            const score =
+                calculerScoreTacheJournal(
+                    zone,
+                    action,
+                    st,
+                    date
+                );
+
+            scores.push(score);
+
+        });
+
+    });
+
+
+    if(!scores.length){
+
+        return {
+            score: 100,
+            niveau: "ok",
+            priorite: 0
+        };
+
+    }
+
+
+    const scoreMax =
+        Math.max(...scores);
+
+    let scorePiece =
+        100 - Math.min(
+            90,
+            scoreMax
+        );
+
+    const etatVisuel =
+        DB.journal.etatPieces?.[zone.id];
+
+    if(
+        etatVisuel &&
+        Number.isFinite(etatVisuel.score)
+    ){
+
+        scorePiece =
+            Math.round(
+                scorePiece * 0.55 +
+                etatVisuel.score * 0.45
+            );
+
+    }
+
+
+    let niveau = "ok";
+
+    if(scorePiece <= 35){
+        niveau = "urgent";
+    }
+
+    else if(scorePiece <= 60){
+        niveau = "attention";
+    }
+
+    else if(scorePiece <= 80){
+        niveau = "moyen";
+    }
+
+
+    return {
+        score: scorePiece,
+        niveau,
+        priorite: scoreMax
+    };
+}
+
 function getElementsJourIntelligents(date){
 
     ensureJournalData();
@@ -18865,14 +19104,22 @@ function getElementsJourIntelligents(date){
 
    const charge =
     getChargeJournee(date);
-
 // =========================
 // 🏠 TÂCHES JOURNAL / MAISON
 // =========================
 
+const tachesForceesJour =
+    DB.journal.tachesForcees?.[date] || [];
+
+const idsTachesForcees =
+    new Set(
+        tachesForceesJour.map(
+            t => t.sousTacheId
+        )
+    );
+   
 const tachesCandidates = [];
 
-// On récupère les VRAIES sous-tâches dues
 DB.journal.zones.forEach((zone, zoneIndex) => {
 
     (zone.actions || []).forEach(action => {
@@ -18882,18 +19129,13 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
 
         sousTachesDues.forEach(st => {
 
-            let retard = 999;
-
-            if(st.dernierFait){
-
-                retard = Math.floor(
-                    (
-                        new Date(date + "T12:00:00") -
-                        new Date(st.dernierFait + "T12:00:00")
-                    ) / 86400000
+            const score =
+                calculerScoreTacheJournal(
+                    zone,
+                    action,
+                    st,
+                    date
                 );
-
-            }
 
             tachesCandidates.push({
 
@@ -18916,13 +19158,12 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
                 prioriteZone:
                     zoneIndex,
 
-                retard,
+                score,
 
-                frequence:
-                    Number(st.freq || 1),
+forcee:
+    idsTachesForcees.has(st.id),
 
-                data: st
-
+data: st
             });
 
         });
@@ -18931,8 +19172,9 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
 
 });
 
-   // =========================
-// CHARGE JOURNALIÈRE RAISONNABLE
+
+// =========================
+// TEMPS PERSO DISPONIBLE
 // =========================
 
 const creneauxPerso =
@@ -18945,93 +19187,151 @@ const minutesPersoLibres =
         0
     );
 
-// On consacre environ 25 % du vrai temps libre
-// aux tâches maison, avec un maximum de 60 min.
+
+// =========================
+// BUDGET MAISON
+// =========================
+
 let budgetMaison = 30;
 let maxTachesMaison = 2;
 
 switch(charge.niveau){
 
     case "legere":
+
         budgetMaison = Math.min(
             60,
-            Math.round(minutesPersoLibres * 0.25)
+            Math.round(
+                minutesPersoLibres * 0.25
+            )
         );
+
         maxTachesMaison = 3;
+
         break;
+
 
     case "normale":
+
         budgetMaison = Math.min(
             45,
-            Math.round(minutesPersoLibres * 0.20)
+            Math.round(
+                minutesPersoLibres * 0.20
+            )
         );
+
         maxTachesMaison = 3;
+
         break;
+
 
     case "chargee":
+
         budgetMaison = Math.min(
             25,
-            Math.round(minutesPersoLibres * 0.12)
+            Math.round(
+                minutesPersoLibres * 0.12
+            )
         );
+
         maxTachesMaison = 2;
+
         break;
 
+
     case "saturee":
+
         budgetMaison = Math.min(
             15,
-            Math.round(minutesPersoLibres * 0.08)
+            Math.round(
+                minutesPersoLibres * 0.08
+            )
         );
+
         maxTachesMaison = 1;
+
         break;
 }
 
-// Toujours au moins quelques minutes
-// sauf s'il n'y a réellement aucun temps perso.
 budgetMaison =
     minutesPersoLibres > 0
         ? Math.max(10, budgetMaison)
         : 0;
 
 
-// Priorité :
-// 1. zone prioritaire
-// 2. tâche la plus en retard
-// 3. tâches rapides
+// =========================
+// CLASSEMENT INTELLIGENT
+// =========================
+
 tachesCandidates.sort((a,b) => {
 
-    if(a.prioriteZone !== b.prioriteZone){
-        return a.prioriteZone - b.prioriteZone;
+    // 1. Choix manuel = priorité absolue
+    if(a.forcee !== b.forcee){
+        return a.forcee ? -1 : 1;
     }
 
-    if(a.retard !== b.retard){
-        return b.retard - a.retard;
+    // 2. Pertinence intelligente
+    if(a.score !== b.score){
+        return b.score - a.score;
     }
 
-    return a.duree - b.duree;
+    // 3. Tâches rapides
+    if(a.duree !== b.duree){
+        return a.duree - b.duree;
+    }
 
+    // 4. Priorité de zone
+    return (
+        a.prioriteZone -
+        b.prioriteZone
+    );
 });
 
+
+// =========================
+// ÉVITER TOUJOURS LA MÊME PIÈCE
+// =========================
 
 let tempsMaison = 0;
 let nbTachesMaison = 0;
 
+const zonesChoisies = new Map();
+
 for(const tache of tachesCandidates){
 
-    if(nbTachesMaison >= maxTachesMaison){
-    break;
+    if(
+    !tache.forcee &&
+    nbTachesMaison >= maxTachesMaison
+){
+    continue;
 }
 
     if(
-        tempsMaison + tache.duree >
-        budgetMaison
-    ){
-        continue;
-    }
+    !tache.forcee &&
+    tempsMaison + tache.duree > budgetMaison
+){
+    continue;
+}
+
+
+    // Maximum 2 tâches de la même zone
+    // dans une même proposition.
+    const nbDansZone =
+        zonesChoisies.get(tache.zoneId) || 0;
+
+    if(
+    !tache.forcee &&
+    nbDansZone >= 2
+){
+    continue;
+}
+
 
     elements.push({
 
         id:
-            "journal_st_" + tache.id,
+            "journal_st_" +
+            tache.id,
 
         source:
             "journal",
@@ -19055,7 +19355,15 @@ for(const tache of tachesCandidates){
             tache.duree,
 
         priorite:
-            3 + tache.prioriteZone,
+            Math.max(
+                1,
+                10 - Math.round(
+                    tache.score / 10
+                )
+            ),
+
+        scoreTache:
+            tache.score,
 
         flexible:
             true,
@@ -19064,19 +19372,37 @@ for(const tache of tachesCandidates){
             false,
 
         data: {
-            zoneId: tache.zoneId,
-            actionId: tache.actionId,
-            sousTacheId: tache.id,
-            zoneNom: tache.zoneNom,
-            actionNom: tache.actionNom
+
+            zoneId:
+                tache.zoneId,
+
+            actionId:
+                tache.actionId,
+
+            sousTacheId:
+                tache.id,
+
+            zoneNom:
+                tache.zoneNom,
+
+            actionNom:
+                tache.actionNom
+
         }
 
     });
+
 
     tempsMaison +=
         tache.duree;
 
     nbTachesMaison++;
+
+
+    zonesChoisies.set(
+        tache.zoneId,
+        nbDansZone + 1
+    );
 
 }
    
@@ -19850,6 +20176,1099 @@ creneaux.splice(
     };
 }
 
+function renderEtatMaisonJournal(date){
+
+    const el =
+        document.getElementById("journal-etat-maison");
+
+    if(!el) return;
+
+    const zones =
+        (DB.journal.zones || []).map(zone => {
+
+            const etat =
+                calculerScorePieceJournal(
+                    zone,
+                    date
+                );
+
+            return {
+                zone,
+                ...etat
+            };
+
+        });
+
+    if(!zones.length){
+
+        el.innerHTML = "";
+        return;
+    }
+
+    zones.sort((a,b) =>
+        a.score - b.score
+    );
+
+
+    const couleurs = {
+        urgent: "#bf5e70",
+        attention: "#d8aa72",
+        moyen: "#728ba8",
+        ok: "#79a384"
+    };
+
+
+    const labels = {
+        urgent: "À faire",
+        attention: "À surveiller",
+        moyen: "Correct",
+        ok: "Très bien"
+    };
+
+
+    el.innerHTML = `
+
+        <div style="
+            background:rgba(255,255,255,.72);
+            border:1px solid rgba(255,255,255,.9);
+            border-radius:24px;
+            padding:20px;
+            margin-bottom:18px;
+            box-shadow:var(--shadow);
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:flex-start;
+                gap:12px;
+                margin-bottom:16px;
+            ">
+
+                <div>
+
+                    <div style="
+                        font-size:11px;
+                        text-transform:uppercase;
+                        letter-spacing:.12em;
+                        color:var(--acc);
+                        font-weight:800;
+                    ">
+                        🏠 État de la maison
+                    </div>
+
+                    <div style="
+                        font-size:12px;
+                        color:var(--mut);
+                        margin-top:4px;
+                    ">
+                        EMMA priorise les pièces qui demandent vraiment de l’attention.
+                    </div>
+
+                </div>
+
+                <button
+                    class="btn bg bsm"
+                    onclick="ouvrirAnalyseMaisonJournal()"
+                >
+                    📸 Analyser
+                </button>
+
+            </div>
+
+
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(2,minmax(0,1fr));
+                gap:10px;
+            ">
+
+                ${zones.map(item => {
+
+                    const couleur =
+                        couleurs[item.niveau];
+
+                    return `
+
+                        <div
+                            onclick="ouvrirDetailPieceJournal('${item.zone.id}')"
+                            style="
+                                background:rgba(255,255,255,.55);
+                                border-radius:18px;
+                                padding:14px;
+                                cursor:pointer;
+                                border:1px solid rgba(255,255,255,.85);
+                            "
+                        >
+
+                            <div style="
+                                display:flex;
+                                justify-content:space-between;
+                                align-items:center;
+                                gap:10px;
+                                margin-bottom:9px;
+                            ">
+
+                                <div style="
+                                    font-weight:800;
+                                    font-size:13px;
+                                ">
+                                    ${item.zone.icon || "🏠"} ${item.zone.nom}
+                                </div>
+
+                                <div style="
+                                    font-size:11px;
+                                    font-weight:800;
+                                    color:${couleur};
+                                ">
+                                    ${item.score}%
+                                </div>
+
+                            </div>
+
+
+                            <div style="
+                                height:7px;
+                                background:rgba(0,0,0,.05);
+                                border-radius:999px;
+                                overflow:hidden;
+                                margin-bottom:7px;
+                            ">
+
+                                <div style="
+                                    width:${item.score}%;
+                                    height:100%;
+                                    background:${couleur};
+                                    border-radius:999px;
+                                "></div>
+
+                            </div>
+
+
+                            <div style="
+                                font-size:10px;
+                                color:${couleur};
+                                font-weight:700;
+                            ">
+                                ${labels[item.niveau]}
+                            </div>
+
+                        </div>
+
+                    `;
+
+                }).join("")}
+
+            </div>
+
+        </div>
+    `;
+}
+
+function ouvrirDetailPieceJournal(zoneId){
+
+    const zone =
+        DB.journal.zones.find(
+            z => z.id === zoneId
+        );
+
+    if(!zone) return;
+
+    const date =
+        getJournalJour();
+
+    const taches = [];
+
+    (zone.actions || []).forEach(action => {
+
+        (action.sousTaches || []).forEach(st => {
+
+            const score =
+                calculerScoreTacheJournal(
+                    zone,
+                    action,
+                    st,
+                    date
+                );
+
+            taches.push({
+                zoneId: zone.id,
+                actionId: action.id,
+                sousTacheId: st.id,
+                nom: st.nom,
+                actionNom: action.nom,
+                duree: Number(st.duree || 10),
+                freq: Number(st.freq || 1),
+                dernierFait: st.dernierFait || null,
+                score
+            });
+
+        });
+
+    });
+
+    taches.sort(
+        (a,b) => b.score - a.score
+    );
+
+    const principales =
+        taches.slice(0,6);
+
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        `
+
+        <div
+            id="journal-modal-piece"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:9999;
+                background:rgba(30,20,25,.28);
+                backdrop-filter:blur(9px);
+                display:flex;
+                align-items:flex-end;
+                justify-content:center;
+                padding:16px;
+            "
+            onclick="
+                if(event.target === this){
+                    this.remove()
+                }
+            "
+        >
+
+            <div style="
+                width:min(520px,100%);
+                max-height:85vh;
+                overflow:auto;
+                background:#fffafc;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.22);
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:flex-start;
+                    gap:12px;
+                    margin-bottom:18px;
+                ">
+
+                    <div>
+
+                        <div style="
+                            font-size:11px;
+                            text-transform:uppercase;
+                            letter-spacing:.12em;
+                            color:var(--acc);
+                            font-weight:800;
+                        ">
+                            ✨ Analyse de la pièce
+                        </div>
+
+                        <div style="
+                            font-family:'Cormorant Garamond',serif;
+                            font-size:30px;
+                            font-weight:700;
+                            margin-top:3px;
+                        ">
+                            ${zone.icon || "🏠"} ${zone.nom}
+                        </div>
+
+                    </div>
+
+                    <button
+                        class="btn bg"
+                        onclick="
+                            document
+                            .getElementById('journal-modal-piece')
+                            ?.remove()
+                        "
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+
+                <div style="
+                    font-size:12px;
+                    color:var(--mut);
+                    margin-bottom:14px;
+                ">
+                    EMMA classe les actions selon leur fréquence,
+                    leur retard, leur durée et l’état de la pièce.
+                </div>
+
+
+                <button
+                    class="btn bd"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        margin-bottom:16px;
+                    "
+                    onclick="analyserPhotoPieceJournal('${zone.id}')"
+                >
+                    📸 Scanner ${zone.nom}
+                </button>
+
+            <div style="
+    background:linear-gradient(135deg,#fff,#fff4f8);
+    border:1.5px solid var(--brd);
+    border-radius:22px;
+    padding:16px;
+    margin-bottom:18px;
+">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:12px;
+    ">
+
+        <div>
+            <div style="
+                font-size:13px;
+                font-weight:800;
+            ">
+                ✨ Ma session ${zone.nom}
+            </div>
+
+            <div style="
+                font-size:10px;
+                color:var(--mut);
+                margin-top:2px;
+            ">
+                EMMA compose une session adaptée à ta journée
+            </div>
+        </div>
+
+        <div style="
+            font-size:11px;
+            font-weight:800;
+            color:var(--acc);
+        ">
+            ${principales
+                .slice(0,2)
+                .reduce((s,t)=>s+t.duree,0)} min
+        </div>
+
+    </div>
+
+
+    <div style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:7px;
+        flex-wrap:wrap;
+        min-height:82px;
+    ">
+
+        ${principales.slice(0,2).map((t,index)=>`
+
+            <div style="
+                width:92px;
+                min-height:64px;
+                border-radius:18px;
+                background:white;
+                border:1.5px solid ${
+                    index === 0
+                    ? "var(--acc)"
+                    : "var(--brd)"
+                };
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                text-align:center;
+                padding:8px;
+                box-shadow:0 5px 16px rgba(80,40,60,.06);
+            ">
+
+                <div style="font-size:18px">
+                    ${index === 0 ? "⭐" : "✨"}
+                </div>
+
+                <div style="
+                    font-size:10px;
+                    font-weight:800;
+                    margin-top:3px;
+                    line-height:1.15;
+                ">
+                    ${t.nom}
+                </div>
+
+                <div style="
+                    font-size:9px;
+                    color:var(--mut);
+                    margin-top:3px;
+                ">
+                    ${t.duree} min
+                </div>
+
+            </div>
+
+        `).join("")}
+
+        <div
+    onclick="ouvrirSelecteurTachesPieceJournal('${zone.id}')"
+    style="
+        width:64px;
+        min-height:64px;
+        border-radius:18px;
+        border:1.5px dashed var(--brd);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:20px;
+        color:var(--mut);
+        cursor:pointer;
+    "
+>
+    +
+</div>
+
+    </div>
+
+</div>
+
+                <div style="
+                    font-size:11px;
+                    font-weight:800;
+                    color:var(--mut);
+                    margin-bottom:8px;
+                ">
+                    ACTIONS LES PLUS PERTINENTES
+                </div>
+
+
+                ${principales.map((t,index) => `
+
+                    <div style="
+                        background:rgba(255,255,255,.65);
+                        border:1px solid rgba(255,255,255,.9);
+                        border-radius:17px;
+                        padding:13px 14px;
+                        margin-bottom:9px;
+                    ">
+
+                        <div style="
+                            display:flex;
+                            justify-content:space-between;
+                            gap:10px;
+                            align-items:center;
+                        ">
+
+                            <div style="flex:1">
+
+                                <div style="
+                                    font-size:13px;
+                                    font-weight:800;
+                                ">
+                                    ${index === 0 ? "⭐ " : ""}
+                                    ${t.nom}
+                                </div>
+
+                                <div style="
+                                    font-size:10px;
+                                    color:var(--mut);
+                                    margin-top:3px;
+                                ">
+                                    ${t.actionNom}
+                                    · ${t.duree} min
+                                    · priorité ${t.score}
+                                </div>
+
+                            </div>
+
+                            <button
+                                class="btn bg bsm"
+                                onclick="forcerTacheJournal(
+                                    '${t.zoneId}',
+                                    '${t.actionId}',
+                                    '${t.sousTacheId}'
+                                )"
+                            >
+                                + Aujourd’hui
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                `).join("")}
+
+
+                ${
+                    principales.length
+                    ? `
+                        <button
+                            class="btn bd"
+                            onclick="forcerTopTachesPieceJournal('${zone.id}')"
+                            style="
+                                width:100%;
+                                justify-content:center;
+                                margin-top:8px;
+                            "
+                        >
+                            ✨ Ajouter les 2 plus utiles
+                        </button>
+                    `
+                    : `
+                        <div style="
+                            text-align:center;
+                            padding:20px;
+                            color:var(--mut);
+                        ">
+                            Rien à prévoir dans cette pièce.
+                        </div>
+                    `
+                }
+
+            </div>
+
+        </div>
+
+        `
+    );
+}
+
+function ouvrirSelecteurTachesPieceJournal(zoneId){
+
+    const zone =
+        DB.journal.zones.find(
+            z => z.id === zoneId
+        );
+
+    if(!zone) return;
+
+    const date = getJournalJour();
+
+    const taches = [];
+
+    (zone.actions || []).forEach(action => {
+
+        (action.sousTaches || []).forEach(st => {
+
+            const score =
+                calculerScoreTacheJournal(
+                    zone,
+                    action,
+                    st,
+                    date
+                );
+
+            let categorie = "optionnel";
+
+            if(score >= 55){
+                categorie = "essentiel";
+            }
+            else if(Number(st.duree || 10) <= 10){
+                categorie = "rapide";
+            }
+            else if(score >= 30){
+                categorie = "rattraper";
+            }
+
+            taches.push({
+
+                zoneId: zone.id,
+                actionId: action.id,
+                sousTacheId: st.id,
+
+                nom: st.nom,
+
+                duree:
+                    Number(st.duree || 10),
+
+                score,
+                categorie
+            });
+
+        });
+
+    });
+
+    taches.sort(
+        (a,b) => b.score - a.score
+    );
+
+
+    const modal =
+        document.getElementById(
+            "journal-modal-piece"
+        );
+
+    if(!modal) return;
+
+    const contenu =
+        modal.querySelector(
+            "div"
+        );
+
+    contenu.innerHTML = `
+
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-bottom:18px;
+        ">
+
+            <button
+                class="btn bg bsm"
+                onclick="
+                    document
+                    .getElementById('journal-modal-piece')
+                    ?.remove();
+
+                    ouvrirDetailPieceJournal('${zone.id}');
+                "
+            >
+                ←
+            </button>
+
+            <div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--acc);
+                    font-weight:800;
+                ">
+                    COMPOSER MA SESSION
+                </div>
+
+                <div style="
+                    font-size:22px;
+                    font-weight:800;
+                ">
+                    ${zone.icon || "🏠"} ${zone.nom}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div style="
+            display:flex;
+            gap:6px;
+            overflow:auto;
+            margin-bottom:16px;
+            padding-bottom:3px;
+        ">
+
+            <button
+                class="btn bd bsm"
+                onclick="filtrerTachesSessionJournal('toutes')"
+            >
+                ✨ Toutes
+            </button>
+
+            <button
+                class="btn bg bsm"
+                onclick="filtrerTachesSessionJournal('essentiel')"
+            >
+                ⭐ Essentiel
+            </button>
+
+            <button
+                class="btn bg bsm"
+                onclick="filtrerTachesSessionJournal('rapide')"
+            >
+                ⚡ Rapide
+            </button>
+
+            <button
+                class="btn bg bsm"
+                onclick="filtrerTachesSessionJournal('rattraper')"
+            >
+                🔥 À rattraper
+            </button>
+
+        </div>
+
+
+        <div id="journal-session-liste">
+
+            ${taches.map(t => `
+
+                <div
+                    class="journal-session-tache"
+                    data-categorie="${t.categorie}"
+                    onclick="toggleTacheSessionJournal(this)"
+                    data-zone="${t.zoneId}"
+                    data-action="${t.actionId}"
+                    data-st="${t.sousTacheId}"
+                    data-duree="${t.duree}"
+
+                    style="
+                        display:flex;
+                        align-items:center;
+                        gap:12px;
+                        background:white;
+                        border:1.5px solid var(--brd);
+                        border-radius:16px;
+                        padding:12px;
+                        margin-bottom:8px;
+                        cursor:pointer;
+                        transition:.18s;
+                    "
+                >
+
+                    <div
+                        class="session-check"
+                        style="
+                            width:24px;
+                            height:24px;
+                            border-radius:50%;
+                            border:2px solid var(--brd);
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            flex-shrink:0;
+                        "
+                    ></div>
+
+                    <div style="flex:1">
+
+                        <div style="
+                            font-size:12px;
+                            font-weight:800;
+                        ">
+                            ${t.nom}
+                        </div>
+
+                        <div style="
+                            font-size:10px;
+                            color:var(--mut);
+                            margin-top:2px;
+                        ">
+                            ${t.duree} min · score ${t.score}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `).join("")}
+
+        </div>
+
+
+        <div style="
+            position:sticky;
+            bottom:-22px;
+            background:#fffafc;
+            padding:14px 0 4px;
+            margin-top:12px;
+        ">
+
+            <button
+                id="btn-organiser-session"
+                class="btn bd"
+                style="
+                    width:100%;
+                    justify-content:center;
+                "
+                onclick="validerSessionMaisonJournal()"
+            >
+                ✨ Organiser ma session
+                <span id="session-maison-duree">
+                    · 0 min
+                </span>
+            </button>
+
+        </div>
+    `;
+}
+
+function filtrerTachesSessionJournal(categorie){
+
+    document
+        .querySelectorAll(
+            ".journal-session-tache"
+        )
+        .forEach(el => {
+
+            el.style.display =
+                categorie === "toutes" ||
+                el.dataset.categorie === categorie
+                    ? "flex"
+                    : "none";
+
+        });
+}
+
+function toggleTacheSessionJournal(el){
+
+    const actif =
+        el.dataset.selected === "1";
+
+    el.dataset.selected =
+        actif ? "0" : "1";
+
+    el.style.borderColor =
+        actif
+            ? "var(--brd)"
+            : "var(--acc)";
+
+    el.style.background =
+        actif
+            ? "white"
+            : "rgba(153,53,86,.06)";
+
+    const check =
+        el.querySelector(".session-check");
+
+    check.innerHTML =
+        actif ? "" : "✓";
+
+    check.style.background =
+        actif
+            ? "white"
+            : "var(--acc)";
+
+    check.style.color =
+        actif
+            ? ""
+            : "white";
+
+
+    let total = 0;
+
+    document
+        .querySelectorAll(
+            '.journal-session-tache[data-selected="1"]'
+        )
+        .forEach(t => {
+
+            total +=
+                Number(t.dataset.duree || 0);
+
+        });
+
+
+    const duree =
+        document.getElementById(
+            "session-maison-duree"
+        );
+
+    if(duree){
+        duree.textContent =
+            ` · ${total} min`;
+    }
+}
+
+async function validerSessionMaisonJournal(){
+
+    const date =
+        getJournalJour();
+
+    const selection =
+        [
+            ...document.querySelectorAll(
+                '.journal-session-tache[data-selected="1"]'
+            )
+        ];
+
+    if(!selection.length){
+
+        toast(
+            "Choisis au moins une tâche ✨"
+        );
+
+        return;
+    }
+
+
+    DB.journal.tachesForcees[date] =
+        DB.journal.tachesForcees[date] || [];
+
+
+    selection.forEach(el => {
+
+        const tache = {
+
+            zoneId:
+                el.dataset.zone,
+
+            actionId:
+                el.dataset.action,
+
+            sousTacheId:
+                el.dataset.st
+        };
+
+
+        const existe =
+            DB.journal.tachesForcees[date]
+            .some(x =>
+                x.sousTacheId ===
+                tache.sousTacheId
+            );
+
+
+        if(!existe){
+
+            DB.journal
+                .tachesForcees[date]
+                .push(tache);
+
+        }
+
+    });
+
+
+    await saveAll();
+
+
+    document
+        .getElementById(
+            "journal-modal-piece"
+        )
+        ?.remove();
+
+
+    renderJAujourdhui();
+
+    toast(
+        `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
+    );
+}
+
+async function forcerTacheJournal(
+    zoneId,
+    actionId,
+    sousTacheId
+){
+
+    const date =
+        getJournalJour();
+
+    DB.journal.tachesForcees[date] =
+        DB.journal.tachesForcees[date] || [];
+
+    const existe =
+        DB.journal.tachesForcees[date]
+        .some(t =>
+            t.sousTacheId === sousTacheId
+        );
+
+    if(!existe){
+
+        DB.journal.tachesForcees[date].push({
+            zoneId,
+            actionId,
+            sousTacheId
+        });
+
+    }
+
+    await saveAll();
+
+    document
+        .getElementById("journal-modal-piece")
+        ?.remove();
+
+    renderJAujourdhui();
+
+    toast("Ajouté à ta journée ✨");
+}
+
+async function forcerTopTachesPieceJournal(zoneId){
+
+    const zone =
+        DB.journal.zones.find(
+            z => z.id === zoneId
+        );
+
+    if(!zone) return;
+
+    const date =
+        getJournalJour();
+
+    const liste = [];
+
+    (zone.actions || []).forEach(action => {
+
+        (action.sousTaches || []).forEach(st => {
+
+            liste.push({
+                zoneId: zone.id,
+                actionId: action.id,
+                sousTacheId: st.id,
+
+                score:
+                    calculerScoreTacheJournal(
+                        zone,
+                        action,
+                        st,
+                        date
+                    )
+            });
+
+        });
+
+    });
+
+    liste.sort(
+        (a,b) => b.score - a.score
+    );
+
+    DB.journal.tachesForcees[date] =
+        DB.journal.tachesForcees[date] || [];
+
+    liste.slice(0,2).forEach(t => {
+
+        const existe =
+            DB.journal.tachesForcees[date]
+            .some(x =>
+                x.sousTacheId === t.sousTacheId
+            );
+
+        if(!existe){
+            DB.journal.tachesForcees[date].push(t);
+        }
+
+    });
+
+    await saveAll();
+
+    document
+        .getElementById("journal-modal-piece")
+        ?.remove();
+
+    renderJAujourdhui();
+
+    toast("2 actions ajoutées ✨");
+}
+
+function analyserPhotoPieceJournal(zoneId){
+
+    const zone =
+        DB.journal.zones.find(
+            z => z.id === zoneId
+        );
+
+    if(!zone) return;
+
+    toast(
+        `📸 Analyse de ${zone.nom} — prochaine étape`
+    );
+}
+
+function ouvrirAnalyseMaisonJournal(){
+
+    toast("Analyse photo bientôt disponible 📸");
+}
+
 function renderPreviewPlanningIntelligent(proposition){
 
     const el =
@@ -20025,30 +21444,141 @@ function renderPreviewPlanningIntelligent(proposition){
 }
 
 function renderEstimationTemps(){
-  const el=document.getElementById('estimation-temps');
-  if(!el) return;
-  const actionsDues=calculerActionsDues();
-  const totalMin=actionsDues.reduce((s,a)=>s+a.duree,0);
-  const h=Math.floor(totalMin/60), m=totalMin%60;
-  const dureeTxt=h>0?`${h}h${m>0?String(m).padStart(2,'0'):''}`:`${m}min`;
 
-  const today=new Date().toISOString().split('T')[0];
-  const dispos=DB.journal.disponibilites[today]||[];
-  const capaciteDispo=dispos.reduce((s,d)=>{
-    const[h1,m1]=d.debut.split(':').map(Number), [h2,m2]=d.fin.split(':').map(Number);
-    return s+((h2*60+m2)-(h1*60+m1));
-  },0);
+    const el =
+        document.getElementById('estimation-temps');
 
-  if(!actionsDues.length){
-    el.innerHTML=`<div style="font-size:12px;color:var(--rec)">✅ Tout est à jour, rien de prévu aujourd'hui !</div>`;
-    return;
-  }
+    if(!el) return;
 
-  const depasse=capaciteDispo>0&&totalMin>capaciteDispo;
-  el.innerHTML=`
-    <div style="font-size:13px;font-weight:700;color:var(--acc)">📊 ${actionsDues.length} action(s) à faire — environ <span style="color:var(--dep)">${dureeTxt}</span></div>
-    ${depasse?`<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠️ Ça dépasse tes créneaux dispo (${Math.floor(capaciteDispo/60)}h${String(capaciteDispo%60).padStart(2,'0')}) — l'IA priorisera et laissera le reste pour plus tard, sans stress</div>`:''}
-  `;
+    const today =
+        new Date().toISOString().split('T')[0];
+
+    const proposition =
+        genererPlanningIntelligent(today);
+
+    const charge =
+        getChargeJournee(today);
+
+    const blocs =
+        proposition?.blocs || [];
+
+    const nonPlaces =
+        proposition?.nonPlaces || [];
+
+    const minutesProposees =
+        blocs.reduce(
+            (total,bloc) =>
+                total + Number(bloc.duree || 0),
+            0
+        );
+
+    const heures =
+        Math.floor(minutesProposees / 60);
+
+    const minutes =
+        minutesProposees % 60;
+
+    const dureeProposee =
+        heures > 0
+            ? `${heures}h${minutes ? String(minutes).padStart(2,"0") : ""}`
+            : `${minutes} min`;
+
+    const labelsCharge = {
+        legere: "🌿 Journée légère",
+        normale: "✨ Journée normale",
+        chargee: "🔥 Journée chargée",
+        saturee: "🫠 Journée très chargée"
+    };
+
+    const couleursCharge = {
+        legere: "var(--rec)",
+        normale: "var(--acc)",
+        chargee: "var(--warn)",
+        saturee: "var(--dep)"
+    };
+
+    if(!blocs.length){
+
+        el.innerHTML = `
+            <div style="
+                font-size:13px;
+                font-weight:700;
+                color:var(--rec);
+            ">
+                ✅ Rien à ajouter automatiquement pour l’instant
+            </div>
+
+            ${
+                nonPlaces.length
+                ? `
+                    <div style="
+                        font-size:11px;
+                        color:var(--mut);
+                        margin-top:5px;
+                    ">
+                        ${nonPlaces.length} élément${nonPlaces.length > 1 ? "s" : ""}
+                        reste${nonPlaces.length > 1 ? "nt" : ""}
+                        disponible${nonPlaces.length > 1 ? "s" : ""}
+                        pour plus tard.
+                    </div>
+                `
+                : ""
+            }
+        `;
+
+        return;
+    }
+
+    el.innerHTML = `
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:12px;
+            flex-wrap:wrap;
+        ">
+
+            <div>
+
+                <div style="
+                    font-size:13px;
+                    font-weight:800;
+                    color:${couleursCharge[charge.niveau]};
+                ">
+                    ${labelsCharge[charge.niveau]}
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    margin-top:4px;
+                ">
+                    ${Math.round(charge.minutesLibres / 60 * 10) / 10} h libres aujourd’hui
+                    · ${blocs.length} bloc${blocs.length > 1 ? "s" : ""} proposé${blocs.length > 1 ? "s" : ""}
+                    · ${dureeProposee}
+                </div>
+
+            </div>
+
+            ${
+                nonPlaces.length
+                ? `
+                    <div style="
+                        font-size:10px;
+                        color:var(--mut);
+                        background:var(--bg2);
+                        padding:6px 10px;
+                        border-radius:999px;
+                    ">
+                        ${nonPlaces.length} à laisser pour plus tard
+                    </div>
+                `
+                : ""
+            }
+
+        </div>
+    `;
 }
 
 async function genererPlanningIA(){
