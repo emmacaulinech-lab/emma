@@ -22303,13 +22303,13 @@ function getSousTachesDues(action){
                 );
 
             const detectee =
-                zone &&
-                Array.isArray(
-                    DB.journal.etatPieces?.[zone.id]?.tachesDetectees
-                ) &&
-                DB.journal.etatPieces[zone.id]
-                    .tachesDetectees
-                    .includes(st.id);
+    zone &&
+    Array.isArray(
+        DB.journal.etatPieces?.[zone.id]?.tachesValidees
+    ) &&
+    DB.journal.etatPieces[zone.id]
+        .tachesValidees
+        .includes(st.id);
 
             const forcee =
                 (DB.journal.tachesForcees?.[jourRef] || [])
@@ -24560,11 +24560,11 @@ function calculerScoreTacheJournal(zone, action, st, date){
         DB.journal.etatPieces?.[zone.id];
 
     const detecteeParPhoto =
-        !!(
-            etatPiece &&
-            Array.isArray(etatPiece.tachesDetectees) &&
-            etatPiece.tachesDetectees.includes(st.id)
-        );
+    !!(
+        etatPiece &&
+        Array.isArray(etatPiece.tachesValidees) &&
+        etatPiece.tachesValidees.includes(st.id)
+    );
 
 
     // =========================
@@ -24687,7 +24687,7 @@ function calculerScoreTacheJournal(zone, action, st, date){
 
         // Une tâche réellement observée
         // doit fortement remonter.
-        score += 40;
+        score += 80;
 
         score +=
             impactVisuel * 7;
@@ -24999,15 +24999,15 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
             DB.journal.etatPieces?.[zone.id];
 
         const detecteeParPhoto =
-            !!(
-                etatPiece &&
-                Array.isArray(
-                    etatPiece.tachesDetectees
-                ) &&
-                etatPiece.tachesDetectees.includes(
-                    st.id
-                )
-            );
+    !!(
+        etatPiece &&
+        Array.isArray(
+            etatPiece.tachesValidees
+        ) &&
+        etatPiece.tachesValidees.includes(
+            st.id
+        )
+    );
 
 
         // =========================
@@ -28098,6 +28098,9 @@ Réponds UNIQUEMENT en JSON valide :
                 tachesDetectees:
                     idsDetectes,
 
+               tachesValidees:
+    [],
+
                 resume:
                     String(
                         analyse.resume || ""
@@ -28112,19 +28115,13 @@ Réponds UNIQUEMENT en JSON valide :
 
             await saveAll();
 
+// =========================
+// VALIDATION DU SCAN
+// =========================
 
-            // =========================
-            // RAFRAÎCHISSEMENT
-            // =========================
-
-            renderJAujourdhui();
-
-
-            toast(
-                idsDetectes.length
-                    ? `📸 ${idsDetectes.length} action${idsDetectes.length > 1 ? "s" : ""} détectée${idsDetectes.length > 1 ? "s" : ""}`
-                    : `✨ ${zone.nom} semble nickel`
-            );
+ouvrirValidationScanJournal(
+    zone.id
+);
 
 
         }catch(error){
@@ -28144,6 +28141,297 @@ Réponds UNIQUEMENT en JSON valide :
 
 
     input.click();
+}
+
+function ouvrirValidationScanJournal(zoneId){
+
+    const zone =
+        DB.journal.zones.find(
+            z => z.id === zoneId
+        );
+
+    const etat =
+        DB.journal.etatPieces?.[zoneId];
+
+    if(!zone || !etat) return;
+
+
+    const idsDetectes =
+        etat.tachesDetectees || [];
+
+    const taches = [];
+
+    (zone.actions || []).forEach(action => {
+
+        (action.sousTaches || []).forEach(st => {
+
+            if(idsDetectes.includes(st.id)){
+
+                taches.push({
+                    id: st.id,
+                    nom: st.nom,
+                    actionNom: action.nom
+                });
+
+            }
+
+        });
+
+    });
+
+
+    document
+        .getElementById("modal-validation-scan")
+        ?.remove();
+
+
+    const html = `
+
+        <div
+            id="modal-validation-scan"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(30,20,25,.35);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:18px;
+            "
+        >
+
+            <div style="
+                width:min(520px,100%);
+                max-height:88vh;
+                overflow:auto;
+                background:white;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    font-size:10px;
+                    color:var(--acc);
+                    font-weight:800;
+                    letter-spacing:.12em;
+                ">
+                    📸 ANALYSE TERMINÉE
+                </div>
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:26px;
+                    font-weight:700;
+                    margin-top:4px;
+                ">
+                    ${zone.icon || "🏠"} ${zone.nom}
+                </div>
+
+                <div style="
+                    font-size:12px;
+                    color:var(--mut);
+                    margin:6px 0 18px;
+                    line-height:1.5;
+                ">
+                    ${etat.resume || `${taches.length} actions détectées`}
+                </div>
+
+
+                <div style="
+                    display:flex;
+                    flex-direction:column;
+                    gap:8px;
+                ">
+
+                    ${taches.length
+                        ? taches.map(t => `
+
+                            <label style="
+                                display:flex;
+                                align-items:center;
+                                gap:11px;
+                                padding:12px;
+                                border:1px solid var(--brd);
+                                border-radius:15px;
+                                cursor:pointer;
+                            ">
+
+                                <input
+                                    type="checkbox"
+                                    class="scan-tache-checkbox"
+                                    value="${t.id}"
+                                    checked
+                                >
+
+                                <div>
+                                    <div style="
+                                        font-size:12px;
+                                        font-weight:800;
+                                    ">
+                                        ${t.nom}
+                                    </div>
+
+                                    <div style="
+                                        font-size:9px;
+                                        color:var(--mut);
+                                        margin-top:2px;
+                                    ">
+                                        ${t.actionNom}
+                                    </div>
+                                </div>
+
+                            </label>
+
+                        `).join("")
+                        : `
+                            <div style="
+                                text-align:center;
+                                padding:20px;
+                                color:var(--mut);
+                                font-size:12px;
+                            ">
+                                ✨ Rien de particulier détecté
+                            </div>
+                        `
+                    }
+
+                </div>
+
+
+                <div style="
+                    display:flex;
+                    gap:8px;
+                    margin-top:18px;
+                ">
+
+                    <button
+                        class="btn bg"
+                        style="flex:1"
+                        onclick="
+                            document
+                                .getElementById('modal-validation-scan')
+                                ?.remove()
+                        "
+                    >
+                        Annuler
+                    </button>
+
+                    ${taches.length
+                        ? `
+                            <button
+                                class="btn bp"
+                                style="flex:2"
+                                onclick="validerScanJournal('${zoneId}')"
+                            >
+                                ✓ Valider ces actions
+                            </button>
+                        `
+                        : `
+                            <button
+                                class="btn bp"
+                                style="flex:2"
+                                onclick="
+                                    document
+                                        .getElementById('modal-validation-scan')
+                                        ?.remove()
+                                "
+                            >
+                                Terminer
+                            </button>
+                        `
+                    }
+
+                </div>
+
+            </div>
+
+        </div>
+    `;
+
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        html
+    );
+}
+
+async function validerScanJournal(zoneId){
+
+    const zone =
+        DB.journal.zones.find(
+            z => z.id === zoneId
+        );
+
+    const etat =
+        DB.journal.etatPieces?.[zoneId];
+
+    if(!zone || !etat){
+        return;
+    }
+
+
+    // =========================
+    // TÂCHES VALIDÉES
+    // =========================
+
+    const checkboxes =
+        document.querySelectorAll(
+            "#modal-validation-scan .scan-tache-checkbox:checked"
+        );
+
+    const idsValides =
+        Array.from(checkboxes)
+        .map(cb => cb.value);
+
+
+    etat.tachesValidees =
+        idsValides;
+
+    etat.dateValidation =
+        new Date().toISOString();
+
+
+    await saveAll();
+
+
+    // =========================
+    // FERMER LE SCAN
+    // =========================
+
+    document
+        .getElementById(
+            "modal-validation-scan"
+        )
+        ?.remove();
+
+
+    if(!idsValides.length){
+
+        toast(
+            "Aucune action du scan retenue"
+        );
+
+        renderJAujourdhui();
+
+        return;
+    }
+
+
+    toast(
+        `✓ ${idsValides.length} action${idsValides.length > 1 ? "s" : ""} prioritaire${idsValides.length > 1 ? "s" : ""}`
+    );
+
+
+    // =========================
+    // RECALCULER LE FUTUR
+    // =========================
+
+    // Cela ouvre une NOUVELLE proposition.
+    // La timeline ne change pas avant validation.
+    reorganiserPlanningMaintenant();
 }
 
 function ouvrirAnalyseMaisonJournal(){
@@ -28286,6 +28574,130 @@ function ouvrirAnalyseMaisonJournal(){
         "beforeend",
         html
     );
+}
+
+function reorganiserPlanningMaintenant(){
+
+    ensureJournalData();
+
+    const maintenant = new Date();
+
+    const date =
+        maintenant.toISOString().split("T")[0];
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
+    const heureActuelle =
+        String(maintenant.getHours()).padStart(2,"0") +
+        ":" +
+        String(maintenant.getMinutes()).padStart(2,"0");
+
+
+    // =========================
+    // PRÉPARATION DU JOUR
+    // =========================
+
+    if(!DB.journal.preparationJour){
+        DB.journal.preparationJour = {};
+    }
+
+    if(!DB.journal.preparationJour[date]){
+        DB.journal.preparationJour[date] = {};
+    }
+
+    const preparation =
+        DB.journal.preparationJour[date];
+
+    preparation.heureLever =
+        heureActuelle;
+
+    if(!preparation.heureFin){
+        preparation.heureFin = "22:30";
+    }
+
+    preparation.modeOrganisation =
+        "reorganisation";
+
+    preparation.genereeA =
+        maintenant.toISOString();
+
+
+    // =========================
+    // CONSERVER LE PASSÉ
+    // ET LES BLOCS FIXES
+    // =========================
+
+    const planningActuel =
+        DB.journal.planning?.[date] || [];
+
+    const blocsConserves =
+        planningActuel.filter(bloc => {
+
+            if(!bloc.heureDebut){
+                return true;
+            }
+
+            const [h,m] =
+                bloc.heureDebut
+                .split(":")
+                .map(Number);
+
+            const debut =
+                h * 60 + m;
+
+
+            // Déjà passé / commencé
+            if(debut < minuteActuelle){
+                return true;
+            }
+
+
+            // RDV / bloc manuel / verrouillé
+            if(
+                bloc.verrouille ||
+                bloc.autoPlanifie !== true
+            ){
+                return true;
+            }
+
+
+            // Le reste sera recalculé
+            return false;
+        });
+
+
+    DB.journal.planning[date] =
+        blocsConserves;
+
+
+    // =========================
+    // NOUVELLE PROPOSITION
+    // =========================
+
+    const proposition =
+        genererPlanningIntelligent(date);
+
+
+    DB.journal.propositionIntelligente =
+        DB.journal.propositionIntelligente || {};
+
+
+    DB.journal.propositionIntelligente[date] =
+        (proposition.blocs || [])
+        .map(bloc => ({
+            ...bloc,
+            selectionne: true
+        }));
+
+
+    saveAll();
+
+
+    // On ouvre le brouillon à valider,
+    // on ne modifie pas encore la timeline.
+    ouvrirValidationPlanningJournal(date);
 }
 
 function renderPreviewPlanningIntelligent(proposition){
@@ -28456,6 +28868,24 @@ function renderPreviewPlanningIntelligent(proposition){
                 `
                 : ""
             }
+
+         <div style="
+    margin-top:14px;
+    display:flex;
+    justify-content:center;
+">
+    <button
+        class="btn bg"
+        onclick="reorganiserPlanningMaintenant()"
+        style="
+            width:100%;
+            padding:12px;
+            font-weight:800;
+        "
+    >
+        ⏱️ Réorganiser à partir de maintenant
+    </button>
+</div>
 
         </div>
 
