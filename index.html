@@ -23342,6 +23342,19 @@ ${
 
                 <div id="planning-intelligent-preview"></div>
 
+               <div style="
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:10px;
+">
+    <button
+        class="btn bg"
+        onclick="activerModeEditionPlanningJournal()"
+    >
+        ✏️ Modifier la journée
+    </button>
+</div>
+
 
                 <!-- TIMELINE -->
 
@@ -29342,6 +29355,9 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
 
   const gouttiere=1;
   const blocsHtml=planning.map(p=>{
+
+     const estSelectionne =
+    blocsSelectionnesJournal.has(p.id);
     const zoneId =
     p.data?.zoneId ||
     p.zoneId;
@@ -29474,6 +29490,32 @@ const bg =
 
     return`<div ${clickHandlers} style="position:absolute;top:${top}px;left:calc(${leftPct}% + ${gouttiere}px);width:calc(${largeurPct}% - ${gouttiere*2}px);height:${hgt}px;background:${bg};border:2px solid ${couleur};border-radius:12px;padding:0 12px;cursor:pointer;z-index:${expanded?50:2};box-sizing:border-box;overflow:visible;display:flex;flex-direction:column;justify-content:center">
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;text-align:center">
+      ${modeEditionPlanningJournal ? `
+    <span
+        onclick="
+            event.stopPropagation();
+            toggleSelectionBlocPlanningJournal('${p.id}');
+        "
+        style="
+            width:22px;
+            height:22px;
+            border-radius:7px;
+            border:2px solid ${couleur};
+            background:${estSelectionne ? couleur : 'white'};
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            flex-shrink:0;
+        "
+    >
+        ${
+            estSelectionne
+                ? '<span style="color:white;font-size:12px;font-weight:900">✓</span>'
+                : ''
+        }
+    </span>
+` : ''}
         <span ${checkHandler} style="width:20px;height:20px;border-radius:50%;border:2px solid ${couleur};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>':''}</span>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:12px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.iconOverride||zone?.icon||'📌'} ${p.nom||p.customNom||'Tâche'}</div>
@@ -29575,6 +29617,414 @@ const bg =
     </div>`;
 }
 
+let modeEditionPlanningJournal = false;
+let blocsSelectionnesJournal = new Set();
+
+function activerModeEditionPlanningJournal(){
+
+    modeEditionPlanningJournal =
+        !modeEditionPlanningJournal;
+
+    if(!modeEditionPlanningJournal){
+        blocsSelectionnesJournal.clear();
+    }
+
+    renderPlanningTimeline();
+}
+
+function toggleSelectionBlocPlanningJournal(blocId){
+
+    if(blocsSelectionnesJournal.has(blocId)){
+        blocsSelectionnesJournal.delete(blocId);
+    }else{
+        blocsSelectionnesJournal.add(blocId);
+    }
+
+    renderPlanningTimeline();
+}
+
+function supprimerBlocsSelectionnesJournal(){
+
+    if(!blocsSelectionnesJournal.size) return;
+
+    const date = getJournalJour();
+    const planning = DB.journal.planning[date] || [];
+
+    DB.journal.planning[date] = planning.filter(
+        bloc => !blocsSelectionnesJournal.has(bloc.id)
+    );
+
+    blocsSelectionnesJournal.clear();
+    modeEditionPlanningJournal = false;
+
+    saveAll();
+
+renderJAujourdhui();
+}
+
+function ouvrirDecalageBlocsJournal(){
+
+    if(!blocsSelectionnesJournal.size) return;
+
+    document
+        .getElementById("modal-decalage-journal")
+        ?.remove();
+
+    const html = `
+        <div
+            id="modal-decalage-journal"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(30,20,25,.35);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:18px;
+            "
+        >
+
+            <div style="
+                width:min(440px,100%);
+                background:white;
+                border-radius:26px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:24px;
+                    font-weight:700;
+                    margin-bottom:5px;
+                ">
+                    ⏰ Décaler les tâches
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    margin-bottom:18px;
+                ">
+                    ${blocsSelectionnesJournal.size} bloc(s) sélectionné(s)
+                </div>
+
+                <div style="
+                    display:grid;
+                    grid-template-columns:1fr 1fr;
+                    gap:8px;
+                    margin-bottom:14px;
+                ">
+
+                    <button
+                        class="btn bg"
+                        onclick="decalerBlocsJournal(30)"
+                    >
+                        + 30 min
+                    </button>
+
+                    <button
+                        class="btn bg"
+                        onclick="decalerBlocsJournal(60)"
+                    >
+                        + 1 h
+                    </button>
+
+                    <button
+                        class="btn bg"
+                        onclick="decalerBlocsJournal(120)"
+                    >
+                        + 2 h
+                    </button>
+
+                    <button
+                        class="btn bg"
+                        onclick="decalerBlocsJournalVersDemain()"
+                    >
+                        Demain
+                    </button>
+
+                </div>
+
+                <div class="fr">
+                    <label>À partir de</label>
+                    <input
+                        type="time"
+                        id="decalage-journal-heure"
+                    >
+                </div>
+
+                <button
+                    class="btn bd"
+                    onclick="decalerBlocsJournalDepuisHeure()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        margin-bottom:8px;
+                    "
+                >
+                    Déplacer à cette heure
+                </button>
+
+                <button
+                    class="btn bg"
+                    onclick="document.getElementById('modal-decalage-journal')?.remove()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                    "
+                >
+                    Annuler
+                </button>
+
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        html
+    );
+}
+
+async function decalerBlocsJournal(minutes){
+
+    if(!blocsSelectionnesJournal.size) return;
+
+    const date = getJournalJour();
+    const planning = DB.journal.planning[date] || [];
+
+    planning.forEach(bloc => {
+
+        if(!blocsSelectionnesJournal.has(bloc.id)){
+            return;
+        }
+
+        // On récupère l'heure actuelle du bloc
+        const heure =
+            bloc.heureDebut ||
+            bloc.heure ||
+            bloc.debut;
+
+        if(!heure) return;
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        const total =
+            h * 60 + m + minutes;
+
+        const nouvelleHeure =
+            String(Math.floor(total / 60) % 24)
+                .padStart(2,"0")
+            + ":" +
+            String(total % 60)
+                .padStart(2,"0");
+
+        // On modifie le bon champ
+        if(bloc.heureDebut !== undefined){
+            bloc.heureDebut = nouvelleHeure;
+        }else if(bloc.heure !== undefined){
+            bloc.heure = nouvelleHeure;
+        }else{
+            bloc.debut = nouvelleHeure;
+        }
+
+    });
+
+    document
+        .getElementById("modal-decalage-journal")
+        ?.remove();
+
+    blocsSelectionnesJournal.clear();
+    modeEditionPlanningJournal = false;
+
+    await saveAll();
+
+    renderJAujourdhui();
+
+    toast(`Tâches décalées de ${minutes} min ⏰`);
+}
+
+async function decalerBlocsJournalDepuisHeure(){
+
+    if(!blocsSelectionnesJournal.size) return;
+
+    const heureCible =
+        document.getElementById(
+            "decalage-journal-heure"
+        )?.value;
+
+    if(!heureCible){
+        toast("Choisis une heure");
+        return;
+    }
+
+    const date =
+        getJournalJour();
+
+    const planning =
+        DB.journal.planning[date] || [];
+
+    const selection =
+        planning
+        .filter(bloc =>
+            blocsSelectionnesJournal.has(bloc.id)
+        )
+        .filter(bloc =>
+            bloc.heureDebut
+        )
+        .sort((a,b) =>
+            a.heureDebut.localeCompare(
+                b.heureDebut
+            )
+        );
+
+    if(!selection.length){
+        return;
+    }
+
+    const toMin = heure => {
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+    const toHeure = minutes => {
+
+        const h =
+            Math.floor(minutes / 60);
+
+        const m =
+            minutes % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+
+    const ancienDebut =
+        toMin(
+            selection[0].heureDebut
+        );
+
+    const nouveauDebut =
+        toMin(
+            heureCible
+        );
+
+    const decalage =
+        nouveauDebut -
+        ancienDebut;
+
+
+    selection.forEach(bloc => {
+
+        const debut =
+            toMin(bloc.heureDebut);
+
+        const fin =
+            toMin(bloc.heureFin);
+
+        bloc.heureDebut =
+            toHeure(
+                debut + decalage
+            );
+
+        bloc.heureFin =
+            toHeure(
+                fin + decalage
+            );
+
+    });
+
+
+    document
+        .getElementById(
+            "modal-decalage-journal"
+        )
+        ?.remove();
+
+    blocsSelectionnesJournal.clear();
+    modeEditionPlanningJournal = false;
+
+    await saveAll();
+
+    renderJAujourdhui();
+
+    toast(
+        `Planning déplacé à partir de ${heureCible} ⏰`
+    );
+}
+
+async function decalerBlocsJournalVersDemain(){
+
+    if(!blocsSelectionnesJournal.size) return;
+
+    const date = getJournalJour();
+    const planning = DB.journal.planning[date] || [];
+
+    const demain = new Date(date + "T12:00:00");
+    demain.setDate(demain.getDate() + 1);
+
+    const dateDemain =
+        demain.toISOString().split("T")[0];
+
+    if(!DB.journal.planning[dateDemain]){
+        DB.journal.planning[dateDemain] = [];
+    }
+
+    const aDeplacer = planning.filter(bloc =>
+        blocsSelectionnesJournal.has(bloc.id)
+    );
+
+    // On retire les tâches d'aujourd'hui
+    DB.journal.planning[date] = planning.filter(bloc =>
+        !blocsSelectionnesJournal.has(bloc.id)
+    );
+
+    // On les prépare pour demain
+    aDeplacer.forEach(bloc => {
+
+        const nouveauBloc = {
+            ...bloc,
+            date: dateDemain,
+            flexible: true
+        };
+
+        delete nouveauBloc.heureDebut;
+        delete nouveauBloc.heureFin;
+        delete nouveauBloc.heure;
+        delete nouveauBloc.debut;
+
+        DB.journal.planning[dateDemain].push(
+            nouveauBloc
+        );
+    });
+
+    document
+        .getElementById("modal-decalage-journal")
+        ?.remove();
+
+    blocsSelectionnesJournal.clear();
+    modeEditionPlanningJournal = false;
+
+    await saveAll();
+
+    renderJAujourdhui();
+
+    toast(
+        `${aDeplacer.length} tâche(s) déplacée(s) à demain`
+    );
+}
+
 function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
@@ -29587,8 +30037,65 @@ function renderPlanningTimeline(){
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
   const estAujourdhui=today===new Date().toISOString().split('T')[0];
-  el.innerHTML=genererHtmlTimeline(planning,dispos,faitMap,{clickable:true,estAujourdhui});
-}
+const barreEdition =
+    modeEditionPlanningJournal
+    ? `
+        <div style="
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+            margin-bottom:10px;
+            padding:10px;
+            background:white;
+            border:1px solid var(--brd);
+            border-radius:14px;
+        ">
+
+            <button
+                class="btn br"
+                onclick="supprimerBlocsSelectionnesJournal()"
+                ${!blocsSelectionnesJournal.size ? "disabled" : ""}
+            >
+                🗑 Supprimer
+            </button>
+
+            <button
+                class="btn bg"
+                onclick="ouvrirDecalageBlocsJournal()"
+                ${!blocsSelectionnesJournal.size ? "disabled" : ""}
+            >
+                ⏰ Décaler
+            </button>
+
+            <button
+                class="btn bg"
+                onclick="reorganiserPlanningMaintenant()"
+            >
+                ✨ Réorganiser
+            </button>
+
+            <button
+                class="btn bg"
+                onclick="activerModeEditionPlanningJournal()"
+            >
+                Annuler
+            </button>
+
+        </div>
+    `
+    : "";
+
+el.innerHTML =
+    barreEdition +
+    genererHtmlTimeline(
+        planning,
+        dispos,
+        faitMap,
+        {
+            clickable:true,
+            estAujourdhui
+        }
+    );}
 
 function scrollVersMaintenant(){
   setTimeout(()=>{
