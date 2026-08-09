@@ -29793,59 +29793,180 @@ async function decalerBlocsJournal(minutes){
 
     if(!blocsSelectionnesJournal.size) return;
 
-    const date = getJournalJour();
-    const planning = DB.journal.planning[date] || [];
+    const date =
+        getJournalJour();
 
-    planning.forEach(bloc => {
+    const planning =
+        DB.journal.planning[date] || [];
 
-        if(!blocsSelectionnesJournal.has(bloc.id)){
-            return;
-        }
-
-        // On récupère l'heure actuelle du bloc
-        const heure =
-            bloc.heureDebut ||
-            bloc.heure ||
-            bloc.debut;
-
-        if(!heure) return;
-
+    const toMin = heure => {
         const [h,m] =
             heure.split(":").map(Number);
 
-        const total =
-            h * 60 + m + minutes;
+        return h * 60 + m;
+    };
 
-        const nouvelleHeure =
-            String(Math.floor(total / 60) % 24)
-                .padStart(2,"0")
-            + ":" +
-            String(total % 60)
-                .padStart(2,"0");
+    const toHeure = total => {
 
-        // On modifie le bon champ
-        if(bloc.heureDebut !== undefined){
-            bloc.heureDebut = nouvelleHeure;
-        }else if(bloc.heure !== undefined){
-            bloc.heure = nouvelleHeure;
-        }else{
-            bloc.debut = nouvelleHeure;
+        total =
+            Math.max(0,total);
+
+        const h =
+            Math.floor(total / 60) % 24;
+
+        const m =
+            total % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+
+    // =========================
+    // 1. DÉCALER LA SÉLECTION
+    // =========================
+
+    planning.forEach(bloc => {
+
+        if(
+            !blocsSelectionnesJournal
+                .has(bloc.id)
+        ){
+            return;
         }
+
+        if(
+            !bloc.heureDebut ||
+            !bloc.heureFin
+        ){
+            return;
+        }
+
+        bloc.heureDebut =
+            toHeure(
+                toMin(bloc.heureDebut) +
+                minutes
+            );
+
+        bloc.heureFin =
+            toHeure(
+                toMin(bloc.heureFin) +
+                minutes
+            );
 
     });
 
+
+    // =========================
+    // 2. RECALER LES CHEVAUCHEMENTS
+    // =========================
+
+    const tries =
+        [...planning]
+        .filter(bloc =>
+            bloc.heureDebut &&
+            bloc.heureFin
+        )
+        .sort((a,b) =>
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
+        );
+
+
+    for(
+        let i = 1;
+        i < tries.length;
+        i++
+    ){
+
+        const precedent =
+            tries[i - 1];
+
+        const courant =
+            tries[i];
+
+
+        const finPrecedent =
+            toMin(
+                precedent.heureFin
+            );
+
+        const debutCourant =
+            toMin(
+                courant.heureDebut
+            );
+
+
+        if(
+            debutCourant >=
+            finPrecedent
+        ){
+            continue;
+        }
+
+
+        // Bloc fixe :
+        // on ne le déplace pas.
+        if(
+            courant.verrouille === true ||
+            courant.autoPlanifie !== true
+        ){
+            continue;
+        }
+
+
+        const duree =
+            toMin(courant.heureFin) -
+            debutCourant;
+
+
+        courant.heureDebut =
+            toHeure(
+                finPrecedent
+            );
+
+        courant.heureFin =
+            toHeure(
+                finPrecedent +
+                duree
+            );
+
+    }
+
+
+    // =========================
+    // 3. TRI FINAL
+    // =========================
+
+    planning.sort((a,b) =>
+        (a.heureDebut || "")
+        .localeCompare(
+            b.heureDebut || ""
+        )
+    );
+
+
     document
-        .getElementById("modal-decalage-journal")
+        .getElementById(
+            "modal-decalage-journal"
+        )
         ?.remove();
 
     blocsSelectionnesJournal.clear();
-    modeEditionPlanningJournal = false;
+
+    modeEditionPlanningJournal =
+        false;
 
     await saveAll();
 
     renderJAujourdhui();
 
-    toast(`Tâches décalées de ${minutes} min ⏰`);
+    toast(
+        `Tâches décalées de ${minutes} min ⏰`
+    );
 }
 
 async function decalerBlocsJournalDepuisHeure(){
