@@ -11527,7 +11527,26 @@ async function copyEmailToClipboard(){
 
     const aujourdHui = new Date().toISOString().split("T")[0];
 
+    DB.historiqueGlow = DB.historiqueGlow || [];
+      
     if(!DB.glow || DB.glow.date !== aujourdHui){
+
+   if(DB.glow?.date){
+
+    const indexExistant = DB.historiqueGlow.findIndex(
+        item => item.date === DB.glow.date
+    );
+
+    const jourArchive = {
+        ...DB.glow
+    };
+
+    if(indexExistant >= 0){
+        DB.historiqueGlow[indexExistant] = jourArchive;
+    }else{
+        DB.historiqueGlow.push(jourArchive);
+    }
+}
 
         DB.glow = {
             date: aujourdHui,
@@ -12670,6 +12689,41 @@ const illustration =
 
     document.getElementById("glow-content").innerHTML = `
 
+<!-- NAVIGATION GLOW -->
+<div style="
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:6px;
+    margin-bottom:18px;
+">
+
+    <button class="btn bd" onclick="renderGlowModule()">
+        ✨ Accueil
+    </button>
+
+    <button class="btn bg" onclick="renderGlowHydratation()">
+        💧 Eau
+    </button>
+
+    <button class="btn bg" onclick="renderGlowNutrition()">
+        🍽️ Nutrition
+    </button>
+
+    <button class="btn bg" onclick="renderGlowSommeil()">
+        🌙 Sommeil
+    </button>
+
+    <button class="btn bg" onclick="renderGlowEvolution()">
+        📈 Évolution
+    </button>
+
+    <button class="btn bg" onclick="renderGlowSport()">
+        🏃 Sport
+    </button>
+
+</div>
+
         <!-- GLOW SCORE -->
         <div style="
             background:rgba(255,255,255,.60);
@@ -13148,6 +13202,191 @@ const illustration =
             <div style="font-size:13px;color:var(--mut)">
                 ${eau} / 8 verres
             </div>
+
+        </div>
+    `;
+}
+
+async function renderGlowHydratation(){
+
+    initialiserGlowDuJour();
+
+    const eau = DB.glow.eau || 0;
+    const objectif = 8;
+    const pourcentage = Math.round((eau / objectif) * 100);
+
+    const historique = (DB.historiqueGlow || [])
+        .filter(jour => jour?.date)
+        .sort((a,b) => b.date.localeCompare(a.date))
+        .slice(0,7);
+
+    let ronds = "";
+
+    for(let i = 1; i <= objectif; i++){
+
+        ronds += `
+            <span
+                onclick="setEau(${i}, 'hydratation')"
+                style="
+                    cursor:pointer;
+                    font-size:32px;
+                    user-select:none;
+                "
+            >
+                ${i <= eau ? "🩷" : "🤍"}
+            </span>
+        `;
+    }
+
+    document.getElementById("glow-content").innerHTML = `
+
+        <!-- NAVIGATION GLOW -->
+        <div style="
+            display:flex;
+            gap:8px;
+            overflow-x:auto;
+            padding-bottom:6px;
+            margin-bottom:18px;
+        ">
+
+            <button class="btn bg" onclick="renderGlowModule()">
+                ✨ Accueil
+            </button>
+
+            <button class="btn bd">
+                💧 Eau
+            </button>
+
+            <button class="btn bg" onclick="renderGlowNutrition()">
+                🍽️ Nutrition
+            </button>
+
+            <button class="btn bg" onclick="renderGlowSommeil()">
+                🌙 Sommeil
+            </button>
+
+            <button class="btn bg" onclick="renderGlowEvolution()">
+                📈 Évolution
+            </button>
+
+            <button class="btn bg" onclick="renderGlowSport()">
+                🏃 Sport
+            </button>
+
+        </div>
+
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+            margin-bottom:18px;
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:18px;
+            ">
+
+                <h2 style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:26px;
+                ">
+                    💧 Hydratation
+                </h2>
+
+                <div style="
+                    font-weight:800;
+                    color:var(--acc);
+                ">
+                    ${eau * 250} mL / 2 L
+                </div>
+
+            </div>
+
+            <div style="
+                display:flex;
+                gap:6px;
+                flex-wrap:wrap;
+                margin-bottom:18px;
+            ">
+                ${ronds}
+            </div>
+
+            <div style="
+                height:12px;
+                background:#F4EEF1;
+                border-radius:999px;
+                overflow:hidden;
+                margin-bottom:8px;
+            ">
+                <div style="
+                    width:${pourcentage}%;
+                    height:100%;
+                    background:linear-gradient(90deg,#F8B7C8,#D9798C);
+                    border-radius:999px;
+                "></div>
+            </div>
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                font-size:12px;
+                color:var(--mut);
+            ">
+                <span>${eau} / 8 verres</span>
+                <span>${pourcentage}%</span>
+            </div>
+
+        </div>
+
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+        ">
+
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:22px;
+                margin-bottom:16px;
+            ">
+                🕐 7 derniers jours
+            </h2>
+
+            ${
+                historique.length
+                    ? historique.map(jour => {
+
+                        const nb = Number(jour.eau || 0);
+
+                        return `
+                            <div style="
+                                display:flex;
+                                justify-content:space-between;
+                                padding:10px 0;
+                                border-bottom:1px solid rgba(0,0,0,.05);
+                            ">
+                                <span>${jour.date}</span>
+
+                                <strong style="color:var(--acc)">
+                                    ${nb * 250} mL
+                                </strong>
+                            </div>
+                        `;
+
+                    }).join("")
+                    : `
+                        <div style="color:var(--mut);font-size:13px">
+                            Pas encore d’historique.
+                        </div>
+                    `
+            }
 
         </div>
     `;
@@ -13798,7 +14037,7 @@ DB.glow.historiqueSeances.push({
     toast("✨ Séance enregistrée");
 }
 
-async function setEau(nb){
+async function setEau(nb, page = "accueil"){
 
     initialiserGlowDuJour();
 
@@ -13806,15 +14045,19 @@ async function setEau(nb){
         ? nb - 1
         : nb;
 
-    DB.glow.glowScore = Math.round(
-        (DB.glow.eau / 8) * 100
-    );
+    DB.glow.glowScore = calculGlowScore().total;
 
     await saveAll();
 
-    renderGlowModule();
-}
+    renderGlowAccueil();
 
+    if(page === "hydratation"){
+        renderGlowHydratation();
+    }else{
+        renderGlowModule();
+    }
+}
+   
 async function setHumeur(humeur){
 
     initialiserGlowDuJour();
