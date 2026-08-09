@@ -23474,20 +23474,428 @@ function organiserAujourdhuiJournal(){
         genererPlanningIntelligent(date);
 
     DB.journal.propositionIntelligente =
-        DB.journal.propositionIntelligente || {};
+    DB.journal.propositionIntelligente || {};
 
-    DB.journal.propositionIntelligente[date] =
-        proposition.blocs || [];
+DB.journal.propositionIntelligente[date] =
+    (proposition.blocs || []).map(bloc => ({
+        ...bloc,
+        selectionne: true
+    }));
 
+saveAll();
+
+ouvrirValidationPlanningJournal(date);
+}
+
+function ouvrirValidationPlanningJournal(date){
+
+    const proposition =
+        DB.journal.propositionIntelligente?.[date] || [];
+
+    if(!proposition.length){
+        toast("Aucune proposition à afficher");
+        return;
+    }
+
+    document
+        .getElementById("modal-validation-planning")
+        ?.remove();
+
+    const html = `
+        <div
+            id="modal-validation-planning"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:9999;
+                background:rgba(30,20,25,.30);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:18px;
+            "
+        >
+
+            <div style="
+                width:min(620px,100%);
+                max-height:90vh;
+                overflow-y:auto;
+                background:#fffafc;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:18px;
+                ">
+
+                    <div>
+                        <div style="
+                            font-size:10px;
+                            color:var(--acc);
+                            font-weight:800;
+                            letter-spacing:.12em;
+                        ">
+                            ✨ PROPOSITION EMMA
+                        </div>
+
+                        <div style="
+                            font-size:24px;
+                            font-family:'Cormorant Garamond',serif;
+                            font-weight:700;
+                            margin-top:4px;
+                        ">
+                            Organiser ma journée
+                        </div>
+                    </div>
+
+                    <button
+                        class="btn bg"
+                        onclick="document.getElementById('modal-validation-planning')?.remove()"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+                <div id="liste-validation-planning">
+
+                    ${proposition.map((bloc,index) => `
+
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                            padding:12px;
+                            border-radius:16px;
+                            background:white;
+                            margin-bottom:8px;
+                            border:1px solid var(--brd);
+                        ">
+
+                            <input
+                                type="checkbox"
+                                ${bloc.selectionne !== false ? "checked" : ""}
+                                onchange="toggleBlocPropositionJournal('${date}',${index},this.checked)"
+                            >
+
+                            <div style="flex:1">
+
+                                <div style="
+                                    font-size:12px;
+                                    font-weight:800;
+                                ">
+                                    ${bloc.iconOverride || "✨"}
+                                    ${bloc.nom}
+                                </div>
+
+                                <div style="
+                                    font-size:10px;
+                                    color:var(--mut);
+                                    margin-top:3px;
+                                ">
+                                    ${bloc.heureDebut}
+                                    →
+                                    ${bloc.heureFin}
+                                    ·
+                                    ${bloc.duree} min
+                                </div>
+
+                            </div>
+
+                            <button
+                                class="btn bg bsm"
+                                onclick="ouvrirEditionBlocPropositionJournal('${date}','${bloc.id}')"
+                            >
+                                Modifier
+                            </button>
+
+                        </div>
+
+                    `).join("")}
+
+                </div>
+
+                <button
+                    class="btn bd"
+                    onclick="validerPropositionJournal('${date}')"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        margin-top:14px;
+                        min-height:48px;
+                    "
+                >
+                    ✓ Valider la sélection
+                </button>
+
+            </div>
+
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        html
+    );
+}
+
+function toggleBlocPropositionJournal(date,index,checked){
+
+    const proposition =
+        DB.journal.propositionIntelligente?.[date];
+
+    if(!proposition?.[index]){
+        return;
+    }
+
+    proposition[index].selectionne =
+        checked;
 
     saveAll();
+}
+
+function ouvrirEditionBlocPropositionJournal(date,blocId){
+
+    const proposition =
+        DB.journal.propositionIntelligente?.[date] || [];
+
+    const bloc =
+        proposition.find(b =>
+            b.id === blocId
+        );
+
+    if(!bloc){
+        return;
+    }
+
+    document
+        .getElementById("modal-edition-proposition-journal")
+        ?.remove();
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        `
+        <div
+            id="modal-edition-proposition-journal"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(30,20,25,.30);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:flex-end;
+                justify-content:center;
+                padding:16px;
+            "
+        >
+
+            <div style="
+                width:min(480px,100%);
+                background:#fffafc;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    font-size:18px;
+                    font-weight:800;
+                    margin-bottom:18px;
+                ">
+                    ${bloc.iconOverride || "✨"}
+                    ${bloc.nom}
+                </div>
+
+                <div class="g2">
+
+                    <div class="fr">
+                        <label>Début</label>
+
+                        <input
+                            id="edit-journal-debut"
+                            type="time"
+                            value="${bloc.heureDebut}"
+                        >
+                    </div>
+
+                    <div class="fr">
+                        <label>Fin</label>
+
+                        <input
+                            id="edit-journal-fin"
+                            type="time"
+                            value="${bloc.heureFin}"
+                        >
+                    </div>
+
+                </div>
+
+                <button
+                    class="btn bd"
+                    onclick="sauverEditionBlocPropositionJournal('${date}','${blocId}')"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        margin-bottom:8px;
+                    "
+                >
+                    ✓ Enregistrer
+                </button>
+
+                <button
+                    class="btn bg"
+                    onclick="document.getElementById('modal-edition-proposition-journal')?.remove()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                    "
+                >
+                    Annuler
+                </button>
+
+            </div>
+
+        </div>
+        `
+    );
+}
+
+function sauverEditionBlocPropositionJournal(date,blocId){
+
+    const proposition =
+        DB.journal.propositionIntelligente?.[date] || [];
+
+    const bloc =
+        proposition.find(b =>
+            b.id === blocId
+        );
+
+    if(!bloc){
+        return;
+    }
+
+    const debut =
+        document.getElementById(
+            "edit-journal-debut"
+        )?.value;
+
+    const fin =
+        document.getElementById(
+            "edit-journal-fin"
+        )?.value;
+
+    if(
+        !debut ||
+        !fin ||
+        fin <= debut
+    ){
+        toast("Vérifie les horaires");
+        return;
+    }
+
+    bloc.heureDebut = debut;
+    bloc.heureFin = fin;
+
+    saveAll();
+
+    document
+        .getElementById(
+            "modal-edition-proposition-journal"
+        )
+        ?.remove();
+
+    document
+        .getElementById(
+            "modal-validation-planning"
+        )
+        ?.remove();
+
+    ouvrirValidationPlanningJournal(date);
+}
+
+function validerPropositionJournal(date){
+
+    const proposition =
+        DB.journal.propositionIntelligente?.[date] || [];
+
+    const blocsValides =
+        proposition.filter(bloc =>
+            bloc.selectionne !== false
+        );
+
+    if(!blocsValides.length){
+        toast("Sélectionne au moins un bloc");
+        return;
+    }
+
+    if(!DB.journal.planning){
+        DB.journal.planning = {};
+    }
+
+    if(!DB.journal.planning[date]){
+        DB.journal.planning[date] = [];
+    }
+
+
+    // On évite les doublons si tu valides deux fois.
+    const idsExistants =
+        new Set(
+            DB.journal.planning[date]
+            .map(b => b.id)
+        );
+
+    blocsValides.forEach(bloc => {
+
+        if(idsExistants.has(bloc.id)){
+            return;
+        }
+
+        DB.journal.planning[date].push({
+
+            ...bloc,
+
+            selectionne: undefined,
+
+            autoPlanifie: true,
+
+            valide: true
+
+        });
+
+    });
+
+
+    DB.journal.planning[date].sort(
+        (a,b) =>
+            (a.heureDebut || "")
+            .localeCompare(
+                b.heureDebut || ""
+            )
+    );
+
+
+    // Le brouillon disparaît une fois validé.
+    DB.journal.propositionIntelligente[date] = [];
+
+    saveAll();
+
+    document
+        .getElementById(
+            "modal-validation-planning"
+        )
+        ?.remove();
 
     renderJAujourdhui();
 
     toast(
-        proposition.blocs?.length
-            ? `✨ ${proposition.blocs.length} blocs proposés pour le reste de ta journée`
-            : "Aucun bloc à proposer pour le moment"
+        `✓ ${blocsValides.length} bloc(s) ajoutés à la timeline`
     );
 }
 
