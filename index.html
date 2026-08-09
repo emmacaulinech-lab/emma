@@ -28396,7 +28396,7 @@ const bg =
       <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
         ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
       </div>
-      <div id="timeline-clickzone" ${clickable?`onmousemove="handleTimelineHover(event)" onmouseleave="handleTimelineLeave()" onclick="handleTimelineClick(event)"`:''} style="flex:1;position:relative;height:${hauteurTotale}px;background:var(--bg2);${clickable?'cursor:pointer':''}">
+      <div id="timeline-clickzone" ${clickable?`onmousemove="handleTimelineHover(event)" onmouseleave="handleTimelineLeave()" onclick="handleTimelineClick(event)"`:''} style="flex:1;position:relative;height:${hauteurTotale}px;background:white;${clickable?'cursor:pointer':''}">
         ${fondsDispo}
         ${blocsHtml}
         ${ligneMaintenantHtml}
