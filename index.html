@@ -23486,11 +23486,43 @@ function organiserAujourdhuiJournal(){
     const proposition =
         genererPlanningIntelligent(date);
 
+   // =========================
+// 🧹 ANTI-DOUBLONS
+// =========================
+
+const idsDejaVus =
+    new Set();
+
+const blocsSansDoublons =
+    (proposition.blocs || [])
+    .filter(bloc => {
+
+        // On privilégie l'identifiant réel
+        // de la sous-tâche quand il existe.
+        const cle =
+            bloc.data?.sousTacheId ||
+            bloc.sousTacheId ||
+            bloc.id;
+
+        if(!cle){
+            return true;
+        }
+
+        if(idsDejaVus.has(cle)){
+            return false;
+        }
+
+        idsDejaVus.add(cle);
+
+        return true;
+    });
+
     DB.journal.propositionIntelligente =
     DB.journal.propositionIntelligente || {};
 
 DB.journal.propositionIntelligente[date] =
-    (proposition.blocs || []).map(bloc => ({
+    blocsSansDoublons
+    .map(bloc => ({
         ...bloc,
         selectionne: true
     }));
