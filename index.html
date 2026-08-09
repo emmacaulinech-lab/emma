@@ -13451,6 +13451,51 @@ function calculerAlimentGlow(id, quantite){
     };
 }
 
+function analyserRepasGlow(aliments){
+
+    const categories = new Set(
+        (aliments || []).map(a => a.categorie)
+    );
+
+    const manque = [];
+
+    if(!categories.has("proteine")){
+        manque.push("une source de protéines");
+    }
+
+    if(!categories.has("legume")){
+        manque.push("des légumes");
+    }
+
+    if(
+        !categories.has("feculent") &&
+        !categories.has("fruit")
+    ){
+        manque.push("une source d’énergie");
+    }
+
+    if(!categories.has("gras")){
+        manque.push("un peu de bonnes matières grasses");
+    }
+
+    if(!manque.length){
+
+        return {
+            statut: "equilibre",
+            titre: "Repas bien équilibré ✨",
+            message:
+                "Tu as une bonne base : protéines, légumes, énergie et matières grasses."
+        };
+    }
+
+    return {
+        statut: "ameliorer",
+        titre: "On peut l’équilibrer encore un peu",
+        message:
+            "Tu peux ajouter " + manque.join(", ") + "."
+    };
+}
+
 function renderGlowNutrition(){
 
     initialiserGlowDuJour();
@@ -13751,6 +13796,34 @@ function renderGlowNutrition(){
                                     ${r.calories ? `${Math.round(r.calories)} kcal` : ""}
                                     ${r.proteines ? ` · ${Math.round(r.proteines)} g protéines` : ""}
                                 </div>
+                                ${r.analyse ? `
+
+    <div style="
+        margin-top:10px;
+        padding:12px 14px;
+        background:rgba(255,255,255,.55);
+        border-radius:14px;
+    ">
+
+        <div style="
+            font-size:12px;
+            font-weight:800;
+            margin-bottom:3px;
+        ">
+            ${r.analyse.titre}
+        </div>
+
+        <div style="
+            font-size:11px;
+            color:var(--mut);
+            line-height:1.5;
+        ">
+            ${r.analyse.message}
+        </div>
+
+    </div>
+
+` : ""}
                             `
                             : ""
                         }
@@ -14129,6 +14202,9 @@ async function enregistrerRepasGlow(type){
     };
 
     DB.glow.nutrition.repas.push(nouveauRepas);
+
+   nouveauRepas.analyse =
+    analyserRepasGlow(nouveauRepas.aliments);
 
     DB.glow.glowScore = calculGlowScore().total;
 
