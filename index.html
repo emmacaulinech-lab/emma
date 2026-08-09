@@ -18751,37 +18751,335 @@ function calculerActionsDues(){
   return actionsDues;
 }
 
+function getChargeJournee(date){
+
+    ensureJournalData();
+
+    const planning =
+        DB.journal.planning?.[date] || [];
+
+    const dispos =
+        DB.journal.disponibilites?.[date] || [];
+
+    const toMin = heure => {
+        const [h,m] = heure.split(":").map(Number);
+        return h * 60 + m;
+    };
+
+
+    // =========================
+    // TEMPS TOTAL DISPONIBLE
+    // =========================
+
+    const minutesDisponibles =
+        dispos.reduce((total,d) => {
+
+            return total +
+                Math.max(
+                    0,
+                    toMin(d.fin) -
+                    toMin(d.debut)
+                );
+
+        },0);
+
+
+    // =========================
+    // TEMPS DÉJÀ BLOQUÉ
+    // =========================
+
+    const minutesOccupees =
+        planning
+            .filter(p =>
+                p.type !== "tempsLibre"
+            )
+            .reduce((total,p) => {
+
+                return total +
+                    Math.max(
+                        0,
+                        toMin(p.heureFin) -
+                        toMin(p.heureDebut)
+                    );
+
+            },0);
+
+
+    const minutesLibres =
+        Math.max(
+            0,
+            minutesDisponibles -
+            minutesOccupees
+        );
+
+
+    const tauxOccupation =
+        minutesDisponibles > 0
+            ? minutesOccupees /
+              minutesDisponibles
+            : 0;
+
+
+    // =========================
+    // NIVEAU DE CHARGE
+    // =========================
+
+    let niveau = "normale";
+
+    if(
+        tauxOccupation >= 0.80 ||
+        minutesLibres < 90
+    ){
+        niveau = "saturee";
+    }
+
+    else if(
+        tauxOccupation >= 0.60 ||
+        minutesLibres < 180
+    ){
+        niveau = "chargee";
+    }
+
+    else if(
+        tauxOccupation < 0.35 &&
+        minutesLibres >= 300
+    ){
+        niveau = "legere";
+    }
+
+
+    return {
+        niveau,
+        minutesDisponibles,
+        minutesOccupees,
+        minutesLibres,
+        tauxOccupation
+    };
+}
+
 function getElementsJourIntelligents(date){
 
     ensureJournalData();
 
     const elements = [];
 
-    // =========================
-    // 🏠 TÂCHES MAISON / JOURNAL
-    // =========================
+   const charge =
+    getChargeJournee(date);
 
-    const actionsDues = calculerActionsDues();
+// =========================
+// 🏠 TÂCHES JOURNAL / MAISON
+// =========================
 
-    actionsDues.forEach(action => {
+const tachesCandidates = [];
 
-        elements.push({
-            id: "journal_" + action.id,
-            source: "journal",
-            type: action.type || "perso",
-            categorie: "maison",
-            nom: action.nom,
-            icon: "🏠",
-            duree: action.duree || 15,
-            priorite: action.priorite ?? 5,
-            flexible: true,
-            verrouille: false,
-            data: action
+// On récupère les VRAIES sous-tâches dues
+DB.journal.zones.forEach((zone, zoneIndex) => {
+
+    (zone.actions || []).forEach(action => {
+
+        const sousTachesDues =
+            getSousTachesDues(action);
+
+        sousTachesDues.forEach(st => {
+
+            let retard = 999;
+
+            if(st.dernierFait){
+
+                retard = Math.floor(
+                    (
+                        new Date(date + "T12:00:00") -
+                        new Date(st.dernierFait + "T12:00:00")
+                    ) / 86400000
+                );
+
+            }
+
+            tachesCandidates.push({
+
+                id: st.id,
+
+                zoneId: zone.id,
+                actionId: action.id,
+
+                nom: `${zone.icon} ${st.nom}`,
+
+                zoneNom: zone.nom,
+                actionNom: action.nom,
+
+                type:
+                    zone.typeDefaut || "perso",
+
+                duree:
+                    Number(st.duree || 10),
+
+                prioriteZone:
+                    zoneIndex,
+
+                retard,
+
+                frequence:
+                    Number(st.freq || 1),
+
+                data: st
+
+            });
+
         });
 
     });
 
+});
 
+   // =========================
+// CHARGE JOURNALIÈRE RAISONNABLE
+// =========================
+
+const creneauxPerso =
+    getCreneauxLibresIntelligents(date)
+    .filter(c => c.type === "perso");
+
+const minutesPersoLibres =
+    creneauxPerso.reduce(
+        (total,c) => total + c.duree,
+        0
+    );
+
+// On consacre environ 25 % du vrai temps libre
+// aux tâches maison, avec un maximum de 60 min.
+let budgetMaison = 30;
+let maxTachesMaison = 2;
+
+switch(charge.niveau){
+
+    case "legere":
+        budgetMaison = Math.min(
+            60,
+            Math.round(minutesPersoLibres * 0.25)
+        );
+        maxTachesMaison = 3;
+        break;
+
+    case "normale":
+        budgetMaison = Math.min(
+            45,
+            Math.round(minutesPersoLibres * 0.20)
+        );
+        maxTachesMaison = 3;
+        break;
+
+    case "chargee":
+        budgetMaison = Math.min(
+            25,
+            Math.round(minutesPersoLibres * 0.12)
+        );
+        maxTachesMaison = 2;
+        break;
+
+    case "saturee":
+        budgetMaison = Math.min(
+            15,
+            Math.round(minutesPersoLibres * 0.08)
+        );
+        maxTachesMaison = 1;
+        break;
+}
+
+// Toujours au moins quelques minutes
+// sauf s'il n'y a réellement aucun temps perso.
+budgetMaison =
+    minutesPersoLibres > 0
+        ? Math.max(10, budgetMaison)
+        : 0;
+
+
+// Priorité :
+// 1. zone prioritaire
+// 2. tâche la plus en retard
+// 3. tâches rapides
+tachesCandidates.sort((a,b) => {
+
+    if(a.prioriteZone !== b.prioriteZone){
+        return a.prioriteZone - b.prioriteZone;
+    }
+
+    if(a.retard !== b.retard){
+        return b.retard - a.retard;
+    }
+
+    return a.duree - b.duree;
+
+});
+
+
+let tempsMaison = 0;
+let nbTachesMaison = 0;
+
+for(const tache of tachesCandidates){
+
+    if(nbTachesMaison >= maxTachesMaison){
+    break;
+}
+
+    if(
+        tempsMaison + tache.duree >
+        budgetMaison
+    ){
+        continue;
+    }
+
+    elements.push({
+
+        id:
+            "journal_st_" + tache.id,
+
+        source:
+            "journal",
+
+        sourceId:
+            tache.id,
+
+        type:
+            tache.type,
+
+        categorie:
+            "maison",
+
+        nom:
+            tache.nom,
+
+        icon:
+            "🏠",
+
+        duree:
+            tache.duree,
+
+        priorite:
+            3 + tache.prioriteZone,
+
+        flexible:
+            true,
+
+        verrouille:
+            false,
+
+        data: {
+            zoneId: tache.zoneId,
+            actionId: tache.actionId,
+            sousTacheId: tache.id,
+            zoneNom: tache.zoneNom,
+            actionNom: tache.actionNom
+        }
+
+    });
+
+    tempsMaison +=
+        tache.duree;
+
+    nbTachesMaison++;
+
+}
+   
     // =========================
     // 🏋️ SPORT GLOW
     // =========================
@@ -18789,33 +19087,55 @@ function getElementsJourIntelligents(date){
     const aujourdHui =
         new Date().toISOString().split("T")[0];
 
+   const autoriserSport =
+    charge.niveau !== "saturee";
+
     if(
+       autoriserSport &&
         date === aujourdHui &&
         DB.glow?.activite &&
         !DB.glow.activite.terminee
     ){
 
-        const dureeSport =
-            Number(
-                DB.glow.activite.tempsDisponible ||
-                DB.glow.activite.minutes ||
-                15
-            );
+        let dureeSport =
+    Number(
+        DB.glow.activite.tempsDisponible ||
+        DB.glow.activite.minutes ||
+        15
+    );
 
-        elements.push({
-            id: "glow_sport_" + date,
-            source: "glow",
-            type: "perso",
-            categorie: "sport",
-            nom: "Séance GLOW",
-            icon: "🏋️",
-            duree: dureeSport,
-            priorite: 2,
-            flexible: true,
-            verrouille: false
-        });
+// Journée chargée = séance courte
+if(charge.niveau === "chargee"){
+    dureeSport =
+        Math.min(dureeSport, 15);
+}
 
-    }
+   const heuresPrefereesSport = [
+    "08:00",
+    "12:30",
+    "18:30"
+];
+
+elements.push({
+
+    id: "glow_sport_" + date,
+    source: "glow",
+    type: "perso",
+    categorie: "sport",
+    nom: "Séance GLOW",
+    icon: "🏋️",
+
+    duree: dureeSport,
+
+    heuresPreferees: heuresPrefereesSport,
+
+    priorite: 2,
+    flexible: true,
+    verrouille: false
+
+});
+
+       }
 
 
     // =========================
@@ -18841,6 +19161,7 @@ function getElementsJourIntelligents(date){
                 icon: "🥗",
                 duree: 30,
                 priorite: 1,
+                heurePreferee: "12:30",
                 flexible: false,
                 plageHoraire: {
                     debut: "11:30",
@@ -18863,6 +19184,7 @@ function getElementsJourIntelligents(date){
                 icon: "🌙",
                 duree: 45,
                 priorite: 1,
+                heurePreferee: "20:30",
                 flexible: false,
                 plageHoraire: {
                     debut: "18:30",
@@ -18885,6 +19207,7 @@ function getElementsJourIntelligents(date){
                 icon: "🍓",
                 duree: 10,
                 priorite: 4,
+                heurePreferee: "16:30",
                 flexible: true,
                 plageHoraire: {
                     debut: "15:00",
@@ -18903,9 +19226,11 @@ function getElementsJourIntelligents(date){
     // =========================
 
     if(
-        date === aujourdHui &&
-        Number(DB.glow?.lecture?.minutes || 0) === 0
-    ){
+    (charge.niveau === "legere" ||
+     charge.niveau === "normale") &&
+    date === aujourdHui &&
+    Number(DB.glow?.lecture?.minutes || 0) === 0
+){
 
         elements.push({
             id: "glow_lecture_" + date,
@@ -19164,6 +19489,37 @@ function genererPlanningIntelligent(date){
 
         }
 
+       // =========================
+// HEURE(S) PRÉFÉRÉE(S)
+// =========================
+
+const prefs = [];
+
+if(element.heurePreferee){
+    prefs.push(element.heurePreferee);
+}
+
+if(Array.isArray(element.heuresPreferees)){
+    prefs.push(...element.heuresPreferees);
+}
+
+if(prefs.length){
+
+    const milieuElement =
+        debut + element.duree / 2;
+
+    const ecarts = prefs.map(h =>
+        Math.abs(
+            milieuElement - toMin(h)
+        )
+    );
+
+    const meilleurEcart =
+        Math.min(...ecarts);
+
+    score -= meilleurEcart / 12;
+}
+
 
         // =========================
         // ÉVITE DE GASPILLER
@@ -19249,11 +19605,118 @@ function genererPlanningIntelligent(date){
         const creneau =
             creneaux[meilleurIndex];
 
-        const debut =
-            toMin(creneau.debut);
+        let debut =
+    toMin(creneau.debut);
 
-        const fin =
-            debut + element.duree;
+const finCreneau =
+    toMin(creneau.fin);
+
+
+// Si l'élément a une heure préférée,
+// on essaie de le centrer autour.
+const prefs = [];
+
+if(element.heurePreferee){
+    prefs.push(element.heurePreferee);
+}
+
+if(Array.isArray(element.heuresPreferees)){
+    prefs.push(...element.heuresPreferees);
+}
+
+if(prefs.length){
+
+    const debutCreneau =
+        toMin(creneau.debut);
+
+    const candidats = prefs
+        .map(h => {
+
+            const heurePref =
+                toMin(h);
+
+            const debutIdeal =
+                Math.round(
+                    heurePref -
+                    element.duree / 2
+                );
+
+            return debutIdeal;
+
+        })
+        .filter(debutIdeal =>
+            debutIdeal >= debutCreneau &&
+            debutIdeal + element.duree <= finCreneau
+        );
+
+    if(candidats.length){
+
+        debut = candidats.reduce(
+            (meilleur,courant) => {
+
+                const milieuMeilleur =
+                    meilleur + element.duree / 2;
+
+                const milieuCourant =
+                    courant + element.duree / 2;
+
+                const ecartMeilleur =
+                    Math.min(
+                        ...prefs.map(h =>
+                            Math.abs(
+                                milieuMeilleur - toMin(h)
+                            )
+                        )
+                    );
+
+                const ecartCourant =
+                    Math.min(
+                        ...prefs.map(h =>
+                            Math.abs(
+                                milieuCourant - toMin(h)
+                            )
+                        )
+                    );
+
+                return ecartCourant < ecartMeilleur
+                    ? courant
+                    : meilleur;
+
+            }
+        );
+    }
+}
+
+
+// Si plage horaire imposée,
+// on reste dedans.
+if(element.plageHoraire){
+
+    const plageDebut =
+        toMin(element.plageHoraire.debut);
+
+    const plageFin =
+        toMin(element.plageHoraire.fin);
+
+    debut =
+        Math.max(
+            debut,
+            plageDebut
+        );
+
+    if(
+        debut + element.duree >
+        plageFin
+    ){
+        debut =
+            plageFin -
+            element.duree;
+    }
+}
+
+
+const fin =
+    debut + element.duree;
 
 
         resultat.push({
@@ -19307,36 +19770,69 @@ function genererPlanningIntelligent(date){
         });
 
 
-        // On réduit le créneau utilisé
-        const nouveauDebut =
-            fin;
+        // =========================
+// CONSERVE LE TROU AVANT
+// ET LE TROU APRÈS
+// =========================
 
-        const finCreneau =
-            toMin(creneau.fin);
+const debutCreneauOriginal =
+    toMin(creneau.debut);
+
+const finCreneauOriginal =
+    toMin(creneau.fin);
+
+const nouveauxCreneaux = [];
 
 
-        if(
-            finCreneau -
-            nouveauDebut >= 10
-        ){
+// Partie libre AVANT le bloc
+if(debut - debutCreneauOriginal >= 10){
 
-            creneaux[meilleurIndex] = {
-                ...creneau,
-                debut:
-                    toHeure(nouveauDebut),
-                duree:
-                    finCreneau -
-                    nouveauDebut
-            };
+    nouveauxCreneaux.push({
 
-        }else{
+        ...creneau,
 
-            creneaux.splice(
-                meilleurIndex,
-                1
-            );
+        debut:
+            toHeure(debutCreneauOriginal),
 
-        }
+        fin:
+            toHeure(debut),
+
+        duree:
+            debut - debutCreneauOriginal
+
+    });
+
+}
+
+
+// Partie libre APRÈS le bloc
+if(finCreneauOriginal - fin >= 10){
+
+    nouveauxCreneaux.push({
+
+        ...creneau,
+
+        debut:
+            toHeure(fin),
+
+        fin:
+            toHeure(finCreneauOriginal),
+
+        duree:
+            finCreneauOriginal - fin
+
+    });
+
+}
+
+
+// Remplace l'ancien grand créneau
+// par les morceaux encore disponibles
+creneaux.splice(
+    meilleurIndex,
+    1,
+    ...nouveauxCreneaux
+);
 
     });
 
