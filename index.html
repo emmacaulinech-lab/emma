@@ -23832,7 +23832,6 @@ function sauverEditionBlocPropositionJournal(date,blocId){
 
     ouvrirValidationPlanningJournal(date);
 }
-
 function validerPropositionJournal(date){
 
     const proposition =
@@ -23857,18 +23856,82 @@ function validerPropositionJournal(date){
     }
 
 
-    // On évite les doublons si tu valides deux fois.
-    const idsExistants =
-        new Set(
-            DB.journal.planning[date]
-            .map(b => b.id)
-        );
+    // =========================
+    // HEURE ACTUELLE
+    // =========================
+
+    const maintenant = new Date();
+
+    const estAujourdhui =
+        date ===
+        maintenant.toISOString().split("T")[0];
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
+    const toMin = heure => {
+
+        if(!heure){
+            return 99999;
+        }
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+
+    // =========================
+    // CONSERVER UNIQUEMENT
+    // CE QUI NE DOIT PAS BOUGER
+    // =========================
+
+    DB.journal.planning[date] =
+        DB.journal.planning[date]
+        .filter(bloc => {
+
+            // Bloc sans horaire :
+            // on le conserve.
+            if(!bloc.heureDebut){
+                return true;
+            }
+
+
+            // Passé / déjà commencé :
+            // on ne touche pas.
+            if(
+                estAujourdhui &&
+                toMin(bloc.heureDebut) <
+                minuteActuelle
+            ){
+                return true;
+            }
+
+
+            // Bloc manuel / fixe / RDV :
+            // on le conserve.
+            if(
+                bloc.verrouille === true ||
+                bloc.autoPlanifie !== true
+            ){
+                return true;
+            }
+
+
+            // Tout ancien bloc auto-planifié
+            // futur est remplacé.
+            return false;
+        });
+
+
+    // =========================
+    // AJOUTER LA NOUVELLE
+    // PROPOSITION VALIDÉE
+    // =========================
 
     blocsValides.forEach(bloc => {
-
-        if(idsExistants.has(bloc.id)){
-            return;
-        }
 
         DB.journal.planning[date].push({
 
@@ -23885,6 +23948,10 @@ function validerPropositionJournal(date){
     });
 
 
+    // =========================
+    // TRI FINAL
+    // =========================
+
     DB.journal.planning[date].sort(
         (a,b) =>
             (a.heureDebut || "")
@@ -23894,8 +23961,12 @@ function validerPropositionJournal(date){
     );
 
 
-    // Le brouillon disparaît une fois validé.
+    // =========================
+    // VIDER LE BROUILLON
+    // =========================
+
     DB.journal.propositionIntelligente[date] = [];
+
 
     saveAll();
 
@@ -23908,7 +23979,7 @@ function validerPropositionJournal(date){
     renderJAujourdhui();
 
     toast(
-        `✓ ${blocsValides.length} bloc(s) ajoutés à la timeline`
+        `✓ Planning réorganisé avec ${blocsValides.length} bloc(s)`
     );
 }
 
