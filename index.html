@@ -25196,24 +25196,82 @@ if(minutesPersoLibres > 0){
 // CLASSEMENT INTELLIGENT
 // =========================
 
+// =========================
+// CLASSEMENT PAR PIÈCE
+// =========================
+
+// Score global de chaque zone =
+// somme des meilleures tâches de la pièce.
+const scoreParZone = new Map();
+
+tachesCandidates.forEach(tache => {
+
+    const actuel =
+        scoreParZone.get(tache.zoneId) || {
+            score: 0,
+            forcee: false
+        };
+
+    // Les tâches les plus importantes
+    // influencent davantage l'ordre de la pièce.
+    actuel.score +=
+        Math.max(0, tache.score);
+
+    if(tache.forcee){
+        actuel.forcee = true;
+    }
+
+    scoreParZone.set(
+        tache.zoneId,
+        actuel
+    );
+});
+
+
 tachesCandidates.sort((a,b) => {
 
-    // 1. Choix manuel = priorité absolue
-    if(a.forcee !== b.forcee){
-        return a.forcee ? -1 : 1;
+    const zoneA =
+        scoreParZone.get(a.zoneId) || {
+            score: 0,
+            forcee: false
+        };
+
+    const zoneB =
+        scoreParZone.get(b.zoneId) || {
+            score: 0,
+            forcee: false
+        };
+
+
+    // 1. Une pièce avec tâche forcée passe devant.
+    if(zoneA.forcee !== zoneB.forcee){
+        return zoneA.forcee ? -1 : 1;
     }
 
-    // 2. Pertinence intelligente
-    if(a.score !== b.score){
-        return b.score - a.score;
+
+    // 2. On classe d'abord les PIÈCES.
+    if(zoneA.score !== zoneB.score){
+        return zoneB.score - zoneA.score;
     }
 
-    // 3. Tâches rapides
-    if(a.duree !== b.duree){
+
+    // 3. Une fois dans la même pièce,
+    // on classe les tâches intelligemment.
+    if(a.zoneId === b.zoneId){
+
+        if(a.forcee !== b.forcee){
+            return a.forcee ? -1 : 1;
+        }
+
+        if(a.score !== b.score){
+            return b.score - a.score;
+        }
+
         return a.duree - b.duree;
     }
 
-    // 4. Priorité de zone
+
+    // 4. Ordre stable si égalité.
     return (
         a.prioriteZone -
         b.prioriteZone
@@ -25228,46 +25286,107 @@ tachesCandidates.sort((a,b) => {
 let tempsMaison = 0;
 
 const zonesChoisies = new Map();
+const minutesParZone = new Map();
+
+let derniereZoneAjoutee = null;
+let compteurSessionsMaison = 0;
 
 for(const tache of tachesCandidates){
 
     if(
-    !tache.forcee &&
-    tempsMaison + tache.duree > budgetMaison
-){
-    continue;
-}
+        !tache.forcee &&
+        tempsMaison + tache.duree > budgetMaison
+    ){
+        continue;
+    }
+
+    const nbDansZone =
+        zonesChoisies.get(tache.zoneId) || 0;
+
+    const minutesZone =
+        minutesParZone.get(tache.zoneId) || 0;
+
+    // =========================
+    // LIMITE DE SESSION PAR PIÈCE
+    // =========================
+
+    let maxMinutesZone = 30;
+
+    if(tache.score >= 80){
+        maxMinutesZone = 40;
+    }
+
+    if(tache.score >= 110){
+        maxMinutesZone = 50;
+    }
+
+    if(
+        !tache.forcee &&
+        minutesZone + tache.duree > maxMinutesZone
+    ){
+        continue;
+    }
+
+    // =========================
+    // NOUVELLE SESSION MAISON
+    // =========================
+
+    if(
+        derniereZoneAjoutee !== null &&
+        derniereZoneAjoutee !== tache.zoneId
+    ){
+        compteurSessionsMaison++;
+
+        // Une respiration après chaque session maison
+        elements.push({
+
+            id:
+                "pause_maison_" +
+                compteurSessionsMaison +
+                "_" +
+                date,
+
+            source:
+                "journal",
+
+            type:
+                "perso",
+
+            categorie:
+                "detente",
+
+            nom:
+                compteurSessionsMaison % 2 === 0
+                    ? "Moment détente / téléphone"
+                    : "Pause tranquille",
+
+            icon:
+                compteurSessionsMaison % 2 === 0
+                    ? "📱"
+                    : "☕",
+
+            duree:
+                compteurSessionsMaison % 2 === 0
+                    ? 20
+                    : 15,
+
+            priorite:
+                7,
+
+            flexible:
+                true,
+
+            verrouille:
+                false
+
+        });
+
+    }
 
 
-   // =========================
-// ÉQUILIBRE ENTRE LES PIÈCES
-// =========================
-
-const nbDansZone =
-    zonesChoisies.get(tache.zoneId) || 0;
-
-// On évite qu'une seule pièce monopolise
-// toute la proposition.
-//
-// Mais une pièce réellement prioritaire
-// peut recevoir davantage de tâches.
-let maxDansZone = 4;
-
-if(tache.score >= 70){
-    maxDansZone = 6;
-}
-
-if(tache.score >= 100){
-    maxDansZone = 8;
-}
-
-if(
-    !tache.forcee &&
-    nbDansZone >= maxDansZone
-){
-    continue;
-}
-
+    // =========================
+    // TÂCHE MAISON
+    // =========================
 
     elements.push({
 
@@ -25338,12 +25457,18 @@ if(
     tempsMaison +=
         tache.duree;
 
-
     zonesChoisies.set(
         tache.zoneId,
         nbDansZone + 1
     );
 
+    minutesParZone.set(
+        tache.zoneId,
+        minutesZone + tache.duree
+    );
+
+    derniereZoneAjoutee =
+        tache.zoneId;
 }
    
     // =========================
@@ -25488,16 +25613,21 @@ elements.push({
     }
 
 
+ // =========================
+// 🌿 MOMENTS PERSONNELS
+// =========================
+
+if(date === aujourdHui){
+
     // =========================
     // 📚 LECTURE
     // =========================
 
     if(
-    (charge.niveau === "legere" ||
-     charge.niveau === "normale") &&
-    date === aujourdHui &&
-    Number(DB.glow?.lecture?.minutes || 0) === 0
-){
+        (charge.niveau === "legere" ||
+         charge.niveau === "normale") &&
+        Number(DB.glow?.lecture?.minutes || 0) === 0
+    ){
 
         elements.push({
             id: "glow_lecture_" + date,
@@ -25506,16 +25636,117 @@ elements.push({
             categorie: "lecture",
             nom: "Lecture",
             icon: "📚",
-            duree: 15,
+            duree:
+                charge.niveau === "legere"
+                    ? 25
+                    : 15,
             priorite: 6,
             flexible: true,
-            verrouille: false
+            verrouille: false,
+            heuresPreferees:[
+                "14:30",
+                "19:30",
+                "21:00"
+            ]
         });
 
     }
 
 
-    return elements;
+    // =========================
+    // 💻 PROJET PERSO / EMMA OS
+    // =========================
+
+    if(
+        charge.niveau === "legere" ||
+        charge.niveau === "normale"
+    ){
+
+        elements.push({
+            id: "projet_emma_" + date,
+            source: "journal",
+            type: "perso",
+            categorie: "projetPerso",
+            nom: "Avancer sur EMMA OS",
+            icon: "💻",
+            duree:
+                charge.niveau === "legere"
+                    ? 60
+                    : 40,
+            priorite: 6,
+            flexible: true,
+            verrouille: false,
+            heuresPreferees:[
+                "10:30",
+                "15:00",
+                "17:30"
+            ]
+        });
+
+    }
+
+
+    // =========================
+    // 📱 DÉTENTE / TÉLÉPHONE
+    // =========================
+
+    if(charge.niveau !== "saturee"){
+
+        elements.push({
+            id: "detente_tel_" + date,
+            source: "journal",
+            type: "perso",
+            categorie: "detente",
+            nom: "Temps libre / téléphone",
+            icon: "📱",
+            duree:
+                charge.niveau === "legere"
+                    ? 30
+                    : 20,
+            priorite: 7,
+            flexible: true,
+            verrouille: false,
+            heuresPreferees:[
+                "11:30",
+                "16:00",
+                "20:00"
+            ]
+        });
+
+    }
+
+
+    // =========================
+    // ☕ PAUSE TRANQUILLE
+    // =========================
+
+    if(
+        charge.niveau === "legere" ||
+        charge.niveau === "normale"
+    ){
+
+        elements.push({
+            id: "pause_tranquille_" + date,
+            source: "journal",
+            type: "perso",
+            categorie: "detente",
+            nom: "Pause tranquille",
+            icon: "☕",
+            duree: 15,
+            priorite: 7,
+            flexible: true,
+            verrouille: false,
+            heuresPreferees:[
+                "10:30",
+                "15:30"
+            ]
+        });
+
+    }
+
+}
+
+return elements;
 }
 
 function getCreneauxLibresIntelligents(date){
@@ -25913,31 +26144,234 @@ if(prefs.length){
     }
 
 
-    // =========================
-    // ORDRE DE PLACEMENT
-    // =========================
+// =========================
+// 🧠 CONSTRUCTION DE LA JOURNÉE
+// =========================
 
-    const elementsTries =
-        [...elements].sort((a,b) => {
+// On sépare les différents types de blocs.
+const contraintes = elements.filter(e =>
+    !!e.plageHoraire
+);
 
-            // D'abord ce qui a une contrainte horaire
-            const aContraint =
-                a.plageHoraire ? 1 : 0;
+const maison = elements.filter(e =>
+    e.categorie === "maison" &&
+    !e.plageHoraire
+);
 
-            const bContraint =
-                b.plageHoraire ? 1 : 0;
+const detente = elements.filter(e =>
+    e.categorie === "detente" &&
+    !e.plageHoraire
+);
 
-            if(aContraint !== bContraint){
-                return bContraint - aContraint;
-            }
+const projetsPerso = elements.filter(e =>
+    e.categorie === "projetPerso" &&
+    !e.plageHoraire
+);
 
-            // Puis la priorité
-            return (
-                Number(a.priorite || 99) -
-                Number(b.priorite || 99)
+const lecture = elements.filter(e =>
+    e.categorie === "lecture" &&
+    !e.plageHoraire
+);
+
+const sport = elements.filter(e =>
+    e.categorie === "sport" &&
+    !e.plageHoraire
+);
+
+const autres = elements.filter(e =>
+    !e.plageHoraire &&
+    ![
+        "maison",
+        "detente",
+        "projetPerso",
+        "lecture",
+        "sport"
+    ].includes(e.categorie)
+);
+
+
+// =========================
+// 🏠 GROUPER LA MAISON PAR PIÈCE
+// =========================
+
+const maisonParZone = new Map();
+
+maison.forEach(tache => {
+
+    const zoneId =
+        tache.data?.zoneId ||
+        "autre";
+
+    if(!maisonParZone.has(zoneId)){
+        maisonParZone.set(zoneId,[]);
+    }
+
+    maisonParZone
+        .get(zoneId)
+        .push(tache);
+});
+
+
+// Classe les tâches dans chaque pièce.
+maisonParZone.forEach(taches => {
+
+    taches.sort((a,b) => {
+
+        const scoreA =
+            Number(a.scoreTache || 0);
+
+        const scoreB =
+            Number(b.scoreTache || 0);
+
+        if(scoreA !== scoreB){
+            return scoreB - scoreA;
+        }
+
+        return (
+            Number(a.duree || 0) -
+            Number(b.duree || 0)
+        );
+    });
+
+});
+
+
+// =========================
+// PRIORITÉ DES PIÈCES
+// =========================
+
+const sessionsMaison =
+    [...maisonParZone.values()]
+    .sort((a,b) => {
+
+        const scoreA =
+            a.reduce(
+                (total,t) =>
+                    total +
+                    Number(t.scoreTache || 0),
+                0
             );
 
-        });
+        const scoreB =
+            b.reduce(
+                (total,t) =>
+                    total +
+                    Number(t.scoreTache || 0),
+                0
+            );
+
+        return scoreB - scoreA;
+    });
+
+
+// =========================
+// 🌿 FABRIQUER LA SÉQUENCE
+// =========================
+
+const sequence = [];
+
+let indexDetente = 0;
+let indexProjet = 0;
+let indexSport = 0;
+
+
+// Les éléments à horaires contraints seront
+// placés en priorité par le moteur.
+sequence.push(...contraintes);
+
+
+// Puis on construit les sessions maison.
+sessionsMaison.forEach((session,index) => {
+
+    // Toute la même pièce ensemble.
+    sequence.push(...session);
+
+
+    // Pas besoin de respiration après
+    // la dernière session.
+    if(index >= sessionsMaison.length - 1){
+        return;
+    }
+
+
+    // =========================
+    // ALTERNANCE DES RESPIRATIONS
+    // =========================
+
+    // Après la première session :
+    // petit moment calme.
+    if(indexDetente < detente.length){
+
+        sequence.push(
+            detente[indexDetente]
+        );
+
+        indexDetente++;
+
+        return;
+    }
+
+
+    // Sinon projet perso.
+    if(indexProjet < projetsPerso.length){
+
+        sequence.push(
+            projetsPerso[indexProjet]
+        );
+
+        indexProjet++;
+
+        return;
+    }
+
+
+    // Sinon sport.
+    if(indexSport < sport.length){
+
+        sequence.push(
+            sport[indexSport]
+        );
+
+        indexSport++;
+
+        return;
+    }
+
+});
+
+
+// =========================
+// CE QUI N'A PAS ENCORE ÉTÉ INSÉRÉ
+// =========================
+
+sequence.push(
+    ...projetsPerso.slice(indexProjet)
+);
+
+sequence.push(
+    ...sport.slice(indexSport)
+);
+
+sequence.push(
+    ...detente.slice(indexDetente)
+);
+
+// Lecture plutôt vers la fin.
+sequence.push(
+    ...lecture
+);
+
+sequence.push(
+    ...autres
+);
+
+
+// =========================
+// LISTE FINALE
+// =========================
+
+const elementsTries =
+    sequence;
 
 
     // =========================
