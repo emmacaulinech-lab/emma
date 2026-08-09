@@ -26478,6 +26478,42 @@ if(aScan !== bScan){
 
 const sequence = [];
 
+let minutesMaisonCumulees = 0;
+
+function ajouterVraiePause(){
+
+    const pauseDisponible =
+        detente.find((bloc,index) =>
+            index >= indexDetente
+        );
+
+    if(pauseDisponible){
+
+        sequence.push(pauseDisponible);
+
+        indexDetente =
+            detente.indexOf(pauseDisponible) + 1;
+
+    }else{
+
+        sequence.push({
+            id: "pause_obligatoire_" + date + "_" + sequence.length,
+            source: "journal",
+            type: "perso",
+            categorie: "detente",
+            nom: "Vraie pause",
+            icon: "☕",
+            duree: 20,
+            priorite: 5,
+            flexible: true,
+            verrouille: false
+        });
+
+    }
+
+    minutesMaisonCumulees = 0;
+}
+
 let indexDetente = 0;
 let indexProjet = 0;
 let indexSport = 0;
@@ -26491,8 +26527,57 @@ sequence.push(...contraintes);
 // Puis on construit les sessions maison.
 sessionsMaison.forEach((session,index) => {
 
-    // Toute la même pièce ensemble.
-    sequence.push(...session);
+    // Durée totale de cette session maison.
+const dureeSession = session.reduce(
+    (total,tache) =>
+        total + Number(tache.duree || 0),
+    0
+);
+
+// Si cette nouvelle session ferait dépasser
+// 60 min de ménage cumulé,
+// on fait une vraie pause AVANT.
+if(
+    minutesMaisonCumulees > 0 &&
+    minutesMaisonCumulees + dureeSession > 60
+){
+    ajouterVraiePause();
+}
+
+// On ajoute toute la pièce ensemble.
+sequence.push(...session);
+
+minutesMaisonCumulees += dureeSession;
+
+// =========================
+// 💻 PROJET PERSO ENTRE DEUX
+// SESSIONS MAISON
+// =========================
+
+// EMMA OS peut couper le ménage,
+// mais ne remplace PAS la vraie pause
+// obligatoire après 60 min de ménage.
+if(
+    indexProjet < projetsPerso.length &&
+    index < sessionsMaison.length - 1 &&
+    minutesMaisonCumulees < 60
+){
+
+    sequence.push(
+        projetsPerso[indexProjet]
+    );
+
+    indexProjet++;
+}
+
+// Si on atteint 60 min ou plus,
+// vraie pause obligatoire juste après.
+if(
+    minutesMaisonCumulees >= 60 &&
+    index < sessionsMaison.length - 1
+){
+    ajouterVraiePause();
+}
 
 
     // Pas besoin de respiration après
@@ -26501,98 +26586,8 @@ sessionsMaison.forEach((session,index) => {
         return;
     }
 
-
-    // =========================
-    // ALTERNANCE INTELLIGENTE
-    // =========================
-
-    const typeRespiration =
-        index % 3;
-
-
-    // 1 → détente
-    if(
-        typeRespiration === 0 &&
-        indexDetente < detente.length
-    ){
-
-        sequence.push(
-            detente[indexDetente]
-        );
-
-        indexDetente++;
-        return;
-    }
-
-
-    // 2 → projet perso
-    if(
-        typeRespiration === 1 &&
-        indexProjet < projetsPerso.length
-    ){
-
-        sequence.push(
-            projetsPerso[indexProjet]
-        );
-
-        indexProjet++;
-        return;
-    }
-
-
-    // 3 → sport
-    if(
-        typeRespiration === 2 &&
-        indexSport < sport.length
-    ){
-
-        sequence.push(
-            sport[indexSport]
-        );
-
-        indexSport++;
-        return;
-    }
-
-
-    // =========================
-    // FALLBACK
-    // =========================
-    // Si le type prévu n'existe plus,
-    // on prend le prochain disponible.
-
-    if(indexDetente < detente.length){
-
-        sequence.push(
-            detente[indexDetente]
-        );
-
-        indexDetente++;
-        return;
-    }
-
-    if(indexProjet < projetsPerso.length){
-
-        sequence.push(
-            projetsPerso[indexProjet]
-        );
-
-        indexProjet++;
-        return;
-    }
-
-    if(indexSport < sport.length){
-
-        sequence.push(
-            sport[indexSport]
-        );
-
-        indexSport++;
-    }
-
-});
-
-
+   });
+    
 // =========================
 // CE QUI N'A PAS ENCORE ÉTÉ INSÉRÉ
 // =========================
@@ -26603,10 +26598,6 @@ sequence.push(
 
 sequence.push(
     ...sport.slice(indexSport)
-);
-
-sequence.push(
-    ...detente.slice(indexDetente)
 );
 
 // Lecture plutôt vers la fin.
