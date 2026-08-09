@@ -18649,7 +18649,8 @@ function renderJAujourdhui(){
   // Compter les actions dues (aperçu)
   let nbActionsDues=0;
   DB.journal.zones.forEach(z=>z.actions.forEach(a=>{ if(getSousTachesDues(a).length) nbActionsDues++; }));
-
+const proposition =
+    genererPlanningIntelligent(today);
   let html=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <button onclick="journalJourNav(-1)" style="background:white;border:1.5px solid var(--brd);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--acc)">‹</button>
@@ -18693,11 +18694,13 @@ function renderJAujourdhui(){
       <button class="btn bd" onclick="ouvrirConfigPlanning()" style="width:100%" ${!dispos.length?'disabled':''}>✨ Configurer mon planning</button>
       ${!dispos.length?'<div style="font-size:11px;color:var(--mut);margin-top:6px;text-align:center">Ajoute au moins un créneau ci-dessus</div>':''}
     </div>
+<div id="planning-intelligent-preview"></div>
 
-    <div id="planning-timeline"></div>
+<div id="planning-timeline"></div>
   `}
   `;
   document.getElementById('jview-aujourdhui').innerHTML=html;
+  renderPreviewPlanningIntelligent(proposition);
   renderPlanningTimeline();
   renderEstimationTemps();
 }
@@ -18746,6 +18749,783 @@ function calculerActionsDues(){
     });
   });
   return actionsDues;
+}
+
+function getElementsJourIntelligents(date){
+
+    ensureJournalData();
+
+    const elements = [];
+
+    // =========================
+    // 🏠 TÂCHES MAISON / JOURNAL
+    // =========================
+
+    const actionsDues = calculerActionsDues();
+
+    actionsDues.forEach(action => {
+
+        elements.push({
+            id: "journal_" + action.id,
+            source: "journal",
+            type: action.type || "perso",
+            categorie: "maison",
+            nom: action.nom,
+            icon: "🏠",
+            duree: action.duree || 15,
+            priorite: action.priorite ?? 5,
+            flexible: true,
+            verrouille: false,
+            data: action
+        });
+
+    });
+
+
+    // =========================
+    // 🏋️ SPORT GLOW
+    // =========================
+
+    const aujourdHui =
+        new Date().toISOString().split("T")[0];
+
+    if(
+        date === aujourdHui &&
+        DB.glow?.activite &&
+        !DB.glow.activite.terminee
+    ){
+
+        const dureeSport =
+            Number(
+                DB.glow.activite.tempsDisponible ||
+                DB.glow.activite.minutes ||
+                15
+            );
+
+        elements.push({
+            id: "glow_sport_" + date,
+            source: "glow",
+            type: "perso",
+            categorie: "sport",
+            nom: "Séance GLOW",
+            icon: "🏋️",
+            duree: dureeSport,
+            priorite: 2,
+            flexible: true,
+            verrouille: false
+        });
+
+    }
+
+
+    // =========================
+    // 🍽️ REPAS PRÉVUS
+    // =========================
+
+    if(date === aujourdHui){
+
+        const nutrition =
+            DB.glow?.nutrition || {};
+
+        const repasPrevus =
+            nutrition.repasPrevus || {};
+
+        if(repasPrevus.dejeuner){
+
+            elements.push({
+                id: "glow_dejeuner_" + date,
+                source: "glow",
+                type: "perso",
+                categorie: "repas",
+                nom: "Déjeuner",
+                icon: "🥗",
+                duree: 30,
+                priorite: 1,
+                flexible: false,
+                plageHoraire: {
+                    debut: "11:30",
+                    fin: "14:30"
+                },
+                repas: repasPrevus.dejeuner
+            });
+
+        }
+
+
+        if(nutrition.dinerPrevu){
+
+            elements.push({
+                id: "glow_diner_" + date,
+                source: "glow",
+                type: "perso",
+                categorie: "repas",
+                nom: "Dîner",
+                icon: "🌙",
+                duree: 45,
+                priorite: 1,
+                flexible: false,
+                plageHoraire: {
+                    debut: "18:30",
+                    fin: "21:30"
+                },
+                repas: nutrition.dinerPrevu
+            });
+
+        }
+
+
+        if(repasPrevus.collation){
+
+            elements.push({
+                id: "glow_collation_" + date,
+                source: "glow",
+                type: "perso",
+                categorie: "repas",
+                nom: "Collation",
+                icon: "🍓",
+                duree: 10,
+                priorite: 4,
+                flexible: true,
+                plageHoraire: {
+                    debut: "15:00",
+                    fin: "18:00"
+                },
+                repas: repasPrevus.collation
+            });
+
+        }
+
+    }
+
+
+    // =========================
+    // 📚 LECTURE
+    // =========================
+
+    if(
+        date === aujourdHui &&
+        Number(DB.glow?.lecture?.minutes || 0) === 0
+    ){
+
+        elements.push({
+            id: "glow_lecture_" + date,
+            source: "glow",
+            type: "perso",
+            categorie: "lecture",
+            nom: "Lecture",
+            icon: "📚",
+            duree: 15,
+            priorite: 6,
+            flexible: true,
+            verrouille: false
+        });
+
+    }
+
+
+    return elements;
+}
+
+function getCreneauxLibresIntelligents(date){
+
+    ensureJournalData();
+
+    const planning =
+        DB.journal.planning[date] || [];
+
+    const dispos =
+        DB.journal.disponibilites[date] || [];
+
+    const toMin = heure => {
+        const [h,m] = heure.split(":").map(Number);
+        return h * 60 + m;
+    };
+
+    const toHeure = minutes => {
+
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+    const creneauxLibres = [];
+
+    dispos.forEach(dispo => {
+
+        const debutDispo = toMin(dispo.debut);
+        const finDispo = toMin(dispo.fin);
+
+        // Tous les blocs qui occupent réellement cette disponibilité
+        const blocsOccupes = planning
+            .filter(p => {
+
+                // Le "temps libre" n'est pas une vraie occupation
+                if(p.type === "tempsLibre"){
+                    return false;
+                }
+
+                const debut = toMin(p.heureDebut);
+                const fin = toMin(p.heureFin);
+
+                return (
+                    fin > debutDispo &&
+                    debut < finDispo
+                );
+
+            })
+            .map(p => ({
+                debut: Math.max(
+                    debutDispo,
+                    toMin(p.heureDebut)
+                ),
+                fin: Math.min(
+                    finDispo,
+                    toMin(p.heureFin)
+                ),
+                bloc: p
+            }))
+            .sort((a,b) => a.debut - b.debut);
+
+
+        let curseur = debutDispo;
+
+        blocsOccupes.forEach(occupe => {
+
+            if(occupe.debut > curseur){
+
+                creneauxLibres.push({
+                    debut: toHeure(curseur),
+                    fin: toHeure(occupe.debut),
+                    duree: occupe.debut - curseur,
+                    type: dispo.type || "perso"
+                });
+
+            }
+
+            curseur = Math.max(
+                curseur,
+                occupe.fin
+            );
+
+        });
+
+
+        if(curseur < finDispo){
+
+            creneauxLibres.push({
+                debut: toHeure(curseur),
+                fin: toHeure(finDispo),
+                duree: finDispo - curseur,
+                type: dispo.type || "perso"
+            });
+
+        }
+
+    });
+
+
+    // On ignore les mini-trous inutilisables
+    return creneauxLibres
+        .filter(c => c.duree >= 10)
+        .sort((a,b) =>
+            toMin(a.debut) - toMin(b.debut)
+        );
+}
+
+function genererPlanningIntelligent(date){
+
+    const elements =
+        getElementsJourIntelligents(date);
+
+    const creneaux =
+        getCreneauxLibresIntelligents(date)
+        .map(c => ({ ...c }));
+
+    const resultat = [];
+    const nonPlaces = [];
+
+    const toMin = heure => {
+        const [h,m] = heure.split(":").map(Number);
+        return h * 60 + m;
+    };
+
+    const toHeure = minutes => {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+
+    // =========================
+    // SCORE D'UN CRÉNEAU
+    // =========================
+
+    function noterCreneau(element, creneau){
+
+        if(creneau.duree < element.duree){
+            return -9999;
+        }
+
+        // Perso dans perso, pro dans pro
+        if(
+            element.type &&
+            creneau.type &&
+            element.type !== creneau.type
+        ){
+            return -9999;
+        }
+
+        const debut =
+            toMin(creneau.debut);
+
+        const finElement =
+            debut + element.duree;
+
+        let score = 0;
+
+
+        // =========================
+        // PLAGE HORAIRE OBLIGATOIRE
+        // =========================
+
+        if(element.plageHoraire){
+
+            const plageDebut =
+                toMin(element.plageHoraire.debut);
+
+            const plageFin =
+                toMin(element.plageHoraire.fin);
+
+            if(
+                debut < plageDebut ||
+                finElement > plageFin
+            ){
+                return -9999;
+            }
+
+            // Favorise le milieu de la plage
+            const milieuPlage =
+                (plageDebut + plageFin) / 2;
+
+            const milieuElement =
+                debut + element.duree / 2;
+
+            score -=
+                Math.abs(
+                    milieuElement - milieuPlage
+                ) / 10;
+        }
+
+
+        // =========================
+        // PRÉFÉRENCES PAR CATÉGORIE
+        // =========================
+
+        if(element.categorie === "sport"){
+
+            // Favorise matin ou fin de journée
+            if(debut <= 10 * 60){
+                score += 5;
+            }
+
+            if(debut >= 17 * 60){
+                score += 4;
+            }
+
+        }
+
+
+        if(element.categorie === "maison"){
+
+            // Évite de mettre le ménage trop tard
+            if(debut < 19 * 60){
+                score += 2;
+            }
+
+        }
+
+
+        if(element.categorie === "lecture"){
+
+            // Lecture plutôt en fin de journée
+            if(debut >= 19 * 60){
+                score += 5;
+            }
+
+        }
+
+
+        // =========================
+        // ÉVITE DE GASPILLER
+        // UN GRAND CRÉNEAU
+        // =========================
+
+        const reste =
+            creneau.duree -
+            element.duree;
+
+        score -= reste / 120;
+
+
+        return score;
+    }
+
+
+    // =========================
+    // ORDRE DE PLACEMENT
+    // =========================
+
+    const elementsTries =
+        [...elements].sort((a,b) => {
+
+            // D'abord ce qui a une contrainte horaire
+            const aContraint =
+                a.plageHoraire ? 1 : 0;
+
+            const bContraint =
+                b.plageHoraire ? 1 : 0;
+
+            if(aContraint !== bContraint){
+                return bContraint - aContraint;
+            }
+
+            // Puis la priorité
+            return (
+                Number(a.priorite || 99) -
+                Number(b.priorite || 99)
+            );
+
+        });
+
+
+    // =========================
+    // PLACEMENT
+    // =========================
+
+    elementsTries.forEach(element => {
+
+        let meilleurIndex = -1;
+        let meilleurScore = -9999;
+
+        creneaux.forEach((creneau,index) => {
+
+            const score =
+                noterCreneau(
+                    element,
+                    creneau
+                );
+
+            if(score > meilleurScore){
+
+                meilleurScore = score;
+                meilleurIndex = index;
+
+            }
+
+        });
+
+
+        if(
+            meilleurIndex === -1 ||
+            meilleurScore <= -9999
+        ){
+
+            nonPlaces.push(element);
+            return;
+
+        }
+
+
+        const creneau =
+            creneaux[meilleurIndex];
+
+        const debut =
+            toMin(creneau.debut);
+
+        const fin =
+            debut + element.duree;
+
+
+        resultat.push({
+
+            id:
+                "auto_" +
+                element.id,
+
+            source:
+                element.source,
+
+            sourceId:
+                element.id,
+
+            typeElement:
+                element.categorie,
+
+            type:
+                element.type,
+
+            nom:
+                element.nom,
+
+            customNom:
+                element.nom,
+
+            iconOverride:
+                element.icon,
+
+            heureDebut:
+                toHeure(debut),
+
+            heureFin:
+                toHeure(fin),
+
+            duree:
+                element.duree,
+
+            priorite:
+                element.priorite,
+
+            autoPlanifie:
+                true,
+
+            verrouille:
+                false,
+
+            data:
+                element.data || null
+
+        });
+
+
+        // On réduit le créneau utilisé
+        const nouveauDebut =
+            fin;
+
+        const finCreneau =
+            toMin(creneau.fin);
+
+
+        if(
+            finCreneau -
+            nouveauDebut >= 10
+        ){
+
+            creneaux[meilleurIndex] = {
+                ...creneau,
+                debut:
+                    toHeure(nouveauDebut),
+                duree:
+                    finCreneau -
+                    nouveauDebut
+            };
+
+        }else{
+
+            creneaux.splice(
+                meilleurIndex,
+                1
+            );
+
+        }
+
+    });
+
+
+    resultat.sort(
+        (a,b) =>
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
+    );
+
+
+    return {
+        blocs: resultat,
+        nonPlaces
+    };
+}
+
+function renderPreviewPlanningIntelligent(proposition){
+
+    const el =
+        document.getElementById(
+            "planning-intelligent-preview"
+        );
+
+    if(!el) return;
+
+    const blocs =
+        proposition?.blocs || [];
+
+    const nonPlaces =
+        proposition?.nonPlaces || [];
+
+    if(!blocs.length && !nonPlaces.length){
+
+        el.innerHTML = "";
+        return;
+
+    }
+
+    el.innerHTML = `
+
+        <div style="
+            background:rgba(255,255,255,.72);
+            border:1px solid rgba(255,255,255,.9);
+            border-radius:22px;
+            padding:18px;
+            margin-bottom:18px;
+            box-shadow:var(--shadow);
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:flex-start;
+                gap:12px;
+                margin-bottom:14px;
+            ">
+
+                <div>
+
+                    <div style="
+                        font-size:11px;
+                        text-transform:uppercase;
+                        letter-spacing:.12em;
+                        color:var(--acc);
+                        font-weight:800;
+                    ">
+                        ✨ Proposition intelligente
+                    </div>
+
+                    <div style="
+                        font-size:12px;
+                        color:var(--mut);
+                        margin-top:4px;
+                    ">
+                        Voici comment ta journée pourrait être organisée.
+                    </div>
+
+                </div>
+
+                <div style="
+                    background:var(--bg2);
+                    border-radius:12px;
+                    padding:6px 9px;
+                    font-size:11px;
+                    font-weight:800;
+                    white-space:nowrap;
+                ">
+                    ${blocs.length} bloc${blocs.length > 1 ? "s" : ""}
+                </div>
+
+            </div>
+
+
+            ${
+                blocs.map(bloc => `
+
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        gap:10px;
+                        padding:10px 0;
+                        border-top:1px solid rgba(0,0,0,.05);
+                    ">
+
+                        <div style="
+                            width:34px;
+                            height:34px;
+                            border-radius:11px;
+                            background:var(--bg2);
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            flex-shrink:0;
+                            font-size:16px;
+                        ">
+                            ${bloc.iconOverride || "✨"}
+                        </div>
+
+                        <div style="
+                            flex:1;
+                            min-width:0;
+                        ">
+
+                            <div style="
+                                font-size:12px;
+                                font-weight:800;
+                            ">
+                                ${bloc.nom}
+                            </div>
+
+                            <div style="
+                                font-size:10px;
+                                color:var(--mut);
+                                margin-top:2px;
+                            ">
+                                ${bloc.heureDebut} → ${bloc.heureFin}
+                                · ${bloc.duree} min
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                `).join("")
+            }
+
+
+            ${
+                nonPlaces.length
+                ? `
+
+                    <div style="
+                        margin-top:12px;
+                        padding:12px;
+                        border-radius:14px;
+                        background:rgba(245,158,11,.08);
+                    ">
+
+                        <div style="
+                            font-size:11px;
+                            font-weight:800;
+                            margin-bottom:6px;
+                        ">
+                            🕊️ À laisser pour plus tard
+                        </div>
+
+                        ${nonPlaces.map(item => `
+
+                            <div style="
+                                font-size:11px;
+                                color:var(--mut);
+                                padding:3px 0;
+                            ">
+                                ${item.icon || "•"} ${item.nom}
+                                · ${item.duree} min
+                            </div>
+
+                        `).join("")}
+
+                    </div>
+
+                `
+                : ""
+            }
+
+        </div>
+
+    `;
 }
 
 function renderEstimationTemps(){
