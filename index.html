@@ -28174,10 +28174,127 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
 
   const gouttiere=1;
   const blocsHtml=planning.map(p=>{
-    const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
-    const estTempsLibre=p.type==='tempsLibre';
-    const couleur=estTempsLibre?'#9ca3af':(zone?.couleur||'#993556');
-    const bg=estTempsLibre?'#ffffff':couleurPastel(couleur);
+    const zoneId =
+    p.data?.zoneId ||
+    p.zoneId;
+
+const zone =
+    DB.journal.zones.find(z =>
+        z.id === zoneId
+    );
+
+const zoneNom =
+    (
+        p.data?.zoneNom ||
+        zone?.nom ||
+        ""
+    ).toLowerCase();
+
+const categorie =
+    p.typeElement ||
+    p.categorie ||
+    "";
+
+const estTempsLibre =
+    p.type === "tempsLibre";
+
+
+// =========================
+// 🎨 COULEUR DU BLOC
+// =========================
+
+let couleur = "#993556";
+
+
+// Temps libre
+if(estTempsLibre){
+    couleur = "#9ca3af";
+}
+
+
+// =========================
+// 🏠 MAISON — PAR PIÈCE
+// =========================
+
+else if(categorie === "maison"){
+
+    if(zoneNom.includes("cuisine")){
+        couleur = "#D98B6C";
+    }
+
+    else if(
+        zoneNom.includes("chambre") ||
+        zoneNom.includes("suite")
+    ){
+        couleur = "#A78BC3";
+    }
+
+    else if(zoneNom.includes("salon")){
+        couleur = "#C97C91";
+    }
+
+    else if(zoneNom.includes("entrée")){
+        couleur = "#C5A46D";
+    }
+
+    else if(zoneNom.includes("dressing")){
+        couleur = "#B8758B";
+    }
+
+    else if(zoneNom.includes("buanderie")){
+        couleur = "#7FA58C";
+    }
+
+    else if(
+        zoneNom.includes("wc") ||
+        zoneNom.includes("toilet")
+    ){
+        couleur = "#7895A5";
+    }
+
+    else{
+        couleur =
+            zone?.couleur ||
+            "#B78B83";
+    }
+}
+
+
+// =========================
+// 🌿 AUTRES CATÉGORIES
+// =========================
+
+else if(categorie === "sport"){
+    couleur = "#65A37A";
+}
+
+else if(categorie === "lecture"){
+    couleur = "#8D78B8";
+}
+
+else if(categorie === "projetPerso"){
+    couleur = "#668FB5";
+}
+
+else if(categorie === "detente"){
+    couleur = "#C69A72";
+}
+
+else if(categorie === "repas"){
+    couleur = "#C4A24E";
+}
+
+
+// Bloc classique / manuel
+else if(zone?.couleur){
+    couleur = zone.couleur;
+}
+
+
+const bg =
+    estTempsLibre
+        ? "#ffffff"
+        : couleurPastel(couleur);
     const top=yMap[toMin(p.heureDebut)];
     const hgt=yMap[toMin(p.heureFin)]-top;
     const expanded=clickable&&window['_blocOpen_'+p.id];
