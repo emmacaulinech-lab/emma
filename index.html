@@ -13451,7 +13451,7 @@ function calculerAlimentGlow(id, quantite){
     };
 }
 
-function analyserRepasGlow(aliments){
+function analyserRepasGlow(aliments, type){
 
     const categories = new Set(
         (aliments || []).map(a => a.categorie)
@@ -13459,23 +13459,54 @@ function analyserRepasGlow(aliments){
 
     const manque = [];
 
-    if(!categories.has("proteine")){
-        manque.push("une source de protéines");
+    if(type === "petit-dejeuner"){
+
+        if(!categories.has("proteine")){
+            manque.push("une source de protéines");
+        }
+
+        if(
+            !categories.has("feculent") &&
+            !categories.has("fruit")
+        ){
+            manque.push("une source d’énergie");
+        }
+
+        if(!categories.has("fruit")){
+            manque.push("un fruit");
+        }
+
     }
 
-    if(!categories.has("legume")){
-        manque.push("des légumes");
+    else if(type === "collation"){
+
+        if(
+            !categories.has("proteine") &&
+            !categories.has("fruit")
+        ){
+            manque.push("un aliment rassasiant ou un fruit");
+        }
+
     }
 
-    if(
-        !categories.has("feculent") &&
-        !categories.has("fruit")
-    ){
-        manque.push("une source d’énergie");
-    }
+    else {
 
-    if(!categories.has("gras")){
-        manque.push("un peu de bonnes matières grasses");
+        if(!categories.has("proteine")){
+            manque.push("une source de protéines");
+        }
+
+        if(!categories.has("legume")){
+            manque.push("des légumes");
+        }
+
+        if(!categories.has("feculent")){
+            manque.push("une source de féculents");
+        }
+
+        if(!categories.has("gras")){
+            manque.push("un peu de bonnes matières grasses");
+        }
+
     }
 
     if(!manque.length){
@@ -13484,13 +13515,13 @@ function analyserRepasGlow(aliments){
             statut: "equilibre",
             titre: "Repas bien équilibré ✨",
             message:
-                "Tu as une bonne base : protéines, légumes, énergie et matières grasses."
+                "La composition est cohérente pour ce type de repas."
         };
     }
 
     return {
         statut: "ameliorer",
-        titre: "On peut l’équilibrer encore un peu",
+        titre: "Pour mieux équilibrer ce repas",
         message:
             "Tu peux ajouter " + manque.join(", ") + "."
     };
@@ -13796,34 +13827,6 @@ function renderGlowNutrition(){
                                     ${r.calories ? `${Math.round(r.calories)} kcal` : ""}
                                     ${r.proteines ? ` · ${Math.round(r.proteines)} g protéines` : ""}
                                 </div>
-                                ${r.analyse ? `
-
-    <div style="
-        margin-top:10px;
-        padding:12px 14px;
-        background:rgba(255,255,255,.55);
-        border-radius:14px;
-    ">
-
-        <div style="
-            font-size:12px;
-            font-weight:800;
-            margin-bottom:3px;
-        ">
-            ${r.analyse.titre}
-        </div>
-
-        <div style="
-            font-size:11px;
-            color:var(--mut);
-            line-height:1.5;
-        ">
-            ${r.analyse.message}
-        </div>
-
-    </div>
-
-` : ""}
                             `
                             : ""
                         }
@@ -13860,6 +13863,7 @@ function getNomTypeRepasGlow(type){
 }
 
 let repasGlowEnCours = [];
+let typeRepasGlowEnCours = "";
 
 function ajouterAlimentRepasGlow(){
 
@@ -13885,6 +13889,8 @@ function ajouterAlimentRepasGlow(){
     repasGlowEnCours.push(aliment);
 
     afficherAlimentsRepasGlow();
+    renderAssietteGlow();
+    afficherConseilRepasGlow(typeRepasGlowEnCours);
 }
 
 
@@ -13893,6 +13899,8 @@ function supprimerAlimentRepasGlow(index){
     repasGlowEnCours.splice(index, 1);
 
     afficherAlimentsRepasGlow();
+    renderAssietteGlow();
+    afficherConseilRepasGlow(typeRepasGlowEnCours);
 }
 
 
@@ -13981,9 +13989,187 @@ function afficherAlimentsRepasGlow(){
         `;
 }
 
+function renderAssietteGlow(){
+
+    const zone = document.getElementById("glow-assiette");
+
+    if(!zone) return;
+
+    const categories = {
+        proteine: [],
+        feculent: [],
+        legume: [],
+        fruit: [],
+        gras: [],
+        plaisir: []
+    };
+
+    repasGlowEnCours.forEach(aliment => {
+
+        if(categories[aliment.categorie]){
+            categories[aliment.categorie].push(aliment);
+        }
+
+    });
+
+    function noms(liste){
+        return liste.map(a =>
+            `${a.nom}<br><span style="
+                font-size:10px;
+                opacity:.65;
+                font-weight:600;
+            ">${a.quantite} g</span>`
+        ).join("<br>");
+    }
+
+    zone.innerHTML = `
+
+        <div style="
+            position:relative;
+            width:min(330px,90vw);
+            aspect-ratio:1;
+            margin:10px auto 20px;
+            border-radius:50%;
+            background:white;
+            box-shadow:
+                0 18px 45px rgba(80,50,60,.12),
+                inset 0 0 0 12px rgba(248,220,226,.35);
+            overflow:hidden;
+        ">
+
+            <!-- LÉGUMES / FRUITS -->
+            <div style="
+                position:absolute;
+                left:12%;
+                top:12%;
+                width:76%;
+                height:38%;
+                border-radius:120px 120px 28px 28px;
+                background:linear-gradient(135deg,#EEF7EA,#F5FBF2);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                text-align:center;
+                padding:18px;
+                font-size:12px;
+                font-weight:800;
+                color:#6F8E72;
+            ">
+                ${
+                    categories.legume.length || categories.fruit.length
+                    ? noms([
+                        ...categories.legume,
+                        ...categories.fruit
+                    ])
+                    : "🥗 Légumes / fruits"
+                }
+            </div>
+
+
+            <!-- PROTÉINES -->
+            <div style="
+                position:absolute;
+                left:12%;
+                bottom:12%;
+                width:36%;
+                height:32%;
+                border-radius:28px 18px 18px 80px;
+                background:linear-gradient(135deg,#FFF0F4,#FFE2EB);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                text-align:center;
+                padding:12px;
+                font-size:11px;
+                font-weight:800;
+                color:var(--acc);
+            ">
+                ${
+                    categories.proteine.length
+                    ? noms(categories.proteine)
+                    : "🍗 Protéines"
+                }
+            </div>
+
+
+            <!-- FÉCULENTS -->
+            <div style="
+                position:absolute;
+                right:12%;
+                bottom:12%;
+                width:36%;
+                height:32%;
+                border-radius:18px 28px 80px 18px;
+                background:linear-gradient(135deg,#FFF8E7,#FCECCB);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                text-align:center;
+                padding:12px;
+                font-size:11px;
+                font-weight:800;
+                color:#B78B43;
+            ">
+                ${
+                    categories.feculent.length
+                    ? noms(categories.feculent)
+                    : "🍚 Féculents"
+                }
+            </div>
+
+
+            <!-- MATIÈRES GRASSES -->
+            ${
+                categories.gras.length
+                ? `
+                    <div style="
+                        position:absolute;
+                        right:8%;
+                        top:48%;
+                        background:white;
+                        border:1px solid rgba(217,121,140,.15);
+                        border-radius:999px;
+                        padding:7px 11px;
+                        font-size:10px;
+                        font-weight:800;
+                        box-shadow:var(--shadow);
+                    ">
+                        🥑 ${categories.gras.map(a => a.nom).join(" · ")}
+                    </div>
+                `
+                : ""
+            }
+
+
+            <!-- PLAISIR -->
+            ${
+                categories.plaisir.length
+                ? `
+                    <div style="
+                        position:absolute;
+                        left:8%;
+                        top:48%;
+                        background:white;
+                        border-radius:999px;
+                        padding:7px 11px;
+                        font-size:10px;
+                        font-weight:800;
+                        box-shadow:var(--shadow);
+                    ">
+                        💗 ${categories.plaisir.map(a => a.nom).join(" · ")}
+                    </div>
+                `
+                : ""
+            }
+
+        </div>
+    `;
+}
+
 function ouvrirAjoutRepasGlow(type){
 
-   repasGlowEnCours = [];
+   typeRepasGlowEnCours = type;
+repasGlowEnCours = [];
 
     const labels = {
         "petit-dejeuner": "Petit-déjeuner",
@@ -14121,7 +14307,7 @@ function ouvrirAjoutRepasGlow(type){
 
 
 <!-- ALIMENTS AJOUTÉS -->
-
+<div id="glow-assiette"></div>
 <div
     id="glow-repas-selection"
     style="
@@ -14140,6 +14326,19 @@ function ouvrirAjoutRepasGlow(type){
         Ajoute les aliments de ton repas ✨
     </div>
 </div>
+<div
+    id="glow-conseil-repas"
+    style="
+        margin-bottom:18px;
+        padding:14px 16px;
+        border-radius:16px;
+        background:rgba(255,255,255,.5);
+        font-size:12px;
+        line-height:1.5;
+    "
+>
+    Ajoute des aliments pour obtenir un conseil ✨
+</div>
 
             <button
                 class="btn bd"
@@ -14153,6 +14352,41 @@ function ouvrirAjoutRepasGlow(type){
                 ✓ Enregistrer le repas
             </button>
 
+        </div>
+    `;
+   renderAssietteGlow();
+   afficherConseilRepasGlow(typeRepasGlowEnCours);
+   
+}
+
+function afficherConseilRepasGlow(type){
+
+    const zone =
+        document.getElementById("glow-conseil-repas");
+
+    if(!zone) return;
+
+    if(!repasGlowEnCours.length){
+
+        zone.innerHTML =
+            "Ajoute des aliments pour obtenir un conseil ✨";
+
+        return;
+    }
+
+    const analyse =
+        analyserRepasGlow(repasGlowEnCours, type);
+
+    zone.innerHTML = `
+        <div style="
+            font-weight:800;
+            margin-bottom:4px;
+        ">
+            ${analyse.titre}
+        </div>
+
+        <div style="color:var(--mut)">
+            ${analyse.message}
         </div>
     `;
 }
@@ -14202,9 +14436,6 @@ async function enregistrerRepasGlow(type){
     };
 
     DB.glow.nutrition.repas.push(nouveauRepas);
-
-   nouveauRepas.analyse =
-    analyserRepasGlow(nouveauRepas.aliments);
 
     DB.glow.glowScore = calculGlowScore().total;
 
