@@ -14891,29 +14891,42 @@ function utiliserRecetteGlow(id,type){
 
     if(type === "dejeuner"){
 
-        DB.glow.nutrition
-            .repasPrevus.dejeuner = {
+    const aliments =
+        (recette.ingredients || [])
+        .map(i => i.nom)
+        .filter(Boolean);
 
-                recetteId: recette.id,
+    DB.glow.nutrition.repasPrevus.dejeuner = {
 
-                nom: recette.nom,
+        // Format attendu par ton système Nutrition
+        aliments: aliments,
 
-                portions:
-                    recette.portions || 1,
+        date:
+            new Date().toISOString(),
 
-                tempsPreparation:
-                    Number(
-                        recette.tempsPreparation || 0
-                    ),
+        // Infos de la recette
+        recetteId:
+            recette.id,
 
-                tempsCuisson:
-                    Number(
-                        recette.tempsCuisson || 0
-                    )
+        nom:
+            recette.nom,
 
-            };
+        portions:
+            recette.portions || 1,
 
-    }
+        tempsPreparation:
+            Number(
+                recette.tempsPreparation || 0
+            ),
+
+        tempsCuisson:
+            Number(
+                recette.tempsCuisson || 0
+            )
+
+    };
+
+}
 
 
     // =========================
@@ -14922,28 +14935,48 @@ function utiliserRecetteGlow(id,type){
 
     if(type === "diner"){
 
-        DB.glow.nutrition.dinerPrevu = {
+    const aliments =
+        (recette.ingredients || [])
+        .map(i => i.nom)
+        .filter(Boolean);
 
-            recetteId: recette.id,
+    DB.glow.nutrition.dinerPrevu = {
 
-            nom: recette.nom,
+        // Format attendu par ton ancien système
+        aliments: aliments,
 
-            portions:
-                recette.portions || 1,
+        courses:
+            aliments.map(nom => ({
+                nom,
+                deja: false
+            })),
 
-            tempsPreparation:
-                Number(
-                    recette.tempsPreparation || 0
-                ),
+        date:
+            new Date().toISOString(),
 
-            tempsCuisson:
-                Number(
-                    recette.tempsCuisson || 0
-                )
+        // Infos supplémentaires de la recette
+        recetteId:
+            recette.id,
 
-        };
+        nom:
+            recette.nom,
 
-    }
+        portions:
+            recette.portions || 1,
+
+        tempsPreparation:
+            Number(
+                recette.tempsPreparation || 0
+            ),
+
+        tempsCuisson:
+            Number(
+                recette.tempsCuisson || 0
+            )
+
+    };
+
+}
 
 
     saveAll();
