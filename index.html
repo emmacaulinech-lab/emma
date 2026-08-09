@@ -1114,7 +1114,18 @@ font-weight:700;
     <div class="glow-actions">
         <div>💧 Eau</div>
         <div>🏋️ Sport</div>
-        <div>🥗 Nutrition</div>
+        <div
+    onclick="
+        event.stopPropagation();
+        goModule('glow');
+        setTimeout(() => {
+            renderGlowNutrition();
+        }, 50);
+    "
+    style="cursor:pointer;"
+>
+    🥗 Nutrition
+</div>
         <div>🌙 Sommeil</div>
     </div>
 
@@ -15776,15 +15787,39 @@ const courses =
                                 </div>
 
                                 <div style="
-                                    font-size:12px;
-                                    color:var(--mut);
-                                ">
-                                    ${(r.aliments || []).map(a =>
-    typeof a === "string"
-        ? a
-        : `${a.nom} · ${a.quantite} g`
-).join("  •  ")}
-                                </div>
+    font-size:12px;
+    color:var(--mut);
+">
+
+    ${
+        r.recetteId && r.nom
+            ? `
+                <div style="
+                    font-size:14px;
+                    font-weight:800;
+                    color:var(--txt);
+                    margin-bottom:4px;
+                ">
+                    ${r.nom}
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                ">
+                    🍽 Recette enregistrée
+                </div>
+            `
+            : (r.aliments || [])
+                .map(a =>
+                    typeof a === "string"
+                        ? a
+                        : `${a.nom} · ${a.quantite || ""}`
+                )
+                .join("  •  ")
+    }
+
+</div>
 
                             </div>
 
