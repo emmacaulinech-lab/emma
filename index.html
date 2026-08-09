@@ -13394,96 +13394,357 @@ async function renderGlowHydratation(){
 
 const GLOW_ALIMENTS = [
 
+    // =========================
     // PROTÉINES
-    { id:"poulet", nom:"Poulet", categorie:"proteine", kcal:165, proteines:31 },
-    { id: "oeuf", nom: "Œuf",
-    categorie: "proteine",
-    kcal: 143,
-    proteines: 13,
-    portions: [
-        { nom: "1 œuf", grammes: 60 },
-        { nom: "2 œufs", grammes: 120 },
-        { nom: "3 œufs", grammes: 180 }
-    ]
-},
-    { id:"thon", nom:"Thon", categorie:"proteine", kcal:116, proteines:26 },
-    { id:"saumon", nom:"Saumon", categorie:"proteine", kcal:208, proteines:20 },
-    { id:"steak", nom:"Steak haché", categorie:"proteine", kcal:250, proteines:26 },
-    {
-    id: "skyr",
-    nom: "Skyr",
-    categorie: "proteine",
-    kcal: 60,
-    proteines: 10,
-    portions: [
-        { nom: "1 pot", grammes: 140 },
-        { nom: "½ pot", grammes: 70 }
-    ]
-},
+    // =========================
 
-    // FÉCULENTS
-    { id:"pomme_de_terre", nom:"Pomme de terre", categorie:"feculent", kcal:77, proteines:2 },
-    { id:"riz", nom:"Riz cuit", categorie:"feculent", kcal:130, proteines:2.7 },
-    { id:"pates", nom:"Pâtes cuites", categorie:"feculent", kcal:131, proteines:5 },
+    { id:"poulet", nom:"Poulet", categorie:"proteine", kcal:165, proteines:31 },
+
+    { id:"poulet_roti", nom:"Poulet rôti", categorie:"proteine", kcal:190, proteines:28 },
+
     {
-    id: "pain",
-    nom: "Pain",
-    categorie: "feculent",
-    kcal: 265,
-    proteines: 9,
-    portions: [
-        { nom: "1 tranche", grammes: 30 },
-        { nom: "2 tranches", grammes: 60 },
-        { nom: "3 tranches", grammes: 90 }
-    ]
-},
+        id:"oeuf",
+        nom:"Œuf",
+        categorie:"proteine",
+        kcal:143,
+        proteines:13,
+        portions:[
+            { nom:"1 œuf", grammes:60 },
+            { nom:"2 œufs", grammes:120 },
+            { nom:"3 œufs", grammes:180 }
+        ]
+    },
+
+    { id:"thon", nom:"Thon", categorie:"proteine", kcal:116, proteines:26 },
+
+    { id:"saumon", nom:"Saumon", categorie:"proteine", kcal:208, proteines:20 },
+
+    { id:"steak", nom:"Steak haché", categorie:"proteine", kcal:250, proteines:26 },
+
+    { id:"jambon", nom:"Jambon blanc", categorie:"proteine", kcal:120, proteines:20,
+        portions:[
+            { nom:"1 tranche", grammes:40 },
+            { nom:"2 tranches", grammes:80 }
+        ]
+    },
+
+    {
+        id:"skyr",
+        nom:"Skyr",
+        categorie:"proteine",
+        kcal:60,
+        proteines:10,
+        portions:[
+            { nom:"½ pot", grammes:70 },
+            { nom:"1 pot", grammes:140 }
+        ]
+    },
+
+    {
+        id:"yaourt",
+        nom:"Yaourt nature",
+        categorie:"proteine",
+        kcal:60,
+        proteines:4,
+        portions:[
+            { nom:"1 pot", grammes:125 }
+        ]
+    },
+
+    {
+        id:"yaourt_grec",
+        nom:"Yaourt grec",
+        categorie:"proteine",
+        kcal:120,
+        proteines:8,
+        portions:[
+            { nom:"1 pot", grammes:125 }
+        ]
+    },
+
+    { id:"fromage_blanc", nom:"Fromage blanc", categorie:"proteine", kcal:70, proteines:8 },
+
+
+    // =========================
+    // FÉCULENTS / CÉRÉALES
+    // =========================
+
+    { id:"pomme_de_terre", nom:"Pomme de terre", categorie:"feculent", kcal:77, proteines:2 },
+
+    { id:"riz", nom:"Riz cuit", categorie:"feculent", kcal:130, proteines:2.7 },
+
+    { id:"pates", nom:"Pâtes cuites", categorie:"feculent", kcal:131, proteines:5 },
+
+    { id:"semoule", nom:"Semoule cuite", categorie:"feculent", kcal:120, proteines:3.5 },
+
+    {
+        id:"pain",
+        nom:"Pain",
+        categorie:"feculent",
+        kcal:265,
+        proteines:9,
+        portions:[
+            { nom:"1 tranche", grammes:30 },
+            { nom:"2 tranches", grammes:60 },
+            { nom:"3 tranches", grammes:90 }
+        ]
+    },
+
+    { id:"pain_complet", nom:"Pain complet", categorie:"feculent", kcal:245, proteines:9 },
+
     { id:"avoine", nom:"Flocons d’avoine", categorie:"feculent", kcal:370, proteines:13 },
 
+    { id:"farine", nom:"Farine", categorie:"feculent", kcal:364, proteines:10 },
+
+    { id:"maizena", nom:"Maïzena", categorie:"feculent", kcal:381, proteines:0.3 },
+
+    { id:"tortilla", nom:"Tortilla / wrap", categorie:"feculent", kcal:300, proteines:8,
+        portions:[
+            { nom:"1 wrap", grammes:60 }
+        ]
+    },
+
+
+    // =========================
     // LÉGUMES
+    // =========================
+
     { id:"tomate", nom:"Tomate", categorie:"legume", kcal:18, proteines:0.9 },
+
     { id:"concombre", nom:"Concombre", categorie:"legume", kcal:15, proteines:0.7 },
+
     { id:"courgette", nom:"Courgette", categorie:"legume", kcal:17, proteines:1.2 },
+
     { id:"haricot_vert", nom:"Haricots verts", categorie:"legume", kcal:31, proteines:1.8 },
+
     { id:"carotte", nom:"Carotte", categorie:"legume", kcal:41, proteines:0.9 },
 
-    // FRUITS
-    {
-    id: "banane",
-    nom: "Banane",
-    categorie: "fruit",
-    kcal: 89,
-    proteines: 1.1,
-    portions: [
-        { nom: "½ banane", grammes: 60 },
-        { nom: "1 banane", grammes: 120 }
-    ]
-},
-    { id:"pomme", nom:"Pomme", categorie:"fruit", kcal:52, proteines:0.3 },
-    { id:"orange", nom:"Orange", categorie:"fruit", kcal:47, proteines:0.9 },
-    { id:"kiwi", nom:"Kiwi", categorie:"fruit", kcal:61, proteines:1.1 },
+    { id:"salade", nom:"Salade verte", categorie:"legume", kcal:15, proteines:1.3 },
 
-    // MATIÈRES GRASSES / ACCOMPAGNEMENTS
+    { id:"poivron", nom:"Poivron", categorie:"legume", kcal:26, proteines:1 },
+
+    { id:"aubergine", nom:"Aubergine", categorie:"legume", kcal:25, proteines:1 },
+
+    { id:"epinards", nom:"Épinards", categorie:"legume", kcal:23, proteines:2.9 },
+
+    { id:"petits_pois", nom:"Petits pois", categorie:"legume", kcal:81, proteines:5.4 },
+
+
+    // =========================
+    // FRUITS
+    // =========================
+
     {
-    id: "avocat",
-    nom: "Avocat",
-    categorie: "gras",
-    kcal: 160,
-    proteines: 2,
-    portions: [
-        { nom: "¼ avocat", grammes: 40 },
-        { nom: "½ avocat", grammes: 80 },
-        { nom: "1 avocat", grammes: 160 }
-    ]
-},
-    { id:"huile_olive", nom:"Huile d’olive", categorie:"gras", kcal:884, proteines:0 },
+        id:"banane",
+        nom:"Banane",
+        categorie:"fruit",
+        kcal:89,
+        proteines:1.1,
+        portions:[
+            { nom:"½ banane", grammes:60 },
+            { nom:"1 banane", grammes:120 }
+        ]
+    },
+
+    { id:"pomme", nom:"Pomme", categorie:"fruit", kcal:52, proteines:0.3,
+        portions:[
+            { nom:"1 pomme", grammes:150 }
+        ]
+    },
+
+    { id:"orange", nom:"Orange", categorie:"fruit", kcal:47, proteines:0.9,
+        portions:[
+            { nom:"1 orange", grammes:150 }
+        ]
+    },
+
+    { id:"kiwi", nom:"Kiwi", categorie:"fruit", kcal:61, proteines:1.1,
+        portions:[
+            { nom:"1 kiwi", grammes:80 }
+        ]
+    },
+
+    { id:"fraises", nom:"Fraises", categorie:"fruit", kcal:32, proteines:0.7 },
+
+    { id:"framboises", nom:"Framboises", categorie:"fruit", kcal:52, proteines:1.2 },
+
+    { id:"myrtilles", nom:"Myrtilles", categorie:"fruit", kcal:57, proteines:0.7 },
+
+    { id:"mandarine", nom:"Mandarine", categorie:"fruit", kcal:53, proteines:0.8 },
+
+    { id:"melon", nom:"Melon", categorie:"fruit", kcal:34, proteines:0.8 },
+
+
+    // =========================
+    // MATIÈRES GRASSES / FROMAGES
+    // =========================
+
+    {
+        id:"avocat",
+        nom:"Avocat",
+        categorie:"gras",
+        kcal:160,
+        proteines:2,
+        portions:[
+            { nom:"¼ avocat", grammes:40 },
+            { nom:"½ avocat", grammes:80 },
+            { nom:"1 avocat", grammes:160 }
+        ]
+    },
+
+    { id:"huile_olive", nom:"Huile d’olive", categorie:"gras", kcal:884, proteines:0,
+        portions:[
+            { nom:"1 c. à café", grammes:5 },
+            { nom:"1 c. à soupe", grammes:10 }
+        ]
+    },
+
+    { id:"beurre", nom:"Beurre", categorie:"gras", kcal:717, proteines:0.9 },
+
     { id:"feta", nom:"Feta", categorie:"gras", kcal:264, proteines:14 },
+
+    { id:"mozzarella", nom:"Mozzarella", categorie:"gras", kcal:280, proteines:18 },
+
+    { id:"emmental", nom:"Emmental", categorie:"gras", kcal:380, proteines:28 },
+
+    { id:"chevre", nom:"Fromage de chèvre", categorie:"gras", kcal:300, proteines:20 },
+
     { id:"olives", nom:"Olives", categorie:"gras", kcal:116, proteines:0.8 },
 
-    // PLAISIR
-    { id:"nutella", nom:"Nutella", categorie:"plaisir", kcal:539, proteines:6.3 }
+    { id:"noix", nom:"Noix", categorie:"gras", kcal:654, proteines:15 },
+
+    { id:"amandes", nom:"Amandes", categorie:"gras", kcal:579, proteines:21 },
+
+
+    // =========================
+    // LAIT / BOISSONS
+    // =========================
+
+    { id:"lait", nom:"Lait", categorie:"proteine", kcal:46, proteines:3.2,
+        portions:[
+            { nom:"1 verre", grammes:200 }
+        ]
+    },
+
+    { id:"lait_demi_ecreme", nom:"Lait demi-écrémé", categorie:"proteine", kcal:46, proteines:3.2 },
+
+    { id:"jus_orange", nom:"Jus d’orange", categorie:"fruit", kcal:45, proteines:0.7,
+        portions:[
+            { nom:"1 verre", grammes:200 }
+        ]
+    },
+
+
+    // =========================
+    // SUCRÉ / PLAISIR
+    // =========================
+
+    { id:"nutella", nom:"Nutella", categorie:"plaisir", kcal:539, proteines:6.3,
+        portions:[
+            { nom:"1 c. à café", grammes:10 },
+            { nom:"1 c. à soupe", grammes:15 }
+        ]
+    },
+
+    { id:"sucre", nom:"Sucre", categorie:"plaisir", kcal:400, proteines:0 },
+
+    { id:"sucre_vanille", nom:"Sucre vanillé", categorie:"plaisir", kcal:390, proteines:0 },
+
+    { id:"miel", nom:"Miel", categorie:"plaisir", kcal:304, proteines:0.3,
+        portions:[
+            { nom:"1 c. à café", grammes:10 },
+            { nom:"1 c. à soupe", grammes:20 }
+        ]
+    },
+
+    { id:"chocolat_noir", nom:"Chocolat noir", categorie:"plaisir", kcal:550, proteines:7 },
+
+    { id:"chocolat_lait", nom:"Chocolat au lait", categorie:"plaisir", kcal:535, proteines:7 },
+
+    { id:"confiture", nom:"Confiture", categorie:"plaisir", kcal:250, proteines:0.4 },
+
+    { id:"sirop_erable", nom:"Sirop d’érable", categorie:"plaisir", kcal:260, proteines:0 },
+
+
+    // =========================
+    // PRÉPARATIONS / PETIT-DÉJ
+    // =========================
+
+    {
+        id:"gaufre_maison",
+        nom:"Gaufre maison",
+        categorie:"plaisir",
+        kcal:220,
+        proteines:7,
+        portions:[
+            { nom:"1 gaufre", grammes:80 },
+            { nom:"2 gaufres", grammes:160 }
+        ]
+    },
+
+    {
+        id:"crepe_maison",
+        nom:"Crêpe maison",
+        categorie:"plaisir",
+        kcal:190,
+        proteines:6,
+        portions:[
+            { nom:"1 crêpe", grammes:70 },
+            { nom:"2 crêpes", grammes:140 }
+        ]
+    },
+
+    {
+        id:"pancake",
+        nom:"Pancake",
+        categorie:"plaisir",
+        kcal:225,
+        proteines:6,
+        portions:[
+            { nom:"1 pancake", grammes:50 },
+            { nom:"2 pancakes", grammes:100 }
+        ]
+    },
+
+    {
+        id:"biscuit",
+        nom:"Biscuit",
+        categorie:"plaisir",
+        kcal:450,
+        proteines:6,
+        portions:[
+            { nom:"1 biscuit", grammes:15 }
+        ]
+    },
+
+    {
+        id:"cereales",
+        nom:"Céréales petit-déjeuner",
+        categorie:"feculent",
+        kcal:380,
+        proteines:7
+    },
+
+
+    // =========================
+    // REPAS / ACCOMPAGNEMENTS
+    // =========================
+
+    { id:"frites_maison", nom:"Frites maison", categorie:"feculent", kcal:300, proteines:4 },
+
+    { id:"puree", nom:"Purée de pommes de terre", categorie:"feculent", kcal:110, proteines:2 },
+
+    { id:"gratins_pdt", nom:"Gratin de pommes de terre", categorie:"feculent", kcal:180, proteines:5 },
+
+    { id:"riz_saute", nom:"Riz sauté", categorie:"feculent", kcal:180, proteines:4 },
+
+    { id:"pates_sauce_tomate", nom:"Pâtes sauce tomate", categorie:"feculent", kcal:150, proteines:5 },
+
+    { id:"omelette", nom:"Omelette", categorie:"proteine", kcal:160, proteines:12 },
+
+    { id:"salade_composee", nom:"Salade composée", categorie:"legume", kcal:100, proteines:4 }
 
 ];
-
 function getGlowAliments(){
 
     DB.glowAlimentsPerso =
@@ -13673,6 +13934,522 @@ function analyserRepasGlow(aliments, type){
     };
 }
 
+function genererSuiteJourneeGlow(){
+
+    initialiserGlowDuJour();
+
+    const repas = DB.glow?.nutrition?.repas || [];
+
+   const dinerPrevu =
+    DB.glow?.nutrition?.dinerPrevu || null;
+
+const aujourdHui =
+    new Date().toISOString().split("T")[0];
+
+const signatureJour =
+    aujourdHui + "|" +
+    repas.map(r =>
+        `${r.type}:${(r.aliments || [])
+            .map(a => a.nom)
+            .join(",")}`
+    ).join("|");
+
+    // Tout ce qui a déjà été mangé aujourd'hui
+    const alimentsManges = new Set();
+    const typesManges = new Set();
+
+    const stats = {
+        proteine: 0,
+        feculent: 0,
+        legume: 0,
+        fruit: 0,
+        gras: 0,
+        plaisir: 0
+    };
+
+    let totalCalories = 0;
+    let totalProteines = 0;
+
+    repas.forEach(r => {
+
+        typesManges.add(r.type);
+
+        totalCalories += Number(r.calories || 0);
+        totalProteines += Number(r.proteines || 0);
+
+        (r.aliments || []).forEach(a => {
+
+            alimentsManges.add(a.nom);
+
+            if(stats[a.categorie] !== undefined){
+                stats[a.categorie]++;
+            }
+
+        });
+
+    });
+
+
+    // =========================
+    // BANQUE DE REPAS
+    // =========================
+
+    const dejeuners = [
+
+        {
+            aliments:["Poulet","Riz cuit","Tomate","Avocat"],
+            tags:["equilibre","proteine","legume"]
+        },
+
+        {
+            aliments:["Thon","Pomme de terre","Concombre","Feta"],
+            tags:["leger","proteine","legume"]
+        },
+
+        {
+            aliments:["Omelette","Pain complet","Tomate","Avocat"],
+            tags:["rapide","proteine"]
+        },
+
+        {
+            aliments:["Saumon","Riz cuit","Courgette"],
+            tags:["equilibre","proteine","legume"]
+        },
+
+        {
+            aliments:["Poulet","Pâtes cuites","Courgette","Feta"],
+            tags:["complet","proteine"]
+        }
+
+    ];
+
+
+    const diners = [
+
+        {
+            aliments:["Poulet rôti","Frites maison","Tomate","Concombre"],
+            tags:["plaisir","proteine","legume"]
+        },
+
+        {
+            aliments:["Saumon","Pomme de terre","Courgette"],
+            tags:["equilibre","proteine","legume"]
+        },
+
+        {
+            aliments:["Poulet","Riz cuit","Courgette"],
+            tags:["leger","proteine","legume"]
+        },
+
+        {
+            aliments:["Steak haché","Pomme de terre","Haricots verts"],
+            tags:["proteine","legume"]
+        },
+
+        {
+            aliments:["Pâtes cuites","Poulet","Courgette","Feta"],
+            tags:["complet","proteine"]
+        },
+
+        {
+            aliments:["Omelette","Pomme de terre","Tomate","Avocat"],
+            tags:["rapide","proteine","legume"]
+        },
+
+        {
+            aliments:["Saumon","Riz cuit","Concombre","Avocat"],
+            tags:["frais","proteine"]
+        }
+
+    ];
+
+
+    const collations = [
+
+        ["Skyr","Banane"],
+
+        ["Yaourt nature","Kiwi","Miel"],
+
+        ["Fromage blanc","Fraises"],
+
+        ["Skyr","Pomme"],
+
+        ["Yaourt grec","Framboises"]
+
+    ];
+
+
+    // =========================
+    // SCORE D'UN REPAS
+    // =========================
+   
+function variationStable(texte){
+
+    const source =
+        signatureJour + "|" + texte;
+
+    let hash = 0;
+
+    for(let i = 0; i < source.length; i++){
+
+        hash =
+            ((hash << 5) - hash) +
+            source.charCodeAt(i);
+
+        hash |= 0;
+    }
+
+    return (
+        Math.abs(hash) % 150
+    ) / 100;
+}
+   
+    function noterRepas(proposition){
+
+        let score = 0;
+
+        const categories =
+            proposition.aliments
+            .map(nom =>
+                getGlowAliments()
+                .find(a => a.nom === nom)?.categorie
+            )
+            .filter(Boolean);
+
+
+        // Favorise ce qui manque aujourd'hui
+
+        if(
+            stats.proteine === 0 &&
+            categories.includes("proteine")
+        ){
+            score += 5;
+        }
+
+        if(
+            stats.legume === 0 &&
+            categories.includes("legume")
+        ){
+            score += 5;
+        }
+
+        if(
+            stats.feculent === 0 &&
+            categories.includes("feculent")
+        ){
+            score += 2;
+        }
+
+
+        // Journée déjà riche en plaisir :
+        // favorise un repas plus simple
+
+        if(stats.plaisir >= 2){
+
+            if(proposition.tags.includes("leger")){
+                score += 4;
+            }
+
+            if(proposition.tags.includes("equilibre")){
+                score += 3;
+            }
+
+            if(proposition.tags.includes("plaisir")){
+                score -= 3;
+            }
+
+        }
+
+
+        // Pas beaucoup de protéines jusque-là
+
+        if(totalProteines < 30){
+
+            if(proposition.tags.includes("proteine")){
+                score += 3;
+            }
+
+        }
+
+
+        // Évite de proposer exactement
+        // les mêmes aliments
+
+        proposition.aliments.forEach(nom => {
+
+            if(alimentsManges.has(nom)){
+                score -= 2;
+            }
+
+        });
+
+
+        // Petite variation pour ne pas avoir
+        // toujours exactement le même classement
+
+        score += variationStable(
+    proposition.aliments.join("|")
+);
+
+        return score;
+    }
+
+
+    function choisirMeilleures(liste, nombre = 3){
+
+        return [...liste]
+
+            .map(rep => ({
+                ...rep,
+                score: noterRepas(rep)
+            }))
+
+            .sort((a,b) => b.score - a.score)
+
+            .slice(0,nombre)
+
+            .map(rep => rep.aliments);
+
+    }
+
+
+    // =========================
+    // CONSTRUCTION DE LA SUITE
+    // =========================
+
+    const suggestions = [];
+
+
+    if(!typesManges.has("dejeuner")){
+
+        suggestions.push({
+
+            type:"dejeuner",
+
+            titre:"☀️ Déjeuner suggéré",
+
+            options:
+                choisirMeilleures(dejeuners, 3)
+
+        });
+
+    }
+
+
+    if(!typesManges.has("collation")){
+
+        let optionsCollation =
+            collations.filter(option =>
+                !option.some(nom =>
+                    alimentsManges.has(nom)
+                )
+            );
+
+        if(optionsCollation.length < 3){
+            optionsCollation = collations;
+        }
+
+        suggestions.push({
+
+            type:"collation",
+
+            titre:"🍓 Collation si tu as faim",
+
+            options:
+                optionsCollation.slice(0,3)
+
+        });
+
+    }
+
+
+    if(
+    !typesManges.has("diner") &&
+    !dinerPrevu
+){
+
+        suggestions.push({
+
+            type:"diner",
+
+            titre:"🌙 Ce qu’on pourrait manger ce soir",
+
+            options:
+                choisirMeilleures(diners, 3)
+
+        });
+
+    }
+
+
+    return suggestions;
+}
+
+async function choisirDinerGlow(option){
+
+    initialiserGlowDuJour();
+
+    DB.glow.nutrition =
+        DB.glow.nutrition || {
+            repas: [],
+            objectif: "equilibre"
+        };
+
+    DB.glow.nutrition.dinerPrevu = {
+    aliments: option,
+    courses: option.map(nom => ({
+        nom,
+        deja: false
+    })),
+    date: new Date().toISOString()
+};
+
+    await saveAll();
+
+    renderGlowNutrition();
+
+    toast("Dîner prévu pour ce soir 🌙");
+}
+
+async function toggleCourseDinerGlow(index, checked){
+
+    const diner =
+        DB.glow?.nutrition?.dinerPrevu;
+
+    if(!diner) return;
+
+    diner.courses =
+        diner.courses ||
+        diner.aliments.map(nom => ({
+            nom,
+            deja: false
+        }));
+
+    if(!diner.courses[index]) return;
+
+    diner.courses[index].deja = checked;
+
+    await saveAll();
+
+    renderGlowNutrition();
+}
+
+async function copierCoursesDinerGlow(){
+
+    const diner =
+        DB.glow?.nutrition?.dinerPrevu;
+
+    if(!diner) return;
+
+    const courses =
+        diner.courses ||
+        diner.aliments.map(nom => ({
+            nom,
+            deja: false
+        }));
+
+    const aAcheter =
+        courses.filter(item => !item.deja);
+
+    if(!aAcheter.length){
+        toast("Tout est déjà à la maison ✓");
+        return;
+    }
+
+    const texte =
+        "Pour ce soir 🛒\n\n" +
+        aAcheter
+            .map(item => `• ${item.nom}`)
+            .join("\n");
+
+    try{
+
+        await navigator.clipboard.writeText(texte);
+
+        toast("Liste copiée 📋");
+
+    }catch(e){
+
+        toast("Impossible de copier la liste");
+
+    }
+}
+
+async function supprimerDinerPrevuGlow(){
+
+    if(!DB.glow?.nutrition) return;
+
+    DB.glow.nutrition.dinerPrevu = null;
+
+    await saveAll();
+
+    renderGlowNutrition();
+
+    toast("Dîner retiré");
+}
+
+async function validerDinerPrevuGlow(){
+
+    initialiserGlowDuJour();
+
+    const dinerPrevu =
+        DB.glow?.nutrition?.dinerPrevu;
+
+    if(!dinerPrevu) return;
+
+    DB.glow.nutrition.repas =
+        DB.glow.nutrition.repas || [];
+
+    const aliments = dinerPrevu.aliments.map(nom => {
+
+        const trouve =
+            getGlowAliments()
+            .find(a => a.nom === nom);
+
+        if(trouve){
+
+            return {
+                id: trouve.id,
+                nom: trouve.nom,
+                categorie: trouve.categorie,
+                quantite: 0,
+                calories: 0,
+                proteines: 0
+            };
+
+        }
+
+        return {
+            nom,
+            categorie: "",
+            quantite: 0,
+            calories: 0,
+            proteines: 0
+        };
+
+    });
+
+    DB.glow.nutrition.repas.push({
+        type: "diner",
+        aliments,
+        calories: 0,
+        proteines: 0,
+        heure: new Date().toISOString()
+    });
+
+    DB.glow.nutrition.dinerPrevu = null;
+
+    DB.glow.glowScore =
+        calculGlowScore().total;
+
+    await saveAll();
+
+    renderGlowAccueil();
+    renderGlowNutrition();
+
+    toast("Dîner enregistré 🌙");
+}
+
 function renderGlowNutrition(){
 
     initialiserGlowDuJour();
@@ -13683,6 +14460,10 @@ function renderGlowNutrition(){
     };
 
     const repas = DB.glow.nutrition.repas || [];
+    const suiteJournee =
+    genererSuiteJourneeGlow();
+    const dinerPrevu =
+    DB.glow.nutrition.dinerPrevu || null;
 
     const totalCalories = repas.reduce(
         (total, repas) => total + Number(repas.calories || 0),
@@ -13752,6 +14533,327 @@ function renderGlowNutrition(){
             ">
                 🍽️ Nutrition aujourd’hui
             </div>
+
+            <!-- SUITE DE MA JOURNÉE -->
+<div style="
+    background:rgba(255,255,255,.60);
+    border:1px solid rgba(255,255,255,.85);
+    border-radius:26px;
+    padding:24px;
+    box-shadow:var(--shadow);
+    margin-bottom:18px;
+">
+
+    <div style="
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:.12em;
+        color:var(--acc);
+        font-weight:800;
+        margin-bottom:8px;
+    ">
+        ✨ Suite de ma journée
+    </div>
+
+    ${
+        suiteJournee.length
+
+        ? suiteJournee.map(bloc => `
+
+            <div style="
+                margin-top:18px;
+                padding-top:18px;
+                border-top:1px solid rgba(0,0,0,.05);
+            ">
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:21px;
+                    font-weight:700;
+                    margin-bottom:12px;
+                ">
+                    ${bloc.titre}
+                </div>
+
+                <div style="
+                    display:grid;
+                    gap:10px;
+                ">
+
+                    ${bloc.options.map((option,index) => `
+
+                        <div style="
+                            background:rgba(255,255,255,.50);
+                            border-radius:18px;
+                            padding:14px 16px;
+                        ">
+
+                            <div style="
+                                font-size:13px;
+                                font-weight:800;
+                                line-height:1.5;
+                                margin-bottom:8px;
+                            ">
+                                ${option.join(" · ")}
+                            </div>
+
+                            ${
+                                bloc.type === "diner"
+                                ? `
+                                    <button
+                                        class="btn bg bsm"
+                                        onclick='choisirDinerGlow(${JSON.stringify(option)})'
+                                    >
+                                        🌙 Choisir pour ce soir
+                                    </button>
+                                `
+                                : ""
+                            }
+
+                        </div>
+
+                    `).join("")}
+
+                </div>
+
+            </div>
+
+        `).join("")
+
+        : `
+            <div style="
+                color:var(--mut);
+                font-size:13px;
+            ">
+                Tous tes repas principaux sont déjà renseignés aujourd’hui ✨
+            </div>
+        `
+    }
+
+</div>
+
+${dinerPrevu ? `
+
+<div style="
+    background:linear-gradient(135deg,#FFF2F6,#FFF9F7);
+    border:1px solid rgba(255,255,255,.9);
+    border-radius:26px;
+    padding:24px;
+    box-shadow:var(--shadow);
+    margin-bottom:18px;
+">
+
+    <div style="
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:.12em;
+        color:var(--acc);
+        font-weight:800;
+        margin-bottom:8px;
+    ">
+        🌙 Dîner prévu ce soir
+    </div>
+
+    <div style="
+        font-family:'Cormorant Garamond',serif;
+        font-size:24px;
+        font-weight:700;
+        margin-bottom:14px;
+        line-height:1.4;
+    ">
+        ${dinerPrevu.aliments.join(" · ")}
+    </div>
+
+    <div style="
+        background:rgba(255,255,255,.55);
+        border-radius:18px;
+        padding:14px 16px;
+        margin-bottom:14px;
+    ">
+
+        <div style="
+            font-size:11px;
+            color:var(--mut);
+            font-weight:800;
+            margin-bottom:8px;
+        ">
+            🛒 À prévoir / acheter
+        </div>
+
+        ${(() => {
+
+    const courses =
+        dinerPrevu.courses ||
+        dinerPrevu.aliments.map(nom => ({
+            nom,
+            deja: false
+        }));
+
+    const aAcheter =
+        courses.filter(item => !item.deja);
+
+    const dejaMaison =
+        courses.filter(item => item.deja);
+
+    return `
+
+        <div style="
+            font-size:11px;
+            color:var(--mut);
+            font-weight:800;
+            margin-bottom:8px;
+        ">
+            🛒 À acheter
+        </div>
+
+        ${
+            aAcheter.length
+            ? aAcheter.map(item => {
+
+                const index =
+                    courses.indexOf(item);
+
+                return `
+
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        gap:10px;
+                        padding:7px 0;
+                    ">
+
+                        <input
+                            type="checkbox"
+                            onchange="toggleCourseDinerGlow(${index}, this.checked)"
+                            style="
+                                width:18px;
+                                height:18px;
+                            "
+                        >
+
+                        <span style="
+                            font-size:13px;
+                            font-weight:700;
+                        ">
+                            ${item.nom}
+                        </span>
+
+                    </div>
+
+                `;
+
+            }).join("")
+
+            : `
+                <div style="
+                    font-size:12px;
+                    color:var(--mut);
+                    margin-bottom:10px;
+                ">
+                    Tout est déjà à la maison ✓
+                </div>
+            `
+        }
+
+
+        ${
+            dejaMaison.length
+            ? `
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    font-weight:800;
+                    margin:14px 0 6px;
+                ">
+                    ✓ Déjà à la maison
+                </div>
+
+                ${dejaMaison.map(item => {
+
+                    const index =
+                        courses.indexOf(item);
+
+                    return `
+
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                            padding:6px 0;
+                            opacity:.48;
+                        ">
+
+                            <input
+                                type="checkbox"
+                                checked
+                                onchange="toggleCourseDinerGlow(${index}, this.checked)"
+                                style="
+                                    width:18px;
+                                    height:18px;
+                                "
+                            >
+
+                            <span style="
+                                font-size:13px;
+                                text-decoration:line-through;
+                            ">
+                                ${item.nom}
+                            </span>
+
+                        </div>
+
+                    `;
+
+                }).join("")}
+
+            `
+            : ""
+        }
+
+    `;
+
+})()}
+
+    </div>
+
+    <div style="
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+    ">
+
+      <button
+    class="btn bg"
+    onclick="copierCoursesDinerGlow()"
+    style="
+        width:100%;
+        justify-content:center;
+        margin-bottom:10px;
+    "
+>
+    📋 Copier la liste à acheter
+</button>
+
+        <button
+            class="btn bd"
+            onclick="validerDinerPrevuGlow()"
+        >
+            ✓ J’ai mangé ça
+        </button>
+
+        <button
+            class="btn bg"
+            onclick="supprimerDinerPrevuGlow()"
+        >
+            Changer
+        </button>
+
+    </div>
+
+</div>
+
+` : ""}
 
             <div style="
                 font-family:'Cormorant Garamond',serif;
