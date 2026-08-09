@@ -15216,7 +15216,11 @@ ${dinerPrevu ? `
         margin-bottom:14px;
         line-height:1.4;
     ">
-        ${dinerPrevu.aliments.join(" · ")}
+        ${
+    dinerPrevu.nom ||
+    (dinerPrevu.aliments || []).join(" · ") ||
+    "Dîner prévu"
+}
     </div>
 
     <div style="
@@ -15237,9 +15241,21 @@ ${dinerPrevu ? `
 
         ${(() => {
 
-    const courses =
-        dinerPrevu.courses ||
-        dinerPrevu.aliments.map(nom => ({
+    const recetteAssociee =
+    dinerPrevu.recetteId
+        ? DB.glow?.nutrition?.recettes
+            ?.find(r => r.id === dinerPrevu.recetteId)
+        : null;
+
+const alimentsRecette =
+    recetteAssociee?.ingredients
+        ?.map(i => i.nom)
+        .filter(Boolean) || [];
+
+const courses =
+    dinerPrevu.courses ||
+    (dinerPrevu.aliments || alimentsRecette)
+        .map(nom => ({
             nom,
             deja: false
         }));
