@@ -13433,9 +13433,104 @@ const GLOW_ALIMENTS = [
 
 ];
 
+function getGlowAliments(){
+
+    DB.glowAlimentsPerso =
+        DB.glowAlimentsPerso || [];
+
+    return [
+        ...GLOW_ALIMENTS,
+        ...DB.glowAlimentsPerso
+    ];
+}
+
+function filtrerAlimentsGlow(categorie){
+
+    categorieGlowSelectionnee = categorie;
+
+    const select =
+        document.getElementById("glow-aliment-select");
+
+    if(!select) return;
+
+    const aliments = getGlowAliments()
+        .filter(a => a.categorie === categorie);
+
+    select.innerHTML = `
+        <option value="">
+            Choisir un aliment...
+        </option>
+
+        ${aliments.map(a => `
+            <option value="${a.id}">
+                ${a.nom}
+            </option>
+        `).join("")}
+    `;
+
+    document
+        .querySelectorAll("[data-glow-categorie]")
+        .forEach(btn => {
+
+            const actif =
+                btn.dataset.glowCategorie === categorie;
+
+            btn.style.background =
+                actif ? "#FFE5EF" : "";
+
+            btn.style.color =
+                actif ? "var(--acc)" : "";
+        });
+}
+
+function rechercherAlimentGlow(recherche){
+
+    const select =
+        document.getElementById("glow-aliment-select");
+
+    if(!select) return;
+
+    const texte =
+        recherche
+            .trim()
+            .toLowerCase();
+
+    // Si la recherche est vide,
+    // on revient à la catégorie sélectionnée
+    if(!texte){
+        filtrerAlimentsGlow(categorieGlowSelectionnee);
+        return;
+    }
+
+    // Recherche dans TOUTES les catégories
+    const aliments =
+        getGlowAliments().filter(a =>
+            a.nom.toLowerCase().includes(texte)
+        );
+
+    select.innerHTML = `
+        <option value="">
+            ${
+                aliments.length
+                    ? `${aliments.length} résultat${aliments.length > 1 ? "s" : ""}`
+                    : "Aucun aliment trouvé"
+            }
+        </option>
+
+        ${aliments.map(a => `
+            <option value="${a.id}">
+                ${a.nom}
+            </option>
+        `).join("")}
+    `;
+}
+
+let categorieGlowSelectionnee = "proteine";
+
 function calculerAlimentGlow(id, quantite){
 
-    const aliment = GLOW_ALIMENTS.find(a => a.id === id);
+    const aliment = getGlowAliments()
+    .find(a => a.id === id);
 
     if(!aliment) return null;
 
@@ -13992,7 +14087,6 @@ function afficherAlimentsRepasGlow(){
 function renderAssietteGlow(){
 
     const zone = document.getElementById("glow-assiette");
-
     if(!zone) return;
 
     const categories = {
@@ -14005,136 +14099,269 @@ function renderAssietteGlow(){
     };
 
     repasGlowEnCours.forEach(aliment => {
-
         if(categories[aliment.categorie]){
             categories[aliment.categorie].push(aliment);
         }
-
     });
 
-    function noms(liste){
-        return liste.map(a =>
-            `${a.nom}<br><span style="
-                font-size:10px;
-                opacity:.65;
-                font-weight:600;
-            ">${a.quantite} g</span>`
-        ).join("<br>");
+    const vegetaux = [
+        ...categories.legume,
+        ...categories.fruit
+    ];
+
+    function contenu(liste, emoji, titre){
+
+        if(!liste.length){
+            return `
+                <div style="
+                    opacity:.42;
+                    text-align:center;
+                    font-size:11px;
+                    line-height:1.3;
+                ">
+                    <div style="font-size:22px;margin-bottom:4px">
+                        ${emoji}
+                    </div>
+                    ${titre}
+                </div>
+            `;
+        }
+
+        return `
+            <div style="
+                text-align:center;
+                line-height:1.25;
+            ">
+                ${liste.map(a => `
+                    <div style="
+                        margin:3px 0;
+                        font-size:12px;
+                        font-weight:800;
+                    ">
+                        ${a.nom}
+
+                        <div style="
+                            font-size:9px;
+                            font-weight:600;
+                            opacity:.6;
+                            margin-top:1px;
+                        ">
+                            ${a.quantite} g
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
     }
+
 
     zone.innerHTML = `
 
         <div style="
+            text-align:center;
+            margin:4px 0 12px;
+        ">
+            <div style="
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:.09em;
+                color:var(--mut);
+                font-weight:800;
+            ">
+                Mon assiette
+            </div>
+        </div>
+
+
+        <div style="
             position:relative;
-            width:min(330px,90vw);
+            width:min(310px,82vw);
             aspect-ratio:1;
-            margin:10px auto 20px;
+            margin:0 auto 20px;
+
             border-radius:50%;
-            background:white;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(255,255,255,.98),
+                    rgba(255,248,247,.95)
+                );
+
+            border:10px solid rgba(255,255,255,.92);
+
             box-shadow:
-                0 18px 45px rgba(80,50,60,.12),
-                inset 0 0 0 12px rgba(248,220,226,.35);
+                0 18px 45px rgba(80,50,60,.13),
+                inset 0 0 0 2px rgba(217,121,140,.08),
+                inset 0 8px 20px rgba(255,255,255,.9);
+
             overflow:hidden;
         ">
 
-            <!-- LÉGUMES / FRUITS -->
+
+            <!-- 50 % LÉGUMES / FRUITS -->
+
             <div style="
                 position:absolute;
-                left:12%;
-                top:12%;
-                width:76%;
-                height:38%;
-                border-radius:120px 120px 28px 28px;
-                background:linear-gradient(135deg,#EEF7EA,#F5FBF2);
+
+                left:8%;
+                right:8%;
+                top:8%;
+
+                height:45%;
+
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                text-align:center;
-                padding:18px;
-                font-size:12px;
-                font-weight:800;
-                color:#6F8E72;
+
+                padding:16px;
+
+                border-radius:
+                    120px 120px 24px 24px;
+
+                background:
+                    linear-gradient(
+                        145deg,
+                        #eef8ec,
+                        #f8fcf5
+                    );
+
+                color:#66866b;
+
+                border:
+                    2px solid rgba(121,163,132,.10);
             ">
-                ${
-                    categories.legume.length || categories.fruit.length
-                    ? noms([
-                        ...categories.legume,
-                        ...categories.fruit
-                    ])
-                    : "🥗 Légumes / fruits"
-                }
+
+                ${contenu(
+                    vegetaux,
+                    "🥗",
+                    "Légumes / fruits"
+                )}
+
             </div>
 
 
             <!-- PROTÉINES -->
+
             <div style="
                 position:absolute;
-                left:12%;
-                bottom:12%;
-                width:36%;
-                height:32%;
-                border-radius:28px 18px 18px 80px;
-                background:linear-gradient(135deg,#FFF0F4,#FFE2EB);
+
+                left:8%;
+                bottom:8%;
+
+                width:40%;
+                height:35%;
+
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                text-align:center;
+
                 padding:12px;
-                font-size:11px;
-                font-weight:800;
-                color:var(--acc);
+
+                border-radius:
+                    22px 18px 18px 100px;
+
+                background:
+                    linear-gradient(
+                        145deg,
+                        #ffe9ef,
+                        #fff5f7
+                    );
+
+                color:#bd6378;
+
+                border:
+                    2px solid rgba(217,121,140,.10);
             ">
-                ${
-                    categories.proteine.length
-                    ? noms(categories.proteine)
-                    : "🍗 Protéines"
-                }
+
+                ${contenu(
+                    categories.proteine,
+                    "🍗",
+                    "Protéines"
+                )}
+
             </div>
 
 
             <!-- FÉCULENTS -->
+
             <div style="
                 position:absolute;
-                right:12%;
-                bottom:12%;
-                width:36%;
-                height:32%;
-                border-radius:18px 28px 80px 18px;
-                background:linear-gradient(135deg,#FFF8E7,#FCECCB);
+
+                right:8%;
+                bottom:8%;
+
+                width:40%;
+                height:35%;
+
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                text-align:center;
+
                 padding:12px;
-                font-size:11px;
-                font-weight:800;
-                color:#B78B43;
+
+                border-radius:
+                    18px 22px 100px 18px;
+
+                background:
+                    linear-gradient(
+                        145deg,
+                        #fff5dc,
+                        #fffbef
+                    );
+
+                color:#ae884c;
+
+                border:
+                    2px solid rgba(216,170,114,.12);
             ">
-                ${
-                    categories.feculent.length
-                    ? noms(categories.feculent)
-                    : "🍚 Féculents"
-                }
+
+                ${contenu(
+                    categories.feculent,
+                    "🍚",
+                    "Féculents"
+                )}
+
             </div>
 
 
-            <!-- MATIÈRES GRASSES -->
+            <!-- BONNES MATIÈRES GRASSES -->
+
             ${
                 categories.gras.length
                 ? `
                     <div style="
                         position:absolute;
-                        right:8%;
-                        top:48%;
-                        background:white;
-                        border:1px solid rgba(217,121,140,.15);
-                        border-radius:999px;
-                        padding:7px 11px;
-                        font-size:10px;
+                        right:5%;
+                        top:47%;
+
+                        max-width:115px;
+
+                        padding:7px 10px;
+
+                        background:
+                            rgba(255,255,255,.94);
+
+                        border-radius:14px;
+
+                        border:
+                            1px solid rgba(121,163,132,.18);
+
+                        box-shadow:
+                            0 5px 15px rgba(80,50,60,.10);
+
+                        font-size:9px;
                         font-weight:800;
-                        box-shadow:var(--shadow);
+                        text-align:center;
+
+                        color:#66866b;
                     ">
-                        🥑 ${categories.gras.map(a => a.nom).join(" · ")}
+
+                        🥑
+                        ${categories.gras
+                            .map(a => a.nom)
+                            .join(" · ")}
+
                     </div>
                 `
                 : ""
@@ -14142,21 +14369,42 @@ function renderAssietteGlow(){
 
 
             <!-- PLAISIR -->
+
             ${
                 categories.plaisir.length
                 ? `
                     <div style="
                         position:absolute;
-                        left:8%;
-                        top:48%;
-                        background:white;
-                        border-radius:999px;
-                        padding:7px 11px;
-                        font-size:10px;
+                        left:5%;
+                        top:47%;
+
+                        max-width:115px;
+
+                        padding:7px 10px;
+
+                        background:
+                            rgba(255,255,255,.95);
+
+                        border-radius:14px;
+
+                        border:
+                            1px solid rgba(217,121,140,.16);
+
+                        box-shadow:
+                            0 5px 15px rgba(80,50,60,.10);
+
+                        font-size:9px;
                         font-weight:800;
-                        box-shadow:var(--shadow);
+                        text-align:center;
+
+                        color:var(--acc);
                     ">
-                        💗 ${categories.plaisir.map(a => a.nom).join(" · ")}
+
+                        💗
+                        ${categories.plaisir
+                            .map(a => a.nom)
+                            .join(" · ")}
+
                     </div>
                 `
                 : ""
@@ -14240,7 +14488,50 @@ repasGlowEnCours = [];
     ">
         🔎 Choisis un aliment
     </label>
+<div style="
+    display:flex;
+    gap:7px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+">
 
+    ${[
+        ["proteine","🍗 Protéines"],
+        ["feculent","🍚 Féculents"],
+        ["legume","🥗 Légumes"],
+        ["fruit","🍓 Fruits"],
+        ["gras","🥑 Matières grasses"],
+        ["plaisir","💗 Plaisir"]
+    ].map(cat => `
+
+        <button
+            type="button"
+            class="btn bg"
+            data-glow-categorie="${cat[0]}"
+            onclick="filtrerAlimentsGlow('${cat[0]}')"
+        >
+            ${cat[1]}
+        </button>
+
+    `).join("")}
+
+</div>
+<div style="
+    position:relative;
+    margin-bottom:10px;
+">
+    <input
+        id="glow-recherche-aliment"
+        type="text"
+        placeholder="🔎 Rechercher un aliment..."
+        oninput="rechercherAlimentGlow(this.value)"
+        style="
+            width:100%;
+            padding:13px 15px;
+            border-radius:14px;
+        "
+    >
+</div>
     <select
         id="glow-aliment-select"
         style="
@@ -14251,15 +14542,24 @@ repasGlowEnCours = [];
         "
     >
 
-        <option value="">Rechercher / choisir...</option>
-
-        ${GLOW_ALIMENTS.map(a => `
-            <option value="${a.id}">
-                ${a.nom}
-            </option>
-        `).join("")}
+        <option value="">
+    Choisis d’abord une catégorie
+</option>
 
     </select>
+
+   <button
+    type="button"
+    class="btn bg"
+    onclick="ajouterNouvelAlimentGlow()"
+    style="
+        margin-top:9px;
+        width:100%;
+        justify-content:center;
+    "
+>
+    + Aliment absent de la liste
+</button>
 
     <div style="
         display:grid;
@@ -14356,7 +14656,330 @@ repasGlowEnCours = [];
     `;
    renderAssietteGlow();
    afficherConseilRepasGlow(typeRepasGlowEnCours);
+   filtrerAlimentsGlow("proteine");
    
+}
+
+function ajouterNouvelAlimentGlow(){
+
+    const ancien =
+        document.getElementById("glow-modal-aliment");
+
+    if(ancien) ancien.remove();
+
+    document.body.insertAdjacentHTML("beforeend", `
+
+        <div
+            id="glow-modal-aliment"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:9999;
+                background:rgba(30,20,25,.25);
+                backdrop-filter:blur(7px);
+                display:flex;
+                align-items:flex-end;
+                justify-content:center;
+                padding:16px;
+            "
+            onclick="
+                if(event.target === this) this.remove()
+            "
+        >
+
+            <div style="
+                width:min(440px,100%);
+                background:#fffafc;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 20px 60px rgba(60,30,40,.18);
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:20px;
+                ">
+
+                    <div>
+                        <div style="
+                            font-size:18px;
+                            font-weight:900;
+                        ">
+                            Nouvel aliment
+                        </div>
+
+                        <div style="
+                            font-size:11px;
+                            color:var(--mut);
+                            margin-top:3px;
+                        ">
+                            Il restera enregistré dans GLOW
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn bg"
+                        onclick="
+                            document
+                            .getElementById('glow-modal-aliment')
+                            .remove()
+                        "
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+
+                <label style="
+                    display:block;
+                    font-size:11px;
+                    font-weight:800;
+                    color:var(--mut);
+                    margin-bottom:6px;
+                ">
+                    Nom
+                </label>
+
+                <input
+                    id="glow-nouvel-aliment-nom"
+                    placeholder="Ex : Mozzarella"
+                    style="
+                        width:100%;
+                        padding:13px;
+                        border-radius:14px;
+                        margin-bottom:14px;
+                    "
+                >
+
+
+                <label style="
+                    display:block;
+                    font-size:11px;
+                    font-weight:800;
+                    color:var(--mut);
+                    margin-bottom:6px;
+                ">
+                    Catégorie
+                </label>
+
+                <select
+                    id="glow-nouvel-aliment-categorie"
+                    style="
+                        width:100%;
+                        padding:13px;
+                        border-radius:14px;
+                        margin-bottom:14px;
+                    "
+                >
+                    <option value="proteine">
+                        🍗 Protéines
+                    </option>
+
+                    <option value="feculent">
+                        🍚 Féculents
+                    </option>
+
+                    <option value="legume">
+                        🥗 Légumes
+                    </option>
+
+                    <option value="fruit">
+                        🍓 Fruits
+                    </option>
+
+                    <option value="gras">
+                        🥑 Matières grasses
+                    </option>
+
+                    <option value="plaisir">
+                        💗 Plaisir
+                    </option>
+                </select>
+
+
+                <div style="
+                    display:grid;
+                    grid-template-columns:1fr 1fr;
+                    gap:10px;
+                ">
+
+                    <div>
+                        <label style="
+                            display:block;
+                            font-size:11px;
+                            font-weight:800;
+                            color:var(--mut);
+                            margin-bottom:6px;
+                        ">
+                            Calories / 100 g
+                        </label>
+
+                        <input
+                            id="glow-nouvel-aliment-kcal"
+                            type="number"
+                            min="0"
+                            placeholder="Ex : 250"
+                            style="
+                                width:100%;
+                                padding:13px;
+                                border-radius:14px;
+                            "
+                        >
+                    </div>
+
+
+                    <div>
+                        <label style="
+                            display:block;
+                            font-size:11px;
+                            font-weight:800;
+                            color:var(--mut);
+                            margin-bottom:6px;
+                        ">
+                            Protéines / 100 g
+                        </label>
+
+                        <input
+                            id="glow-nouvel-aliment-proteines"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            placeholder="Ex : 18"
+                            style="
+                                width:100%;
+                                padding:13px;
+                                border-radius:14px;
+                            "
+                        >
+                    </div>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="btn bd"
+                    onclick="enregistrerNouvelAlimentGlow()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        min-height:48px;
+                        margin-top:20px;
+                    "
+                >
+                    + Ajouter à mes aliments
+                </button>
+
+            </div>
+
+        </div>
+
+    `);
+
+    const categorie =
+        document.getElementById(
+            "glow-nouvel-aliment-categorie"
+        );
+
+    if(categorie){
+        categorie.value = categorieGlowSelectionnee;
+    }
+}
+
+async function enregistrerNouvelAlimentGlow(){
+
+    const nom =
+        document
+        .getElementById("glow-nouvel-aliment-nom")
+        ?.value.trim();
+
+    const categorie =
+        document
+        .getElementById("glow-nouvel-aliment-categorie")
+        ?.value;
+
+    const kcal =
+        Number(
+            document
+            .getElementById("glow-nouvel-aliment-kcal")
+            ?.value
+        );
+
+    const proteines =
+        Number(
+            document
+            .getElementById("glow-nouvel-aliment-proteines")
+            ?.value
+        );
+
+
+    if(!nom){
+        toast("Indique le nom de l’aliment");
+        return;
+    }
+
+    if(
+        !Number.isFinite(kcal) ||
+        kcal < 0
+    ){
+        toast("Indique les calories pour 100 g");
+        return;
+    }
+
+    if(
+        !Number.isFinite(proteines) ||
+        proteines < 0
+    ){
+        toast("Indique les protéines pour 100 g");
+        return;
+    }
+
+
+    DB.glowAlimentsPerso =
+        DB.glowAlimentsPerso || [];
+
+
+    const id =
+        "perso_" + Date.now();
+
+
+    DB.glowAlimentsPerso.push({
+
+        id,
+        nom,
+        categorie,
+        kcal,
+        proteines
+
+    });
+
+
+    await saveAll();
+
+
+    document
+        .getElementById("glow-modal-aliment")
+        ?.remove();
+
+
+    categorieGlowSelectionnee = categorie;
+
+    filtrerAlimentsGlow(categorie);
+
+
+    const select =
+        document.getElementById("glow-aliment-select");
+
+    if(select){
+        select.value = id;
+    }
+
+
+    toast(`${nom} ajouté ✨`);
 }
 
 function afficherConseilRepasGlow(type){
