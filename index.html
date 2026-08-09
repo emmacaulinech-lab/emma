@@ -14546,6 +14546,462 @@ async function validerDinerPrevuGlow(){
     toast("Dîner enregistré 🌙");
 }
 
+ function renderRecettesGlow(){
+
+    const el =
+        document.getElementById(
+            "glow-recettes-list"
+        );
+
+    if(!el) return;
+
+    const recettes =
+        DB.glow?.nutrition?.recettes || [];
+
+    if(!recettes.length){
+
+        el.innerHTML = `
+            <div style="
+                padding:16px;
+                border-radius:15px;
+                background:var(--bg2);
+                color:var(--mut);
+                font-size:11px;
+                text-align:center;
+            ">
+                Aucune recette enregistrée pour l'instant
+            </div>
+        `;
+
+        return;
+    }
+
+    el.innerHTML =
+        recettes.map(recette => `
+
+            <div
+                onclick="ouvrirRecetteGlow('${recette.id}')"
+                style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    gap:12px;
+                    padding:13px 4px;
+                    border-bottom:1px solid var(--brd);
+                    cursor:pointer;
+                "
+            >
+
+                <div style="flex:1">
+
+                    <div style="
+                        font-size:13px;
+                        font-weight:800;
+                    ">
+                        ${recette.nom}
+                    </div>
+
+                    <div style="
+                        font-size:10px;
+                        color:var(--mut);
+                        margin-top:3px;
+                    ">
+                        👩‍🍳 ${Number(recette.tempsPreparation || 0)} min
+                        · 🔥 ${Number(recette.tempsCuisson || 0)} min
+                    </div>
+
+                </div>
+
+                <div style="
+                    font-size:18px;
+                    color:var(--mut);
+                ">
+                    ›
+                </div>
+
+            </div>
+
+        `).join("");
+}     
+
+   function ouvrirRecetteGlow(id){
+
+    const recette =
+        DB.glow?.nutrition?.recettes
+        ?.find(r => r.id === id);
+
+    if(!recette){
+        toast("Recette introuvable");
+        return;
+    }
+
+    document
+        .getElementById("modal-recette-glow")
+        ?.remove();
+
+    const html = `
+        <div
+            id="modal-recette-glow"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(30,20,25,.35);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:18px;
+            "
+        >
+
+            <div style="
+                width:min(520px,100%);
+                max-height:90vh;
+                overflow:auto;
+                background:white;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    font-size:10px;
+                    color:var(--acc);
+                    font-weight:800;
+                    letter-spacing:.12em;
+                ">
+                    📖 MA RECETTE
+                </div>
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:28px;
+                    font-weight:700;
+                    margin:4px 0 6px;
+                ">
+                    ${recette.nom}
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    line-height:1.5;
+                    margin-bottom:14px;
+                ">
+                    ${recette.description || ""}
+                </div>
+
+
+                <div style="
+                    display:flex;
+                    flex-wrap:wrap;
+                    gap:7px;
+                    margin-bottom:18px;
+                ">
+
+                    <span class="bdg ca">
+                        👩‍🍳 ${Number(recette.tempsPreparation || 0)} min
+                    </span>
+
+                    <span class="bdg planity">
+                        🔥 ${Number(recette.tempsCuisson || 0)} min
+                    </span>
+
+                    <span class="bdg esp">
+                        🍽 ${Number(recette.portions || 1)} portion(s)
+                    </span>
+
+                </div>
+
+
+                <div style="
+                    font-size:12px;
+                    font-weight:800;
+                    margin-bottom:8px;
+                ">
+                    🧺 Ingrédients
+                </div>
+
+                <div style="margin-bottom:18px">
+
+                    ${(recette.ingredients || [])
+                        .map(i => `
+                            <div style="
+                                padding:7px 0;
+                                border-bottom:1px solid var(--brd);
+                                font-size:12px;
+                            ">
+                                <strong>
+                                    ${i.quantite || ""}
+                                    ${i.unite || ""}
+                                </strong>
+                                ${i.nom || ""}
+                            </div>
+                        `)
+                        .join("")}
+
+                </div>
+
+
+                <div style="
+                    font-size:12px;
+                    font-weight:800;
+                    margin-bottom:10px;
+                ">
+                    👩‍🍳 Préparation
+                </div>
+
+                <div style="margin-bottom:18px">
+
+                    ${(recette.etapes || [])
+                        .map((etape,index) => `
+                            <div style="
+                                display:flex;
+                                gap:10px;
+                                margin-bottom:11px;
+                                font-size:12px;
+                                line-height:1.5;
+                            ">
+
+                                <strong>
+                                    ${index + 1}.
+                                </strong>
+
+                                <span>
+                                    ${etape}
+                                </span>
+
+                            </div>
+                        `)
+                        .join("")}
+
+                </div>
+
+
+                ${
+                    recette.conseils
+                        ? `
+                            <div style="
+                                padding:12px;
+                                background:var(--bg2);
+                                border-radius:15px;
+                                font-size:11px;
+                                line-height:1.5;
+                                margin-bottom:18px;
+                            ">
+                                💡 ${recette.conseils}
+                            </div>
+                        `
+                        : ""
+                }
+
+
+                <div style="
+                    font-size:11px;
+                    font-weight:800;
+                    margin-bottom:8px;
+                ">
+                    Ajouter à ma journée
+                </div>
+
+                <div style="
+                    display:grid;
+                    grid-template-columns:1fr 1fr;
+                    gap:8px;
+                    margin-bottom:14px;
+                ">
+
+                    <button
+                        class="btn bg"
+                        onclick="utiliserRecetteGlow('${recette.id}','dejeuner')"
+                    >
+                        🥗 Déjeuner
+                    </button>
+
+                    <button
+                        class="btn bg"
+                        onclick="utiliserRecetteGlow('${recette.id}','diner')"
+                    >
+                        🌙 Dîner
+                    </button>
+
+                </div>
+
+
+                <button
+                    class="btn"
+                    onclick="supprimerRecetteGlow('${recette.id}')"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        margin-bottom:8px;
+                    "
+                >
+                    🗑 Supprimer la recette
+                </button>
+
+
+                <button
+                    class="btn bg"
+                    onclick="document.getElementById('modal-recette-glow')?.remove()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                    "
+                >
+                    Fermer
+                </button>
+
+            </div>
+
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        html
+    );
+}
+
+function utiliserRecetteGlow(id,type){
+
+    const recette =
+        DB.glow?.nutrition?.recettes
+        ?.find(r => r.id === id);
+
+    if(!recette){
+        toast("Recette introuvable");
+        return;
+    }
+
+    DB.glow =
+        DB.glow || {};
+
+    DB.glow.nutrition =
+        DB.glow.nutrition || {};
+
+    DB.glow.nutrition.repasPrevus =
+        DB.glow.nutrition.repasPrevus || {};
+
+
+    // =========================
+    // DÉJEUNER
+    // =========================
+
+    if(type === "dejeuner"){
+
+        DB.glow.nutrition
+            .repasPrevus.dejeuner = {
+
+                recetteId: recette.id,
+
+                nom: recette.nom,
+
+                portions:
+                    recette.portions || 1,
+
+                tempsPreparation:
+                    Number(
+                        recette.tempsPreparation || 0
+                    ),
+
+                tempsCuisson:
+                    Number(
+                        recette.tempsCuisson || 0
+                    )
+
+            };
+
+    }
+
+
+    // =========================
+    // DÎNER
+    // =========================
+
+    if(type === "diner"){
+
+        DB.glow.nutrition.dinerPrevu = {
+
+            recetteId: recette.id,
+
+            nom: recette.nom,
+
+            portions:
+                recette.portions || 1,
+
+            tempsPreparation:
+                Number(
+                    recette.tempsPreparation || 0
+                ),
+
+            tempsCuisson:
+                Number(
+                    recette.tempsCuisson || 0
+                )
+
+        };
+
+    }
+
+
+    saveAll();
+
+    document
+        .getElementById(
+            "modal-recette-glow"
+        )
+        ?.remove();
+
+    renderGlowNutrition();
+
+    toast(
+        `✓ ${recette.nom} prévu pour ${
+            type === "dejeuner"
+                ? "le déjeuner"
+                : "le dîner"
+        }`
+    );
+}
+
+function supprimerRecetteGlow(id){
+
+    const recettes =
+        DB.glow?.nutrition?.recettes || [];
+
+    const recette =
+        recettes.find(r => r.id === id);
+
+    if(!recette) return;
+
+    const confirmation =
+        confirm(
+            `Supprimer "${recette.nom}" de mes recettes ?`
+        );
+
+    if(!confirmation){
+        return;
+    }
+
+    DB.glow.nutrition.recettes =
+        recettes.filter(r =>
+            r.id !== id
+        );
+
+    saveAll();
+
+    document
+        .getElementById(
+            "modal-recette-glow"
+        )
+        ?.remove();
+
+    renderGlowNutrition();
+
+    toast("Recette supprimée");
+}
+
 function renderGlowNutrition(){
 
     initialiserGlowDuJour();
@@ -14911,6 +15367,7 @@ ${dinerPrevu ? `
         }
 
     `;
+           renderRecettesGlow();
 
 })()}
 
@@ -15030,6 +15487,57 @@ ${dinerPrevu ? `
 
         </div>
 
+        <!-- MES RECETTES -->
+
+<div style="
+    background:white;
+    border:1px solid var(--brd);
+    border-radius:22px;
+    padding:18px;
+    margin-bottom:18px;
+">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:14px;
+    ">
+
+        <div>
+
+            <div style="
+                font-size:10px;
+                color:var(--mut);
+                font-weight:800;
+                letter-spacing:.1em;
+            ">
+                📖 MES RECETTES
+            </div>
+
+            <div style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:22px;
+                font-weight:700;
+                margin-top:3px;
+            ">
+                Recettes enregistrées
+            </div>
+
+        </div>
+
+        <button
+            class="btn bg bsm"
+            onclick="ouvrirAssistantRecetteIA()"
+        >
+            ✨ Nouvelle
+        </button>
+
+    </div>
+
+    <div id="glow-recettes-list"></div>
+
+</div>
 
         <!-- AJOUT REPAS -->
         <div style="
@@ -15056,6 +15564,23 @@ ${dinerPrevu ? `
                 </h2>
 
             </div>
+
+            <!-- ASSISTANT RECETTES IA -->
+
+<button
+    class="btn"
+    onclick="ouvrirAssistantRecetteIA()"
+    style="
+        width:100%;
+        justify-content:center;
+        min-height:56px;
+        margin-bottom:16px;
+        border-radius:18px;
+        font-weight:700;
+    "
+>
+    ✨ Créer une recette avec l'IA
+</button>
 
             <div style="
                 display:grid;
@@ -15664,6 +16189,558 @@ function renderAssietteGlow(){
 
         </div>
     `;
+}
+
+function ouvrirAssistantRecetteIA(){
+
+    document
+        .getElementById("modal-recette-ia")
+        ?.remove();
+
+    const html = `
+        <div
+            id="modal-recette-ia"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(30,20,25,.35);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:18px;
+            "
+        >
+
+            <div style="
+                width:min(520px,100%);
+                max-height:90vh;
+                overflow:auto;
+                background:white;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    font-size:10px;
+                    color:var(--acc);
+                    font-weight:800;
+                    letter-spacing:.12em;
+                    margin-bottom:4px;
+                ">
+                    ✨ ASSISTANT RECETTE
+                </div>
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:26px;
+                    font-weight:700;
+                    margin-bottom:8px;
+                ">
+                    Qu'est-ce que tu veux préparer ?
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    line-height:1.5;
+                    margin-bottom:16px;
+                ">
+                    Décris simplement ton idée ou les ingrédients que tu veux utiliser.
+                </div>
+
+                <textarea
+                    id="recette-ia-demande"
+                    placeholder="Ex : des crêpes légères au skyr, sans lait, avec œufs, farine et eau..."
+                    style="
+                        width:100%;
+                        min-height:110px;
+                        resize:vertical;
+                        padding:14px;
+                        border-radius:16px;
+                        margin-bottom:12px;
+                    "
+                ></textarea>
+
+                <div style="
+                    display:grid;
+                    grid-template-columns:1fr 1fr;
+                    gap:8px;
+                    margin-bottom:14px;
+                ">
+
+                    <button
+                        class="btn bg"
+                        onclick="document.getElementById('recette-ia-demande').value='Crêpes légères au skyr'"
+                    >
+                        🥞 Crêpes au skyr
+                    </button>
+
+                    <button
+                        class="btn bg"
+                        onclick="document.getElementById('recette-ia-demande').value='Propose-moi un repas avec les ingrédients que j’ai'"
+                    >
+                        🧺 Avec mes ingrédients
+                    </button>
+
+                </div>
+
+                <button
+                    class="btn bd"
+                    onclick="genererRecetteIA()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        min-height:48px;
+                    "
+                >
+                    ✨ Générer la recette
+                </button>
+
+                <div
+                    id="resultat-recette-ia"
+                    style="margin-top:16px"
+                ></div>
+
+                <button
+                    class="btn bg"
+                    onclick="document.getElementById('modal-recette-ia')?.remove()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                        margin-top:10px;
+                    "
+                >
+                    Fermer
+                </button>
+
+            </div>
+
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        html
+    );
+}
+
+async function genererRecetteIA(){
+
+    const demande =
+        document.getElementById(
+            "recette-ia-demande"
+        )?.value.trim();
+
+    if(!demande){
+        toast("Décris ce que tu veux préparer");
+        return;
+    }
+
+    const resultatEl =
+        document.getElementById(
+            "resultat-recette-ia"
+        );
+
+    resultatEl.innerHTML = `
+        <div style="
+            padding:14px;
+            border-radius:16px;
+            background:var(--bg2);
+            font-size:12px;
+            color:var(--mut);
+            text-align:center;
+        ">
+            ✨ EMMA prépare ta recette...
+        </div>
+    `;
+
+
+    try{
+
+        const response =
+            await fetch(
+                "https://api.anthropic.com/v1/messages",
+                {
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                            "application/json",
+
+                        "x-api-key":
+                            localStorage.getItem(
+                                "anthropic_key"
+                            ) || "",
+
+                        "anthropic-version":
+                            "2023-06-01",
+
+                        "anthropic-dangerous-direct-browser-access":
+                            "true"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            model:
+                                "claude-sonnet-4-6",
+
+                            max_tokens:
+                                3000,
+
+                            messages:[{
+                                role:"user",
+
+                                content:[{
+                                    type:"text",
+
+                                    text:
+`Crée une recette à partir de cette demande :
+
+"${demande}"
+
+La recette doit être réaliste, simple et adaptée à un usage quotidien.
+
+Réponds UNIQUEMENT en JSON valide, sans backticks :
+
+{
+  "nom":"",
+  "description":"",
+  "portions":1,
+  "tempsPreparation":0,
+  "tempsCuisson":0,
+  "ingredients":[
+    {
+      "nom":"",
+      "quantite":"",
+      "unite":""
+    }
+  ],
+  "etapes":[
+    ""
+  ],
+  "conseils":""
+}`
+                                }]
+                            }]
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if(data.error){
+            throw new Error(
+                data.error.message ||
+                JSON.stringify(data.error)
+            );
+        }
+
+
+        const texte =
+            data.content
+            ?.map(x => x.text || "")
+            .join("")
+            .replace(/```json/g,"")
+            .replace(/```/g,"")
+            .trim();
+
+
+        const match =
+            texte?.match(/\{[\s\S]*\}/);
+
+
+        if(!match){
+            throw new Error(
+                "Aucune recette JSON trouvée"
+            );
+        }
+
+
+        const recette =
+            JSON.parse(match[0]);
+
+
+        window.recetteIAGlowEnCours =
+            recette;
+
+
+        resultatEl.innerHTML = `
+            <div style="
+                border:1px solid var(--brd);
+                border-radius:20px;
+                padding:18px;
+                background:white;
+            ">
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:24px;
+                    font-weight:700;
+                    margin-bottom:4px;
+                ">
+                    ${recette.nom || "Ma recette"}
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    margin-bottom:14px;
+                ">
+                    ${recette.description || ""}
+                </div>
+
+                <div style="
+                    display:flex;
+                    gap:8px;
+                    flex-wrap:wrap;
+                    margin-bottom:16px;
+                ">
+                    <span class="bdg ca">
+                        👩‍🍳 ${Number(recette.tempsPreparation || 0)} min préparation
+                    </span>
+
+                    <span class="bdg planity">
+                        🔥 ${Number(recette.tempsCuisson || 0)} min cuisson
+                    </span>
+
+                    <span class="bdg esp">
+                        🍽 ${Number(recette.portions || 1)} portion(s)
+                    </span>
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    font-weight:800;
+                    margin-bottom:8px;
+                ">
+                    🧺 Ingrédients
+                </div>
+
+                <div style="margin-bottom:16px">
+                    ${(recette.ingredients || [])
+                        .map(i => `
+                            <div style="
+                                font-size:12px;
+                                padding:5px 0;
+                                border-bottom:1px solid var(--brd);
+                            ">
+                                ${i.quantite || ""}
+                                ${i.unite || ""}
+                                ${i.nom || ""}
+                            </div>
+                        `)
+                        .join("")}
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    font-weight:800;
+                    margin-bottom:8px;
+                ">
+                    👩‍🍳 Étapes
+                </div>
+
+                <div style="margin-bottom:16px">
+                    ${(recette.etapes || [])
+                        .map((etape,index) => `
+                            <div style="
+                                display:flex;
+                                gap:8px;
+                                margin-bottom:8px;
+                                font-size:12px;
+                                line-height:1.5;
+                            ">
+                                <strong>${index + 1}.</strong>
+                                <span>${etape}</span>
+                            </div>
+                        `)
+                        .join("")}
+                </div>
+
+                ${
+                    recette.conseils
+                    ? `
+                        <div style="
+                            background:var(--bg2);
+                            border-radius:14px;
+                            padding:12px;
+                            font-size:11px;
+                            margin-bottom:14px;
+                        ">
+                            💡 ${recette.conseils}
+                        </div>
+                    `
+                    : ""
+                }
+
+                <button
+                    class="btn bd"
+                    onclick="enregistrerRecetteIAGlow()"
+                    style="
+                        width:100%;
+                        justify-content:center;
+                    "
+                >
+                    💾 Enregistrer dans mes recettes
+                </button>
+
+            </div>
+        `;
+
+
+    }catch(error){
+
+        console.error(
+            "Erreur recette IA:",
+            error
+        );
+
+        resultatEl.innerHTML = `
+            <div style="
+                padding:14px;
+                border-radius:14px;
+                background:var(--dep2);
+                color:var(--dep);
+                font-size:12px;
+            ">
+                Impossible de générer la recette.
+            </div>
+        `;
+    }
+}
+
+function enregistrerRecetteIAGlow(){
+
+    const recette =
+        window.recetteIAGlowEnCours;
+
+    if(!recette){
+        toast("Aucune recette à enregistrer");
+        return;
+    }
+
+
+    // =========================
+    // INITIALISER LA BIBLIOTHÈQUE
+    // =========================
+
+    DB.glow =
+        DB.glow || {};
+
+    DB.glow.nutrition =
+        DB.glow.nutrition || {};
+
+    DB.glow.nutrition.recettes =
+        DB.glow.nutrition.recettes || [];
+
+
+    // =========================
+    // CRÉER LA RECETTE
+    // =========================
+
+    const nouvelleRecette = {
+
+        id:
+            "recette_" +
+            Date.now(),
+
+        nom:
+            recette.nom ||
+            "Ma recette",
+
+        description:
+            recette.description || "",
+
+        portions:
+            Number(
+                recette.portions || 1
+            ),
+
+        tempsPreparation:
+            Number(
+                recette.tempsPreparation || 0
+            ),
+
+        tempsCuisson:
+            Number(
+                recette.tempsCuisson || 0
+            ),
+
+        ingredients:
+            recette.ingredients || [],
+
+        etapes:
+            recette.etapes || [],
+
+        conseils:
+            recette.conseils || "",
+
+        origine:
+            "ia",
+
+        creeLe:
+            new Date().toISOString()
+
+    };
+
+
+    // =========================
+    // ÉVITER UN DOUBLE CLIC
+    // =========================
+
+    const existeDeja =
+        DB.glow.nutrition.recettes
+        .some(r =>
+            r.nom
+                ?.trim()
+                .toLowerCase() ===
+            nouvelleRecette.nom
+                .trim()
+                .toLowerCase()
+        );
+
+
+    if(existeDeja){
+
+        toast(
+            "Cette recette est déjà enregistrée"
+        );
+
+        return;
+    }
+
+
+    DB.glow.nutrition.recettes.push(
+        nouvelleRecette
+    );
+
+
+    saveAll();
+
+    window.recetteIAGlowEnCours =
+        null;
+
+
+    document
+        .getElementById(
+            "modal-recette-ia"
+        )
+        ?.remove();
+
+
+    toast(
+        `✓ ${nouvelleRecette.nom} enregistrée`
+    );
+
+
+    renderGlowNutrition();
 }
 
 function ouvrirAjoutRepasGlow(type){
@@ -25703,7 +26780,16 @@ if(
         categorie: "repas",
         nom: "Préparer le déjeuner",
         icon: "👩‍🍳",
-        duree: 20,
+        duree:
+    Math.max(
+        10,
+        Number(
+            repasPrevus.dejeuner?.tempsPreparation || 20
+        ) +
+        Number(
+            repasPrevus.dejeuner?.tempsCuisson || 0
+        )
+    ),
         priorite: 1,
         heurePreferee: "12:00",
         flexible: true,
@@ -25767,7 +26853,16 @@ if(
         categorie: "repas",
         nom: "Préparer le dîner",
         icon: "👩‍🍳",
-        duree: 30,
+        duree:
+    Math.max(
+        10,
+        Number(
+            nutrition.dinerPrevu?.tempsPreparation || 30
+        ) +
+        Number(
+            nutrition.dinerPrevu?.tempsCuisson || 0
+        )
+    ),
         priorite: 1,
         heurePreferee: "19:45",
         flexible: true,
