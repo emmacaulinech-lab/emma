@@ -13447,13 +13447,34 @@ const GLOW_ALIMENTS = [
     { id:"carotte", nom:"Carotte", categorie:"legume", kcal:41, proteines:0.9 },
 
     // FRUITS
-    { id:"banane", nom:"Banane", categorie:"fruit", kcal:89, proteines:1.1 },
+    {
+    id: "banane",
+    nom: "Banane",
+    categorie: "fruit",
+    kcal: 89,
+    proteines: 1.1,
+    portions: [
+        { nom: "½ banane", grammes: 60 },
+        { nom: "1 banane", grammes: 120 }
+    ]
+},
     { id:"pomme", nom:"Pomme", categorie:"fruit", kcal:52, proteines:0.3 },
     { id:"orange", nom:"Orange", categorie:"fruit", kcal:47, proteines:0.9 },
     { id:"kiwi", nom:"Kiwi", categorie:"fruit", kcal:61, proteines:1.1 },
 
     // MATIÈRES GRASSES / ACCOMPAGNEMENTS
-    { id:"avocat", nom:"Avocat", categorie:"gras", kcal:160, proteines:2 },
+    {
+    id: "avocat",
+    nom: "Avocat",
+    categorie: "gras",
+    kcal: 160,
+    proteines: 2,
+    portions: [
+        { nom: "¼ avocat", grammes: 40 },
+        { nom: "½ avocat", grammes: 80 },
+        { nom: "1 avocat", grammes: 160 }
+    ]
+},
     { id:"huile_olive", nom:"Huile d’olive", categorie:"gras", kcal:884, proteines:0 },
     { id:"feta", nom:"Feta", categorie:"gras", kcal:264, proteines:14 },
     { id:"olives", nom:"Olives", categorie:"gras", kcal:116, proteines:0.8 },
@@ -14976,6 +14997,61 @@ function ajouterNouvelAlimentGlow(){
 
                 </div>
 
+   <div style="
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:12px;
+">
+
+    <div>
+        <label style="
+            display:block;
+            font-size:11px;
+            font-weight:800;
+            color:var(--mut);
+            margin-bottom:6px;
+        ">
+            Portion rapide
+        </label>
+
+        <input
+            id="glow-nouvel-aliment-portion-nom"
+            placeholder="Ex : 1 pot"
+            style="
+                width:100%;
+                padding:13px;
+                border-radius:14px;
+            "
+        >
+    </div>
+
+    <div>
+        <label style="
+            display:block;
+            font-size:11px;
+            font-weight:800;
+            color:var(--mut);
+            margin-bottom:6px;
+        ">
+            Poids de la portion
+        </label>
+
+        <input
+            id="glow-nouvel-aliment-portion-g"
+            type="number"
+            min="1"
+            placeholder="Ex : 125"
+            style="
+                width:100%;
+                padding:13px;
+                border-radius:14px;
+            "
+        >
+    </div>
+
+</div>
+
 
                 <button
                     type="button"
@@ -15063,16 +15139,39 @@ async function enregistrerNouvelAlimentGlow(){
     const id =
         "perso_" + Date.now();
 
+   const portionNom =
+    document
+    .getElementById("glow-nouvel-aliment-portion-nom")
+    ?.value.trim();
+
+const portionGrammes =
+    Number(
+        document
+        .getElementById("glow-nouvel-aliment-portion-g")
+        ?.value || 0
+    );
+
+const portions = [];
+
+if(portionNom && portionGrammes > 0){
+
+    portions.push({
+        nom: portionNom,
+        grammes: portionGrammes
+    });
+
+}
 
     DB.glowAlimentsPerso.push({
 
-        id,
-        nom,
-        categorie,
-        kcal,
-        proteines
+    id,
+    nom,
+    categorie,
+    kcal,
+    proteines,
+    portions
 
-    });
+});
 
 
     await saveAll();
