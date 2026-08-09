@@ -28960,40 +28960,72 @@ function reorganiserPlanningMaintenant(){
     const planningActuel =
         DB.journal.planning?.[date] || [];
 
-    const blocsConserves =
-        planningActuel.filter(bloc => {
+    const faitMap =
+    DB.journal.faitAujourdhui?.[date] || {};
 
-            if(!bloc.heureDebut){
+const blocsConserves =
+    planningActuel.filter(bloc => {
+
+        if(!bloc.heureDebut){
+            return true;
+        }
+
+        const [h,m] =
+            bloc.heureDebut
+            .split(":")
+            .map(Number);
+
+        const debut =
+            h * 60 + m;
+
+
+        // =========================
+        // BLOC FIXE / MANUEL
+        // =========================
+
+        if(
+            bloc.verrouille === true ||
+            bloc.autoPlanifie !== true
+        ){
+            return true;
+        }
+
+
+        // =========================
+        // BLOC AUTOMATIQUE PASSÉ
+        // =========================
+
+        if(debut < minuteActuelle){
+
+            const sousTacheId =
+                bloc.data?.sousTacheId;
+
+            const estFait =
+                sousTacheId
+                    ? faitMap[sousTacheId] === true
+                    : faitMap[bloc.id] === true;
+
+
+            // Terminé = on garde dans l'historique.
+            if(estFait){
                 return true;
             }
 
-            const [h,m] =
-                bloc.heureDebut
-                .split(":")
-                .map(Number);
 
-            const debut =
-                h * 60 + m;
-
-
-            // Déjà passé / commencé
-            if(debut < minuteActuelle){
-                return true;
-            }
-
-
-            // RDV / bloc manuel / verrouillé
-            if(
-                bloc.verrouille ||
-                bloc.autoPlanifie !== true
-            ){
-                return true;
-            }
-
-
-            // Le reste sera recalculé
+            // Non terminé = on retire l'ancien bloc.
+            // Le moteur pourra le replacer proprement.
             return false;
-        });
+        }
+
+
+        // =========================
+        // FUTUR AUTO-PLANIFIÉ
+        // =========================
+
+        // Tout le futur automatique
+        // sera recalculé.
+        return false;
+    });
 
 
     DB.journal.planning[date] =
