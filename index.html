@@ -25293,6 +25293,17 @@ let compteurSessionsMaison = 0;
 
 for(const tache of tachesCandidates){
 
+   const prioritaireScan =
+    !!(
+        DB.journal.etatPieces?.[tache.zoneId] &&
+        Array.isArray(
+            DB.journal.etatPieces[tache.zoneId].tachesValidees
+        ) &&
+        DB.journal.etatPieces[tache.zoneId]
+            .tachesValidees
+            .includes(tache.id)
+    );
+
     if(
         !tache.forcee &&
         tempsMaison + tache.duree > budgetMaison
@@ -25310,15 +25321,18 @@ for(const tache of tachesCandidates){
     // LIMITE DE SESSION PAR PIÈCE
     // =========================
 
-    let maxMinutesZone = 30;
+    let maxMinutesZone = 25;
 
-    if(tache.score >= 80){
-        maxMinutesZone = 40;
-    }
+// Si la pièce est très prioritaire,
+// on autorise une session un peu plus longue,
+// mais jamais interminable.
+if(tache.score >= 80){
+    maxMinutesZone = 30;
+}
 
-    if(tache.score >= 110){
-        maxMinutesZone = 50;
-    }
+if(tache.score >= 110){
+    maxMinutesZone = 35;
+}
 
     if(
         !tache.forcee &&
@@ -25406,6 +25420,9 @@ for(const tache of tachesCandidates){
         categorie:
             "maison",
 
+       prioritaireScan:
+    prioritaireScan,
+
         nom:
             tache.nom,
 
@@ -25478,6 +25495,16 @@ for(const tache of tachesCandidates){
     const aujourdHui =
         new Date().toISOString().split("T")[0];
 
+   const maintenant =
+    new Date();
+
+const minutesMaintenant =
+    maintenant.getHours() * 60 +
+    maintenant.getMinutes();
+
+const estAujourdhuiReel =
+    date === aujourdHui;
+
    const autoriserSport =
     charge.niveau !== "saturee";
 
@@ -25541,7 +25568,139 @@ elements.push({
         const repasPrevus =
             nutrition.repasPrevus || {};
 
-        if(repasPrevus.dejeuner){
+       // =========================
+// 👩‍🍳 PRÉPARATION DÉJEUNER
+// =========================
+
+if(
+    repasPrevus.dejeuner &&
+    (
+        !estAujourdhuiReel ||
+        minutesMaintenant < 13 * 60 + 30
+    )
+){
+
+    elements.push({
+        id: "glow_preparer_dejeuner_" + date,
+        source: "glow",
+        type: "perso",
+        categorie: "repas",
+        nom: "Préparer le déjeuner",
+        icon: "👩‍🍳",
+        duree: 20,
+        priorite: 1,
+        heurePreferee: "12:00",
+        flexible: true,
+        plageHoraire: {
+            debut: "11:00",
+            fin: "13:30"
+        },
+        repas: repasPrevus.dejeuner
+    });
+
+}
+       
+       // =========================
+// 💭 DÉCIDER DES REPAS
+// =========================
+
+// Aucun déjeuner choisi
+if(
+    !repasPrevus.dejeuner &&
+    (
+        !estAujourdhuiReel ||
+        minutesMaintenant < 12 * 60 + 30
+    )
+){
+
+    elements.push({
+        id: "glow_decider_dejeuner_" + date,
+        source: "glow",
+        type: "perso",
+        categorie: "repas",
+        nom: "Décider du déjeuner",
+        icon: "💭",
+        duree: 10,
+        priorite: 2,
+        heurePreferee: "11:30",
+        flexible: true,
+        plageHoraire: {
+            debut: "10:30",
+            fin: "12:30"
+        }
+    });
+
+}
+
+       // =========================
+// 👩‍🍳 PRÉPARATION DÎNER
+// =========================
+
+if(
+    nutrition.dinerPrevu &&
+    (
+        !estAujourdhuiReel ||
+        minutesMaintenant < 20 * 60 + 30
+    )
+){
+
+    elements.push({
+        id: "glow_preparer_diner_" + date,
+        source: "glow",
+        type: "perso",
+        categorie: "repas",
+        nom: "Préparer le dîner",
+        icon: "👩‍🍳",
+        duree: 30,
+        priorite: 1,
+        heurePreferee: "19:45",
+        flexible: true,
+        plageHoraire: {
+            debut: "18:30",
+            fin: "21:00"
+        },
+        repas: nutrition.dinerPrevu
+    });
+
+}
+
+
+// Aucun dîner choisi
+if(
+    !nutrition.dinerPrevu &&
+    (
+        !estAujourdhuiReel ||
+        minutesMaintenant < 19 * 60 + 30
+    )
+){
+  
+
+    elements.push({
+        id: "glow_decider_diner_" + date,
+        source: "glow",
+        type: "perso",
+        categorie: "repas",
+        nom: "Décider du dîner",
+        icon: "💭",
+        duree: 10,
+        priorite: 2,
+        heurePreferee: "18:30",
+        flexible: true,
+        plageHoraire: {
+            debut: "17:00",
+            fin: "19:30"
+        }
+    });
+
+}
+
+        if(
+    repasPrevus.dejeuner &&
+    (
+        !estAujourdhuiReel ||
+        minutesMaintenant < 14 * 60 + 30
+    )
+){
 
             elements.push({
                 id: "glow_dejeuner_" + date,
@@ -25565,7 +25724,13 @@ elements.push({
         }
 
 
-        if(nutrition.dinerPrevu){
+        if(
+    nutrition.dinerPrevu &&
+    (
+        !estAujourdhuiReel ||
+        minutesMaintenant < 21 * 60 + 30
+    )
+){
 
             elements.push({
                 id: "glow_diner_" + date,
@@ -26153,6 +26318,35 @@ const contraintes = elements.filter(e =>
     !!e.plageHoraire
 );
 
+// =========================
+// 🍽️ ORDRE LOGIQUE DES REPAS
+// =========================
+
+contraintes.sort((a,b) => {
+
+    const ordreRepas = {
+        "Préparer le déjeuner": 1,
+        "Déjeuner": 2,
+        "Préparer le dîner": 3,
+        "Dîner": 4
+    };
+
+    const aRepas =
+        ordreRepas[a.nom];
+
+    const bRepas =
+        ordreRepas[b.nom];
+
+    // Si les deux sont des blocs repas,
+    // on respecte Préparer → Manger.
+    if(aRepas && bRepas){
+        return aRepas - bRepas;
+    }
+
+    // Sinon on garde l'ordre existant.
+    return 0;
+});
+
 const maison = elements.filter(e =>
     e.categorie === "maison" &&
     !e.plageHoraire
@@ -26217,6 +26411,10 @@ maisonParZone.forEach(taches => {
 
     taches.sort((a,b) => {
 
+       if(a.prioritaireScan !== b.prioritaireScan){
+    return a.prioritaireScan ? -1 : 1;
+}
+
         const scoreA =
             Number(a.scoreTache || 0);
 
@@ -26243,6 +26441,16 @@ maisonParZone.forEach(taches => {
 const sessionsMaison =
     [...maisonParZone.values()]
     .sort((a,b) => {
+
+       const aScan =
+    a.some(t => t.prioritaireScan);
+
+const bScan =
+    b.some(t => t.prioritaireScan);
+
+if(aScan !== bScan){
+    return aScan ? -1 : 1;
+}
 
         const scoreA =
             a.reduce(
@@ -26295,11 +26503,64 @@ sessionsMaison.forEach((session,index) => {
 
 
     // =========================
-    // ALTERNANCE DES RESPIRATIONS
+    // ALTERNANCE INTELLIGENTE
     // =========================
 
-    // Après la première session :
-    // petit moment calme.
+    const typeRespiration =
+        index % 3;
+
+
+    // 1 → détente
+    if(
+        typeRespiration === 0 &&
+        indexDetente < detente.length
+    ){
+
+        sequence.push(
+            detente[indexDetente]
+        );
+
+        indexDetente++;
+        return;
+    }
+
+
+    // 2 → projet perso
+    if(
+        typeRespiration === 1 &&
+        indexProjet < projetsPerso.length
+    ){
+
+        sequence.push(
+            projetsPerso[indexProjet]
+        );
+
+        indexProjet++;
+        return;
+    }
+
+
+    // 3 → sport
+    if(
+        typeRespiration === 2 &&
+        indexSport < sport.length
+    ){
+
+        sequence.push(
+            sport[indexSport]
+        );
+
+        indexSport++;
+        return;
+    }
+
+
+    // =========================
+    // FALLBACK
+    // =========================
+    // Si le type prévu n'existe plus,
+    // on prend le prochain disponible.
+
     if(indexDetente < detente.length){
 
         sequence.push(
@@ -26307,12 +26568,9 @@ sessionsMaison.forEach((session,index) => {
         );
 
         indexDetente++;
-
         return;
     }
 
-
-    // Sinon projet perso.
     if(indexProjet < projetsPerso.length){
 
         sequence.push(
@@ -26320,12 +26578,9 @@ sessionsMaison.forEach((session,index) => {
         );
 
         indexProjet++;
-
         return;
     }
 
-
-    // Sinon sport.
     if(indexSport < sport.length){
 
         sequence.push(
@@ -26333,8 +26588,6 @@ sessionsMaison.forEach((session,index) => {
         );
 
         indexSport++;
-
-        return;
     }
 
 });
