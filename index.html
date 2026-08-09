@@ -22886,6 +22886,90 @@ function renderJAujourdhui(){
             ? ""
             : `
 
+   <!-- ======================
+     ORGANISER AUJOURD'HUI
+======================= -->
+
+${
+    estAujourdhui
+    ? `
+        <div style="
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(245,248,255,.92),
+                    rgba(255,245,249,.88)
+                );
+            border:1px solid rgba(255,255,255,.9);
+            border-radius:24px;
+            padding:20px;
+            margin-bottom:18px;
+            box-shadow:var(--shadow);
+        ">
+
+            <div style="
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:.12em;
+                color:var(--acc);
+                font-weight:800;
+                margin-bottom:4px;
+            ">
+                ☀️ Aujourd'hui
+            </div>
+
+            <div style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:25px;
+                font-weight:700;
+                margin-bottom:6px;
+            ">
+                Organiser le reste de ma journée
+            </div>
+
+            <div style="
+                font-size:11px;
+                color:var(--mut);
+                line-height:1.5;
+                margin-bottom:14px;
+            ">
+                EMMA utilise le temps qu'il te reste aujourd'hui,
+                ton planning et l'état actuel de la maison.
+            </div>
+
+            <div style="
+                display:flex;
+                gap:8px;
+                margin-bottom:10px;
+            ">
+
+                <button
+                    class="btn bg"
+                    onclick="ouvrirAnalyseMaisonJournal()"
+                    style="flex:1;justify-content:center"
+                >
+                    📸 Scanner la maison
+                </button>
+
+            </div>
+
+            <button
+                class="btn bd"
+                onclick="organiserAujourdhuiJournal()"
+                style="
+                    width:100%;
+                    min-height:48px;
+                    justify-content:center;
+                "
+            >
+                ✨ Organiser maintenant
+            </button>
+
+        </div>
+    `
+    : ""
+}
+
                 <!-- ======================
                      PRÉPARER DEMAIN
                 ======================= -->
@@ -23288,6 +23372,123 @@ ${
 
         renderEstimationTemps();
     }
+}
+
+function organiserAujourdhuiJournal(){
+
+    ensureJournalData();
+
+    const maintenant = new Date();
+
+    const date =
+        maintenant.toISOString().split("T")[0];
+
+    const heureActuelle =
+        String(maintenant.getHours()).padStart(2,"0") +
+        ":" +
+        String(maintenant.getMinutes()).padStart(2,"0");
+
+
+    // =========================
+    // PRÉPARATION DU JOUR
+    // =========================
+
+    if(!DB.journal.preparationJour){
+        DB.journal.preparationJour = {};
+    }
+
+    if(!DB.journal.preparationJour[date]){
+        DB.journal.preparationJour[date] = {};
+    }
+
+    const preparation =
+        DB.journal.preparationJour[date];
+
+    // À partir de maintenant uniquement
+    preparation.heureLever = heureActuelle;
+
+    // On conserve l'heure de fin déjà choisie
+    // ou 22h30 par défaut.
+    if(!preparation.heureFin){
+        preparation.heureFin = "22:30";
+    }
+
+    preparation.modeOrganisation =
+        "maintenant";
+
+    preparation.genereeA =
+        maintenant.toISOString();
+
+
+    // =========================
+    // SUPPRIMER UNIQUEMENT
+    // L'ANCIEN AUTO-PLANNING
+    // =========================
+
+    const planningActuel =
+        DB.journal.planning?.[date] || [];
+
+    DB.journal.planning[date] =
+        planningActuel.filter(bloc => {
+
+            // On garde les RDV,
+            // blocs manuels et blocs verrouillés.
+            if(!bloc.autoPlanifie){
+                return true;
+            }
+
+            if(bloc.verrouille){
+                return true;
+            }
+
+            // On garde également un ancien bloc
+            // s'il est déjà commencé/passé.
+            if(bloc.heureDebut){
+
+                const [h,m] =
+                    bloc.heureDebut
+                    .split(":")
+                    .map(Number);
+
+                const debutBloc =
+                    h * 60 + m;
+
+                const minuteActuelle =
+                    maintenant.getHours() * 60 +
+                    maintenant.getMinutes();
+
+                if(debutBloc < minuteActuelle){
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+
+    // =========================
+    // NOUVELLE PROPOSITION
+    // =========================
+
+    const proposition =
+        genererPlanningIntelligent(date);
+
+    DB.journal.propositionIntelligente =
+        DB.journal.propositionIntelligente || {};
+
+    DB.journal.propositionIntelligente[date] =
+        proposition.blocs || [];
+
+
+    saveAll();
+
+    renderJAujourdhui();
+
+    toast(
+        proposition.blocs?.length
+            ? `✨ ${proposition.blocs.length} blocs proposés pour le reste de ta journée`
+            : "Aucun bloc à proposer pour le moment"
+    );
 }
 
 async function preparerDemainJournal(){
