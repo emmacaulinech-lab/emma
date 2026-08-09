@@ -13396,17 +13396,47 @@ const GLOW_ALIMENTS = [
 
     // PROTÉINES
     { id:"poulet", nom:"Poulet", categorie:"proteine", kcal:165, proteines:31 },
-    { id:"oeuf", nom:"Œuf", categorie:"proteine", kcal:143, proteines:13 },
+    { id: "oeuf", nom: "Œuf",
+    categorie: "proteine",
+    kcal: 143,
+    proteines: 13,
+    portions: [
+        { nom: "1 œuf", grammes: 60 },
+        { nom: "2 œufs", grammes: 120 },
+        { nom: "3 œufs", grammes: 180 }
+    ]
+},
     { id:"thon", nom:"Thon", categorie:"proteine", kcal:116, proteines:26 },
     { id:"saumon", nom:"Saumon", categorie:"proteine", kcal:208, proteines:20 },
     { id:"steak", nom:"Steak haché", categorie:"proteine", kcal:250, proteines:26 },
-    { id:"skyr", nom:"Skyr", categorie:"proteine", kcal:63, proteines:10.5 },
+    {
+    id: "skyr",
+    nom: "Skyr",
+    categorie: "proteine",
+    kcal: 60,
+    proteines: 10,
+    portions: [
+        { nom: "1 pot", grammes: 140 },
+        { nom: "½ pot", grammes: 70 }
+    ]
+},
 
     // FÉCULENTS
     { id:"pomme_de_terre", nom:"Pomme de terre", categorie:"feculent", kcal:77, proteines:2 },
     { id:"riz", nom:"Riz cuit", categorie:"feculent", kcal:130, proteines:2.7 },
     { id:"pates", nom:"Pâtes cuites", categorie:"feculent", kcal:131, proteines:5 },
-    { id:"pain", nom:"Pain", categorie:"feculent", kcal:265, proteines:9 },
+    {
+    id: "pain",
+    nom: "Pain",
+    categorie: "feculent",
+    kcal: 265,
+    proteines: 9,
+    portions: [
+        { nom: "1 tranche", grammes: 30 },
+        { nom: "2 tranches", grammes: 60 },
+        { nom: "3 tranches", grammes: 90 }
+    ]
+},
     { id:"avoine", nom:"Flocons d’avoine", categorie:"feculent", kcal:370, proteines:13 },
 
     // LÉGUMES
@@ -13964,8 +13994,8 @@ function ajouterAlimentRepasGlow(){
 
     const id = document.getElementById("glow-aliment-select")?.value;
     const quantite = Number(
-        document.getElementById("glow-aliment-quantite")?.value || 0
-    );
+    document.getElementById("glow-quantite-aliment")?.value || 0
+);
 
     if(!id){
         toast("Choisis un aliment");
@@ -14534,6 +14564,7 @@ repasGlowEnCours = [];
 </div>
     <select
         id="glow-aliment-select"
+        onchange="afficherPortionsAlimentGlow()"
         style="
             width:100%;
             border-radius:14px;
@@ -14547,6 +14578,11 @@ repasGlowEnCours = [];
 </option>
 
     </select>
+
+    <div
+    id="glow-portions-aliment"
+    style="display:none;margin-bottom:10px"
+></div>
 
    <button
     type="button"
@@ -14566,33 +14602,6 @@ repasGlowEnCours = [];
         grid-template-columns:1fr auto;
         gap:10px;
     ">
-
-        <div style="position:relative">
-
-            <input
-                id="glow-aliment-quantite"
-                type="number"
-                min="1"
-                placeholder="Quantité"
-                style="
-                    width:100%;
-                    border-radius:14px;
-                    padding:13px 42px 13px 13px;
-                "
-            >
-
-            <span style="
-                position:absolute;
-                right:14px;
-                top:50%;
-                transform:translateY(-50%);
-                color:var(--mut);
-                font-size:12px;
-            ">
-                g
-            </span>
-
-        </div>
 
         <button
             class="btn bd"
@@ -14658,6 +14667,114 @@ repasGlowEnCours = [];
    afficherConseilRepasGlow(typeRepasGlowEnCours);
    filtrerAlimentsGlow("proteine");
    
+}
+
+function afficherPortionsAlimentGlow(){
+
+    const select =
+        document.getElementById("glow-aliment-select");
+
+    const zone =
+        document.getElementById("glow-portions-aliment");
+
+    if(!select || !zone) return;
+
+    const aliment =
+        getGlowAliments()
+        .find(a => a.id === select.value);
+
+    if(!aliment){
+        zone.style.display = "none";
+        return;
+    }
+
+    const portions = aliment.portions || [];
+
+    zone.style.display = "block";
+
+    zone.innerHTML = `
+
+        ${portions.length ? `
+
+            <div style="
+                font-size:10px;
+                font-weight:800;
+                color:var(--mut);
+                margin:4px 0 7px;
+            ">
+                Portion rapide
+            </div>
+
+            <div style="
+                display:flex;
+                gap:6px;
+                flex-wrap:wrap;
+                margin-bottom:9px;
+            ">
+
+                ${portions.map(p => `
+
+                    <button
+                        type="button"
+                        class="btn bg bsm"
+                        onclick="choisirPortionGlow(${p.grammes})"
+                    >
+                        ${p.nom}
+                    </button>
+
+                `).join("")}
+
+            </div>
+
+        ` : ""}
+
+        <div style="
+            font-size:10px;
+            color:var(--mut);
+            margin-bottom:5px;
+        ">
+            ${portions.length ? "Ou quantité personnalisée" : "Quantité"}
+        </div>
+
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:7px;
+        ">
+
+            <input
+                id="glow-quantite-aliment"
+                type="number"
+                min="1"
+                value="100"
+                style="
+                    width:100%;
+                    padding:11px 12px;
+                    border-radius:12px;
+                "
+            >
+
+            <span style="
+                font-size:12px;
+                color:var(--mut);
+                font-weight:700;
+            ">
+                g
+            </span>
+
+        </div>
+
+    `;
+}
+
+function choisirPortionGlow(grammes){
+
+    const input =
+        document.getElementById("glow-quantite-aliment");
+
+    if(!input) return;
+
+    input.value = grammes;
 }
 
 function ajouterNouvelAlimentGlow(){
