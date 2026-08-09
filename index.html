@@ -29989,23 +29989,6 @@ async function decalerBlocsJournalDepuisHeure(){
     const planning =
         DB.journal.planning[date] || [];
 
-    const selection =
-        planning
-        .filter(bloc =>
-            blocsSelectionnesJournal.has(bloc.id)
-        )
-        .filter(bloc =>
-            bloc.heureDebut
-        )
-        .sort((a,b) =>
-            a.heureDebut.localeCompare(
-                b.heureDebut
-            )
-        );
-
-    if(!selection.length){
-        return;
-    }
 
     const toMin = heure => {
 
@@ -30015,10 +29998,14 @@ async function decalerBlocsJournalDepuisHeure(){
         return h * 60 + m;
     };
 
+
     const toHeure = minutes => {
 
+        minutes =
+            Math.max(0,minutes);
+
         const h =
-            Math.floor(minutes / 60);
+            Math.floor(minutes / 60) % 24;
 
         const m =
             minutes % 60;
@@ -30030,6 +30017,36 @@ async function decalerBlocsJournalDepuisHeure(){
         );
     };
 
+
+    // =========================
+    // BLOCS SÉLECTIONNÉS
+    // =========================
+
+    const selection =
+        planning
+        .filter(bloc =>
+            blocsSelectionnesJournal.has(
+                bloc.id
+            )
+        )
+        .filter(bloc =>
+            bloc.heureDebut &&
+            bloc.heureFin
+        )
+        .sort((a,b) =>
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
+        );
+
+
+    if(!selection.length){
+        return;
+    }
+
+
+    // =========================
+    // DÉPLACER TOUT LE GROUPE
+    // =========================
 
     const ancienDebut =
         toMin(
@@ -30048,23 +30065,108 @@ async function decalerBlocsJournalDepuisHeure(){
 
     selection.forEach(bloc => {
 
-        const debut =
-            toMin(bloc.heureDebut);
-
-        const fin =
-            toMin(bloc.heureFin);
-
         bloc.heureDebut =
             toHeure(
-                debut + decalage
+                toMin(bloc.heureDebut) +
+                decalage
             );
 
         bloc.heureFin =
             toHeure(
-                fin + decalage
+                toMin(bloc.heureFin) +
+                decalage
             );
 
     });
+
+
+    // =========================
+    // RECALER LES AUTRES BLOCS
+    // =========================
+
+    const tries =
+        [...planning]
+        .filter(bloc =>
+            bloc.heureDebut &&
+            bloc.heureFin
+        )
+        .sort((a,b) =>
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
+        );
+
+
+    for(
+        let i = 1;
+        i < tries.length;
+        i++
+    ){
+
+        const precedent =
+            tries[i - 1];
+
+        const courant =
+            tries[i];
+
+
+        const finPrecedent =
+            toMin(
+                precedent.heureFin
+            );
+
+        const debutCourant =
+            toMin(
+                courant.heureDebut
+            );
+
+
+        if(
+            debutCourant >=
+            finPrecedent
+        ){
+            continue;
+        }
+
+
+        // On ne déplace jamais
+        // un bloc réellement fixe.
+        if(
+            courant.verrouille === true ||
+            courant.autoPlanifie !== true
+        ){
+            continue;
+        }
+
+
+        const duree =
+            toMin(courant.heureFin) -
+            debutCourant;
+
+
+        courant.heureDebut =
+            toHeure(
+                finPrecedent
+            );
+
+        courant.heureFin =
+            toHeure(
+                finPrecedent +
+                duree
+            );
+
+    }
+
+
+    // =========================
+    // TRI FINAL
+    // =========================
+
+    planning.sort((a,b) =>
+        (a.heureDebut || "")
+        .localeCompare(
+            b.heureDebut || ""
+        )
+    );
 
 
     document
@@ -30074,7 +30176,9 @@ async function decalerBlocsJournalDepuisHeure(){
         ?.remove();
 
     blocsSelectionnesJournal.clear();
-    modeEditionPlanningJournal = false;
+
+    modeEditionPlanningJournal =
+        false;
 
     await saveAll();
 
@@ -30084,7 +30188,6 @@ async function decalerBlocsJournalDepuisHeure(){
         `Planning déplacé à partir de ${heureCible} ⏰`
     );
 }
-
 async function decalerBlocsJournalVersDemain(){
 
     if(!blocsSelectionnesJournal.size) return;
