@@ -18171,6 +18171,7 @@ function ensureJournalData(){
   if(!DB.journal.planning) DB.journal.planning={};
   if(!DB.journal.etatPieces){DB.journal.etatPieces = {};}
   if(!DB.journal.tachesForcees){DB.journal.tachesForcees = {};}
+  if(!DB.journal.preparationJour){DB.journal.preparationJour = {};}
 
   let migre=false;
   DB.journal.zones.forEach(zone=>{
@@ -18180,6 +18181,198 @@ function ensureJournalData(){
     }
   });
   if(migre) saveAll();
+}
+
+function getPreparationJour(date){
+
+    ensureJournalData();
+
+    if(!DB.journal.preparationJour[date]){
+
+        DB.journal.preparationJour[date] = {
+
+            heureLever: "07:30",
+
+            heureFin: "22:30",
+
+            heureCoucher: "23:30",
+
+            contraintes: [],
+
+            piecesScannees: [],
+
+            preparee: false
+        };
+
+    }
+
+    return DB.journal.preparationJour[date];
+}
+
+function getDisponibilitesAutomatiquesJournal(date){
+
+    ensureJournalData();
+
+    const prep =
+        getPreparationJour(date);
+
+    const planning =
+        DB.journal.planning?.[date] || [];
+
+    const toMin = heure => {
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+    const toHeure = minutes => {
+
+        const h =
+            Math.floor(minutes / 60);
+
+        const m =
+            minutes % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+
+    const debutJour =
+        toMin(prep.heureLever || "07:30");
+
+    const finJour =
+        toMin(prep.heureFin || "22:30");
+
+
+    // =========================
+    // CLIENTES PLANITY
+    // =========================
+
+    const rdvPlanity =
+        planning
+        .filter(p =>
+            p.source === "planity" ||
+            p.verrouille === true
+        )
+        .filter(p =>
+            p.heureDebut &&
+            p.heureFin
+        )
+        .sort(
+            (a,b) =>
+                toMin(a.heureDebut) -
+                toMin(b.heureDebut)
+        );
+
+
+    // Aucun RDV demain :
+    // toute la journée est personnelle.
+    if(!rdvPlanity.length){
+
+        return [{
+            debut: toHeure(debutJour),
+            fin: toHeure(finJour),
+            type: "perso",
+            source: "auto"
+        }];
+
+    }
+
+
+    const dispos = [];
+
+    const premierRdv =
+        toMin(rdvPlanity[0].heureDebut);
+
+    const dernierRdv =
+        toMin(
+            rdvPlanity[
+                rdvPlanity.length - 1
+            ].heureFin
+        );
+
+
+    // =========================
+    // AVANT LE TRAVAIL
+    // =========================
+
+    if(premierRdv > debutJour){
+
+        dispos.push({
+            debut: toHeure(debutJour),
+            fin: toHeure(premierRdv),
+            type: "perso",
+            source: "auto"
+        });
+
+    }
+
+
+    // =========================
+    // ENTRE LES CLIENTES
+    // =========================
+
+    for(
+        let i = 0;
+        i < rdvPlanity.length - 1;
+        i++
+    ){
+
+        const finRdv =
+            toMin(
+                rdvPlanity[i].heureFin
+            );
+
+        const debutSuivant =
+            toMin(
+                rdvPlanity[i + 1].heureDebut
+            );
+
+
+        if(
+            debutSuivant - finRdv >= 10
+        ){
+
+            dispos.push({
+                debut:
+                    toHeure(finRdv),
+
+                fin:
+                    toHeure(debutSuivant),
+
+                type: "pro",
+
+                source: "auto"
+            });
+
+        }
+
+    }
+
+
+    // =========================
+    // APRÈS LE TRAVAIL
+    // =========================
+
+    if(dernierRdv < finJour){
+
+        dispos.push({
+            debut: toHeure(dernierRdv),
+            fin: toHeure(finJour),
+            type: "perso",
+            source: "auto"
+        });
+
+    }
+
+
+    return dispos;
 }
 
 let jTabActive=0;
@@ -19482,6 +19675,7 @@ elements.push({
                 id: "glow_dejeuner_" + date,
                 source: "glow",
                 type: "perso",
+                typesAutorises: ["perso", "pro"],
                 categorie: "repas",
                 nom: "Déjeuner",
                 icon: "🥗",
@@ -19585,7 +19779,7 @@ function getCreneauxLibresIntelligents(date){
         DB.journal.planning[date] || [];
 
     const dispos =
-        DB.journal.disponibilites[date] || [];
+    getDisponibilitesAutomatiquesJournal(date);
 
     const toMin = heure => {
         const [h,m] = heure.split(":").map(Number);
