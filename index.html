@@ -20176,6 +20176,45 @@ creneaux.splice(
     };
 }
 
+async function appliquerPlanningIntelligent(date){
+
+    ensureJournalData();
+
+    const proposition =
+        genererPlanningIntelligent(date);
+
+    const blocs =
+        proposition?.blocs || [];
+
+    if(!DB.journal.planning[date]){
+        DB.journal.planning[date] = [];
+    }
+
+    // On retire uniquement les anciens blocs auto-planifiés.
+    // Les clientes Planity et les blocs manuels restent intacts.
+    DB.journal.planning[date] =
+        DB.journal.planning[date]
+        .filter(p =>
+            !p.autoPlanifie
+        );
+
+    blocs.forEach(bloc => {
+
+        DB.journal.planning[date].push({
+            ...bloc,
+            id:
+                bloc.id ||
+                genId(),
+            autoPlanifie: true
+        });
+
+    });
+
+    await saveAll();
+
+    return proposition;
+}
+
 function renderEtatMaisonJournal(date){
 
     const el =
@@ -21136,7 +21175,9 @@ async function validerSessionMaisonJournal(){
         ?.remove();
 
 
-    renderJAujourdhui();
+    await appliquerPlanningIntelligent(date);
+
+renderJAujourdhui();
 
     toast(
         `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
