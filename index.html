@@ -14975,7 +14975,68 @@ function utiliserRecetteGlow(id,type){
             )
 
     };
+DB.glow.nutrition.repas =
+    DB.glow.nutrition.repas || [];
 
+const alimentsRepas =
+    (recette.ingredients || [])
+    .map(i => ({
+        id:
+            i.id || null,
+
+        nom:
+            i.nom || "",
+
+        categorie:
+            i.categorie || "recette",
+
+        quantite:
+            [
+                i.quantite,
+                i.unite
+            ]
+            .filter(Boolean)
+            .join(" "),
+
+        calories:
+            Number(i.calories || 0),
+
+        proteines:
+            Number(i.proteines || 0)
+    }));
+
+DB.glow.nutrition.repas.push({
+
+    type: "diner",
+
+    nom:
+        recette.nom,
+
+    recetteId:
+        recette.id,
+
+    aliments:
+        alimentsRepas,
+
+    calories:
+        alimentsRepas.reduce(
+            (total,a) =>
+                total + Number(a.calories || 0),
+            0
+        ),
+
+    proteines:
+        alimentsRepas.reduce(
+            (total,a) =>
+                total + Number(a.proteines || 0),
+            0
+        ),
+
+    heure:
+        new Date().toISOString()
+
+});
+       
 }
 
 
