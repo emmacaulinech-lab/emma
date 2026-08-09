@@ -13858,6 +13858,58 @@ function calculerAlimentGlow(id, quantite){
     };
 }
 
+function getQuantiteConseilleeGlow(aliment, typeRepas){
+
+    if(!aliment) return 100;
+
+    const cat = aliment.categorie;
+
+    const portions = {
+
+        "petit-dejeuner": {
+            proteine: 140,
+            feculent: 60,
+            fruit: 120,
+            gras: 20,
+            plaisir: 20,
+            legume: 100
+        },
+
+        "dejeuner": {
+            proteine: 120,
+            feculent: 130,
+            legume: 150,
+            fruit: 100,
+            gras: 40,
+            plaisir: 20
+        },
+
+        "diner": {
+            proteine: 120,
+            feculent: 120,
+            legume: 180,
+            fruit: 100,
+            gras: 40,
+            plaisir: 20
+        },
+
+        "collation": {
+            proteine: 140,
+            feculent: 40,
+            fruit: 120,
+            gras: 20,
+            plaisir: 15,
+            legume: 80
+        }
+
+    };
+
+    return (
+        portions[typeRepas]?.[cat] ||
+        100
+    );
+}
+
 function analyserRepasGlow(aliments, type){
 
     const categories = new Set(
@@ -14311,6 +14363,42 @@ async function choisirDinerGlow(option){
     toast("Dîner prévu pour ce soir 🌙");
 }
 
+async function choisirRepasSuggereGlow(type, option){
+
+    initialiserGlowDuJour();
+
+    DB.glow.nutrition =
+        DB.glow.nutrition || {
+            repas: [],
+            objectif: "equilibre"
+        };
+
+    if(type === "diner"){
+
+        await choisirDinerGlow(option);
+
+        return;
+    }
+
+    DB.glow.nutrition.repasPrevus =
+        DB.glow.nutrition.repasPrevus || {};
+
+    DB.glow.nutrition.repasPrevus[type] = {
+        aliments: option,
+        date: new Date().toISOString()
+    };
+
+    await saveAll();
+
+    renderGlowNutrition();
+
+    toast(
+        type === "dejeuner"
+            ? "Déjeuner prévu ☀️"
+            : "Collation prévue 🍓"
+    );
+}
+
 async function toggleCourseDinerGlow(index, checked){
 
     const diner =
@@ -14598,17 +14686,21 @@ function renderGlowNutrition(){
                             </div>
 
                             ${
-                                bloc.type === "diner"
-                                ? `
-                                    <button
-                                        class="btn bg bsm"
-                                        onclick='choisirDinerGlow(${JSON.stringify(option)})'
-                                    >
-                                        🌙 Choisir pour ce soir
-                                    </button>
-                                `
-                                : ""
-                            }
+                                <button
+    class="btn bg bsm"
+    onclick='choisirRepasSuggereGlow(
+        "${bloc.type}",
+        ${JSON.stringify(option)}
+    )'
+>
+    ${
+        bloc.type === "diner"
+            ? "🌙 Choisir pour ce soir"
+            : bloc.type === "dejeuner"
+            ? "☀️ Choisir ce déjeuner"
+            : "🍓 Choisir cette collation"
+    }
+</button>
 
                         </div>
 
@@ -15869,7 +15961,10 @@ function afficherPortionsAlimentGlow(){
                 id="glow-quantite-aliment"
                 type="number"
                 min="1"
-                value="100"
+                value="${getQuantiteConseilleeGlow(
+    aliment,
+    typeRepasGlowEnCours
+)}"
                 style="
                     width:100%;
                     padding:11px 12px;
