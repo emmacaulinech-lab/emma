@@ -13392,6 +13392,770 @@ async function renderGlowHydratation(){
     `;
 }
 
+const GLOW_ALIMENTS = [
+
+    // PROTÉINES
+    { id:"poulet", nom:"Poulet", categorie:"proteine", kcal:165, proteines:31 },
+    { id:"oeuf", nom:"Œuf", categorie:"proteine", kcal:143, proteines:13 },
+    { id:"thon", nom:"Thon", categorie:"proteine", kcal:116, proteines:26 },
+    { id:"saumon", nom:"Saumon", categorie:"proteine", kcal:208, proteines:20 },
+    { id:"steak", nom:"Steak haché", categorie:"proteine", kcal:250, proteines:26 },
+    { id:"skyr", nom:"Skyr", categorie:"proteine", kcal:63, proteines:10.5 },
+
+    // FÉCULENTS
+    { id:"pomme_de_terre", nom:"Pomme de terre", categorie:"feculent", kcal:77, proteines:2 },
+    { id:"riz", nom:"Riz cuit", categorie:"feculent", kcal:130, proteines:2.7 },
+    { id:"pates", nom:"Pâtes cuites", categorie:"feculent", kcal:131, proteines:5 },
+    { id:"pain", nom:"Pain", categorie:"feculent", kcal:265, proteines:9 },
+    { id:"avoine", nom:"Flocons d’avoine", categorie:"feculent", kcal:370, proteines:13 },
+
+    // LÉGUMES
+    { id:"tomate", nom:"Tomate", categorie:"legume", kcal:18, proteines:0.9 },
+    { id:"concombre", nom:"Concombre", categorie:"legume", kcal:15, proteines:0.7 },
+    { id:"courgette", nom:"Courgette", categorie:"legume", kcal:17, proteines:1.2 },
+    { id:"haricot_vert", nom:"Haricots verts", categorie:"legume", kcal:31, proteines:1.8 },
+    { id:"carotte", nom:"Carotte", categorie:"legume", kcal:41, proteines:0.9 },
+
+    // FRUITS
+    { id:"banane", nom:"Banane", categorie:"fruit", kcal:89, proteines:1.1 },
+    { id:"pomme", nom:"Pomme", categorie:"fruit", kcal:52, proteines:0.3 },
+    { id:"orange", nom:"Orange", categorie:"fruit", kcal:47, proteines:0.9 },
+    { id:"kiwi", nom:"Kiwi", categorie:"fruit", kcal:61, proteines:1.1 },
+
+    // MATIÈRES GRASSES / ACCOMPAGNEMENTS
+    { id:"avocat", nom:"Avocat", categorie:"gras", kcal:160, proteines:2 },
+    { id:"huile_olive", nom:"Huile d’olive", categorie:"gras", kcal:884, proteines:0 },
+    { id:"feta", nom:"Feta", categorie:"gras", kcal:264, proteines:14 },
+    { id:"olives", nom:"Olives", categorie:"gras", kcal:116, proteines:0.8 },
+
+    // PLAISIR
+    { id:"nutella", nom:"Nutella", categorie:"plaisir", kcal:539, proteines:6.3 }
+
+];
+
+function calculerAlimentGlow(id, quantite){
+
+    const aliment = GLOW_ALIMENTS.find(a => a.id === id);
+
+    if(!aliment) return null;
+
+    const q = Number(quantite) || 0;
+
+    return {
+        ...aliment,
+        quantite: q,
+        calories: Math.round((aliment.kcal * q) / 100),
+        proteines: Math.round(
+            ((aliment.proteines * q) / 100) * 10
+        ) / 10
+    };
+}
+
+function renderGlowNutrition(){
+
+    initialiserGlowDuJour();
+
+    DB.glow.nutrition = DB.glow.nutrition || {
+        repas: [],
+        objectif: "equilibre"
+    };
+
+    const repas = DB.glow.nutrition.repas || [];
+
+    const totalCalories = repas.reduce(
+        (total, repas) => total + Number(repas.calories || 0),
+        0
+    );
+
+    const totalProteines = repas.reduce(
+        (total, repas) => total + Number(repas.proteines || 0),
+        0
+    );
+
+    document.getElementById("glow-content").innerHTML = `
+
+        <!-- NAVIGATION GLOW -->
+        <div style="
+            display:flex;
+            gap:8px;
+            overflow-x:auto;
+            padding-bottom:6px;
+            margin-bottom:18px;
+        ">
+
+            <button class="btn bg" onclick="renderGlowModule()">
+                ✨ Accueil
+            </button>
+
+            <button class="btn bg" onclick="renderGlowHydratation()">
+                💧 Eau
+            </button>
+
+            <button class="btn bd">
+                🍽️ Nutrition
+            </button>
+
+            <button class="btn bg" onclick="renderGlowSommeil()">
+                🌙 Sommeil
+            </button>
+
+            <button class="btn bg" onclick="renderGlowEvolution()">
+                📈 Évolution
+            </button>
+
+            <button class="btn bg" onclick="renderGlowSport()">
+                🏃 Sport
+            </button>
+
+        </div>
+
+
+        <!-- RESUME JOURNEE -->
+        <div style="
+            background:linear-gradient(135deg,#FFF0F5,#FFF9F7);
+            border:1px solid rgba(255,255,255,.9);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+            margin-bottom:18px;
+        ">
+
+            <div style="
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:.12em;
+                color:var(--acc);
+                font-weight:800;
+                margin-bottom:8px;
+            ">
+                🍽️ Nutrition aujourd’hui
+            </div>
+
+            <div style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:28px;
+                font-weight:700;
+                margin-bottom:18px;
+            ">
+                Mange librement, équilibre intelligemment
+            </div>
+
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(3,1fr);
+                gap:10px;
+            ">
+
+                <div style="
+                    background:rgba(255,255,255,.55);
+                    border-radius:18px;
+                    padding:14px;
+                    text-align:center;
+                ">
+                    <div style="font-size:11px;color:var(--mut)">
+                        Repas
+                    </div>
+
+                    <div style="
+                        font-size:22px;
+                        font-weight:800;
+                        color:var(--acc);
+                    ">
+                        ${repas.length}
+                    </div>
+                </div>
+
+                <div style="
+                    background:rgba(255,255,255,.55);
+                    border-radius:18px;
+                    padding:14px;
+                    text-align:center;
+                ">
+                    <div style="font-size:11px;color:var(--mut)">
+                        Calories
+                    </div>
+
+                    <div style="
+                        font-size:22px;
+                        font-weight:800;
+                        color:var(--acc);
+                    ">
+                        ${Math.round(totalCalories)}
+                    </div>
+                </div>
+
+                <div style="
+                    background:rgba(255,255,255,.55);
+                    border-radius:18px;
+                    padding:14px;
+                    text-align:center;
+                ">
+                    <div style="font-size:11px;color:var(--mut)">
+                        Protéines
+                    </div>
+
+                    <div style="
+                        font-size:22px;
+                        font-weight:800;
+                        color:var(--acc);
+                    ">
+                        ${Math.round(totalProteines)} g
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- AJOUT REPAS -->
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+            margin-bottom:18px;
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:18px;
+            ">
+
+                <h2 style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:24px;
+                ">
+                    + Ajouter un repas
+                </h2>
+
+            </div>
+
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(4,1fr);
+                gap:8px;
+                margin-bottom:16px;
+            ">
+
+                ${[
+                    ["petit-dejeuner","☕ Petit-déj"],
+                    ["dejeuner","🥗 Déjeuner"],
+                    ["diner","🍽️ Dîner"],
+                    ["collation","🍓 Collation"]
+                ].map(type => `
+
+                    <button
+                        class="btn bg"
+                        onclick="ouvrirAjoutRepasGlow('${type[0]}')"
+                        style="
+                            justify-content:center;
+                            min-height:52px;
+                        "
+                    >
+                        ${type[1]}
+                    </button>
+
+                `).join("")}
+
+            </div>
+
+            <div style="
+                font-size:12px;
+                color:var(--mut);
+                line-height:1.6;
+            ">
+                Choisis ce que tu veux manger. GLOW analysera ensuite
+                l’équilibre du repas au lieu de t’imposer un menu.
+            </div>
+
+        </div>
+
+
+        <!-- REPAS DU JOUR -->
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+        ">
+
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:22px;
+                margin-bottom:16px;
+            ">
+                🕐 Mes repas du jour
+            </h2>
+
+            ${
+                repas.length
+
+                ? repas.map((r,index) => `
+
+                    <div style="
+                        padding:14px 0;
+                        border-bottom:1px solid rgba(0,0,0,.05);
+                    ">
+
+                        <div style="
+                            display:flex;
+                            justify-content:space-between;
+                            align-items:flex-start;
+                            gap:12px;
+                        ">
+
+                            <div>
+
+                                <div style="
+                                    font-weight:800;
+                                    margin-bottom:4px;
+                                ">
+                                    ${getNomTypeRepasGlow(r.type)}
+                                </div>
+
+                                <div style="
+                                    font-size:12px;
+                                    color:var(--mut);
+                                ">
+                                    ${(r.aliments || []).map(a =>
+    typeof a === "string"
+        ? a
+        : `${a.nom} · ${a.quantite} g`
+).join("  •  ")}
+                                </div>
+
+                            </div>
+
+                            <button
+                                class="btn bg bsm"
+                                onclick="supprimerRepasGlow(${index})"
+                            >
+                                ×
+                            </button>
+
+                        </div>
+
+                        ${
+                            r.calories || r.proteines
+                            ? `
+                                <div style="
+                                    font-size:11px;
+                                    color:var(--mut);
+                                    margin-top:7px;
+                                ">
+                                    ${r.calories ? `${Math.round(r.calories)} kcal` : ""}
+                                    ${r.proteines ? ` · ${Math.round(r.proteines)} g protéines` : ""}
+                                </div>
+                            `
+                            : ""
+                        }
+
+                    </div>
+
+                `).join("")
+
+                : `
+                    <div style="
+                        font-size:13px;
+                        color:var(--mut);
+                    ">
+                        Aucun repas enregistré aujourd’hui.
+                    </div>
+                `
+            }
+
+        </div>
+
+    `;
+}
+
+function getNomTypeRepasGlow(type){
+
+    const noms = {
+        "petit-dejeuner": "☕ Petit-déjeuner",
+        "dejeuner": "🥗 Déjeuner",
+        "diner": "🍽️ Dîner",
+        "collation": "🍓 Collation"
+    };
+
+    return noms[type] || "🍽️ Repas";
+}
+
+let repasGlowEnCours = [];
+
+function ajouterAlimentRepasGlow(){
+
+    const id = document.getElementById("glow-aliment-select")?.value;
+    const quantite = Number(
+        document.getElementById("glow-aliment-quantite")?.value || 0
+    );
+
+    if(!id){
+        toast("Choisis un aliment");
+        return;
+    }
+
+    if(quantite <= 0){
+        toast("Indique une quantité");
+        return;
+    }
+
+    const aliment = calculerAlimentGlow(id, quantite);
+
+    if(!aliment) return;
+
+    repasGlowEnCours.push(aliment);
+
+    afficherAlimentsRepasGlow();
+}
+
+
+function supprimerAlimentRepasGlow(index){
+
+    repasGlowEnCours.splice(index, 1);
+
+    afficherAlimentsRepasGlow();
+}
+
+
+function afficherAlimentsRepasGlow(){
+
+    const zone = document.getElementById("glow-repas-selection");
+
+    if(!zone) return;
+
+    const calories = repasGlowEnCours.reduce(
+        (total, a) => total + a.calories,
+        0
+    );
+
+    const proteines = repasGlowEnCours.reduce(
+        (total, a) => total + a.proteines,
+        0
+    );
+
+    zone.innerHTML = repasGlowEnCours.length
+
+        ? `
+
+            ${repasGlowEnCours.map((a,index) => `
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    padding:11px 0;
+                    border-bottom:1px solid rgba(0,0,0,.05);
+                ">
+
+                    <div>
+                        <div style="font-weight:800">
+                            ${a.nom}
+                        </div>
+
+                        <div style="
+                            font-size:11px;
+                            color:var(--mut);
+                        ">
+                            ${a.quantite} g · ${a.calories} kcal · ${a.proteines} g protéines
+                        </div>
+                    </div>
+
+                    <button
+                        class="btn bg bsm"
+                        onclick="supprimerAlimentRepasGlow(${index})"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+            `).join("")}
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                margin-top:16px;
+                padding-top:14px;
+                font-weight:800;
+            ">
+
+                <span>Total</span>
+
+                <span style="color:var(--acc)">
+                    ${Math.round(calories)} kcal ·
+                    ${Math.round(proteines * 10) / 10} g prot.
+                </span>
+
+            </div>
+
+        `
+
+        : `
+            <div style="
+                color:var(--mut);
+                font-size:12px;
+                text-align:center;
+                padding:16px;
+            ">
+                Ajoute les aliments de ton repas ✨
+            </div>
+        `;
+}
+
+function ouvrirAjoutRepasGlow(type){
+
+   repasGlowEnCours = [];
+
+    const labels = {
+        "petit-dejeuner": "Petit-déjeuner",
+        "dejeuner": "Déjeuner",
+        "diner": "Dîner",
+        "collation": "Collation"
+    };
+
+    document.getElementById("glow-content").innerHTML = `
+
+        <div style="
+            display:flex;
+            gap:8px;
+            overflow-x:auto;
+            padding-bottom:6px;
+            margin-bottom:18px;
+        ">
+
+            <button class="btn bg" onclick="renderGlowModule()">
+                ✨ Accueil
+            </button>
+
+            <button class="btn bg" onclick="renderGlowHydratation()">
+                💧 Eau
+            </button>
+
+            <button class="btn bd" onclick="renderGlowNutrition()">
+                🍽️ Nutrition
+            </button>
+
+        </div>
+
+        <div style="
+            background:rgba(255,255,255,.60);
+            border:1px solid rgba(255,255,255,.85);
+            border-radius:26px;
+            padding:24px;
+            box-shadow:var(--shadow);
+        ">
+
+            <div style="
+                font-size:11px;
+                text-transform:uppercase;
+                letter-spacing:.12em;
+                color:var(--acc);
+                font-weight:800;
+                margin-bottom:8px;
+            ">
+                ${labels[type] || "Repas"}
+            </div>
+
+            <h2 style="
+                font-family:'Cormorant Garamond',serif;
+                font-size:28px;
+                margin-bottom:20px;
+            ">
+                Compose ton repas
+            </h2>
+
+            <div style="margin-bottom:18px">
+
+    <label style="
+        display:block;
+        font-size:12px;
+        font-weight:800;
+        color:var(--mut);
+        margin-bottom:7px;
+    ">
+        🔎 Choisis un aliment
+    </label>
+
+    <select
+        id="glow-aliment-select"
+        style="
+            width:100%;
+            border-radius:14px;
+            padding:13px;
+            margin-bottom:10px;
+        "
+    >
+
+        <option value="">Rechercher / choisir...</option>
+
+        ${GLOW_ALIMENTS.map(a => `
+            <option value="${a.id}">
+                ${a.nom}
+            </option>
+        `).join("")}
+
+    </select>
+
+    <div style="
+        display:grid;
+        grid-template-columns:1fr auto;
+        gap:10px;
+    ">
+
+        <div style="position:relative">
+
+            <input
+                id="glow-aliment-quantite"
+                type="number"
+                min="1"
+                placeholder="Quantité"
+                style="
+                    width:100%;
+                    border-radius:14px;
+                    padding:13px 42px 13px 13px;
+                "
+            >
+
+            <span style="
+                position:absolute;
+                right:14px;
+                top:50%;
+                transform:translateY(-50%);
+                color:var(--mut);
+                font-size:12px;
+            ">
+                g
+            </span>
+
+        </div>
+
+        <button
+            class="btn bd"
+            onclick="ajouterAlimentRepasGlow()"
+        >
+            + Ajouter
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ALIMENTS AJOUTÉS -->
+
+<div
+    id="glow-repas-selection"
+    style="
+        background:rgba(255,255,255,.45);
+        border-radius:18px;
+        padding:14px;
+        margin-bottom:18px;
+    "
+>
+    <div style="
+        color:var(--mut);
+        font-size:12px;
+        text-align:center;
+        padding:16px;
+    ">
+        Ajoute les aliments de ton repas ✨
+    </div>
+</div>
+
+            <button
+                class="btn bd"
+                onclick="enregistrerRepasGlow('${type}')"
+                style="
+                    width:100%;
+                    justify-content:center;
+                    min-height:46px;
+                "
+            >
+                ✓ Enregistrer le repas
+            </button>
+
+        </div>
+    `;
+}
+
+async function enregistrerRepasGlow(type){
+
+    initialiserGlowDuJour();
+
+    if(!repasGlowEnCours.length){
+        toast("Ajoute au moins un aliment");
+        return;
+    }
+
+    DB.glow.nutrition = DB.glow.nutrition || {
+        repas: [],
+        objectif: "equilibre"
+    };
+
+    const calories = repasGlowEnCours.reduce(
+        (total, aliment) => total + Number(aliment.calories || 0),
+        0
+    );
+
+    const proteines = repasGlowEnCours.reduce(
+        (total, aliment) => total + Number(aliment.proteines || 0),
+        0
+    );
+
+    const nouveauRepas = {
+        type: type,
+
+        aliments: repasGlowEnCours.map(aliment => ({
+            id: aliment.id,
+            nom: aliment.nom,
+            categorie: aliment.categorie,
+            quantite: aliment.quantite,
+            calories: aliment.calories,
+            proteines: aliment.proteines
+        })),
+
+        calories: Math.round(calories),
+
+        proteines:
+            Math.round(proteines * 10) / 10,
+
+        heure: new Date().toISOString()
+    };
+
+    DB.glow.nutrition.repas.push(nouveauRepas);
+
+    DB.glow.glowScore = calculGlowScore().total;
+
+    repasGlowEnCours = [];
+
+    await saveAll();
+
+    renderGlowAccueil();
+    renderGlowNutrition();
+
+    toast("Repas enregistré ✨");
+}
+
+async function supprimerRepasGlow(index){
+
+    if(!DB.glow?.nutrition?.repas) return;
+
+    DB.glow.nutrition.repas.splice(index,1);
+
+    DB.glow.glowScore = calculGlowScore().total;
+
+    await saveAll();
+
+    renderGlowAccueil();
+    renderGlowNutrition();
+}
+
 function ouvrirSeanceGlow(seanceId){
 
     const seance = DB.glowSeances.find(item =>
