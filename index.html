@@ -9753,11 +9753,23 @@ async function syncAgendaVersJournal(){
     const[h1,m1]=r.heure_debut.split(':').map(Number);
     const[h2,m2]=r.heure_fin.split(':').map(Number);
     DB.journal.planning[dateCible].push({
-      id:genId(),customNom:nom,nom,
-      heureDebut:r.heure_debut,heureFin:r.heure_fin,
-      duree:(h2*60+m2)-(h1*60+m1),
-      couleurOverride:'#e87a9a',iconOverride:'💅'
-    });
+
+    id:genId(),
+    customNom:nom,
+    nom,
+
+    heureDebut:r.heure_debut,
+    heureFin:r.heure_fin,
+
+    duree:(h2*60+m2)-(h1*60+m1),
+
+    couleurOverride:'#e87a9a',
+    iconOverride:'💅',
+
+    source:'planity',
+    verrouille:true
+
+});
     ajoutes++;
   });
   if(ajoutes>0){
@@ -18905,12 +18917,54 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
         </div>
         ${clickable?`<span onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="color:${couleur};font-size:11px;cursor:pointer;flex-shrink:0">${expanded?'▲':'▼'}</span>`:''}
       </div>
-      ${expanded?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
-        <button class="btn bg bsm" onclick="ouvrirAjustementHoraire('${p.id}')">⏱️ Ajuster horaires</button>
-        <button class="btn bg bsm" onclick="ouvrirReporter('${p.id}')">⏭️ Reporter</button>
-        <button class="btn bg bsm" onclick="ouvrirRemplacer('${p.id}')">🔄 Remplacer</button>
-        <button class="btn br bsm" onclick="delPlanningItem('${p.id}')">✕ Retirer</button>
-      </div>`:''}
+      ${expanded ? `
+
+<div
+    style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"
+    onclick="event.stopPropagation()"
+>
+
+    ${
+        p.verrouille
+        ? `
+            <div style="
+                width:100%;
+                font-size:10px;
+                font-weight:700;
+                color:${couleur};
+                opacity:.7;
+                text-align:center;
+                padding:4px 0;
+            ">
+                🔒 Rendez-vous synchronisé
+            </div>
+        `
+        : `
+            <button class="btn bg bsm"
+                onclick="ouvrirAjustementHoraire('${p.id}')">
+                ⏱️ Ajuster horaires
+            </button>
+
+            <button class="btn bg bsm"
+                onclick="ouvrirReporter('${p.id}')">
+                ⏭️ Reporter
+            </button>
+
+            <button class="btn bg bsm"
+                onclick="ouvrirRemplacer('${p.id}')">
+                🔄 Remplacer
+            </button>
+
+            <button class="btn br bsm"
+                onclick="delPlanningItem('${p.id}')">
+                ✕ Retirer
+            </button>
+        `
+    }
+
+</div>
+
+` : ''}
     </div>`;
   }).join('');
 
