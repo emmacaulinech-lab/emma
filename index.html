@@ -33622,6 +33622,25 @@ async function activerNotificationsEmma(){
         "Notifications EMMA activées"
     );
 }
+
+async function testerNotificationEmma(){
+
+    if(Notification.permission !== "granted"){
+        toast("Active d'abord les notifications");
+        return;
+    }
+
+    const registration = await enregistrerServiceWorkerEmma();
+
+    if(!registration) return;
+
+    registration.showNotification("EMMA ✨", {
+        body: "Les notifications fonctionnent correctement.",
+        icon: "./icon-192.png",
+        badge: "./icon-192.png"
+    });
+
+}
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
