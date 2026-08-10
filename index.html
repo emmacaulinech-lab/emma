@@ -1734,22 +1734,139 @@ font-weight:700;
   </div>
 </div>
    <div class="mo" id="tempsLibreModal">
-  <div class="mb" style="width:480px;max-width:96vw">
+
+  <div class="mb" style="width:560px;max-width:96vw">
+
     <h2>🕐 Que faisais-tu ?</h2>
-    <div id="tempsLibreRange" style="font-size:12px;color:var(--mut);margin-bottom:16px"></div>
-    <div class="fr"><label>Rechercher une tâche existante</label>
-      <input type="text" id="tempsLibre-recherche" placeholder="Tape pour chercher..." oninput="filtrerTempsLibreRecherche()">
+
+    <div
+      id="tempsLibreRange"
+      style="
+        font-size:12px;
+        color:var(--mut);
+        margin-bottom:16px;
+      "
+    ></div>
+
+
+    <!-- =========================
+         CATÉGORIES
+    ========================== -->
+
+    <div style="
+      font-size:11px;
+      font-weight:800;
+      margin-bottom:8px;
+    ">
+      Choisis une catégorie
     </div>
-    <div id="tempsLibre-resultats" style="max-height:180px;overflow-y:auto;margin-bottom:14px"></div>
-    <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>
-    <div class="fr"><label>Créer un moment "temps libre"</label>
-      <input type="text" id="tempsLibre-nom" placeholder="ex: Piscine, Sieste, Balade...">
+
+    <div
+      id="tempsLibre-categories"
+      style="
+        display:flex;
+        flex-wrap:wrap;
+        gap:8px;
+        margin-bottom:16px;
+      "
+    ></div>
+
+
+    <!-- =========================
+         TÂCHES DE LA CATÉGORIE
+    ========================== -->
+
+    <div
+      id="tempsLibre-taches-wrap"
+      style="display:none"
+    >
+
+      <div style="
+        font-size:11px;
+        font-weight:800;
+        margin-bottom:8px;
+      ">
+        Qu'est-ce que tu as fait ?
+      </div>
+
+      <div
+        id="tempsLibre-taches"
+        style="
+          max-height:220px;
+          overflow-y:auto;
+          margin-bottom:16px;
+          display:flex;
+          flex-direction:column;
+          gap:7px;
+        "
+      ></div>
+
     </div>
-    <div class="ma">
-      <button class="btn bg" onclick="passerTempsLibre()">Passer sans préciser</button>
-      <button class="btn bd" onclick="validerTempsLibreLibre()">✓ Créer ce moment</button>
+
+
+    <!-- =========================
+         MOMENT LIBRE
+    ========================== -->
+
+    <div style="
+      border-top:1px solid var(--brd);
+      padding-top:14px;
+      margin-top:4px;
+    ">
+
+      <div style="
+        font-size:11px;
+        font-weight:800;
+        margin-bottom:8px;
+      ">
+        ☕ Ou créer un moment libre
+      </div>
+
+      <input
+        type="text"
+        id="tempsLibre-nom"
+        placeholder="Ex : téléphone, sieste, piscine, balade..."
+        style="
+          width:100%;
+          margin-bottom:10px;
+        "
+      >
+
     </div>
+
+
+    <!-- =========================
+         ACTIONS
+    ========================== -->
+
+    <div
+      class="ma"
+      style="
+        display:flex;
+        gap:8px;
+      "
+    >
+
+      <button
+        class="btn bg"
+        onclick="passerTempsLibre()"
+        style="flex:1"
+      >
+        Passer
+      </button>
+
+      <button
+        class="btn bd"
+        onclick="validerTempsLibreIntelligent()"
+        style="flex:2"
+      >
+        ✓ Enregistrer ce créneau
+      </button>
+
+    </div>
+
   </div>
+
 </div>
    <div class="mo" id="convertirTodoModal">
   <div class="mb" style="width:420px;max-width:94vw">
@@ -2010,10 +2127,7 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
     goHub();
-    setTimeout(verifierRappelHumeur,600);
-    setTimeout(ouvrirPopupTachesRetard,650);
-    setTimeout(verifierRappelPhoto,700);
-    setTimeout(ouvrirPopupTempsLibre,750);  
+    setTimeout(verifierCheckinEmma,700); 
   } else {
     currentUser = null;
     userRef = null;
@@ -10146,7 +10260,17 @@ async function validerHumeur(){
   humeurChoixActuel.forEach(e=>DB.humeurs[today].push({emoji:e,heure}));
   await sauvegarderChampSeul('humeurs', JSON.stringify(DB.humeurs));
   closeMo('humeurModal');
-  humeurChoixActuel=[];
+  // Mettre à jour GLOW avec la nouvelle humeur
+DB.glow = DB.glow || {};
+
+DB.glow.derniereHumeur = {
+    emojis: [...humeurChoixActuel],
+    date: today,
+    heure: heure
+};
+}
+humeurChoixActuel=[];
+await saveAll();
   toast('✓ Humeur enregistrée');
 }
 
@@ -10218,6 +10342,397 @@ function verifierRappelPhoto(){
   }
 }
 
+function verifierCheckinEmma(){
+
+    const date =
+        new Date().toISOString().split("T")[0];
+
+    const rappels = [];
+
+
+    // =========================
+    // 🌸 HUMEUR
+    // =========================
+
+    const humeurs =
+        DB.journal?.humeurs?.[date] || [];
+
+    if(!humeurs.length){
+
+        rappels.push({
+            type: "humeur",
+            icon: "🌸",
+            titre: "Humeur du jour",
+            texte: "Comment tu te sens aujourd'hui ?"
+        });
+
+    }
+
+
+    // =========================
+    // 📸 PHOTO DU JOUR
+    // =========================
+
+    const photos =
+        DB.journal?.photos?.[date] || [];
+
+    if(!photos.length){
+
+        rappels.push({
+            type: "photo",
+            icon: "📸",
+            titre: "Photo du jour",
+            texte: "Ajouter un petit souvenir de ta journée"
+        });
+
+    }
+
+
+    // =========================
+    // ✅ TÂCHES PASSÉES À VÉRIFIER
+    // =========================
+
+    const planning =
+        DB.journal?.planning?.[date] || [];
+
+    const maintenant =
+        new Date();
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
+    const faitMap =
+        DB.journal?.faitAujourdhui?.[date] || {};
+
+    const tachesPassees =
+        planning.filter(bloc => {
+
+            if(
+                !bloc.heureFin ||
+                bloc.type === "tempsLibre"
+            ){
+                return false;
+            }
+
+            const [h,m] =
+                bloc.heureFin
+                .split(":")
+                .map(Number);
+
+            const fin =
+                h * 60 + m;
+
+            if(fin >= minuteActuelle){
+                return false;
+            }
+
+            const sousTacheId =
+                bloc.data?.sousTacheId;
+
+            const estFait =
+                sousTacheId
+                    ? faitMap[sousTacheId] === true
+                    : faitMap[bloc.id] === true;
+
+            return !estFait;
+        });
+
+
+    if(tachesPassees.length){
+
+        rappels.push({
+            type: "taches",
+            icon: "✅",
+            titre: "Tâches passées",
+            texte:
+                `${tachesPassees.length} tâche${tachesPassees.length > 1 ? "s" : ""} à vérifier`
+        });
+
+    }
+
+
+    // =========================
+    // 🕐 TEMPS NON PRÉCISÉ
+    // =========================
+
+    const creneaux =
+        getCreneauxLibresIntelligents(date);
+
+    const trouPasse =
+        creneaux.find(c => {
+
+            const [h,m] =
+                c.fin
+                .split(":")
+                .map(Number);
+
+            const fin =
+                h * 60 + m;
+
+            return (
+                fin < minuteActuelle &&
+                c.duree >= 30
+            );
+        });
+
+
+    if(trouPasse){
+
+        rappels.push({
+            type: "tempsLibre",
+            icon: "🕐",
+            titre: "Moment non précisé",
+            texte:
+                `${trouPasse.debut} → ${trouPasse.fin}`
+        });
+
+    }
+
+
+    // =========================
+    // RIEN À METTRE À JOUR
+    // =========================
+
+    if(!rappels.length){
+        return;
+    }
+
+
+    ouvrirCheckinEmma(rappels);
+}
+
+function ouvrirCheckinEmma(rappels){
+
+    document
+        .getElementById("modal-checkin-emma")
+        ?.remove();
+
+    const html = `
+        <div
+            id="modal-checkin-emma"
+            style="
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(30,20,25,.35);
+                backdrop-filter:blur(10px);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:18px;
+            "
+        >
+
+            <div style="
+                width:min(520px,100%);
+                max-height:90vh;
+                overflow:auto;
+                background:white;
+                border-radius:28px;
+                padding:22px;
+                box-shadow:0 24px 70px rgba(50,30,40,.25);
+            ">
+
+                <div style="
+                    font-size:10px;
+                    color:var(--acc);
+                    font-weight:800;
+                    letter-spacing:.12em;
+                    margin-bottom:4px;
+                ">
+                    ✨ CHECK-IN EMMA
+                </div>
+
+                <div style="
+                    font-family:'Cormorant Garamond',serif;
+                    font-size:27px;
+                    font-weight:700;
+                    margin-bottom:6px;
+                ">
+                    Petite mise à jour ?
+                </div>
+
+                <div style="
+                    font-size:11px;
+                    color:var(--mut);
+                    margin-bottom:18px;
+                    line-height:1.5;
+                ">
+                    J'ai repéré quelques éléments à compléter dans ta journée.
+                </div>
+
+                <div style="
+                    display:flex;
+                    flex-direction:column;
+                    gap:9px;
+                ">
+
+                    ${rappels.map(r => `
+
+                        <button
+                            onclick="ouvrirRappelCheckinEmma('${r.type}')"
+                            style="
+                                width:100%;
+                                border:1px solid var(--brd);
+                                background:white;
+                                border-radius:17px;
+                                padding:13px 14px;
+                                cursor:pointer;
+                                display:flex;
+                                align-items:center;
+                                gap:12px;
+                                text-align:left;
+                            "
+                        >
+
+                            <div style="
+                                width:38px;
+                                height:38px;
+                                border-radius:13px;
+                                background:var(--bg2);
+                                display:flex;
+                                align-items:center;
+                                justify-content:center;
+                                font-size:19px;
+                                flex-shrink:0;
+                            ">
+                                ${r.icon}
+                            </div>
+
+                            <div style="flex:1">
+
+                                <div style="
+                                    font-size:12px;
+                                    font-weight:800;
+                                ">
+                                    ${r.titre}
+                                </div>
+
+                                <div style="
+                                    font-size:10px;
+                                    color:var(--mut);
+                                    margin-top:2px;
+                                ">
+                                    ${r.texte}
+                                </div>
+
+                            </div>
+
+                            <div style="
+                                color:var(--mut);
+                                font-size:18px;
+                            ">
+                                ›
+                            </div>
+
+                        </button>
+
+                    `).join("")}
+
+                </div>
+
+                <div style="
+                    display:flex;
+                    gap:8px;
+                    margin-top:18px;
+                ">
+
+                    <button
+                        class="btn bg"
+                        style="flex:1"
+                        onclick="fermerCheckinEmmaPlusTard()"
+                    >
+                        Plus tard
+                    </button>
+
+                    <button
+                        class="btn bd"
+                        style="flex:1"
+                        onclick="commencerCheckinEmma()"
+                    >
+                        Tout mettre à jour
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+    `;
+
+    window.rappelsCheckinEmma =
+        rappels;
+
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        html
+    );
+}
+
+function ouvrirRappelCheckinEmma(type){
+
+    document
+        .getElementById("modal-checkin-emma")
+        ?.remove();
+
+    if(type === "humeur"){
+        ouvrirPopupHumeur();
+        return;
+    }
+
+    if(type === "photo"){
+        document
+            .getElementById("photoJourModal")
+            ?.classList.add("open");
+        return;
+    }
+
+    if(type === "taches"){
+        ouvrirPopupTachesRetard();
+        return;
+    }
+
+    if(type === "tempsLibre"){
+        ouvrirPopupTempsLibre();
+        return;
+    }
+}
+
+function commencerCheckinEmma(){
+
+    const rappels =
+        window.rappelsCheckinEmma || [];
+
+    if(!rappels.length){
+        return;
+    }
+
+    const premier =
+        rappels[0];
+
+    ouvrirRappelCheckinEmma(
+        premier.type
+    );
+}
+
+function fermerCheckinEmmaPlusTard(){
+
+    document
+        .getElementById("modal-checkin-emma")
+        ?.remove();
+
+    const today =
+        new Date()
+        .toISOString()
+        .split("T")[0];
+
+    localStorage.setItem(
+        "emma_checkin_plus_tard_" + today,
+        new Date().toISOString()
+    );
+}
+
 function verifierRappelHumeur(){
   ensureHumeurData();
   const today=new Date().toISOString().split('T')[0];
@@ -10269,9 +10784,8 @@ function ouvrirPopupTempsLibre(){
 
   window._trouTempsLibreActuel=trou;
   document.getElementById('tempsLibreRange').textContent=`Entre ${minToStr(trou.debut)} et ${minToStr(trou.fin)}, aucune tâche n'est enregistrée.`;
-  document.getElementById('tempsLibre-recherche').value='';
   document.getElementById('tempsLibre-nom').value='';
-  document.getElementById('tempsLibre-resultats').innerHTML='';
+   chargerCategoriesTempsLibre();
   document.getElementById('tempsLibreModal').classList.add('open');
 }
 
@@ -10329,6 +10843,610 @@ async function validerTempsLibreExistante(zoneId,actionId,stId,nom){
   closeMo('tempsLibreModal');
   renderJAujourdhui();
   toast('✓ Enregistré !');
+}
+
+let tempsLibreCategorieSelectionnee = null;
+let tempsLibreTachesSelectionnees = new Set();
+
+
+function chargerCategoriesTempsLibre(){
+
+    const conteneur =
+        document.getElementById(
+            "tempsLibre-categories"
+        );
+
+    if(!conteneur) return;
+
+    tempsLibreCategorieSelectionnee = null;
+    tempsLibreTachesSelectionnees.clear();
+
+    const categories = [];
+
+    DB.journal.zones.forEach(zone => {
+
+        categories.push({
+            id: zone.id,
+            nom: zone.nom,
+            icon: zone.icon || "🏠",
+            type: "zone"
+        });
+
+    });
+
+
+    categories.push(
+        {
+            id: "marketing",
+            nom: "Marketing",
+            icon: "📣",
+            type: "special"
+        },
+        {
+            id: "emmaos",
+            nom: "EMMA OS",
+            icon: "💻",
+            type: "special"
+        },
+        {
+            id: "lecture",
+            nom: "Lecture",
+            icon: "📚",
+            type: "special"
+        },
+        {
+            id: "sport",
+            nom: "Sport",
+            icon: "🏋️",
+            type: "special"
+        }
+    );
+
+
+    conteneur.innerHTML =
+        categories.map(cat => `
+
+            <button
+                class="btn bg"
+                onclick="selectionnerCategorieTempsLibre('${cat.id}','${cat.type}')"
+                style="
+                    padding:8px 12px;
+                "
+            >
+                ${cat.icon} ${cat.nom}
+            </button>
+
+        `).join("");
+}
+
+
+function selectionnerCategorieTempsLibre(id,type){
+
+    tempsLibreCategorieSelectionnee = {
+        id,
+        type
+    };
+
+    tempsLibreTachesSelectionnees.clear();
+
+    const wrap =
+        document.getElementById(
+            "tempsLibre-taches-wrap"
+        );
+
+    const conteneur =
+        document.getElementById(
+            "tempsLibre-taches"
+        );
+
+    if(!wrap || !conteneur) return;
+
+    wrap.style.display = "block";
+
+    let taches = [];
+
+
+    // =========================
+    // ZONES MAISON
+    // =========================
+
+    if(type === "zone"){
+
+        const zone =
+            DB.journal.zones.find(
+                z => z.id === id
+            );
+
+        if(zone){
+
+            (zone.actions || [])
+            .forEach(action => {
+
+                (action.sousTaches || [])
+                .forEach(st => {
+
+                    taches.push({
+                        id: st.id,
+                        nom: st.nom,
+                        categorie: zone.nom,
+                        zoneId: zone.id,
+                        actionId: action.id,
+                        source: "journal"
+                    });
+
+                });
+
+            });
+
+        }
+    }
+
+
+    // =========================
+    // CATÉGORIES SPÉCIALES
+    // =========================
+
+    if(id === "emmaos"){
+
+        taches.push({
+            id: "emma_os_libre",
+            nom: "Avancer sur EMMA OS",
+            categorie: "EMMA OS",
+            source: "moment"
+        });
+
+    }
+
+    if(id === "lecture"){
+
+        taches.push({
+            id: "lecture_libre",
+            nom: "Lire",
+            categorie: "Lecture",
+            source: "moment"
+        });
+
+    }
+
+    if(id === "sport"){
+
+        taches.push({
+            id: "sport_libre",
+            nom: "Faire du sport",
+            categorie: "Sport",
+            source: "moment"
+        });
+
+    }
+
+    if(id === "marketing"){
+
+        taches.push(
+            {
+                id: "marketing_contenu",
+                nom: "Créer du contenu",
+                categorie: "Marketing",
+                source: "moment"
+            },
+            {
+                id: "marketing_reseaux",
+                nom: "Réseaux sociaux",
+                categorie: "Marketing",
+                source: "moment"
+            },
+            {
+                id: "marketing_idees",
+                nom: "Travailler sur des idées",
+                categorie: "Marketing",
+                source: "moment"
+            }
+        );
+
+    }
+
+
+    conteneur.innerHTML =
+        taches.length
+            ? taches.map(t => `
+
+                <label style="
+                    display:flex;
+                    align-items:center;
+                    gap:10px;
+                    padding:10px 12px;
+                    border:1px solid var(--brd);
+                    border-radius:14px;
+                    cursor:pointer;
+                ">
+
+                    <input
+                        type="checkbox"
+                        onchange="toggleTacheTempsLibre('${t.id}',this.checked)"
+                    >
+
+                    <span style="
+                        font-size:12px;
+                        font-weight:700;
+                    ">
+                        ${t.nom}
+                    </span>
+
+                </label>
+
+            `).join("")
+            : `
+                <div style="
+                    font-size:12px;
+                    color:var(--mut);
+                ">
+                    Aucune tâche dans cette catégorie.
+                </div>
+            `;
+
+    window.tempsLibreTachesDisponibles =
+        taches;
+}
+
+
+function toggleTacheTempsLibre(id,checked){
+
+    if(checked){
+        tempsLibreTachesSelectionnees.add(id);
+    }else{
+        tempsLibreTachesSelectionnees.delete(id);
+    }
+}
+
+async function validerTempsLibreIntelligent(){
+
+    ensureJournalData();
+
+    const today =
+        new Date().toISOString().split("T")[0];
+
+    const trou =
+        window._trouTempsLibreActuel;
+
+    if(!trou){
+        toast("Aucun créneau à enregistrer");
+        return;
+    }
+
+    const nomLibre =
+        document.getElementById(
+            "tempsLibre-nom"
+        )?.value.trim() || "";
+
+    const idsSelectionnes =
+        Array.from(
+            tempsLibreTachesSelectionnees
+        );
+
+    const tachesDisponibles =
+        window.tempsLibreTachesDisponibles || [];
+
+    const tachesChoisies =
+        tachesDisponibles.filter(t =>
+            idsSelectionnes.includes(t.id)
+        );
+
+
+    // =========================
+    // RIEN SÉLECTIONNÉ
+    // =========================
+
+    if(
+        !tachesChoisies.length &&
+        !nomLibre
+    ){
+        toast(
+            "Choisis au moins une tâche ou crée un moment libre"
+        );
+        return;
+    }
+
+
+    const heureDebut =
+        minToStr(trou.debut);
+
+    const heureFin =
+        minToStr(trou.fin);
+
+    const dureeTotale =
+        trou.fin - trou.debut;
+
+
+    if(!DB.journal.planning[today]){
+        DB.journal.planning[today] = [];
+    }
+
+    if(!DB.journal.historique){
+        DB.journal.historique = {};
+    }
+
+    if(!DB.journal.historique[today]){
+        DB.journal.historique[today] = [];
+    }
+
+
+    // =========================
+    // RÉPARTIR LE TEMPS
+    // =========================
+
+    const nbElements =
+        tachesChoisies.length +
+        (nomLibre ? 1 : 0);
+
+    const dureeParElement =
+        Math.max(
+            5,
+            Math.floor(
+                dureeTotale / nbElements
+            )
+        );
+
+    let curseur =
+        trou.debut;
+
+
+    // =========================
+    // TÂCHES EXISTANTES
+    // =========================
+
+    for(const tache of tachesChoisies){
+
+        const debut =
+            curseur;
+
+        const fin =
+            Math.min(
+                trou.fin,
+                debut + dureeParElement
+            );
+
+        DB.journal.planning[today].push({
+
+            id:
+                "retro_" +
+                genId(),
+
+            source:
+                tache.source || "journal",
+
+            type:
+                "perso",
+
+            categorie:
+                "rattrapage",
+
+            nom:
+                tache.nom,
+
+            customNom:
+                tache.nom,
+
+            heureDebut:
+                minToStr(debut),
+
+            heureFin:
+                minToStr(fin),
+
+            duree:
+                fin - debut,
+
+            autoPlanifie:
+                false,
+
+            verrouille:
+                false,
+
+            retroactif:
+                true,
+
+            data:{
+                zoneId:
+                    tache.zoneId || null,
+
+                actionId:
+                    tache.actionId || null,
+
+                sousTacheId:
+                    tache.id
+            }
+
+        });
+
+
+        // =========================
+        // MARQUER COMME FAITE
+        // =========================
+
+        if(tache.source === "journal"){
+
+            const zone =
+                DB.journal.zones.find(
+                    z => z.id === tache.zoneId
+                );
+
+            const action =
+                zone?.actions.find(
+                    a => a.id === tache.actionId
+                );
+
+            const st =
+                action?.sousTaches.find(
+                    x => x.id === tache.id
+                );
+
+            if(st){
+
+                st.dernierFait =
+                    today;
+
+                st.compteurFait =
+                    Number(
+                        st.compteurFait || 0
+                    ) + 1;
+            }
+        }
+
+
+        DB.journal.historique[today].push({
+
+            id:
+                "hist_" +
+                Date.now() +
+                "_" +
+                Math.random()
+                    .toString(36)
+                    .slice(2),
+
+            nom:
+                tache.nom,
+
+            type:
+                "tache",
+
+            date:
+                today,
+
+            heureDebut:
+                minToStr(debut),
+
+            heureFin:
+                minToStr(fin),
+
+            source:
+                "temps_non_precise"
+
+        });
+
+
+        curseur = fin;
+    }
+
+
+    // =========================
+    // MOMENT LIBRE PERSONNALISÉ
+    // =========================
+
+    if(nomLibre){
+
+        const debut =
+            curseur;
+
+        const fin =
+            trou.fin;
+
+        DB.journal.planning[today].push({
+
+            id:
+                "temps_libre_" +
+                genId(),
+
+            source:
+                "journal",
+
+            type:
+                "tempsLibre",
+
+            categorie:
+                "detente",
+
+            nom:
+                nomLibre,
+
+            customNom:
+                nomLibre,
+
+            iconOverride:
+                "☕",
+
+            heureDebut:
+                minToStr(debut),
+
+            heureFin:
+                minToStr(fin),
+
+            duree:
+                fin - debut,
+
+            autoPlanifie:
+                false,
+
+            verrouille:
+                false,
+
+            retroactif:
+                true,
+
+            data:{
+                origine:
+                    "temps_non_precise"
+            }
+
+        });
+
+
+        DB.journal.historique[today].push({
+
+            id:
+                "hist_" +
+                Date.now() +
+                "_" +
+                Math.random()
+                    .toString(36)
+                    .slice(2),
+
+            nom:
+                nomLibre,
+
+            type:
+                "tempsLibre",
+
+            date:
+                today,
+
+            heureDebut:
+                minToStr(debut),
+
+            heureFin:
+                minToStr(fin),
+
+            source:
+                "temps_non_precise"
+
+        });
+
+    }
+
+
+    // =========================
+    // FIN
+    // =========================
+
+    DB.journal.planning[today].sort(
+        (a,b) =>
+            (a.heureDebut || "")
+            .localeCompare(
+                b.heureDebut || ""
+            )
+    );
+
+    closeMo("tempsLibreModal");
+
+    tempsLibreTachesSelectionnees.clear();
+    tempsLibreCategorieSelectionnee = null;
+    window.tempsLibreTachesDisponibles = [];
+    window._trouTempsLibreActuel = null;
+
+    await saveAll();
+
+    renderJAujourdhui();
+
+    toast(
+        `✓ Créneau ${heureDebut} → ${heureFin} enregistré`
+    );
 }
 
 async function validerTempsLibreLibre(){
