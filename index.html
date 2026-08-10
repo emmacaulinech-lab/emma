@@ -10452,43 +10452,22 @@ function verifierCheckinEmma(){
 
 
     // =========================
-    // 🕐 TEMPS NON PRÉCISÉ
-    // =========================
+// 🕐 TEMPS NON PRÉCISÉ
+// =========================
 
-    const creneaux =
-        getCreneauxLibresIntelligents(date);
+const trouPasse = getTrouTempsLibre();
 
-    const trouPasse =
-        creneaux.find(c => {
+if(trouPasse){
 
-            const [h,m] =
-                c.fin
-                .split(":")
-                .map(Number);
+    rappels.push({
+        type: "tempsLibre",
+        icon: "🕐",
+        titre: "Moment non précisé",
+        texte:
+            `${minToStr(trouPasse.debut)} → ${minToStr(trouPasse.fin)} · Qu'est-ce que tu faisais ?`
+    });
 
-            const fin =
-                h * 60 + m;
-
-            return (
-                fin < minuteActuelle &&
-                c.duree >= 30
-            );
-        });
-
-
-    if(trouPasse){
-
-        rappels.push({
-            type: "tempsLibre",
-            icon: "🕐",
-            titre: "Moment non précisé",
-            texte:
-                `${trouPasse.debut} → ${trouPasse.fin}`
-        });
-
-    }
-
-
+}
     // =========================
     // RIEN À METTRE À JOUR
     // =========================
