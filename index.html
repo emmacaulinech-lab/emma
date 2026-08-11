@@ -33651,6 +33651,80 @@ badge: "./emma-icon.png"
     });
 
 }
+
+async function envoyerNotificationEmma(titre, message, tag = "emma") {
+
+    if (Notification.permission !== "granted") {
+        return false;
+    }
+
+    const registration = await enregistrerServiceWorkerEmma();
+
+    if (!registration) {
+        return false;
+    }
+
+    await registration.showNotification(titre, {
+        body: message,
+        icon: "./emma-icon.png",
+        badge: "./emma-icon.png",
+        tag: tag
+    });
+
+    return true;
+}
+
+function notificationEmmaDejaEnvoyee(id) {
+
+    const cle = "emma_notif_" + id;
+
+    return localStorage.getItem(cle) === "1";
+}
+
+function marquerNotificationEmmaEnvoyee(id) {
+
+    const cle = "emma_notif_" + id;
+
+    localStorage.setItem(cle, "1");
+}
+
+async function verifierNotificationsEmma() {
+
+    if (Notification.permission !== "granted") {
+        return;
+    }
+
+    const aujourdHui = new Date().toISOString().slice(0, 10);
+
+    // Une seule vérification/notif par jour
+    const idNotif = "taches_" + aujourdHui;
+
+    if (notificationEmmaDejaEnvoyee(idNotif)) {
+        return;
+    }
+
+    const taches = DB?.todos || [];
+
+const tachesDuJour = taches.filter(tache => {
+    return tache.date === aujourdHui;
+});
+
+    if (tachesDuJour.length === 0) {
+        return;
+    }
+
+    const nombre = tachesDuJour.length;
+
+    await envoyerNotificationEmma(
+        "Ta journée ✨",
+        nombre === 1
+            ? "Tu as encore 1 tâche prévue aujourd’hui."
+            : `Tu as encore ${nombre} tâches prévues aujourd’hui.`,
+        "emma-taches"
+    );
+
+    marquerNotificationEmmaEnvoyee(idNotif);
+}
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
