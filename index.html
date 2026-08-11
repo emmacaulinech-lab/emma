@@ -33699,10 +33699,15 @@ return token;
 
     } catch (erreur) {
 
-        console.error("Erreur Push EMMA :", erreur);
-        return null;
+    console.error("Erreur Push EMMA :", erreur);
 
-    }
+    alert(
+        "ERREUR PUSH : " +
+        (erreur?.message || erreur)
+    );
+
+    return null;
+}
 }
    
 async function envoyerNotificationEmma(titre, message, tag = "emma") {
