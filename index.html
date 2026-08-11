@@ -33783,6 +33783,146 @@ const tachesDuJour = taches.filter(tache => {
 
     marquerNotificationEmmaEnvoyee(idNotif);
 }
+
+async function synchroniserNotificationsPlanningEmma(date){
+
+    const utilisateur =
+        firebase.auth().currentUser;
+
+    if(!utilisateur || !date){
+        return;
+    }
+
+    const planning =
+        DB.journal?.planning?.[date] || [];
+
+    const faitMap =
+        DB.journal?.faitAujourdhui?.[date] || {};
+
+    const collection =
+        firebase.firestore()
+        .collection("emma_taches_notifications");
+
+    try{
+
+        // Récupère les anciennes tâches Push de cet utilisateur
+        const anciennes =
+            await collection
+            .where(
+                "userId",
+                "==",
+                utilisateur.uid
+            )
+            .get();
+
+        const batch =
+            firebase.firestore().batch();
+
+        // Supprime uniquement celles du jour synchronisé
+        anciennes.forEach(doc => {
+
+            if(doc.data().date === date){
+                batch.delete(doc.ref);
+            }
+
+        });
+
+
+        // Recrée l'état exact du planning
+        planning.forEach(bloc => {
+
+            if(!bloc.heureDebut){
+                return;
+            }
+
+            // Pas de notification 5 min avant les clientes Planity
+            if(
+                bloc.source === "planity" ||
+                bloc.verrouille === true
+            ){
+                return;
+            }
+
+            // Un RDV manuel n'est pas considéré comme une tâche
+            if(bloc.aClasser === true){
+                return;
+            }
+
+            const planningId =
+                String(
+                    bloc.id ||
+                    bloc.sourceId ||
+                    genId()
+                );
+
+            const idDocument =
+                (
+                    utilisateur.uid +
+                    "_" +
+                    date +
+                    "_" +
+                    planningId
+                )
+                .replace(/\//g,"_");
+
+            const ref =
+                collection.doc(idDocument);
+
+            batch.set(
+                ref,
+                {
+                    userId:
+                        utilisateur.uid,
+
+                    date,
+
+                    planningId,
+
+                    texte:
+                        bloc.nom ||
+                        bloc.customNom ||
+                        "Tâche",
+
+                    heure:
+                        bloc.heureDebut,
+
+                    heureFin:
+                        bloc.heureFin || null,
+
+                    duree:
+                        Number(bloc.duree || 0),
+
+                    faite:
+                        !!faitMap[bloc.id],
+
+                    source:
+                        bloc.source || "journal",
+
+                    updatedAt:
+                        firebase.firestore
+                        .FieldValue
+                        .serverTimestamp()
+                }
+            );
+
+        });
+
+        await batch.commit();
+
+        console.log(
+            "Notifications planning EMMA synchronisées",
+            date
+        );
+
+    }catch(erreur){
+
+        console.error(
+            "Erreur synchro planning Push EMMA",
+            erreur
+        );
+
+    }
+}
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
