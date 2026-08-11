@@ -18,11 +18,8 @@ self.addEventListener("push", event => {
             data.body ||
             "Tu as une nouvelle notification",
 
-        icon:
-            "/emma/icon-192.png",
-
-        badge:
-            "/emma/icon-192.png",
+        icon: "/emma/emma-icon.png",
+badge: "/emma/emma-icon.png",
 
         data:{
             url:
