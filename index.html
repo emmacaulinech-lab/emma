@@ -11852,6 +11852,162 @@ function getToutesNotifications(today){
   return notifs;
 }
 
+function getTachesProDepuisNotifications(date){
+
+    const jour =
+        new Date(date + "T12:00:00");
+
+    const notifs =
+        getToutesNotifications(jour);
+
+    return notifs
+        .filter(n => {
+
+            const action =
+                n.onclick || "";
+
+            return (
+                action.includes(
+                    "goModule('formations')"
+                ) ||
+                action.includes(
+                    "goModule('facturation')"
+                )
+            );
+
+        })
+        .map((n,index) => {
+
+            let duree = 15;
+            let priorite = 3;
+
+            const texte =
+                n.txt || "";
+
+
+            // =========================
+            // DURÉE ESTIMÉE
+            // =========================
+
+            if(
+                texte.includes(
+                    "Envoyer mail kit"
+                )
+            ){
+                duree = 10;
+            }
+
+            else if(
+                texte.includes(
+                    "Kit à payer"
+                )
+            ){
+                duree = 10;
+            }
+
+            else if(
+                texte.includes(
+                    "Préparer le kit"
+                )
+            ){
+                duree = 20;
+            }
+
+            else if(
+                texte.includes(
+                    "facture"
+                )
+            ){
+                duree = 20;
+            }
+
+            else if(
+                texte.includes(
+                    "redevance"
+                )
+            ){
+                duree = 15;
+            }
+
+
+            // =========================
+            // PRIORITÉ
+            // =========================
+
+            if(
+                texte.includes("URGENT") ||
+                n.color === "var(--dep)"
+            ){
+                priorite = 1;
+            }
+
+            else if(
+                n.color === "var(--warn)"
+            ){
+                priorite = 2;
+            }
+
+
+            const module =
+                (n.onclick || "")
+                .includes("formations")
+                    ? "formations"
+                    : "facturation";
+
+
+            return {
+
+                id:
+                    "notif_pro_" +
+                    module +
+                    "_" +
+                    index +
+                    "_" +
+                    date,
+
+                source:
+                    "notifications",
+
+                type:
+                    "pro",
+
+                typesAutorises:[
+                    "pro"
+                ],
+
+                categorie:
+                    "proAdmin",
+
+                nom:
+                    texte
+                    .replace(
+                        "🔴 URGENT — ",
+                        ""
+                    ),
+
+                icon:
+                    n.icon || "💼",
+
+                duree,
+
+                priorite,
+
+                flexible:
+                    true,
+
+                verrouille:
+                    false,
+
+                module,
+
+                onclick:
+                    n.onclick || null
+
+            };
+
+        });
+}
+
 function getNotificationsOrganisables(){
   const today=new Date();
   return getToutesNotifications(today).filter(n=>n.icon!=='⏰');
@@ -28384,6 +28540,20 @@ if(date === aujourdHui){
 
 }
 
+// =========================
+// 💼 ALERTES PRO
+// FORMATIONS / FACTURATION
+// =========================
+
+const tachesProNotifications =
+    getTachesProDepuisNotifications(
+        date
+    );
+
+elements.push(
+    ...tachesProNotifications
+);
+
 return elements;
 }
 
@@ -28399,6 +28569,8 @@ function getCreneauxLibresIntelligents(date){
 
     const toMin = heure => {
 
+        if(!heure) return 0;
+
         const [h,m] =
             heure.split(":").map(Number);
 
@@ -28406,6 +28578,9 @@ function getCreneauxLibresIntelligents(date){
     };
 
     const toHeure = minutes => {
+
+        minutes =
+            Math.max(0, Math.min(1439, minutes));
 
         const h =
             Math.floor(minutes / 60);
@@ -28437,19 +28612,106 @@ function getCreneauxLibresIntelligents(date){
             "22:30"
         );
 
-
     if(finJour <= debutJour){
         return [];
     }
 
 
     // =========================
-    // BLOCS QUI OCCUPENT
-    // RÉELLEMENT LA JOURNÉE
+    // 💅 PLANITY
     // =========================
 
-    const blocsOccupes =
+    const rdvPlanity =
         planning
+        .filter(p =>
+            (
+                p.source === "planity" ||
+                p.typeElement === "planity"
+            ) &&
+            p.heureDebut &&
+            p.heureFin
+        )
+        .sort(
+            (a,b) =>
+                toMin(a.heureDebut) -
+                toMin(b.heureDebut)
+        );
+
+
+    let debutTravail = null;
+    let finTravail = null;
+
+    const protectionsTrajet = [];
+
+    if(rdvPlanity.length){
+
+        const premier =
+            rdvPlanity[0];
+
+        const dernier =
+            rdvPlanity[
+                rdvPlanity.length - 1
+            ];
+
+        const debutPremier =
+            toMin(premier.heureDebut);
+
+        const finDernier =
+            toMin(dernier.heureFin);
+
+
+        // 30 min AVANT première cliente
+        debutTravail =
+            Math.max(
+                debutJour,
+                debutPremier - 30
+            );
+
+        protectionsTrajet.push({
+            heureDebut:
+                toHeure(debutTravail),
+
+            heureFin:
+                toHeure(debutPremier),
+
+            verrouille: true,
+            source: "trajet",
+            type: "trajet"
+        });
+
+
+        // 30 min APRÈS dernière cliente
+        finTravail =
+            Math.min(
+                finJour,
+                finDernier + 30
+            );
+
+        protectionsTrajet.push({
+            heureDebut:
+                toHeure(finDernier),
+
+            heureFin:
+                toHeure(finTravail),
+
+            verrouille: true,
+            source: "trajet",
+            type: "trajet"
+        });
+    }
+
+
+    // =========================
+    // BLOCS OCCUPÉS
+    // =========================
+
+    const planningAvecTrajets = [
+        ...planning,
+        ...protectionsTrajet
+    ];
+
+    const blocsOccupes =
+        planningAvecTrajets
         .filter(p => {
 
             if(
@@ -28459,7 +28721,6 @@ function getCreneauxLibresIntelligents(date){
                 return false;
             }
 
-            // Le temps libre n'occupe rien
             if(p.type === "tempsLibre"){
                 return false;
             }
@@ -28479,9 +28740,7 @@ function getCreneauxLibresIntelligents(date){
                 Math.min(
                     finJour,
                     toMin(p.heureFin)
-                ),
-
-            bloc: p
+                )
 
         }))
         .filter(p =>
@@ -28494,7 +28753,7 @@ function getCreneauxLibresIntelligents(date){
 
 
     // =========================
-    // FUSION DES CHEVAUCHEMENTS
+    // FUSION
     // =========================
 
     const occupations = [];
@@ -28529,7 +28788,36 @@ function getCreneauxLibresIntelligents(date){
 
 
     // =========================
-    // CALCUL DES TROUS
+    // TYPE DU CRÉNEAU
+    // =========================
+
+    function getTypeCreneau(
+        debut,
+        fin
+    ){
+
+        if(
+            debutTravail !== null &&
+            finTravail !== null
+        ){
+
+            // Créneau entièrement compris
+            // entre arrivée et départ du travail.
+            if(
+                debut >= debutTravail &&
+                fin <= finTravail
+            ){
+                return "pro";
+            }
+
+        }
+
+        return "perso";
+    }
+
+
+    // =========================
+    // CRÉNEAUX LIBRES
     // =========================
 
     const creneauxLibres = [];
@@ -28562,6 +28850,12 @@ function getCreneauxLibresIntelligents(date){
 
                     duree,
 
+                    type:
+                        getTypeCreneau(
+                            curseur,
+                            occupation.debut
+                        ),
+
                     source:
                         "auto"
 
@@ -28570,7 +28864,6 @@ function getCreneauxLibresIntelligents(date){
             }
 
         }
-
 
         curseur =
             Math.max(
@@ -28581,7 +28874,6 @@ function getCreneauxLibresIntelligents(date){
     });
 
 
-    // Dernier trou de la journée
     if(curseur < finJour){
 
         const duree =
@@ -28598,6 +28890,12 @@ function getCreneauxLibresIntelligents(date){
                     toHeure(finJour),
 
                 duree,
+
+                type:
+                    getTypeCreneau(
+                        curseur,
+                        finJour
+                    ),
 
                 source:
                     "auto"
@@ -28652,6 +28950,24 @@ function genererPlanningIntelligent(date){
     function noterCreneau(element, creneau){
 
         if(creneau.duree < element.duree){
+            return -9999;
+        }
+
+               // =========================
+        // CONTEXTE PRO / PERSO
+        // =========================
+
+        const typesAutorises =
+            Array.isArray(element.typesAutorises)
+                ? element.typesAutorises
+                : [element.type || "perso"];
+
+        if(
+            creneau.type &&
+            !typesAutorises.includes(
+                creneau.type
+            )
+        ){
             return -9999;
         }
 
@@ -28845,6 +29161,21 @@ const sport = elements.filter(e =>
     !e.plageHoraire
 );
 
+const proAdmin = elements
+    .filter(e =>
+        e.categorie === "proAdmin" &&
+        !e.plageHoraire
+    )
+    .sort((a,b) => {
+
+        if(a.priorite !== b.priorite){
+            return a.priorite - b.priorite;
+        }
+
+        return a.duree - b.duree;
+
+    });
+
 const autres = elements.filter(e =>
     !e.plageHoraire &&
     ![
@@ -28852,7 +29183,8 @@ const autres = elements.filter(e =>
         "detente",
         "projetPerso",
         "lecture",
-        "sport"
+        "sport",
+        "proAdmin"
     ].includes(e.categorie)
 );
 
@@ -29060,6 +29392,14 @@ if(
     }
 
    });
+
+   // =========================
+// 💼 TRAVAIL ADMIN
+// =========================
+
+sequence.push(
+    ...proAdmin
+);
     
 // =========================
 // CE QUI N'A PAS ENCORE ÉTÉ INSÉRÉ
