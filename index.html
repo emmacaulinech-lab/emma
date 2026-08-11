@@ -28914,6 +28914,147 @@ function getCreneauxLibresIntelligents(date){
     );
 }
 
+async function recalculerResteJourneeEmma(date){
+
+    ensureJournalData();
+
+    const maintenant = new Date();
+
+    const aujourdHui =
+        maintenant.toISOString().split("T")[0];
+
+    if(date !== aujourdHui){
+        return;
+    }
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
+    const toMin = heure => {
+
+        if(!heure) return 99999;
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+    const planning =
+        DB.journal.planning?.[date] || [];
+
+
+    // =========================
+    // CONSERVER CE QUI EST FIXE
+    // OU DÉJÀ PASSÉ / COMMENCÉ
+    // =========================
+
+    DB.journal.planning[date] =
+        planning.filter(bloc => {
+
+            // RDV Planity / bloc verrouillé
+            if(
+                bloc.source === "planity" ||
+                bloc.verrouille === true
+            ){
+                return true;
+            }
+
+            // Bloc manuel
+            if(bloc.autoPlanifie !== true){
+                return true;
+            }
+
+            // Bloc déjà commencé ou passé
+            if(
+                toMin(bloc.heureDebut) <=
+                minuteActuelle
+            ){
+                return true;
+            }
+
+            // Les futurs blocs automatiques
+            // seront recalculés
+            return false;
+        });
+
+
+    // =========================
+    // EMPÊCHER EMMA DE
+    // REPLANIFIER DANS LE PASSÉ
+    // =========================
+
+    const preparation =
+        getPreparationJour(date);
+
+    const ancienneHeureLever =
+        preparation.heureLever;
+
+    preparation.heureLever =
+        String(
+            maintenant.getHours()
+        ).padStart(2,"0") +
+        ":" +
+        String(
+            maintenant.getMinutes()
+        ).padStart(2,"0");
+
+
+    // =========================
+    // NOUVEAU PLANNING
+    // =========================
+
+    const proposition =
+        genererPlanningIntelligent(date);
+
+    preparation.heureLever =
+        ancienneHeureLever;
+
+
+    (proposition.blocs || [])
+        .filter(bloc =>
+            toMin(bloc.heureDebut) >
+            minuteActuelle
+        )
+        .forEach(bloc => {
+
+            DB.journal.planning[date].push({
+
+                ...bloc,
+
+                autoPlanifie: true,
+
+                valide: true
+            });
+
+        });
+
+
+    DB.journal.planning[date].sort(
+        (a,b) =>
+            (a.heureDebut || "")
+            .localeCompare(
+                b.heureDebut || ""
+            )
+    );
+
+
+    await saveAll();
+
+    // Les Push 5 min avant suivent
+    // automatiquement les nouveaux horaires
+    await synchroniserNotificationsPlanningEmma(
+        date
+    );
+
+    renderJAujourdhui();
+
+    console.log(
+        "Planning EMMA recalculé automatiquement"
+    );
+}
+
 function genererPlanningIntelligent(date){
 
     const elements =
@@ -33891,6 +34032,7 @@ async function togglePlanningFait(planningId){
     }
   }
   await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+   await recalculerResteJourneeEmma(today);
   renderPlanningTimeline();
 }
 
@@ -33925,6 +34067,7 @@ async function validerAjustementHoraire(planningId){
   item.duree=strToMin(nouveauFin)-strToMin(nouveauDebut);
 
   await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+  await recalculerResteJourneeEmma(jour);
   closeMo('mainModal');
   renderJAujourdhui();
   toast('✓ Horaires ajustés');
