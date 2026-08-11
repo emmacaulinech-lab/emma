@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
 <style>
 /* ═══════════════════════════════════════
@@ -33626,6 +33627,8 @@ async function activerNotificationsEmma(){
         return;
     }
 
+   await abonnerEmmaAuxPush();
+
     toast("🔔 Notifications autorisées");
 
     console.log(
@@ -33652,6 +33655,42 @@ badge: "./emma-icon.png"
 
 }
 
+const EMMA_VAPID_KEY = "BPZL0zh0_u1eHoDkcZ6hAom0W4b86YkO9QGgeN4E2MXEp00NQA55rbMI9HtH4bOQ6FwU3zTUy28kkD3rzo7h2Y4";
+
+async function abonnerEmmaAuxPush() {
+
+    try {
+
+        const registration = await enregistrerServiceWorkerEmma();
+
+        if (!registration) return null;
+
+        const messaging = firebase.messaging();
+
+        const token = await messaging.getToken({
+            vapidKey: EMMA_VAPID_KEY,
+            serviceWorkerRegistration: registration
+        });
+
+        if (!token) {
+            console.log("Aucun token Push EMMA");
+            return null;
+        }
+
+        console.log("Token Push EMMA créé");
+
+        localStorage.setItem("emma_fcm_token", token);
+
+        return token;
+
+    } catch (erreur) {
+
+        console.error("Erreur Push EMMA :", erreur);
+        return null;
+
+    }
+}
+   
 async function envoyerNotificationEmma(titre, message, tag = "emma") {
 
     if (Notification.permission !== "granted") {
