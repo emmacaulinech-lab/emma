@@ -33681,9 +33681,21 @@ async function abonnerEmmaAuxPush() {
 
         localStorage.setItem("emma_fcm_token", token);
 
-       alert("TOKEN PUSH OK");
+const utilisateur = firebase.auth().currentUser;
 
-        return token;
+if (utilisateur) {
+    await firebase.firestore()
+        .collection("emma_push_tokens")
+        .doc(utilisateur.uid)
+        .set({
+            token: token,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+}
+
+alert("TOKEN PUSH OK");
+
+return token;
 
     } catch (erreur) {
 
