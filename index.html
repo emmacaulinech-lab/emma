@@ -30328,13 +30328,146 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
 
     if(!zone) return;
 
-    const date = getJournalJour();
+    const date =
+        getJournalJour();
+
+    const planningJour =
+        DB.journal.planning?.[date] || [];
+
+    const dejaPlanifies =
+        new Set(
+            planningJour
+            .map(p =>
+                p.stId ||
+                p.data?.sousTacheId ||
+                p.sourceId
+            )
+            .filter(Boolean)
+        );
+
+    const dejaForcees =
+        new Set(
+            (DB.journal.tachesForcees?.[date] || [])
+            .map(t => t.sousTacheId)
+        );
+
+
+    // =========================
+    // CONTEXTE ACTUEL
+    // =========================
+
+    const maintenant =
+        new Date();
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
+    const toMin = heure => {
+
+        if(!heure) return 0;
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+
+    const prochainBloc =
+        planningJour
+        .filter(p =>
+            p.heureDebut &&
+            toMin(p.heureDebut) > minuteActuelle
+        )
+        .sort(
+            (a,b) =>
+                toMin(a.heureDebut) -
+                toMin(b.heureDebut)
+        )[0];
+
+
+    let tempsDisponible = 60;
+
+    if(prochainBloc){
+
+        tempsDisponible =
+            Math.max(
+                0,
+                toMin(prochainBloc.heureDebut) -
+                minuteActuelle
+            );
+    }
+
+
+    // =========================
+    // TYPE DE CONTEXTE
+    // =========================
+
+    const rdvPlanity =
+        planningJour
+        .filter(p =>
+            (
+                p.source === "planity" ||
+                p.typeElement === "planity"
+            ) &&
+            p.heureDebut &&
+            p.heureFin
+        );
+
+    let contexte = "perso";
+
+    if(rdvPlanity.length){
+
+        const premier =
+            rdvPlanity
+            .slice()
+            .sort(
+                (a,b) =>
+                    toMin(a.heureDebut) -
+                    toMin(b.heureDebut)
+            )[0];
+
+        const dernier =
+            rdvPlanity
+            .slice()
+            .sort(
+                (a,b) =>
+                    toMin(b.heureFin) -
+                    toMin(a.heureFin)
+            )[0];
+
+        const debutTravail =
+            toMin(premier.heureDebut) - 30;
+
+        const finTravail =
+            toMin(dernier.heureFin) + 30;
+
+        if(
+            minuteActuelle >= debutTravail &&
+            minuteActuelle <= finTravail
+        ){
+            contexte = "pro";
+        }
+    }
+
+
+    // =========================
+    // TÂCHES DE LA PIÈCE
+    // =========================
 
     const taches = [];
 
     (zone.actions || []).forEach(action => {
 
         (action.sousTaches || []).forEach(st => {
+
+            if(
+                dejaPlanifies.has(st.id) ||
+                dejaForcees.has(st.id)
+            ){
+                return;
+            }
 
             const score =
                 calculerScoreTacheJournal(
@@ -30344,13 +30477,22 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                     date
                 );
 
+            const duree =
+                Number(st.duree || 10);
+
             let categorie = "optionnel";
 
             if(score >= 55){
                 categorie = "essentiel";
             }
-            else if(Number(st.duree || 10) <= 10){
+            else if(duree <= 10){
                 categorie = "rapide";
+            }
+            else if(
+                duree >= 15 &&
+                duree <= 30
+            ){
+                categorie = "moyenne";
             }
             else if(score >= 30){
                 categorie = "rattraper";
@@ -30358,26 +30500,65 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
 
             taches.push({
 
-                zoneId: zone.id,
-                actionId: action.id,
-                sousTacheId: st.id,
+                zoneId:
+                    zone.id,
 
-                nom: st.nom,
+                actionId:
+                    action.id,
 
-                duree:
-                    Number(st.duree || 10),
+                sousTacheId:
+                    st.id,
+
+                nom:
+                    st.nom,
+
+                duree,
 
                 score,
-                categorie
+
+                categorie,
+
+                type:
+                    zone.typeDefaut || "perso",
+
+                faisableMaintenant:
+                    duree <= tempsDisponible
+
             });
 
         });
 
     });
 
-    taches.sort(
-        (a,b) => b.score - a.score
-    );
+
+    // =========================
+    // CLASSEMENT INTELLIGENT
+    // =========================
+
+    taches.sort((a,b) => {
+
+        if(
+            a.faisableMaintenant !==
+            b.faisableMaintenant
+        ){
+            return a.faisableMaintenant
+                ? -1
+                : 1;
+        }
+
+        if(b.score !== a.score){
+            return b.score - a.score;
+        }
+
+        return a.duree - b.duree;
+
+    });
+
+
+    const meilleurChoix =
+        taches.find(t =>
+            t.faisableMaintenant
+        ) || null;
 
 
     const modal =
@@ -30391,6 +30572,7 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
         modal.querySelector(
             "div"
         );
+
 
     contenu.innerHTML = `
 
@@ -30414,14 +30596,14 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                 ←
             </button>
 
-            <div>
+            <div style="flex:1">
 
                 <div style="
                     font-size:11px;
                     color:var(--acc);
                     font-weight:800;
                 ">
-                    COMPOSER MA SESSION
+                    CHOISIR UNE TÂCHE
                 </div>
 
                 <div style="
@@ -30431,9 +30613,80 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                     ${zone.icon || "🏠"} ${zone.nom}
                 </div>
 
+                <div style="
+                    font-size:10px;
+                    color:var(--mut);
+                    margin-top:3px;
+                ">
+                    ${contexte === "pro"
+                        ? "💼 Tu es en temps de travail"
+                        : "🏠 Temps personnel"
+                    }
+                    · ${tempsDisponible} min disponibles
+                </div>
+
             </div>
 
         </div>
+
+
+        ${
+            meilleurChoix
+            ? `
+
+                <div
+                    onclick="forcerTacheJournal(
+                        '${meilleurChoix.zoneId}',
+                        '${meilleurChoix.actionId}',
+                        '${meilleurChoix.sousTacheId}'
+                    )"
+
+                    style="
+                        background:
+                            linear-gradient(
+                                135deg,
+                                rgba(255,245,249,.95),
+                                rgba(245,248,255,.95)
+                            );
+                        border:1.5px solid var(--acc);
+                        border-radius:20px;
+                        padding:15px;
+                        margin-bottom:16px;
+                        cursor:pointer;
+                    "
+                >
+
+                    <div style="
+                        font-size:10px;
+                        font-weight:800;
+                        color:var(--acc);
+                        letter-spacing:.08em;
+                        margin-bottom:5px;
+                    ">
+                        ⭐ MEILLEUR CHOIX MAINTENANT
+                    </div>
+
+                    <div style="
+                        font-size:14px;
+                        font-weight:800;
+                    ">
+                        ${meilleurChoix.nom}
+                    </div>
+
+                    <div style="
+                        font-size:10px;
+                        color:var(--mut);
+                        margin-top:4px;
+                    ">
+                        ${meilleurChoix.duree} min
+                        · score ${meilleurChoix.score}
+                    </div>
+
+                </div>
+
+            `
+            : ""
+        }
 
 
         <div style="
@@ -30453,16 +30706,23 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
 
             <button
                 class="btn bg bsm"
-                onclick="filtrerTachesSessionJournal('essentiel')"
+                onclick="filtrerTachesSessionJournal('rapide')"
             >
-                ⭐ Essentiel
+                ⚡ 5–10 min
             </button>
 
             <button
                 class="btn bg bsm"
-                onclick="filtrerTachesSessionJournal('rapide')"
+                onclick="filtrerTachesSessionJournal('moyenne')"
             >
-                ⚡ Rapide
+                ⏱️ 15–30 min
+            </button>
+
+            <button
+                class="btn bg bsm"
+                onclick="filtrerTachesSessionJournal('essentiel')"
+            >
+                ⭐ Prioritaires
             </button>
 
             <button
@@ -30477,67 +30737,101 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
 
         <div id="journal-session-liste">
 
-            ${taches.map(t => `
-
-                <div
-                    class="journal-session-tache"
-                    data-categorie="${t.categorie}"
-                    onclick="toggleTacheSessionJournal(this)"
-                    data-zone="${t.zoneId}"
-                    data-action="${t.actionId}"
-                    data-st="${t.sousTacheId}"
-                    data-duree="${t.duree}"
-
-                    style="
-                        display:flex;
-                        align-items:center;
-                        gap:12px;
-                        background:white;
-                        border:1.5px solid var(--brd);
-                        border-radius:16px;
-                        padding:12px;
-                        margin-bottom:8px;
-                        cursor:pointer;
-                        transition:.18s;
-                    "
-                >
+            ${
+                taches.length
+                ? taches.map(t => `
 
                     <div
-                        class="session-check"
+                        class="journal-session-tache"
+                        data-categorie="${t.categorie}"
+
+                        onclick="
+                            ${t.faisableMaintenant
+                                ? "toggleTacheSessionJournal(this)"
+                                : ""
+                            }
+                        "
+
+                        data-zone="${t.zoneId}"
+                        data-action="${t.actionId}"
+                        data-st="${t.sousTacheId}"
+                        data-duree="${t.duree}"
+
                         style="
-                            width:24px;
-                            height:24px;
-                            border-radius:50%;
-                            border:2px solid var(--brd);
                             display:flex;
                             align-items:center;
-                            justify-content:center;
-                            flex-shrink:0;
+                            gap:12px;
+                            background:white;
+                            border:1.5px solid var(--brd);
+                            border-radius:16px;
+                            padding:12px;
+                            margin-bottom:8px;
+                            cursor:${
+                                t.faisableMaintenant
+                                    ? "pointer"
+                                    : "not-allowed"
+                            };
+                            opacity:${
+                                t.faisableMaintenant
+                                    ? "1"
+                                    : ".45"
+                            };
                         "
-                    ></div>
+                    >
 
-                    <div style="flex:1">
+                        <div
+                            class="session-check"
+                            style="
+                                width:24px;
+                                height:24px;
+                                border-radius:50%;
+                                border:2px solid var(--brd);
+                                display:flex;
+                                align-items:center;
+                                justify-content:center;
+                                flex-shrink:0;
+                            "
+                        ></div>
 
-                        <div style="
-                            font-size:12px;
-                            font-weight:800;
-                        ">
-                            ${t.nom}
-                        </div>
+                        <div style="flex:1">
 
-                        <div style="
-                            font-size:10px;
-                            color:var(--mut);
-                            margin-top:2px;
-                        ">
-                            ${t.duree} min · score ${t.score}
+                            <div style="
+                                font-size:12px;
+                                font-weight:800;
+                            ">
+                                ${t.nom}
+                            </div>
+
+                            <div style="
+                                font-size:10px;
+                                color:var(--mut);
+                                margin-top:2px;
+                            ">
+                                ${t.duree} min
+                                · score ${t.score}
+
+                                ${
+                                    !t.faisableMaintenant
+                                    ? " · pas assez de temps"
+                                    : ""
+                                }
+                            </div>
+
                         </div>
 
                     </div>
 
-                </div>
-
-            `).join("")}
+                `).join("")
+                : `
+                    <div style="
+                        text-align:center;
+                        padding:20px;
+                        color:var(--mut);
+                    ">
+                        Rien de pertinent à proposer ici.
+                    </div>
+                `
+            }
 
         </div>
 
@@ -30553,13 +30847,16 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
             <button
                 id="btn-organiser-session"
                 class="btn bd"
+
                 style="
                     width:100%;
                     justify-content:center;
                 "
+
                 onclick="validerSessionMaisonJournal()"
             >
-                ✨ Organiser ma session
+                ✨ Ajouter à ma journée
+
                 <span id="session-maison-duree">
                     · 0 min
                 </span>
@@ -30734,21 +31031,46 @@ async function forcerTacheJournal(
     const date =
         getJournalJour();
 
+    ensureJournalData();
+
     DB.journal.tachesForcees[date] =
         DB.journal.tachesForcees[date] || [];
 
-    const existe =
+    const dejaForcee =
         DB.journal.tachesForcees[date]
         .some(t =>
             t.sousTacheId === sousTacheId
         );
 
-    if(!existe){
+    const dejaPlanifiee =
+        (DB.journal.planning?.[date] || [])
+        .some(p =>
+            p.stId === sousTacheId ||
+            p.data?.sousTacheId === sousTacheId ||
+            p.sourceId === sousTacheId
+        );
+
+    if(dejaPlanifiee){
+
+        toast(
+            "Cette tâche est déjà dans ta journée"
+        );
+
+        return;
+    }
+
+    if(!dejaForcee){
 
         DB.journal.tachesForcees[date].push({
             zoneId,
             actionId,
-            sousTacheId
+            sousTacheId,
+
+            forceeA:
+                new Date().toISOString(),
+
+            source:
+                "spontanee"
         });
 
     }
@@ -30756,13 +31078,18 @@ async function forcerTacheJournal(
     await saveAll();
 
     document
-        .getElementById("journal-modal-piece")
+        .getElementById(
+            "journal-modal-piece"
+        )
         ?.remove();
 
     renderJAujourdhui();
 
-    toast("Ajouté à ta journée ✨");
+    toast(
+        "Ajouté à ta journée ✨"
+    );
 }
+
 
 async function forcerTopTachesPieceJournal(zoneId){
 
@@ -30776,62 +31103,170 @@ async function forcerTopTachesPieceJournal(zoneId){
     const date =
         getJournalJour();
 
+    ensureJournalData();
+
+    DB.journal.tachesForcees[date] =
+        DB.journal.tachesForcees[date] || [];
+
+    const idsForcees =
+        new Set(
+            DB.journal.tachesForcees[date]
+            .map(t => t.sousTacheId)
+        );
+
+    const idsPlanifies =
+        new Set();
+
+    (DB.journal.planning?.[date] || [])
+    .forEach(p => {
+
+        const id =
+            p.stId ||
+            p.data?.sousTacheId ||
+            p.sourceId;
+
+        if(id){
+            idsPlanifies.add(id);
+        }
+
+    });
+
+
     const liste = [];
 
     (zone.actions || []).forEach(action => {
 
-        (action.sousTaches || []).forEach(st => {
+        (action.sousTaches || [])
+        .forEach(st => {
+
+            if(
+                idsForcees.has(st.id) ||
+                idsPlanifies.has(st.id)
+            ){
+                return;
+            }
+
+            const score =
+                calculerScoreTacheJournal(
+                    zone,
+                    action,
+                    st,
+                    date
+                );
 
             liste.push({
-                zoneId: zone.id,
-                actionId: action.id,
-                sousTacheId: st.id,
 
-                score:
-                    calculerScoreTacheJournal(
-                        zone,
-                        action,
-                        st,
-                        date
-                    )
+                zoneId:
+                    zone.id,
+
+                actionId:
+                    action.id,
+
+                sousTacheId:
+                    st.id,
+
+                nom:
+                    st.nom,
+
+                duree:
+                    Number(
+                        st.duree || 5
+                    ),
+
+                score,
+
+                forceeA:
+                    new Date()
+                    .toISOString(),
+
+                source:
+                    "suggestion_spontanee"
+
             });
 
         });
 
     });
 
-    liste.sort(
-        (a,b) => b.score - a.score
-    );
 
-    DB.journal.tachesForcees[date] =
-        DB.journal.tachesForcees[date] || [];
+    // =========================
+    // MEILLEUR CHOIX
+    // =========================
 
-    liste.slice(0,2).forEach(t => {
+    liste.sort((a,b) => {
 
-        const existe =
-            DB.journal.tachesForcees[date]
-            .some(x =>
-                x.sousTacheId === t.sousTacheId
-            );
-
-        if(!existe){
-            DB.journal.tachesForcees[date].push(t);
+        if(b.score !== a.score){
+            return b.score - a.score;
         }
 
+        // À score similaire,
+        // tâche courte en premier.
+        return a.duree - b.duree;
+
     });
+
+
+    // Maximum 2 tâches,
+    // mais on évite deux grosses tâches.
+    const selection = [];
+
+    let minutes =
+        0;
+
+    for(const tache of liste){
+
+        if(selection.length >= 2){
+            break;
+        }
+
+        if(
+            minutes + tache.duree >
+            30 &&
+            selection.length
+        ){
+            continue;
+        }
+
+        selection.push(tache);
+
+        minutes +=
+            tache.duree;
+    }
+
+
+    selection.forEach(t => {
+
+        DB.journal
+            .tachesForcees[date]
+            .push(t);
+
+    });
+
 
     await saveAll();
 
     document
-        .getElementById("journal-modal-piece")
+        .getElementById(
+            "journal-modal-piece"
+        )
         ?.remove();
 
     renderJAujourdhui();
 
-    toast("2 actions ajoutées ✨");
-}
+    if(selection.length){
 
+        toast(
+            `${selection.length} meilleure(s) action(s) ajoutée(s) ✨`
+        );
+
+    }else{
+
+        toast(
+            "Rien de pertinent à ajouter ici"
+        );
+
+    }
+}
 function analyserPhotoPieceJournal(zoneId){
 
     const zone =
