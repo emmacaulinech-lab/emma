@@ -1962,6 +1962,8 @@ textarea,
         min-height:
             125px;
     }
+
+   }
 /* ═══════════════════════════════════════
    ACCUEIL — STRUCTURE V3
 ═══════════════════════════════════════ */
@@ -2121,8 +2123,6 @@ textarea,
         display:grid;
         grid-template-columns:1fr 1fr;
     }
-
-}
 
 @media(max-width:520px){
 
@@ -2766,6 +2766,180 @@ textarea,
         min-height:230px;
         padding:20px;
         border-radius:26px;
+    }
+
+}
+
+/* ═══════════════════════════════════════
+   HUB MOBILE — CORRECTION FINALE
+═══════════════════════════════════════ */
+
+@media(max-width:760px){
+
+    /* UNE SEULE GROSSE CARTE PAR LIGNE */
+
+    #hub-modules-grid.emma-hub-grid{
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:16px !important;
+        width:100% !important;
+    }
+
+    #hub-modules-grid .hub-smart-card{
+        grid-column:1 / -1 !important;
+
+        width:100% !important;
+        min-width:0 !important;
+        min-height:auto !important;
+
+        padding:22px !important;
+
+        border-radius:28px !important;
+    }
+
+
+    /* TITRES MOINS ÉNORMES */
+
+    .hub-smart-title{
+        font-size:28px !important;
+        line-height:1.05 !important;
+    }
+
+    .hub-smart-kicker{
+        font-size:10px !important;
+    }
+
+
+    /* GLOW */
+
+    .glow-smart-card{
+        min-height:auto !important;
+    }
+
+    .glow-smart-card .glow-score-circle{
+        width:70px !important;
+        height:70px !important;
+        flex:0 0 70px !important;
+    }
+
+    .glow-actions{
+        grid-template-columns:
+            repeat(2,1fr)
+            !important;
+
+        gap:9px !important;
+    }
+
+    .glow-actions div{
+        width:auto !important;
+        min-width:0 !important;
+
+        padding:12px 8px !important;
+    }
+
+
+    /* JOURNAL */
+
+    .emma-todo-add{
+        display:grid !important;
+        grid-template-columns:
+            minmax(0,1fr)
+            42px !important;
+
+        gap:8px !important;
+    }
+
+    .emma-todo-add input{
+        width:100% !important;
+        min-width:0 !important;
+    }
+
+    .emma-todo-add .btn{
+        width:42px !important;
+        height:42px !important;
+
+        padding:0 !important;
+
+        display:grid !important;
+        place-items:center !important;
+    }
+
+
+    /* COMPTA */
+
+    .compta-actions{
+        display:grid !important;
+        grid-template-columns:1fr 1fr !important;
+        gap:8px !important;
+    }
+
+    .compta-info{
+        grid-template-columns:1fr 1fr !important;
+        gap:8px !important;
+    }
+
+
+    /* NOTIFICATIONS DANS LES CARTES */
+
+    .hub-module-notification{
+        font-size:11px !important;
+        line-height:1.35 !important;
+
+        padding:10px !important;
+    }
+
+
+    /* ESPACEMENT GLOBAL */
+
+    #hubPage{
+        padding:
+            20px
+            14px
+            190px
+            !important;
+    }
+
+
+    /* BARRE NAV AU-DESSUS DE SAFARI */
+
+    .emma-bottom-nav{
+        bottom:
+            calc(
+                82px +
+                env(safe-area-inset-bottom)
+            )
+            !important;
+
+        width:
+            calc(100vw - 28px)
+            !important;
+
+        max-width:520px !important;
+    }
+
+}
+
+
+/* SI EMMA EST OUVERTE EN APP/PWA :
+   la barre redescend normalement */
+
+@media(
+    display-mode:standalone
+){
+
+    .emma-bottom-nav{
+        bottom:
+            calc(
+                10px +
+                env(safe-area-inset-bottom)
+            )
+            !important;
+    }
+
+    #hubPage{
+        padding-bottom:
+            110px
+            !important;
     }
 
 }
