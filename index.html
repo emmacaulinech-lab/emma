@@ -3003,6 +3003,14 @@ textarea,
       ✦
     </button>
 
+   <button
+  id="emma-enable-notifications"
+  class="btn bg"
+  onclick="activerNotificationsEmma()"
+>
+  🔔 Activer les notifications
+</button>
+
   </section>
 
 
@@ -14451,6 +14459,7 @@ function getNotificationsOrganisables(){
 }
    
    function renderHubOverview(){
+  mettreAJourBoutonNotificationsEmma();
   renderEmmaAccueilIntelligent();
   renderTodos();
   renderHumeurJour();
@@ -36984,6 +36993,27 @@ async function activerNotificationsEmma(){
     console.log(
         "Notifications EMMA activées"
     );
+mettreAJourBoutonNotificationsEmma();
+
+}
+
+function mettreAJourBoutonNotificationsEmma(){
+
+    const bouton =
+        document.getElementById(
+            "emma-enable-notifications"
+        );
+
+    if(!bouton) return;
+
+    if(
+        "Notification" in window &&
+        Notification.permission === "granted"
+    ){
+        bouton.style.display = "none";
+    }else{
+        bouton.style.display = "inline-flex";
+    }
 }
 
 async function testerNotificationEmma(){
