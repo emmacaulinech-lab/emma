@@ -14457,8 +14457,82 @@ function getNotificationsOrganisables(){
   const today=new Date();
   return getToutesNotifications(today).filter(n=>n.icon!=='⏰');
 }
+
+function ouvrirDestinationNotificationEmma(){
+
+  const params = new URLSearchParams(window.location.search);
+
+  const module = params.get("module");
+  const type = params.get("type");
+  const id = params.get("id");
+
+  if(!module) return;
+
+if(window.__emmaNotificationOuverte){
+  return;
+}
+
+window.__emmaNotificationOuverte = true;
+
+window.history.replaceState(
+  {},
+  document.title,
+  window.location.pathname
+);
+
+  setTimeout(() => {
+
+    if(module === "journal"){
+
+      goModule("journal");
+
+      if(type === "humeur"){
+        setTimeout(() => ouvrirPopupHumeur(), 400);
+      }
+
+      if(type === "photo"){
+        setTimeout(() => ouvrirHistoriqueHumeurPhotos(), 400);
+      }
+
+      return;
+    }
+
+    if(module === "glow"){
+
+      goModule("glow");
+
+      if(type === "nutrition"){
+        setTimeout(() => renderGlowNutrition(), 400);
+      }
+
+      return;
+    }
+
+    if(module === "formations"){
+      goModule("formations");
+      return;
+    }
+
+    if(module === "facturation"){
+      goModule("facturation");
+      return;
+    }
+
+    if(module === "compta"){
+      goModule("compta");
+      return;
+    }
+
+    if(module === "banqueperso"){
+      goModule("banqueperso");
+    }
+
+  }, 700);
+
+}
    
    function renderHubOverview(){
+  ouvrirDestinationNotificationEmma();
   mettreAJourBoutonNotificationsEmma();
   renderEmmaAccueilIntelligent();
   renderTodos();
