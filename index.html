@@ -2133,6 +2133,321 @@ textarea,
 }
    
 }
+
+/* ═══════════════════════════════════════
+   NAVIGATION EMMA — GLASS
+═══════════════════════════════════════ */
+
+.emma-bottom-nav{
+    padding:7px 8px 8px !important;
+
+    background:
+        rgba(255,255,255,.68)
+        !important;
+
+    border:
+        1px solid
+        rgba(255,255,255,.96)
+        !important;
+
+    border-radius:
+        30px
+        !important;
+
+    box-shadow:
+        0 16px 45px
+        rgba(80,100,140,.13),
+        inset 0 1px 0
+        rgba(255,255,255,1)
+        !important;
+
+    -webkit-backdrop-filter:
+        blur(34px)
+        saturate(170%);
+
+    backdrop-filter:
+        blur(34px)
+        saturate(170%);
+}
+
+
+.emma-nav-item{
+    color:#817c82 !important;
+
+    background:
+        transparent
+        !important;
+
+    border-radius:
+        22px !important;
+
+    min-height:
+        54px;
+
+    gap:4px;
+}
+
+
+.emma-nav-item span:first-child{
+    font-size:
+        20px !important;
+
+    font-weight:
+        400;
+}
+
+
+.emma-nav-item span:last-child{
+    font-size:
+        10px;
+
+    font-weight:
+        700;
+}
+
+
+.emma-nav-item.active{
+
+    color:
+        #7893c5
+        !important;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(224,235,255,.90),
+            rgba(239,244,255,.70)
+        )
+        !important;
+
+    box-shadow:
+        inset 0 1px 0
+        rgba(255,255,255,.96),
+        0 6px 18px
+        rgba(115,140,190,.08);
+}
+
+
+/* MENU CATÉGORIE */
+
+#emma-navigation-menu{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:2000;
+
+    display:flex;
+
+    align-items:flex-end;
+
+    justify-content:center;
+
+    padding:14px;
+
+    background:
+        rgba(48,55,75,.16);
+
+    -webkit-backdrop-filter:
+        blur(10px);
+
+    backdrop-filter:
+        blur(10px);
+}
+
+
+.emma-navigation-sheet{
+
+    width:
+        min(
+            520px,
+            100%
+        );
+
+    padding:
+        10px 16px 20px;
+
+    border-radius:
+        30px;
+
+    background:
+        rgba(250,252,255,.88);
+
+    border:
+        1px solid
+        rgba(255,255,255,.96);
+
+    box-shadow:
+        0 24px 70px
+        rgba(70,85,115,.18);
+
+    -webkit-backdrop-filter:
+        blur(32px)
+        saturate(170%);
+
+    backdrop-filter:
+        blur(32px)
+        saturate(170%);
+}
+
+
+.emma-navigation-handle{
+
+    width:38px;
+
+    height:4px;
+
+    border-radius:99px;
+
+    background:
+        rgba(100,110,130,.18);
+
+    margin:
+        2px auto
+        18px;
+}
+
+
+.emma-navigation-title{
+
+    font-family:
+        'Cormorant Garamond',
+        serif;
+
+    font-size:
+        30px;
+
+    font-weight:
+        700;
+
+    color:
+        var(--emma-text);
+}
+
+
+.emma-navigation-subtitle{
+
+    font-size:
+        11px;
+
+    color:
+        var(--emma-muted);
+
+    margin:
+        2px 0
+        16px;
+}
+
+
+.emma-navigation-options{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:8px;
+}
+
+
+.emma-navigation-option{
+
+    width:100%;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    padding:
+        12px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.92);
+
+    border-radius:
+        20px;
+
+    background:
+        rgba(255,255,255,.52);
+
+    color:
+        var(--emma-text);
+
+    text-align:left;
+
+    font-family:
+        'Nunito',
+        sans-serif;
+
+    cursor:pointer;
+}
+
+
+.emma-navigation-icon{
+
+    width:44px;
+
+    height:44px;
+
+    flex:
+        0 0 44px;
+
+    display:grid;
+
+    place-items:center;
+
+    border-radius:
+        15px;
+
+    background:
+        rgba(236,242,255,.85);
+
+    font-size:
+        20px;
+}
+
+
+.emma-navigation-option > div:nth-child(2){
+
+    flex:1;
+
+    display:flex;
+
+    flex-direction:column;
+}
+
+
+.emma-navigation-option strong{
+
+    font-size:
+        13px;
+}
+
+
+.emma-navigation-option span{
+
+    font-size:
+        10px;
+
+    color:
+        var(--emma-muted);
+
+    margin-top:
+        2px;
+}
+
+
+.emma-navigation-arrow{
+
+    color:
+        #a2a8b5;
+
+    font-size:
+        22px;
+}
    
 </style>
 </head>
@@ -2501,12 +2816,53 @@ textarea,
     </div>
   </div>
   <nav class="emma-bottom-nav" aria-label="Navigation principale">
-    <button class="emma-nav-item active" data-emma-dest="accueil" onclick="emmaNavigate('accueil')"><span>⌂</span><span>Accueil</span></button>
-    <button class="emma-nav-item" data-emma-dest="travail" onclick="emmaNavigate('travail')"><span>▣</span><span>Travail</span></button>
-    <button class="emma-nav-item" data-emma-dest="finances" onclick="emmaNavigate('finances')"><span>◕</span><span>Finances</span></button>
-    <button class="emma-nav-item" data-emma-dest="vie" onclick="emmaNavigate('vie')"><span>♡</span><span>Vie</span></button>
-    <button class="emma-nav-item" data-emma-dest="plus" onclick="emmaNavigate('plus')"><span>•••</span><span>Plus</span></button>
-  </nav>
+
+  <button
+    class="emma-nav-item active"
+    data-emma-dest="accueil"
+    onclick="emmaNavigate('accueil')"
+  >
+    <span>⌂</span>
+    <span>Accueil</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="travail"
+    onclick="emmaNavigate('travail')"
+  >
+    <span>▣</span>
+    <span>Travail</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="glow"
+    onclick="emmaNavigate('glow')"
+  >
+    <span>✦</span>
+    <span>Glow</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="journal"
+    onclick="emmaNavigate('journal')"
+  >
+    <span>✓</span>
+    <span>Journal</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="plus"
+    onclick="emmaNavigate('plus')"
+  >
+    <span>•••</span>
+    <span>Plus</span>
+  </button>
+
+</nav>
 </div>
    
 <!-- ═══════════════ APP ═══════════════ -->
@@ -12909,27 +13265,213 @@ function setEmmaNav(destination){
 }
 
 function emmaNavigate(destination){
-  if(destination==='accueil'){
-    goHub();
-    return;
-  }
-  if(destination==='vie'){
-    goModule('journal');
-    setEmmaNav('vie');
-    return;
-  }
 
-  goModule('compta');
-  const targetName=destination==='travail'
-    ?'clients'
-    :destination==='plus'
-      ?'settings'
-      :'dashboard';
-  const targetButton=[...document.querySelectorAll('.tab')].find(button=>
-    (button.getAttribute('onclick')||'').includes(`'${targetName}'`)
-  );
-  if(targetButton) goTab(targetName,targetButton);
-  setEmmaNav(destination);
+    // =========================
+    // ACCUEIL
+    // =========================
+
+    if(destination === "accueil"){
+        goHub();
+        return;
+    }
+
+
+    // =========================
+    // MODULES DIRECTS
+    // =========================
+
+    if(destination === "glow"){
+        goModule("glow");
+        return;
+    }
+
+    if(destination === "journal"){
+        goModule("journal");
+        return;
+    }
+
+
+    // =========================
+    // TRAVAIL
+    // =========================
+
+    if(destination === "travail"){
+
+        ouvrirMenuNavigationEmma(
+            "Travail",
+            "Tout ce qui concerne ton activité professionnelle",
+            [
+                {
+                    icon:"💰",
+                    titre:"Compta",
+                    texte:"CA, banque, TVA, Planity…",
+                    action:() => goModule("compta")
+                },
+
+                {
+                    icon:"🎓",
+                    titre:"Formations",
+                    texte:"Élèves, kits et suivis",
+                    action:() => goModule("formations")
+                },
+
+                {
+                    icon:"🧾",
+                    titre:"Facturation",
+                    texte:"Factures et règlements LIMAGECILS",
+                    action:() => goModule("facturation")
+                }
+            ]
+        );
+
+        return;
+    }
+
+
+    // =========================
+    // PLUS
+    // =========================
+
+    if(destination === "plus"){
+
+        ouvrirMenuNavigationEmma(
+            "Plus",
+            "Tes autres espaces EMMA",
+            [
+                {
+                    icon:"👛",
+                    titre:"Banque perso",
+                    texte:"Tes finances personnelles",
+                    action:() => goModule("banqueperso")
+                },
+
+                {
+                    icon:"📚",
+                    titre:"Lecture",
+                    texte:"Livres et suivi de lecture",
+                    action:() => goModule("lecture")
+                }
+            ]
+        );
+
+    }
+}
+
+function ouvrirMenuNavigationEmma(
+    titre,
+    sousTitre,
+    elements
+){
+
+    document
+        .getElementById(
+            "emma-navigation-menu"
+        )
+        ?.remove();
+
+
+    const modal =
+        document.createElement("div");
+
+    modal.id =
+        "emma-navigation-menu";
+
+    modal.innerHTML = `
+
+        <div class="emma-navigation-sheet">
+
+            <div class="emma-navigation-handle"></div>
+
+            <div class="emma-navigation-title">
+                ${titre}
+            </div>
+
+            <div class="emma-navigation-subtitle">
+                ${sousTitre}
+            </div>
+
+            <div class="emma-navigation-options">
+
+                ${elements.map(
+                    (element,index) => `
+
+                    <button
+                        class="emma-navigation-option"
+                        data-index="${index}"
+                    >
+
+                        <div class="emma-navigation-icon">
+                            ${element.icon}
+                        </div>
+
+                        <div>
+
+                            <strong>
+                                ${element.titre}
+                            </strong>
+
+                            <span>
+                                ${element.texte}
+                            </span>
+
+                        </div>
+
+                        <div class="emma-navigation-arrow">
+                            ›
+                        </div>
+
+                    </button>
+
+                `
+                ).join("")}
+
+            </div>
+
+        </div>
+    `;
+
+
+    modal.addEventListener(
+        "click",
+        event => {
+
+            if(event.target === modal){
+                modal.remove();
+            }
+
+        }
+    );
+
+
+    modal
+        .querySelectorAll(
+            ".emma-navigation-option"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    const index =
+                        Number(
+                            button.dataset.index
+                        );
+
+                    modal.remove();
+
+                    elements[index]
+                        ?.action();
+
+                }
+            );
+
+        });
+
+
+    document.body.appendChild(
+        modal
+    );
 }
 
 async function loadFacturesLimagecils(){
