@@ -2448,6 +2448,327 @@ textarea,
     font-size:
         22px;
 }
+
+/* ═══════════════════════════════════════
+   HUB INTELLIGENT — GRANDES CARTES
+═══════════════════════════════════════ */
+
+.emma-hub-grid{
+    width:100%;
+    max-width:1120px;
+    margin:0 auto;
+
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:18px;
+}
+
+.hub-smart-card{
+    position:relative;
+    overflow:hidden;
+
+    min-height:260px;
+
+    padding:24px;
+
+    border-radius:30px;
+
+    background:rgba(255,255,255,.52);
+
+    border:1px solid rgba(255,255,255,.92);
+
+    box-shadow:var(--emma-shadow);
+
+    backdrop-filter:blur(28px) saturate(160%);
+    -webkit-backdrop-filter:blur(28px) saturate(160%);
+
+    cursor:pointer;
+
+    display:flex;
+    flex-direction:column;
+
+    transition:.22s ease;
+}
+
+.hub-smart-card:hover{
+    transform:translateY(-3px);
+    box-shadow:var(--emma-shadow-hover);
+}
+
+.hub-smart-card::before{
+    content:"";
+
+    position:absolute;
+    inset:0;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,.28),
+            transparent 55%
+        );
+
+    pointer-events:none;
+}
+
+.hub-smart-header{
+    position:relative;
+    z-index:1;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+
+    margin-bottom:18px;
+}
+
+.hub-smart-kicker{
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.12em;
+
+    color:var(--emma-muted);
+
+    margin-bottom:5px;
+}
+
+.hub-smart-title{
+    font-family:'Cormorant Garamond',serif;
+
+    font-size:29px;
+    font-weight:700;
+
+    color:var(--emma-text);
+}
+
+.hub-smart-icon{
+    width:50px;
+    height:50px;
+
+    border-radius:17px;
+
+    display:grid;
+    place-items:center;
+
+    font-size:22px;
+
+    background:rgba(255,255,255,.60);
+
+    border:1px solid rgba(255,255,255,.92);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.98),
+        0 8px 22px rgba(80,100,130,.07);
+}
+
+.hub-smart-content{
+    position:relative;
+    z-index:1;
+
+    margin-bottom:14px;
+}
+
+.hub-smart-inner{
+    position:relative;
+    z-index:1;
+
+    padding:13px;
+
+    border-radius:18px;
+
+    background:rgba(255,255,255,.42);
+
+    border:1px solid rgba(255,255,255,.82);
+
+    margin-bottom:12px;
+}
+
+.hub-smart-label{
+    font-size:10px;
+    font-weight:800;
+
+    color:var(--emma-muted);
+
+    margin-bottom:8px;
+}
+
+.hub-card-notifications{
+    position:relative;
+    z-index:1;
+
+    display:flex;
+    flex-direction:column;
+
+    gap:7px;
+
+    margin-top:5px;
+}
+
+.hub-module-notification{
+    display:flex;
+    align-items:center;
+    gap:9px;
+
+    padding:9px 11px;
+
+    border-radius:15px;
+
+    background:rgba(255,255,255,.45);
+
+    border:1px solid rgba(255,255,255,.84);
+
+    font-size:11px;
+}
+
+.hub-module-notification span:last-child{
+    flex:1;
+}
+
+.hub-smart-empty{
+    position:relative;
+    z-index:1;
+
+    color:var(--emma-muted);
+
+    font-size:11px;
+
+    padding:12px;
+
+    border-radius:16px;
+
+    background:rgba(255,255,255,.30);
+}
+
+.hub-smart-footer{
+    position:relative;
+    z-index:1;
+
+    margin-top:auto;
+    padding-top:17px;
+
+    font-size:11px;
+    font-weight:800;
+
+    color:#7f91b4;
+}
+
+.hub-smart-balance{
+    position:relative;
+    z-index:1;
+
+    margin-bottom:15px;
+}
+
+.hub-smart-balance span{
+    display:block;
+
+    font-size:10px;
+
+    color:var(--emma-muted);
+}
+
+.hub-smart-balance strong{
+    display:block;
+
+    margin-top:3px;
+
+    font-family:'Cormorant Garamond',serif;
+
+    font-size:34px;
+
+    color:#8b91bd;
+}
+
+
+/* COULEURS */
+
+.journal-smart-card{
+    grid-column:span 2;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(237,244,255,.72),
+            rgba(255,255,255,.48)
+        );
+}
+
+.glow-smart-card{
+    grid-column:span 2;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(236,250,243,.75),
+            rgba(244,248,255,.62)
+        );
+}
+
+.compta-smart-card{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(234,243,255,.78),
+            rgba(255,255,255,.47)
+        );
+}
+
+.formations-smart-card{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(244,239,253,.80),
+            rgba(255,255,255,.48)
+        );
+}
+
+.facturation-smart-card{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,240,232,.78),
+            rgba(255,255,255,.48)
+        );
+}
+
+.banque-smart-card{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(239,244,255,.80),
+            rgba(255,255,255,.48)
+        );
+}
+
+.lecture-smart-card{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(239,249,244,.76),
+            rgba(255,255,255,.48)
+        );
+}
+
+
+@media(max-width:760px){
+
+    .emma-hub-grid{
+        grid-template-columns:1fr;
+    }
+
+    .journal-smart-card,
+    .glow-smart-card{
+        grid-column:span 1;
+    }
+
+    .hub-smart-card{
+        min-height:230px;
+        padding:20px;
+        border-radius:26px;
+    }
+
+}
    
 </style>
 </head>
@@ -2511,310 +2832,326 @@ textarea,
   </section>
 
 
-  <!-- AUJOURD'HUI -->
+ <!-- ═══════════════ HUB — CARTES INTELLIGENTES ═══════════════ -->
 
-  <div class="emma-home-today-grid">
+<div class="emma-hub-grid" id="hub-modules-grid">
 
-    <section class="emma-today-main">
+  <!-- JOURNAL -->
+  <section class="hub-smart-card journal-smart-card" onclick="goModule('journal')">
 
-      <div class="emma-section-head">
-
-        <div>
-          <div class="emma-section-kicker">
-            AUJOURD’HUI
-          </div>
-
-          <div class="emma-section-title">
-            Ta journée
-          </div>
-        </div>
-
-        <button
-          class="btn bg bsm"
-          onclick="goModule('journal')"
-        >
-          Ouvrir →
-        </button>
-
+    <div class="hub-smart-header">
+      <div>
+        <div class="hub-smart-kicker">📔 JOURNAL</div>
+        <div class="hub-smart-title">Aujourd’hui</div>
       </div>
 
-
-      <div
-        id="hub-planning-wrap"
-        class="emma-planning-home"
-        style="display:none"
-      >
-
-        <div id="hub-planning-mini"></div>
-
-      </div>
-
-
-      <div class="emma-quick-task">
-
-        <div class="emma-quick-task-head">
-          <span>✓</span>
-          <span>À faire</span>
-        </div>
-
-        <div class="emma-todo-add">
-
-          <input
-            type="text"
-            id="todo-input"
-            placeholder="Ajouter une note rapide..."
-            onkeypress="
-              if(event.key==='Enter'){
-                ajouterTodo()
-              }
-            "
-          >
-
-          <button
-            class="btn bd bsm"
-            onclick="ajouterTodo()"
-          >
-            +
-          </button>
-
-        </div>
-
-        <div id="todos-list"></div>
-
-      </div>
-
-    </section>
-
-
-    <!-- COLONNE DROITE -->
-
-    <aside class="emma-today-side">
-
-      <div class="emma-mini-glass-card">
-
-        <div class="emma-mini-title">
-          🌸 Humeur
-        </div>
-
-        <div id="humeur-jour-widget"></div>
-
-        <div class="emma-mini-actions">
-
-          <button
-            class="btn bg bsm"
-            onclick="ouvrirPopupHumeur()"
-          >
-            + Ajouter
-          </button>
-
-          <button
-            class="btn bg bsm"
-            onclick="ouvrirHistoriqueHumeurPhotos()"
-          >
-            Historique
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <div class="emma-mini-glass-card">
-
-        <div class="emma-mini-title">
-          💰 Finances
-        </div>
-
-        <div class="emma-home-balances">
-
-          <div>
-            <span>Pro</span>
-            <strong id="hub-solde-pro">—</strong>
-          </div>
-
-          <div>
-            <span>Perso</span>
-            <strong id="hub-solde-perso">—</strong>
-          </div>
-
-        </div>
-
-      </div>
-
-    </aside>
-
-  </div>
-
-
-  <!-- NOTIFICATIONS -->
-
-  <div
-    id="hub-notifications"
-    class="emma-home-notifications"
-  ></div>
-
-
-  <div
-    id="hub-virements-wrap"
-    class="emma-home-notifications"
-    style="display:none"
-  >
-
-    <div class="emma-mini-title">
-      ⏳ Virements en attente
-    </div>
-
-    <div id="hub-virements"></div>
-
-  </div>
-  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--mut);font-weight:800;margin:10px auto 16px;max-width:1040px;width:100%">Tes espaces</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1040px;width:100%" id="hub-modules-grid">
-   <div class="hub-card glow-card"
-     style="grid-column:span 3;"
-     onclick="goModule('glow')">
-
-    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:18px">
-
-        <div>
-
-            <div style="font-size:12px;color:#b58b93;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">
-                ✨ Glow
-            </div>
-
-            <div style="font-size:26px;font-family:'Cormorant Garamond',serif;font-weight:700;margin-top:6px;">
-                Prends soin de toi aujourd'hui
-            </div>
-
-        </div>
-
-        <div class="glow-score-circle">
-    <span id="hub-glow-score">0%</span>
-</div>
-
-    </div>
-
-    <div class="glow-actions">
-        <div>💧 Eau</div>
-        <div>🏋️ Sport</div>
-        <div
-    onclick="
-        event.stopPropagation();
-        goModule('glow');
-        setTimeout(() => {
-            renderGlowNutrition();
-        }, 50);
-    "
-    style="cursor:pointer;"
->
-    🥗 Nutrition
-</div>
-        <div>🌙 Sommeil</div>
-    </div>
-
-</div>
-    <div class="hub-card compta-card" onclick="goModule('compta')">
-
-    <div class="hub-card-header">
-
-        <div class="hub-card-icon">💰</div>
-
-        <div class="hub-card-title">
-
-            <div class="hub-card-label">Compta</div>
-
-            <div class="hub-card-small">
-                Disponible
-            </div>
-
-        </div>
-
+      <div class="hub-smart-icon">✓</div>
     </div>
 
     <div
-    class="compta-solde"
-    id="compta-solde">
-
-    -- €
-
-</div>
-
-    <div class="compta-actions">
-
-    <label
-        class="mini-action"
-        onclick="event.stopPropagation()"
+      id="hub-planning-wrap"
+      class="hub-smart-content"
+      style="display:none"
     >
+      <div id="hub-planning-mini"></div>
+    </div>
+
+    <div
+      class="hub-smart-inner"
+      onclick="event.stopPropagation()"
+    >
+      <div class="hub-smart-label">À faire</div>
+
+      <div class="emma-todo-add">
+        <input
+          type="text"
+          id="todo-input"
+          placeholder="Ajouter une note rapide..."
+          onkeypress="if(event.key==='Enter')ajouterTodo()"
+        >
+
+        <button
+          class="btn bd bsm"
+          onclick="ajouterTodo()"
+        >
+          +
+        </button>
+      </div>
+
+      <div id="todos-list"></div>
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-journal"></div>
+
+    <div class="hub-smart-footer">
+      Ouvrir mon journal →
+    </div>
+
+  </section>
+
+
+  <!-- GLOW -->
+  <section class="hub-smart-card glow-smart-card" onclick="goModule('glow')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">✨ GLOW</div>
+        <div class="hub-smart-title">Prends soin de toi</div>
+      </div>
+
+      <div class="glow-score-circle">
+        <span id="hub-glow-score">0%</span>
+      </div>
+
+    </div>
+
+
+    <div class="glow-actions">
+
+      <div>💧 Eau</div>
+
+      <div>🏋️ Sport</div>
+
+      <div
+        onclick="
+          event.stopPropagation();
+          goModule('glow');
+          setTimeout(() => {
+            renderGlowNutrition();
+          },50);
+        "
+        style="cursor:pointer"
+      >
+        🥗 Nutrition
+      </div>
+
+      <div>🌙 Sommeil</div>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-glow"></div>
+
+    <div class="hub-smart-footer">
+      Continuer →
+    </div>
+
+  </section>
+
+
+  <!-- COMPTA -->
+  <section class="hub-smart-card compta-smart-card" onclick="goModule('compta')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">💰 COMPTA</div>
+        <div class="hub-smart-title">Disponible</div>
+      </div>
+
+      <div class="hub-smart-icon">💰</div>
+
+    </div>
+
+
+    <div
+      class="compta-solde"
+      id="compta-solde"
+    >
+      -- €
+    </div>
+
+
+    <div
+      class="compta-actions"
+      onclick="event.stopPropagation()"
+    >
+
+      <label class="mini-action">
+
         📅 Importer Planity
 
         <input
-            type="file"
-            accept="image/*"
-            onchange="importerPlanity(event)"
-            hidden
+          type="file"
+          accept="image/*"
+          onchange="importerPlanity(event)"
+          hidden
         >
-    </label>
 
-    <label
-        class="mini-action"
-        onclick="event.stopPropagation()"
-    >
+      </label>
+
+
+      <label class="mini-action">
+
         🏦 Importer Banque
 
         <input
-            type="file"
-            accept="image/*"
-            onchange="importBanqueImage(event)"
-            hidden
+          type="file"
+          accept="image/*"
+          onchange="importBanqueImage(event)"
+          hidden
         >
-    </label>
 
-</div>
+      </label>
+
+    </div>
+
 
     <div class="compta-info">
 
-        <div>
-            📈 CA estimé
-            <strong id="compta-ca">
+      <div>
+        📈 CA estimé
+        <strong id="compta-ca">-- €</strong>
+      </div>
 
--- €
-
-</strong>
-        </div>
-
-        <div>
-            🧾 TVA
-            <strong id="compta-tva">
-
-0 facture
-
-</strong>
-        </div>
+      <div>
+        🧾 TVA
+        <strong id="compta-tva">0 facture</strong>
+      </div>
 
     </div>
 
-    <div class="hub-card-open">
 
-        Continuer →
+    <div class="hub-card-notifications" id="hub-notifs-compta"></div>
+
+    <div
+      id="hub-virements-wrap"
+      style="display:none"
+      class="hub-smart-inner"
+    >
+      <div class="hub-smart-label">
+        ⏳ Virements en attente
+      </div>
+
+      <div id="hub-virements"></div>
+    </div>
+
+
+    <div style="display:none">
+      <span id="hub-solde-pro">—</span>
+    </div>
+
+    <div class="hub-smart-footer">
+      Continuer →
+    </div>
+
+  </section>
+
+
+  <!-- FORMATIONS -->
+  <section class="hub-smart-card formations-smart-card" onclick="goModule('formations')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">🎓 FORMATIONS</div>
+        <div class="hub-smart-title">Élèves & kits</div>
+      </div>
+
+      <div class="hub-smart-icon">🎓</div>
 
     </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-formations"></div>
+
+    <div class="hub-smart-empty" id="hub-empty-formations">
+      Tout est à jour ✨
+    </div>
+
+    <div class="hub-smart-footer">
+      Ouvrir les formations →
+    </div>
+
+  </section>
+
+
+  <!-- FACTURATION -->
+  <section class="hub-smart-card facturation-smart-card" onclick="goModule('facturation')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">🧾 FACTURATION</div>
+        <div class="hub-smart-title">LIMAGECILS</div>
+      </div>
+
+      <div class="hub-smart-icon">🧾</div>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-facturation"></div>
+
+    <div class="hub-smart-empty" id="hub-empty-facturation">
+      Rien à relancer ✨
+    </div>
+
+    <div class="hub-smart-footer">
+      Voir les factures →
+    </div>
+
+  </section>
+
+
+  <!-- BANQUE PERSO -->
+  <section class="hub-smart-card banque-smart-card" onclick="goModule('banqueperso')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">👛 BANQUE PERSO</div>
+        <div class="hub-smart-title">Mon argent</div>
+      </div>
+
+      <div class="hub-smart-icon">👛</div>
+
+    </div>
+
+    <div class="hub-smart-balance">
+
+      <span>Solde</span>
+
+      <strong id="hub-solde-perso">
+        —
+      </strong>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-banqueperso"></div>
+
+    <div class="hub-smart-footer">
+      Voir mes finances →
+    </div>
+
+  </section>
+
+
+  <!-- LECTURE -->
+  <section class="hub-smart-card lecture-smart-card" onclick="goModule('lecture')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">📚 LECTURE</div>
+        <div class="hub-smart-title">Mes lectures</div>
+      </div>
+
+      <div class="hub-smart-icon">📚</div>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-lecture"></div>
+
+    <div class="hub-smart-empty">
+      Continue ta lecture quand tu en as envie ♡
+    </div>
+
+    <div class="hub-smart-footer">
+      Ouvrir ma bibliothèque →
+    </div>
+
+  </section>
 
 </div>
-    <div class="hub-card" onclick="goModule('facturation')">
-      <div class="hub-card-icon">🧾</div><div class="hub-card-label">Facturation<br>LIMAGECILS</div>
-    </div>
-    <div class="hub-card" onclick="goModule('formations')">
-      <div class="hub-card-icon">🎓</div><div class="hub-card-label">Formations</div>
-    </div>
-    <div class="hub-card" onclick="goModule('banqueperso')">
-      <div class="hub-card-icon">👛</div><div class="hub-card-label">Banque perso</div>
-    </div>
-    <div class="hub-card" onclick="goModule('lecture')">
-      <div class="hub-card-icon">📚</div><div class="hub-card-label">Lecture</div>
-    </div>
-    <div class="hub-card" onclick="goModule('journal')">
-      <div class="hub-card-icon">📔</div><div class="hub-card-label">Journal<br>& Tâches</div>
-    </div>
-  </div>
   <nav class="emma-bottom-nav" aria-label="Navigation principale">
 
   <button
@@ -13640,6 +13977,144 @@ function getToutesNotifications(today){
   return notifs;
 }
 
+function renderNotificationsHubParModule(notifs){
+
+    const containers = {
+        compta:
+            document.getElementById("hub-notifs-compta"),
+
+        formations:
+            document.getElementById("hub-notifs-formations"),
+
+        facturation:
+            document.getElementById("hub-notifs-facturation"),
+
+        banqueperso:
+            document.getElementById("hub-notifs-banqueperso"),
+
+        journal:
+            document.getElementById("hub-notifs-journal"),
+
+        glow:
+            document.getElementById("hub-notifs-glow"),
+
+        lecture:
+            document.getElementById("hub-notifs-lecture")
+    };
+
+
+    Object.values(containers).forEach(el => {
+
+        if(el){
+            el.innerHTML = "";
+        }
+
+    });
+
+
+    notifs.forEach(notif => {
+
+        const action =
+            notif.onclick || "";
+
+        let module = null;
+
+
+        if(action.includes("formations")){
+            module = "formations";
+        }
+
+        else if(action.includes("facturation")){
+            module = "facturation";
+        }
+
+        else if(action.includes("banqueperso")){
+            module = "banqueperso";
+        }
+
+        else if(action.includes("journal")){
+            module = "journal";
+        }
+
+        else if(action.includes("glow")){
+            module = "glow";
+        }
+
+        else if(action.includes("lecture")){
+            module = "lecture";
+        }
+
+        else if(action.includes("compta")){
+            module = "compta";
+        }
+
+
+        if(!module || !containers[module]){
+            return;
+        }
+
+
+        containers[module]
+            .insertAdjacentHTML(
+                "beforeend",
+                `
+                <div
+                    class="hub-module-notification"
+                    onclick="
+                        event.stopPropagation();
+                        ${notif.onclick || ""}
+                    "
+                >
+
+                    <span>
+                        ${notif.icon || "•"}
+                    </span>
+
+                    <span style="
+                        color:${notif.color || "var(--emma-text)"};
+                        font-weight:700;
+                    ">
+                        ${notif.txt}
+                    </span>
+
+                </div>
+                `
+            );
+
+    });
+
+
+    const emptyFormations =
+        document.getElementById(
+            "hub-empty-formations"
+        );
+
+    if(emptyFormations){
+
+        emptyFormations.style.display =
+            containers.formations?.children.length
+                ? "none"
+                : "block";
+
+    }
+
+
+    const emptyFacturation =
+        document.getElementById(
+            "hub-empty-facturation"
+        );
+
+    if(emptyFacturation){
+
+        emptyFacturation.style.display =
+            containers.facturation?.children.length
+                ? "none"
+                : "block";
+
+    }
+
+}
+
 function getTachesProDepuisNotifications(date){
 
     const jour =
@@ -13822,12 +14297,7 @@ function getNotificationsOrganisables(){
   const today=new Date();
   const notifs=getToutesNotifications(today);
 
-  const el=document.getElementById('hub-notifications');
-  if(el){
-    el.innerHTML=notifs.length
-      ?notifs.map(n=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;cursor:pointer" onclick="${n.onclick||''}"><span>${n.icon}</span><span style="color:${n.color};font-weight:600">${n.txt}</span></div>`).join('')
-      :`<div style="font-size:12px;color:var(--rec)">✅ Rien à signaler pour l'instant</div>`;
-  }
+  renderNotificationsHubParModule(notifs);
    renderComptaCard();
 }
 
