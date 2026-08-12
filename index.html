@@ -1962,6 +1962,176 @@ textarea,
         min-height:
             125px;
     }
+/* ═══════════════════════════════════════
+   ACCUEIL — STRUCTURE V3
+═══════════════════════════════════════ */
+
+.emma-home-today-grid{
+    width:100%;
+    max-width:1120px;
+    margin:0 auto 18px;
+
+    display:grid;
+    grid-template-columns:minmax(0,1.7fr) minmax(260px,.7fr);
+    gap:16px;
+}
+
+.emma-today-main,
+.emma-mini-glass-card{
+    background:rgba(255,255,255,.50);
+    border:1px solid rgba(255,255,255,.9);
+    box-shadow:var(--emma-shadow);
+    backdrop-filter:blur(26px) saturate(155%);
+}
+
+.emma-today-main{
+    border-radius:30px;
+    padding:22px;
+}
+
+.emma-today-side{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.emma-mini-glass-card{
+    border-radius:26px;
+    padding:18px;
+}
+
+.emma-section-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:16px;
+}
+
+.emma-section-kicker{
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.14em;
+    color:#8e97a8;
+}
+
+.emma-section-title{
+    font-family:'Cormorant Garamond',serif;
+    font-size:28px;
+    font-weight:700;
+    margin-top:2px;
+    color:var(--emma-text);
+}
+
+.emma-planning-home{
+    margin-bottom:16px;
+}
+
+.emma-quick-task{
+    background:rgba(255,255,255,.40);
+    border:1px solid rgba(255,255,255,.85);
+    border-radius:20px;
+    padding:14px;
+}
+
+.emma-quick-task-head{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12px;
+    font-weight:800;
+    color:#747d8e;
+    margin-bottom:10px;
+}
+
+.emma-todo-add{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+}
+
+.emma-todo-add input{
+    flex:1;
+    min-width:0;
+}
+
+.emma-mini-title{
+    font-size:11px;
+    font-weight:800;
+    color:#7d8492;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-bottom:12px;
+}
+
+.emma-mini-actions{
+    display:flex;
+    gap:6px;
+    margin-top:12px;
+    flex-wrap:wrap;
+}
+
+.emma-home-balances{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+.emma-home-balances > div{
+    background:rgba(255,255,255,.46);
+    border:1px solid rgba(255,255,255,.88);
+    border-radius:18px;
+    padding:12px;
+}
+
+.emma-home-balances span{
+    display:block;
+    font-size:10px;
+    color:var(--emma-muted);
+    margin-bottom:4px;
+}
+
+.emma-home-balances strong{
+    font-family:'Cormorant Garamond',serif;
+    font-size:21px;
+    color:#7f91b4;
+}
+
+.emma-home-notifications{
+    width:100%;
+    max-width:1120px;
+    margin:0 auto 16px;
+
+    background:rgba(255,255,255,.46);
+    border:1px solid rgba(255,255,255,.88);
+    border-radius:24px;
+    padding:14px 18px;
+
+    box-shadow:var(--emma-shadow);
+    backdrop-filter:blur(22px);
+}
+
+@media(max-width:760px){
+
+    .emma-home-today-grid{
+        grid-template-columns:1fr;
+    }
+
+    .emma-today-side{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+    }
+
+}
+
+@media(max-width:520px){
+
+    .emma-today-side{
+        grid-template-columns:1fr;
+    }
+
+}
+   
 }
    
 </style>
@@ -1990,110 +2160,197 @@ textarea,
   </div>
 </div>
 
-<div class="hub" id="hubPage" style="display:none;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;padding:40px 20px">
+<div class="hub" id="hubPage" style="display:none;min-height:100vh;align-items:stretch;justify-content:flex-start;flex-direction:column">
+
   <section class="emma-home-hero">
-  <div>
-    <div class="emma-home-kicker" id="emma-date">AUJOURD’HUI</div>
 
-    <div class="emma-home-title">
-  Bonjour Emma ✨
-</div>
+    <div style="flex:1">
 
-<div class="emma-home-subtitle" id="emma-resume-jour"></div>
+      <div
+        class="emma-home-kicker"
+        id="emma-date"
+      >
+        AUJOURD’HUI
+      </div>
 
-<div class="emma-home-actions">
+      <div class="emma-home-title">
+        Bonjour Emma ✨
+      </div>
 
-  <div class="emma-action-card">
-    <div class="emma-action-icon">✨</div>
-    <div>
-      <div class="emma-action-title">Glow</div>
-      <div class="emma-action-text">Prends soin de toi aujourd'hui</div>
+      <div
+        class="emma-home-subtitle"
+        id="emma-resume-jour"
+      ></div>
+
     </div>
+
+    <button
+      class="emma-brain-button"
+      type="button"
+      aria-label="Assistant EMMA"
+      title="Assistant EMMA"
+    >
+      ✦
+    </button>
+
+  </section>
+
+
+  <!-- AUJOURD'HUI -->
+
+  <div class="emma-home-today-grid">
+
+    <section class="emma-today-main">
+
+      <div class="emma-section-head">
+
+        <div>
+          <div class="emma-section-kicker">
+            AUJOURD’HUI
+          </div>
+
+          <div class="emma-section-title">
+            Ta journée
+          </div>
+        </div>
+
+        <button
+          class="btn bg bsm"
+          onclick="goModule('journal')"
+        >
+          Ouvrir →
+        </button>
+
+      </div>
+
+
+      <div
+        id="hub-planning-wrap"
+        class="emma-planning-home"
+        style="display:none"
+      >
+
+        <div id="hub-planning-mini"></div>
+
+      </div>
+
+
+      <div class="emma-quick-task">
+
+        <div class="emma-quick-task-head">
+          <span>✓</span>
+          <span>À faire</span>
+        </div>
+
+        <div class="emma-todo-add">
+
+          <input
+            type="text"
+            id="todo-input"
+            placeholder="Ajouter une note rapide..."
+            onkeypress="
+              if(event.key==='Enter'){
+                ajouterTodo()
+              }
+            "
+          >
+
+          <button
+            class="btn bd bsm"
+            onclick="ajouterTodo()"
+          >
+            +
+          </button>
+
+        </div>
+
+        <div id="todos-list"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- COLONNE DROITE -->
+
+    <aside class="emma-today-side">
+
+      <div class="emma-mini-glass-card">
+
+        <div class="emma-mini-title">
+          🌸 Humeur
+        </div>
+
+        <div id="humeur-jour-widget"></div>
+
+        <div class="emma-mini-actions">
+
+          <button
+            class="btn bg bsm"
+            onclick="ouvrirPopupHumeur()"
+          >
+            + Ajouter
+          </button>
+
+          <button
+            class="btn bg bsm"
+            onclick="ouvrirHistoriqueHumeurPhotos()"
+          >
+            Historique
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="emma-mini-glass-card">
+
+        <div class="emma-mini-title">
+          💰 Finances
+        </div>
+
+        <div class="emma-home-balances">
+
+          <div>
+            <span>Pro</span>
+            <strong id="hub-solde-pro">—</strong>
+          </div>
+
+          <div>
+            <span>Perso</span>
+            <strong id="hub-solde-perso">—</strong>
+          </div>
+
+        </div>
+
+      </div>
+
+    </aside>
+
   </div>
 
-  <div class="emma-action-card">
-    <div class="emma-action-icon">💰</div>
-    <div>
-      <div class="emma-action-title">Finances</div>
-      <div class="emma-action-text">Tes comptes sont à jour</div>
-    </div>
-  </div>
 
-</div>
-  </div>
+  <!-- NOTIFICATIONS -->
 
-  <button
-    class="emma-brain-button"
-    type="button"
-    aria-label="Assistant EMMA"
-    title="Assistant EMMA"
+  <div
+    id="hub-notifications"
+    class="emma-home-notifications"
+  ></div>
+
+
+  <div
+    id="hub-virements-wrap"
+    class="emma-home-notifications"
+    style="display:none"
   >
-    ✦
-  </button>
-<button
-    class="btn bg"
-    onclick="activerNotificationsEmma()"
-    style="
-        margin-left:10px;
-        white-space:nowrap;
-    "
->
-    🔔 Activer les notifications
-</button>
-<button
-    class="btn bg"
-    onclick="testerNotificationEmma()"
-    style="
-        margin-left:10px;
-        white-space:nowrap;
-    "
->
-    🧪 Tester
-</button>
-</section>
 
-  <div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:18px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      <div style="background:var(--bg2);border-radius:14px;padding:12px 14px">
-        <div style="font-size:10px;color:var(--mut);margin-bottom:4px">💰 Solde compte pro</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--acc)" id="hub-solde-pro">—</div>
-      </div>
-      <div style="background:var(--bg2);border-radius:14px;padding:12px 14px">
-        <div style="font-size:10px;color:var(--mut);margin-bottom:4px">👛 Solde compte perso</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--pla)" id="hub-solde-perso">—</div>
-      </div>
+    <div class="emma-mini-title">
+      ⏳ Virements en attente
     </div>
-    <div id="hub-notifications"></div>
-  </div>
 
-  <div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">🌸 Humeur du jour</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn bg bsm" onclick="ouvrirHistoriqueHumeurPhotos()">🕐 Historique</button>
-        <button class="btn bg bsm" onclick="ouvrirPopupHumeur()">+ Ajouter</button>
-      </div>
-    </div>
-    <div id="humeur-jour-widget"></div>
-  </div>
-<div style="background:white;border:1.5px solid var(--brd);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📝 À faire</div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <input type="text" id="todo-input" placeholder="Note rapide..." style="flex:1;padding:8px 12px;border:1.5px solid var(--brd2);border-radius:10px;font-size:13px" onkeypress="if(event.key==='Enter')ajouterTodo()">
-      <button class="btn bd bsm" onclick="ajouterTodo()">+ Ajouter</button>
-    </div>
-    <div id="todos-list"></div>
-  </div>
-  <div id="hub-virements-wrap" style="display:none;background:white;border:1.5px solid var(--brd2);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:10px">⏳ Virements en attente</div>
     <div id="hub-virements"></div>
-  </div>
-<div id="hub-planning-wrap" style="display:none;background:white;border:1.5px solid var(--brd);border-radius:20px;padding:16px 22px;box-shadow:var(--shadow);max-width:640px;width:100%;margin-bottom:28px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">📔 Planning du jour</div>
-      <button class="btn bg bsm" onclick="goModule('journal')">Ouvrir →</button>
-    </div>
-    <div id="hub-planning-mini"></div>
+
   </div>
   <div style="font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--mut);font-weight:800;margin:10px auto 16px;max-width:1040px;width:100%">Tes espaces</div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1040px;width:100%" id="hub-modules-grid">
