@@ -3046,12 +3046,53 @@ textarea,
     <button class="tab" onclick="goTab('settings',this)">⚙️ Paramètres</button>
   </nav>
   <nav class="emma-bottom-nav" aria-label="Navigation principale">
-    <button class="emma-nav-item" data-emma-dest="accueil" onclick="emmaNavigate('accueil')"><span>⌂</span><span>Accueil</span></button>
-    <button class="emma-nav-item" data-emma-dest="travail" onclick="emmaNavigate('travail')"><span>▣</span><span>Travail</span></button>
-    <button class="emma-nav-item active" data-emma-dest="finances" onclick="emmaNavigate('finances')"><span>◕</span><span>Finances</span></button>
-    <button class="emma-nav-item" data-emma-dest="vie" onclick="emmaNavigate('vie')"><span>♡</span><span>Vie</span></button>
-    <button class="emma-nav-item" data-emma-dest="plus" onclick="emmaNavigate('plus')"><span>•••</span><span>Plus</span></button>
-  </nav>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="accueil"
+    onclick="emmaNavigate('accueil')"
+  >
+    <span>⌂</span>
+    <span>Accueil</span>
+  </button>
+
+  <button
+    class="emma-nav-item active"
+    data-emma-dest="travail"
+    onclick="emmaNavigate('travail')"
+  >
+    <span>▣</span>
+    <span>Travail</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="glow"
+    onclick="emmaNavigate('glow')"
+  >
+    <span>✦</span>
+    <span>Glow</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="journal"
+    onclick="emmaNavigate('journal')"
+  >
+    <span>✓</span>
+    <span>Journal</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="plus"
+    onclick="emmaNavigate('plus')"
+  >
+    <span>•••</span>
+    <span>Plus</span>
+  </button>
+
+</nav>
 
 <!-- DASHBOARD -->
 <div class="view active" id="view-dashboard">
