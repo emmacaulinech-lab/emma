@@ -37109,6 +37109,8 @@ function envoyerCommandeEmma(){
     );
 }
 
+let attenteAssistantEmma = null;
+
 async function demanderClaudeEmma(message){
 
     try{
@@ -37137,31 +37139,50 @@ async function demanderClaudeEmma(message){
                     system: `
 Tu es EMMA, l'assistant personnel intégré à l'application EMMA OS.
 
-Tu aides l'utilisatrice à organiser sa vie quotidienne de manière naturelle.
+Tu dois comprendre naturellement ce que l'utilisatrice te demande.
 
-Tu peux parler notamment de :
-- organisation de la journée
-- planning
-- tâches
-- travail
-- repas et nutrition
-- sport et Glow
-- courses
-- sorties et restaurants
-- maison
-- finances et organisation personnelle
+Réponds TOUJOURS uniquement avec un JSON valide.
 
-Réponds toujours en français.
+Formats possibles :
 
-Ton ton doit être naturel, chaleureux, direct et concis.
-Tu es un assistant personnel, pas un chatbot générique.
+1. Discussion simple :
+{
+  "type": "message",
+  "texte": "ta réponse"
+}
 
-Ne prétends jamais avoir modifié une donnée de l'application si aucune action ne t'a réellement été transmise.
+2. Ajouter un événement au planning :
+{
+  "type": "ajouter_evenement",
+  "titre": "Restaurant",
+  "date": "YYYY-MM-DD",
+  "heure": "HH:MM",
+  "duree": 120,
+  "texte": "confirmation naturelle"
+}
 
-Contexte actuel :
-Date : ${contexte.date}
-Heure : ${contexte.heure}
-                    `.trim(),
+3. Il manque une information indispensable :
+{
+  "type": "question",
+  "champ": "heure",
+  "texte": "À quelle heure ?"
+}
+
+RÈGLES :
+
+- Si elle dit "ce soir", utilise la date actuelle.
+- Si elle dit "demain", utilise la date de demain.
+- Si elle donne une heure, transforme-la au format HH:MM.
+- Restaurant : durée par défaut 120 minutes.
+- Anniversaire / soirée : durée par défaut 180 minutes.
+- Coiffeur : durée par défaut 120 minutes.
+- Si un événement doit réellement être ajouté mais que l'heure manque, demande l'heure.
+- Ne prétends jamais avoir ajouté un événement tant que les informations nécessaires ne sont pas présentes.
+- Réponds en français.
+
+Date actuelle : ${contexte.date}
+Heure actuelle : ${contexte.heure}
+`.trim(),
 
                     messages: [
                         {
@@ -37194,7 +37215,14 @@ Heure : ${contexte.heure}
             );
         }
 
-        return texte;
+        try{
+    return JSON.parse(texte);
+}catch(e){
+    return {
+        type: "message",
+        texte: texte
+    };
+}
 
     }catch(erreur){
 
@@ -37205,6 +37233,70 @@ Heure : ${contexte.heure}
 
         throw erreur;
     }
+}
+
+async function executerActionAssistantEmma(action){
+
+    if(!action) return false;
+
+
+    /* QUESTION */
+
+    if(action.type === "question"){
+
+        attenteAssistantEmma = action;
+
+        ajouterMessageAssistantEmma(
+            action.texte || "Il me manque une information."
+        );
+
+        return true;
+    }
+
+
+    /* MESSAGE SIMPLE */
+
+    if(action.type === "message"){
+
+        ajouterMessageAssistantEmma(
+            action.texte || "D'accord."
+        );
+
+        return true;
+    }
+
+
+    /* ÉVÉNEMENT PLANNING */
+
+    if(action.type === "ajouter_evenement"){
+
+        if(
+            !action.date ||
+            !action.heure
+        ){
+
+            ajouterMessageAssistantEmma(
+                "Il me manque l'heure de l'événement."
+            );
+
+            return true;
+        }
+
+        ajouterMessageAssistantEmma(
+            `J’ai compris : ${action.titre || "Événement"} le ${action.date} à ${action.heure}.`
+        );
+
+        /*
+        Étape suivante :
+        ici on appellera exactement le moteur
+        Journal existant pour créer le bloc.
+        */
+
+        return true;
+    }
+
+
+    return false;
 }
 
 function traiterCommandeAssistantEmma(
@@ -37470,12 +37562,15 @@ const messageAttente =
     conversation?.lastElementChild;
 
 demanderClaudeEmma(texte)
-    .then(reponse => {
+    .then(async reponse => {
 
         if(messageAttente){
-            messageAttente.textContent =
-                reponse;
+            messageAttente.remove();
         }
+
+        await executerActionAssistantEmma(
+            reponse
+        );
 
     })
     .catch(erreur => {
