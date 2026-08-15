@@ -37109,6 +37109,103 @@ function envoyerCommandeEmma(){
     );
 }
 
+async function demanderClaudeEmma(message){
+
+    try{
+
+        const contexte = {
+            date: new Date().toLocaleDateString("fr-FR"),
+            heure: new Date().toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit"
+            })
+        };
+
+        const reponse = await fetch(
+            "/.netlify/functions/claude",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 700,
+
+                    system: `
+Tu es EMMA, l'assistant personnel intégré à l'application EMMA OS.
+
+Tu aides l'utilisatrice à organiser sa vie quotidienne de manière naturelle.
+
+Tu peux parler notamment de :
+- organisation de la journée
+- planning
+- tâches
+- travail
+- repas et nutrition
+- sport et Glow
+- courses
+- sorties et restaurants
+- maison
+- finances et organisation personnelle
+
+Réponds toujours en français.
+
+Ton ton doit être naturel, chaleureux, direct et concis.
+Tu es un assistant personnel, pas un chatbot générique.
+
+Ne prétends jamais avoir modifié une donnée de l'application si aucune action ne t'a réellement été transmise.
+
+Contexte actuel :
+Date : ${contexte.date}
+Heure : ${contexte.heure}
+                    `.trim(),
+
+                    messages: [
+                        {
+                            role: "user",
+                            content: message
+                        }
+                    ]
+                })
+            }
+        );
+
+        if(!reponse.ok){
+            throw new Error(
+                `Erreur serveur ${reponse.status}`
+            );
+        }
+
+        const data = await reponse.json();
+
+        const texte =
+            data?.content
+                ?.filter(bloc => bloc.type === "text")
+                ?.map(bloc => bloc.text)
+                ?.join("\n")
+                ?.trim();
+
+        if(!texte){
+            throw new Error(
+                "Réponse Claude vide"
+            );
+        }
+
+        return texte;
+
+    }catch(erreur){
+
+        console.error(
+            "Assistant EMMA / Claude :",
+            erreur
+        );
+
+        throw erreur;
+    }
+}
 
 function traiterCommandeAssistantEmma(
     texte,
@@ -37357,12 +37454,40 @@ function traiterCommandeAssistantEmma(
 
 
     /* ───────────────
-       FALLBACK
-    ─────────────── */
+   CLAUDE
+─────────────── */
 
-    ajouterMessageAssistantEmma(
-        "Je comprends l’idée, mais cette action n’est pas encore reliée. Pour l’instant je sais ouvrir tes espaces, ajouter une tâche et te dire quoi regarder en priorité."
+ajouterMessageAssistantEmma(
+    "Je réfléchis… ✦"
+);
+
+const conversation =
+    document.getElementById(
+        "emma-assistant-conversation"
     );
+
+const messageAttente =
+    conversation?.lastElementChild;
+
+demanderClaudeEmma(texte)
+    .then(reponse => {
+
+        if(messageAttente){
+            messageAttente.textContent =
+                reponse;
+        }
+
+    })
+    .catch(erreur => {
+
+        if(messageAttente){
+
+            messageAttente.textContent =
+                "Je n’arrive pas à joindre mon cerveau pour le moment. Réessaie dans quelques secondes.";
+
+        }
+
+    });
 }
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
