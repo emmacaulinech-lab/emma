@@ -6309,19 +6309,130 @@ function tooltip(val, formula){ return`<div class="tt-wrap"><span style="font-fa
 // ═══════════════════════════════════════
 // SEMAINES CALENDAIRES
 // ═══════════════════════════════════════
-function semainesDuMois(y, m) {
-  const lastDay = new Date(y, m, 0).getDate();
-  const weeks = [];
-  for(let day = 1; day <= lastDay;) {
-    const date = new Date(y, m-1, day);
-    const dow = date.getDay();
-    const daysToSun = dow===0 ? 0 : 7-dow;
-    const endDay = Math.min(day+daysToSun, lastDay);
-    weeks.push({s:day, e:endDay});
-    day = endDay+1;
-  }
-  return weeks;
+
+   function semainesDuMois(y, m) {
+
+    const cle = `${y}-${String(m).padStart(2,'0')}`;
+
+    // Si des semaines personnalisées existent pour ce mois
+    if(
+        DB.compta?.semainesPerso?.[cle] &&
+        DB.compta.semainesPerso[cle].length
+    ){
+        return DB.compta.semainesPerso[cle];
+    }
+
+    // Sinon : fonctionnement automatique actuel
+    const lastDay = new Date(y, m, 0).getDate();
+    const weeks = [];
+
+    for(let day = 1; day <= lastDay;) {
+
+        const date = new Date(y, m-1, day);
+        const dow = date.getDay();
+        const daysToSun = dow===0 ? 0 : 7-dow;
+        const endDay = Math.min(day+daysToSun, lastDay);
+
+        weeks.push({
+            s: day,
+            e: endDay
+        });
+
+        day = endDay + 1;
+    }
+
+    return weeks;
 }
+
+async function modifierDatesSemaine(mois, index){
+
+    const [y, m] =
+        mois.split('-').map(Number);
+
+    const weeks =
+        semainesDuMois(y, m);
+
+    const semaine =
+        weeks[index];
+
+    if(!semaine) return;
+
+    const debut =
+        prompt(
+            `Début de S${index + 1} (jour du mois) :`,
+            semaine.s
+        );
+
+    if(debut === null) return;
+
+    const fin =
+        prompt(
+            `Fin de S${index + 1} (jour du mois) :`,
+            semaine.e
+        );
+
+    if(fin === null) return;
+
+    const s = Number(debut);
+    const e = Number(fin);
+
+    const dernierJour =
+        new Date(y, m, 0).getDate();
+
+    if(
+        !Number.isInteger(s) ||
+        !Number.isInteger(e) ||
+        s < 1 ||
+        e > dernierJour ||
+        e < s
+    ){
+        alert("Dates invalides.");
+        return;
+    }
+
+    if(!DB.compta){
+        DB.compta = {};
+    }
+
+    if(!DB.compta.semainesPerso){
+        DB.compta.semainesPerso = {};
+    }
+
+    /*
+    On copie d'abord les semaines automatiques
+    pour ne modifier que celle choisie.
+    */
+    if(!DB.compta.semainesPerso[mois]){
+
+        const sauvegardePerso =
+            DB.compta.semainesPerso;
+
+        DB.compta.semainesPerso = {};
+
+        const semainesAuto =
+            semainesDuMois(y, m)
+                .map(w => ({
+                    s: w.s,
+                    e: w.e
+                }));
+
+        DB.compta.semainesPerso =
+            sauvegardePerso;
+
+        DB.compta.semainesPerso[mois] =
+            semainesAuto;
+    }
+
+    DB.compta.semainesPerso[mois][index] = {
+        s,
+        e
+    };
+
+    save();
+
+    renderRecap();
+}
+   
 function inSem(date, y, m, s, e){
   const d=new Date(date+'T12:00:00');
   if(d.getFullYear()!==y||d.getMonth()+1!==m)return false;
@@ -7187,7 +7298,40 @@ function renderRecap(){
       <div style="overflow-x:auto">
       <table><thead><tr>
         <th style="min-width:170px"></th>
-        ${weeks.map((w,i)=>`<th style="text-align:right;min-width:105px;cursor:pointer" onclick="openSemaine('${mois}',${i})" title="Voir détail S${i+1}">S${i+1}<br><span style="font-size:9px;opacity:.7">${String(w.s).padStart(2,'0')}→${String(w.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</span></th>`).join('')}
+        ${weeks.map((w,i)=>`
+    <th style="text-align:right;min-width:105px">
+        
+        <div
+            style="cursor:pointer"
+            onclick="openSemaine('${mois}',${i})"
+            title="Voir détail S${i+1}"
+        >
+            S${i+1}
+        </div>
+
+        <div style="
+            font-size:9px;
+            opacity:.7;
+            margin-top:2px;
+            white-space:nowrap;
+        ">
+            ${String(w.s).padStart(2,'0')}
+            →
+            ${String(w.e).padStart(2,'0')}/${String(m).padStart(2,'0')}
+
+            <span
+                onclick="event.stopPropagation();modifierDatesSemaine('${mois}',${i})"
+                style="
+                    cursor:pointer;
+                    margin-left:4px;
+                    font-size:10px;
+                "
+                title="Modifier les dates"
+            >✎</span>
+        </div>
+
+    </th>
+`).join('')}
         <th style="text-align:right;min-width:105px">TOTAL</th>
       </tr></thead><tbody>`;
 
