@@ -37304,6 +37304,128 @@ Réponds toujours en français.
     }
 }
 
+function replanifierConflitsAssistant(
+    jour,
+    heureDebut,
+    heureFin,
+    eventId
+){
+
+    const planning =
+        DB.journal.planning[jour] || [];
+
+    const debutEvent =
+        strToMin(heureDebut);
+
+    const finEvent =
+        strToMin(heureFin);
+
+    // Chercher uniquement les blocs qui chevauchent
+    // le nouvel événement
+    const aDeplacer =
+        planning.filter(bloc => {
+
+            // Ne jamais déplacer le nouvel événement
+            if(bloc.id === eventId){
+                return false;
+            }
+
+            // Ne jamais déplacer un bloc verrouillé
+            if(bloc.verrouille === true){
+                return false;
+            }
+
+            // Sécurité : clientes / Planity restent en place
+            if(
+                bloc.type === "cliente" ||
+                bloc.source === "planity"
+            ){
+                return false;
+            }
+
+            const debut =
+                strToMin(bloc.heureDebut);
+
+            const fin =
+                strToMin(bloc.heureFin);
+
+            return (
+                debut < finEvent &&
+                fin > debutEvent
+            );
+
+        });
+
+    // On traite dans l'ordre chronologique
+    aDeplacer.sort(
+        (a,b) =>
+            strToMin(a.heureDebut) -
+            strToMin(b.heureDebut)
+    );
+
+   // Retirer temporairement les tâches à déplacer
+// pour qu'elles ne bloquent pas leur propre nouvelle place
+aDeplacer.forEach(bloc => {
+
+    const index =
+        planning.findIndex(
+            p => p.id === bloc.id
+        );
+
+    if(index !== -1){
+        planning.splice(index,1);
+    }
+
+});
+
+    aDeplacer.forEach(bloc => {
+
+        const duree =
+            Number(bloc.duree) ||
+            (
+                strToMin(bloc.heureFin) -
+                strToMin(bloc.heureDebut)
+            );
+
+        /*
+        On cherche une nouvelle place
+        à partir de la fin de l'événement.
+        */
+
+        const nouvellePlace =
+            placerSansChevauchement(
+                jour,
+                heureFin,
+                duree
+            );
+
+        bloc.heureDebut =
+            nouvellePlace.heureDebut;
+
+        bloc.heureFin =
+            nouvellePlace.heureFin;
+
+        bloc.duree =
+            duree;
+
+        // On mémorise que l'Assistant l'a déplacé
+        bloc.deplaceParAssistant =
+            true;
+
+       planning.push(bloc);
+
+    });
+
+    // Remettre le planning dans l'ordre
+    planning.sort(
+        (a,b) =>
+            strToMin(a.heureDebut) -
+            strToMin(b.heureDebut)
+    );
+
+    return aDeplacer;
+}
+
 function ajouterEvenementPlanningEmma(action){
 
     if(
@@ -37386,6 +37508,19 @@ function ajouterEvenementPlanningEmma(action){
 
     });
 
+   const eventId =
+    DB.journal.planning[action.date][
+        DB.journal.planning[action.date].length - 1
+    ].id;
+
+const tachesDeplacees =
+    replanifierConflitsAssistant(
+        action.date,
+        minToStr(debut),
+        minToStr(fin),
+        eventId
+    );
+
     // Trier chronologiquement
     DB.journal.planning[action.date]
         .sort((a,b) =>
@@ -37460,8 +37595,8 @@ async function executerActionAssistantEmma(action){
         attenteAssistantEmma = null;
 
         ajouterMessageAssistantEmma(
-            `${action.titre || "Événement"} est ajouté à ton planning à ${action.heure} ✓`
-        );
+    `C’est noté ✨ ${action.titre || "Événement"} à ${action.heure}.`
+);
 
         // Rafraîchir le Journal si sa fonction existe
         try{
