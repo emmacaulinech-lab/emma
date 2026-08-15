@@ -43,15 +43,17 @@ exports.handler = async (event) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        resolve({
-          statusCode: 200,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json'
-          },
-          body: data
-        });
-      });
+
+  resolve({
+    statusCode: res.statusCode || 500,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json'
+    },
+    body: data
+  });
+
+});
     });
 
     req.on('error', (e) => {
