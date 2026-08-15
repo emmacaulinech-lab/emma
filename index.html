@@ -6398,30 +6398,41 @@ async function modifierDatesSemaine(mois, index){
         DB.compta.semainesPerso = {};
     }
 
-    /*
-    On copie d'abord les semaines automatiques
-    pour ne modifier que celle choisie.
-    */
     if(!DB.compta.semainesPerso[mois]){
 
-        const sauvegardePerso =
-            DB.compta.semainesPerso;
+    const lastDay =
+        new Date(y, m, 0).getDate();
 
-        DB.compta.semainesPerso = {};
+    const semainesAuto = [];
 
-        const semainesAuto =
-            semainesDuMois(y, m)
-                .map(w => ({
-                    s: w.s,
-                    e: w.e
-                }));
+    for(let day = 1; day <= lastDay;){
 
-        DB.compta.semainesPerso =
-            sauvegardePerso;
+        const date =
+            new Date(y, m - 1, day);
 
-        DB.compta.semainesPerso[mois] =
-            semainesAuto;
+        const dow =
+            date.getDay();
+
+        const daysToSun =
+            dow === 0 ? 0 : 7 - dow;
+
+        const endDay =
+            Math.min(
+                day + daysToSun,
+                lastDay
+            );
+
+        semainesAuto.push({
+            s: day,
+            e: endDay
+        });
+
+        day = endDay + 1;
     }
+
+    DB.compta.semainesPerso[mois] =
+        semainesAuto;
+}
 
     DB.compta.semainesPerso[mois][index] = {
         s,
