@@ -37426,7 +37426,7 @@ aDeplacer.forEach(bloc => {
     return aDeplacer;
 }
 
-function ajouterEvenementPlanningEmma(action){
+async function ajouterEvenementPlanningEmma(action){
 
     if(
         !action ||
@@ -37528,7 +37528,10 @@ const tachesDeplacees =
             strToMin(b.heureDebut)
         );
 
-    save();
+    await sauvegarderChampSeul(
+    'journal',
+    JSON.stringify(DB.journal)
+);
 
 return tachesDeplacees;
 }
@@ -37586,7 +37589,7 @@ async function executerActionAssistantEmma(action){
     }
 
     const tachesDeplacees =
-    ajouterEvenementPlanningEmma(
+    await ajouterEvenementPlanningEmma(
         action
     );
 
