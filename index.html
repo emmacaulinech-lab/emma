@@ -14468,88 +14468,165 @@ function getNotificationsOrganisables(){
 
 function ouvrirDestinationNotificationEmma(){
 
-  const params = new URLSearchParams(window.location.search);
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
 
-  const module = params.get("module");
-  const type = params.get("type");
-  const id = params.get("id");
+  const module =
+    params.get("module");
 
-  if(!module) return;
+  const type =
+    params.get("type");
 
-if(window.__emmaNotificationOuverte){
-  return;
+  const id =
+    params.get("id");
+
+  if(!module){
+    return;
+  }
+
+  // On garde temporairement la destination
+  window.__emmaDestinationNotification = {
+    module,
+    type,
+    id
+  };
+
+  // On nettoie l’URL mais seulement après lecture
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname
+  );
+
+  tenterOuvertureNotificationEmma();
 }
 
-window.__emmaNotificationOuverte = true;
+function tenterOuvertureNotificationEmma(){
 
-window.history.replaceState(
-  {},
-  document.title,
-  window.location.pathname
-);
+  const destination =
+    window.__emmaDestinationNotification;
 
-  setTimeout(() => {
-
-    if(module === "journal"){
-
-  goModule("journal");
-
-  if(type === "humeur"){
-    setTimeout(() => ouvrirPopupHumeur(), 400);
+  if(!destination){
     return;
   }
 
-  if(type === "photo"){
-    setTimeout(() => ouvrirHistoriqueHumeurPhotos(), 400);
+  const {
+    module,
+    type,
+    id
+  } = destination;
+
+  // On attend que Firebase + DB + interface soient prêts
+  if(
+    !window.DB ||
+    !firebase?.auth?.().currentUser
+  ){
+    setTimeout(
+      tenterOuvertureNotificationEmma,
+      500
+    );
+
     return;
   }
 
-  if(type === "tache" && id){
+  delete window.__emmaDestinationNotification;
+
+
+  // 🌸 HUMEUR
+  if(
+    module === "journal" &&
+    type === "humeur"
+  ){
+
+    goHub();
 
     setTimeout(() => {
+      ouvrirPopupHumeur();
+    }, 300);
 
+    return;
+  }
+
+
+  // 📸 PHOTO
+  if(
+    module === "journal" &&
+    type === "photo"
+  ){
+
+    goHub();
+
+    setTimeout(() => {
+      ouvrirPopupPhoto?.();
+    }, 300);
+
+    return;
+  }
+
+
+  // ✅ TÂCHE
+  if(
+    module === "journal" &&
+    type === "tache"
+  ){
+
+    goModule("journal");
+
+    setTimeout(() => {
       ouvrirTacheDepuisNotificationEmma(id);
-
     }, 500);
 
     return;
   }
 
-  return;
-}
 
-    if(module === "glow"){
+  // 📔 JOURNAL
+  if(module === "journal"){
 
-      goModule("glow");
+    goModule("journal");
+    return;
 
-      if(type === "nutrition"){
-        setTimeout(() => renderGlowNutrition(), 400);
-      }
+  }
 
-      return;
+
+  // 🥗 GLOW / NUTRITION
+  if(module === "glow"){
+
+    goModule("glow");
+
+    if(type === "nutrition"){
+
+      setTimeout(() => {
+        renderGlowNutrition();
+      }, 400);
+
     }
 
-    if(module === "formations"){
-      goModule("formations");
-      return;
-    }
+    return;
+  }
 
-    if(module === "facturation"){
-      goModule("facturation");
-      return;
-    }
 
-    if(module === "compta"){
-      goModule("compta");
-      return;
-    }
+  if(module === "formations"){
+    goModule("formations");
+    return;
+  }
 
-    if(module === "banqueperso"){
-      goModule("banqueperso");
-    }
+  if(module === "facturation"){
+    goModule("facturation");
+    return;
+  }
 
-  }, 700);
+  if(module === "compta"){
+    goModule("compta");
+    return;
+  }
 
+  if(module === "banqueperso"){
+    goModule("banqueperso");
+    return;
+  }
 }
 
 function ouvrirTacheDepuisNotificationEmma(notificationId){
@@ -14610,7 +14687,6 @@ function ouvrirTacheDepuisNotificationEmma(notificationId){
 }
    
    function renderHubOverview(){
-  ouvrirDestinationNotificationEmma();
   mettreAJourBoutonNotificationsEmma();
   renderEmmaAccueilIntelligent();
   renderTodos();
@@ -37455,6 +37531,16 @@ async function synchroniserNotificationsPlanningEmma(date){
 
     }
 }
+
+window.addEventListener(
+  "load",
+  () => {
+    setTimeout(
+      ouvrirDestinationNotificationEmma,
+      500
+    );
+  }
+);
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
