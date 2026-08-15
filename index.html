@@ -37530,7 +37530,7 @@ const tachesDeplacees =
 
     save();
 
-    return true;
+return tachesDeplacees;
 }
 
 async function executerActionAssistantEmma(action){
@@ -37586,17 +37586,32 @@ async function executerActionAssistantEmma(action){
     }
 
     const ajoute =
-        ajouterEvenementPlanningEmma(
-            action
-        );
+    ajouterEvenementPlanningEmma(
+        action
+    );
 
-    if(ajoute){
+if(ajoute){
 
-        attenteAssistantEmma = null;
+    attenteAssistantEmma = null;
+
+    const nomsDeplaces =
+        ajoute
+            .map(t => t.customNom || t.nom)
+            .filter(Boolean);
+
+    if(nomsDeplaces.length){
 
         ajouterMessageAssistantEmma(
-    `C’est noté ✨ ${action.titre || "Événement"} à ${action.heure}.`
-);
+            `C’est noté ✨ ${action.titre || "Événement"} à ${action.heure}. J’ai aussi déplacé ${nomsDeplaces.join(", ")} pour libérer le créneau.`
+        );
+
+    }else{
+
+        ajouterMessageAssistantEmma(
+            `C’est noté ✨ ${action.titre || "Événement"} à ${action.heure}.`
+        );
+
+    }
 
         // Rafraîchir le Journal si sa fonction existe
         try{
