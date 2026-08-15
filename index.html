@@ -12539,29 +12539,6 @@ function ouvrirPopupTempsLibre(){
   document.getElementById('tempsLibreModal').classList.add('open');
 }
 
-function filtrerTempsLibreRecherche(){
-  const terme=document.getElementById('tempsLibre-recherche')?.value?.toLowerCase()||'';
-  const el=document.getElementById('tempsLibre-resultats');
-  if(terme.length<2){ el.innerHTML=''; return; }
-
-  const resultats=[];
-  DB.journal.zones.forEach(zone=>{
-    zone.actions.forEach(action=>{
-      (action.sousTaches||[]).forEach(st=>{
-        if(st.nom.toLowerCase().includes(terme)){
-          resultats.push({zoneId:zone.id,actionId:action.id,stId:st.id,zoneIcon:zone.icon,zoneNom:zone.nom,nom:st.nom});
-        }
-      });
-    });
-  });
-
-  el.innerHTML=resultats.length?resultats.slice(0,8).map(r=>`
-    <div onclick="validerTempsLibreExistante('${r.zoneId}','${r.actionId}','${r.stId}','${r.nom.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:5px;cursor:pointer">
-      <span style="font-size:12px;flex:1">${r.zoneIcon} ${r.nom}</span>
-      <span style="font-size:10px;color:var(--mut)">${r.zoneNom}</span>
-    </div>`).join(''):'<div style="font-size:12px;color:var(--mut);padding:8px">Aucun résultat</div>';
-}
-
 async function validerTempsLibreExistante(zoneId,actionId,stId,nom){
   ensureJournalData();
   const today=new Date().toISOString().split('T')[0];
@@ -13199,31 +13176,6 @@ async function validerTempsLibreIntelligent(){
     );
 }
 
-async function validerTempsLibreLibre(){
-  const nom=document.getElementById('tempsLibre-nom')?.value?.trim();
-  if(!nom){toast('⚠ Tape un nom pour ce moment');return;}
-  ensureJournalData();
-  const today=new Date().toISOString().split('T')[0];
-  const trou=window._trouTempsLibreActuel;
-  const heureDebut=minToStr(trou.debut), heureFin=minToStr(trou.fin);
-
-  if(!DB.journal.tempsLibre) DB.journal.tempsLibre={};
-  if(!DB.journal.tempsLibre[today]) DB.journal.tempsLibre[today]=[];
-  DB.journal.tempsLibre[today].push({id:genId(),nom,heureDebut,heureFin});
-
-  // Ajoute aussi au planning pour affichage visuel
-  if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
-  DB.journal.planning[today].push({
-    id:genId(),type:'tempsLibre',nom,iconOverride:'☁️',
-    heureDebut,heureFin,duree:trou.fin-trou.debut
-  });
-
-  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
-  closeMo('tempsLibreModal');
-  renderJAujourdhui();
-  toast('✓ "'+nom+'" enregistré !');
-}
-
 async function passerTempsLibre(){
   ensureJournalData();
   const today=new Date().toISOString().split('T')[0];
@@ -13331,21 +13283,6 @@ async function cocherPlanningRetard(planningId,checkbox){
   if(!checkbox.checked) return;
   await togglePlanningFait(planningId);
   toast('✓ Marqué comme fait !');
-}
-
-async function cocherTacheRetard(zoneId,actionId,stId,checkbox){
-  if(!checkbox.checked) return;
-  const zone=DB.journal.zones.find(z=>z.id===zoneId);
-  const action=zone.actions.find(a=>a.id===actionId);
-  const st=action.sousTaches.find(x=>x.id===stId);
-  const today=new Date().toISOString().split('T')[0];
-  const heure=new Date().toTimeString().slice(0,5);
-  st.dernierFait=today;
-  if(!DB.journal.historique) DB.journal.historique={};
-  if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
-  DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'#993556',heure,duree:st.duree});
-  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
-  toast('✓ '+st.nom+' fait !');
 }
 
 function renderHumeurJour(){
@@ -21986,56 +21923,6 @@ function dureeZoneDue(zone,exclureIds){
   return total;
 }
 
-function proposerBlocsPourDispo(dispo){
-  const today=getJournalJour();
-  const dejaPlanifies=(DB.journal.planning[today]||[]);
-  const exclureIds=new Set(dejaPlanifies.map(p=>p.stId).filter(Boolean));
-
-  const toMinLocal=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
-  const debutDispo=toMinLocal(dispo.debut), finDispo=toMinLocal(dispo.fin);
-
-  // Démarre après le dernier bloc déjà présent dans ce créneau
-  let curStart=debutDispo;
-  dejaPlanifies.forEach(p=>{
-    const pDebut=toMinLocal(p.heureDebut), pFin=toMinLocal(p.heureFin);
-    if(pDebut>=debutDispo&&pDebut<finDispo){ curStart=Math.max(curStart,pFin); }
-  });
-
-  const dureeTotale=finDispo-curStart;
-  if(dureeTotale<=0) return [];
-
-  const zonesDuBonType=DB.journal.zones.filter(z=>z.typeDefaut===dispo.type&&dureeZoneDue(z,exclureIds)>0);
-  const maxBlocDuree=60;
-  const zoneRestants={};
-  zonesDuBonType.forEach(z=>zoneRestants[z.id]=dureeZoneDue(z,exclureIds));
-
-  const blocs=[];
-  let reste=dureeTotale;
-  let progression=true;
-
-  if(zonesDuBonType.length){
-    while(reste>0&&progression){
-      progression=false;
-      for(const zone of zonesDuBonType){
-        if(reste<=0) break;
-        const disponibleZone=zoneRestants[zone.id];
-        if(disponibleZone<=0) continue;
-        const blocDuree=Math.min(reste,disponibleZone,maxBlocDuree);
-        if(blocDuree<5) continue;
-        blocs.push({zoneId:zone.id,type:dispo.type,dureeMin:blocDuree,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+blocDuree)});
-        curStart+=blocDuree;
-        reste-=blocDuree;
-        zoneRestants[zone.id]-=blocDuree;
-        progression=true;
-      }
-    }
-  }
-
-  if(reste>=10){
-    blocs.push({zoneId:'libre',type:dispo.type,dureeMin:reste,heureDebut:minToStr(curStart),heureFin:minToStr(curStart+reste)});
-  }
-  return blocs;
-}
 function getDatesPlanificationParSt(){
   const map={};
   Object.entries(DB.journal.planning||{}).forEach(([date,entries])=>{
@@ -35971,42 +35858,6 @@ function couleurPastel(hex){
   return `rgba(${r},${g},${b},0.14)`;
 }
 
-function renderBlocTache(p,faitMap,jour){
-  const found=trouverAction(p.actionId);
-  const couleur=found?.zone?.couleur||'#993556';
-  const bg=couleurPastel(found?.zone?.couleur);
-  const expanded=window['_blocOpen_'+p.id];
-  const nom=found?found.action.nom:(p.customNom||'Tâche');
-  const zoneNom=found?found.zone.nom:'—';
-  const zoneIcon=found?found.zone.icon:'📌';
-  const dues=found?getSousTachesDues(found.action):[];
-  const duesIds=dues.map(st=>st.id);
-  const faitBloc=!!faitMap[p.id];
-
-  return`<div style="background:${bg};border:2px solid ${couleur};border-radius:14px;overflow:hidden">
-    <div onclick="ouvrirBlocPlanning('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer">
-      <span onclick="event.stopPropagation();togglePlanningFait('${p.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${couleur};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:12px;font-weight:900">✓</span>':''}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px;color:${couleur}">${zoneIcon} ${nom}</div>
-        <div style="font-size:11px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin} · ${zoneNom}</div>
-      </div>
-      <button onclick="event.stopPropagation();delPlanningItem('${p.id}')" style="background:none;border:none;color:${couleur};opacity:.7;font-size:13px;cursor:pointer">✕</button>
-      <span style="color:${couleur};font-size:12px">${expanded?'▲':'▼'}</span>
-    </div>
-    ${expanded?`<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:6px">
-      ${found?(found.action.sousTaches||[]).map(st=>{
-        const due=duesIds.includes(st.id);
-        const faitAujourdhui=st.dernierFait===new Date().toISOString().split('T')[0];
-        return`<div style="display:flex;align-items:center;gap:8px;background:white;border-radius:9px;padding:7px 10px">
-          <span onclick="toggleSousTacheRonde('${found.zone.id}','${found.action.id}','${st.id}',this)" style="width:17px;height:17px;border-radius:50%;border:2px solid ${couleur};background:${faitAujourdhui?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitAujourdhui?'<span style="color:white;font-size:10px">✓</span>':''}</span>
-          <span style="font-size:12px;flex:1">${st.nom} ${due?`<span style="color:${couleur};font-size:9px;font-weight:700">SUGGÉRÉ</span>`:''}</span>
-          <span style="font-size:10px;color:var(--mut)">${st.duree}min</span>
-        </div>`;
-      }).join(''):'<div style="font-size:11px;color:var(--mut);background:white;border-radius:9px;padding:8px;text-align:center">Tâche libre — pas de sous-tâches</div>'}
-    </div>`:''}
-  </div>`;
-}
-
 async function toggleSousTacheRonde(zoneId,actionId,stId,span){
   const zone=DB.journal.zones.find(z=>z.id===zoneId);
   const action=zone.actions.find(a=>a.id===actionId);
@@ -36479,25 +36330,6 @@ async function delPlanningItem(id){
   renderPlanningTimeline();
 }
 
-async function marquerSousTacheFaite(zoneId,actionId,stId,checkbox){
-  if(!checkbox.checked) return;
-  const zone=DB.journal.zones.find(z=>z.id===zoneId);
-  const action=zone.actions.find(a=>a.id===actionId);
-  const st=action.sousTaches.find(x=>x.id===stId);
-  const today=new Date().toISOString().split('T')[0];
-  const heure=new Date().toTimeString().slice(0,5);
-  st.dernierFait=today;
-
-  if(!DB.journal.historique) DB.journal.historique={};
-  if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
-  DB.journal.historique[today].push({
-    nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'var(--acc)',
-    heure,duree:st.duree
-  });
-  await saveAll();
-  toast('✓ '+st.nom+' fait !');
-}
-
 function renderEmmaAccueilIntelligent() {
   const maintenant = new Date();
 
@@ -36671,42 +36503,6 @@ return token;
 
     return null;
 }
-}
-   
-async function envoyerNotificationEmma(titre, message, tag = "emma") {
-
-    if (Notification.permission !== "granted") {
-        return false;
-    }
-
-    const registration = await enregistrerServiceWorkerEmma();
-
-    if (!registration) {
-        return false;
-    }
-
-    await registration.showNotification(titre, {
-        body: message,
-        icon: "./emma-icon.png",
-        badge: "./emma-icon.png",
-        tag: tag
-    });
-
-    return true;
-}
-
-function notificationEmmaDejaEnvoyee(id) {
-
-    const cle = "emma_notif_" + id;
-
-    return localStorage.getItem(cle) === "1";
-}
-
-function marquerNotificationEmmaEnvoyee(id) {
-
-    const cle = "emma_notif_" + id;
-
-    localStorage.setItem(cle, "1");
 }
 
 async function synchroniserNotificationsPlanningEmma(date){
