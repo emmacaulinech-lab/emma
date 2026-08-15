@@ -37585,24 +37585,26 @@ async function executerActionAssistantEmma(action){
         return true;
     }
 
-    const ajoute =
+    const tachesDeplacees =
     ajouterEvenementPlanningEmma(
         action
     );
 
-if(ajoute){
+if(tachesDeplacees !== false){
 
     attenteAssistantEmma = null;
 
     const nomsDeplaces =
-        ajoute
-            .map(t => t.customNom || t.nom)
-            .filter(Boolean);
+        Array.isArray(tachesDeplacees)
+            ? tachesDeplacees
+                .map(t => t.customNom || t.nom)
+                .filter(Boolean)
+            : [];
 
     if(nomsDeplaces.length){
 
         ajouterMessageAssistantEmma(
-            `C’est noté ✨ ${action.titre || "Événement"} à ${action.heure}. J’ai aussi déplacé ${nomsDeplaces.join(", ")} pour libérer le créneau.`
+            `C’est noté ✨ ${action.titre || "Événement"} à ${action.heure}. J’ai déplacé ${nomsDeplaces.join(", ")} pour libérer le créneau.`
         );
 
     }else{
