@@ -6349,6 +6349,9 @@ async function modifierDatesSemaine(mois, index){
     const [y, m] =
         mois.split('-').map(Number);
 
+   const cleMois =
+    `${y}-${String(m).padStart(2,'0')}`;
+
     const weeks =
         semainesDuMois(y, m);
 
@@ -6398,7 +6401,7 @@ async function modifierDatesSemaine(mois, index){
         DB.compta.semainesPerso = {};
     }
 
-    if(!DB.compta.semainesPerso[mois]){
+    if(!DB.compta.semainesPerso[cleMois]){
 
     const lastDay =
         new Date(y, m, 0).getDate();
@@ -6430,11 +6433,11 @@ async function modifierDatesSemaine(mois, index){
         day = endDay + 1;
     }
 
-    DB.compta.semainesPerso[mois] =
+    DB.compta.semainesPerso[cleMois] =
         semainesAuto;
 }
 
-    DB.compta.semainesPerso[mois][index] = {
+    DB.compta.semainesPerso[cleMois][index] = {
         s,
         e
     };
