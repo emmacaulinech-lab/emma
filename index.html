@@ -37195,10 +37195,19 @@ Heure actuelle : ${contexte.heure}
         );
 
         if(!reponse.ok){
-            throw new Error(
-                `Erreur serveur ${reponse.status}`
-            );
-        }
+
+    const erreurTexte =
+        await reponse.text();
+
+    console.error(
+        "Erreur Anthropic :",
+        erreurTexte
+    );
+
+    throw new Error(
+        `Erreur serveur ${reponse.status}`
+    );
+}
 
         const data = await reponse.json();
 
