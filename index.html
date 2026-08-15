@@ -37235,6 +37235,100 @@ Heure actuelle : ${contexte.heure}
     }
 }
 
+function ajouterEvenementPlanningEmma(action){
+
+    if(
+        !action ||
+        !action.date ||
+        !action.heure
+    ){
+        return false;
+    }
+
+    // Créer le jour si nécessaire
+    if(!DB.journal.planning[action.date]){
+        DB.journal.planning[action.date] = [];
+    }
+
+    // Heure de début
+    const [heures, minutes] =
+        action.heure
+            .split(":")
+            .map(Number);
+
+    const debut =
+        heures * 60 +
+        minutes;
+
+    // Durée donnée par Claude
+    // Restaurant = normalement 120 min
+    const duree =
+        Number(action.duree) || 120;
+
+    const fin =
+        debut + duree;
+
+    // Création du vrai bloc Journal
+    DB.journal.planning[action.date].push({
+
+        id:
+            "assistant_" +
+            genId(),
+
+        source:
+            "assistant",
+
+        type:
+            "perso",
+
+        categorie:
+            "evenement",
+
+        nom:
+            action.titre ||
+            "Événement",
+
+        customNom:
+            action.titre ||
+            "Événement",
+
+        heureDebut:
+            minToStr(debut),
+
+        heureFin:
+            minToStr(fin),
+
+        duree:
+            duree,
+
+        autoPlanifie:
+            false,
+
+        verrouille:
+            true,
+
+        retroactif:
+            false,
+
+        data:{
+            creePar:
+                "assistant-emma"
+        }
+
+    });
+
+    // Trier chronologiquement
+    DB.journal.planning[action.date]
+        .sort((a,b) =>
+            strToMin(a.heureDebut) -
+            strToMin(b.heureDebut)
+        );
+
+    save();
+
+    return true;
+}
+
 async function executerActionAssistantEmma(action){
 
     if(!action) return false;
@@ -37270,30 +37364,60 @@ async function executerActionAssistantEmma(action){
 
     if(action.type === "ajouter_evenement"){
 
-        if(
-            !action.date ||
-            !action.heure
-        ){
+    if(
+        !action.date ||
+        !action.heure
+    ){
 
-            ajouterMessageAssistantEmma(
-                "Il me manque l'heure de l'événement."
-            );
-
-            return true;
-        }
+        attenteAssistantEmma = {
+            type: "ajouter_evenement",
+            ...action
+        };
 
         ajouterMessageAssistantEmma(
-            `J’ai compris : ${action.titre || "Événement"} le ${action.date} à ${action.heure}.`
+            "À quelle heure ?"
         );
-
-        /*
-        Étape suivante :
-        ici on appellera exactement le moteur
-        Journal existant pour créer le bloc.
-        */
 
         return true;
     }
+
+    const ajoute =
+        ajouterEvenementPlanningEmma(
+            action
+        );
+
+    if(ajoute){
+
+        attenteAssistantEmma = null;
+
+        ajouterMessageAssistantEmma(
+            `${action.titre || "Événement"} est ajouté à ton planning à ${action.heure} ✓`
+        );
+
+        // Rafraîchir le Journal si sa fonction existe
+        try{
+
+            if(
+                typeof renderJournal ===
+                "function"
+            ){
+                renderJournal();
+            }
+
+        }catch(e){
+            console.warn(e);
+        }
+
+    }else{
+
+        ajouterMessageAssistantEmma(
+            "Je n’ai pas réussi à ajouter l’événement."
+        );
+
+    }
+
+    return true;
+}
 
 
     return false;
@@ -37318,6 +37442,60 @@ function traiterCommandeAssistantEmma(
         normaliserCommandeEmma(
             texte
         );
+
+   /* ───────────────
+   RÉPONSE À UNE QUESTION EN ATTENTE
+─────────────── */
+
+if(attenteAssistantEmma){
+
+    const attente =
+        attenteAssistantEmma;
+
+    if(
+        attente.type === "ajouter_evenement" &&
+        !attente.heure
+    ){
+
+        const matchHeure =
+            texte.match(
+                /(?:à\s*)?(\d{1,2})(?:[:h](\d{2}))?\s*(?:h)?/i
+            );
+
+        if(matchHeure){
+
+            const h =
+                String(
+                    Number(matchHeure[1])
+                ).padStart(2,"0");
+
+            const m =
+                String(
+                    Number(
+                        matchHeure[2] || 0
+                    )
+                ).padStart(2,"0");
+
+            attente.heure =
+                `${h}:${m}`;
+
+            attenteAssistantEmma =
+                null;
+
+            executerActionAssistantEmma(
+                attente
+            );
+
+            return;
+        }
+
+        ajouterMessageAssistantEmma(
+            "Je n’ai pas compris l’heure. Tu peux me dire par exemple 20h ou 20h30."
+        );
+
+        return;
+    }
+}
 
 
     /* ───────────────
