@@ -37115,108 +37115,152 @@ async function demanderClaudeEmma(message){
 
     try{
 
-        const contexte = {
-            date: new Date().toLocaleDateString("fr-FR"),
-            heure: new Date().toLocaleTimeString("fr-FR", {
-                hour: "2-digit",
-                minute: "2-digit"
-            })
-        };
+        const apiKey =
+            localStorage.getItem(
+                'anthropic_key'
+            );
 
-        const reponse = await fetch(
-            "/.netlify/functions/claude",
-            {
-                method: "POST",
+        if(!apiKey){
+            throw new Error(
+                "Clé Anthropic absente"
+            );
+        }
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+        const maintenant =
+            new Date();
 
-                body: JSON.stringify({
-                    model: "claude-sonnet-4-20250514",
-                    max_tokens: 700,
+        const date =
+            maintenant
+                .toLocaleDateString(
+                    "fr-CA"
+                );
 
-                    system: `
-Tu es EMMA, l'assistant personnel intégré à l'application EMMA OS.
+        const heure =
+            maintenant
+                .toLocaleTimeString(
+                    "fr-FR",
+                    {
+                        hour:"2-digit",
+                        minute:"2-digit"
+                    }
+                );
 
-Tu dois comprendre naturellement ce que l'utilisatrice te demande.
+        const response =
+            await fetch(
+                'https://api.anthropic.com/v1/messages',
+                {
+                    method:'POST',
 
-Réponds TOUJOURS uniquement avec un JSON valide.
+                    headers:{
+                        'Content-Type':
+                            'application/json',
 
-Formats possibles :
+                        'x-api-key':
+                            apiKey,
 
-1. Discussion simple :
+                        'anthropic-version':
+                            '2023-06-01',
+
+                        'anthropic-dangerous-direct-browser-access':
+                            'true'
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            model:
+                                'claude-sonnet-4-6',
+
+                            max_tokens:
+                                1200,
+
+                            system:`
+Tu es EMMA, l'assistant personnel intégré à EMMA OS.
+
+Tu comprends naturellement les demandes de l'utilisatrice.
+
+Tu dois répondre UNIQUEMENT avec un JSON valide, sans backticks ni texte autour.
+
+Formats autorisés :
+
+MESSAGE SIMPLE
 {
-  "type": "message",
-  "texte": "ta réponse"
+    "type":"message",
+    "texte":"réponse"
 }
 
-2. Ajouter un événement au planning :
+QUESTION
 {
-  "type": "ajouter_evenement",
-  "titre": "Restaurant",
-  "date": "YYYY-MM-DD",
-  "heure": "HH:MM",
-  "duree": 120,
-  "texte": "confirmation naturelle"
+    "type":"question",
+    "champ":"heure",
+    "texte":"À quelle heure ?"
 }
 
-3. Il manque une information indispensable :
+AJOUTER UN ÉVÉNEMENT
 {
-  "type": "question",
-  "champ": "heure",
-  "texte": "À quelle heure ?"
+    "type":"ajouter_evenement",
+    "titre":"Restaurant",
+    "date":"YYYY-MM-DD",
+    "heure":"HH:MM",
+    "duree":120,
+    "texte":"confirmation"
 }
 
-RÈGLES :
+Règles :
 
-- Si elle dit "ce soir", utilise la date actuelle.
-- Si elle dit "demain", utilise la date de demain.
-- Si elle donne une heure, transforme-la au format HH:MM.
-- Restaurant : durée par défaut 120 minutes.
-- Anniversaire / soirée : durée par défaut 180 minutes.
-- Coiffeur : durée par défaut 120 minutes.
-- Si un événement doit réellement être ajouté mais que l'heure manque, demande l'heure.
-- Ne prétends jamais avoir ajouté un événement tant que les informations nécessaires ne sont pas présentes.
-- Réponds en français.
+- "ce soir" = ${date}
+- "aujourd'hui" = ${date}
+- heure actuelle = ${heure}
 
-Date actuelle : ${contexte.date}
-Heure actuelle : ${contexte.heure}
-`.trim(),
+- Si elle dit qu'elle va au restaurant, à un anniversaire, chez le coiffeur, chez quelqu'un, à une soirée, à un rendez-vous ou à une sortie, considère cela comme un événement à mettre dans son planning.
 
-                    messages: [
-                        {
-                            role: "user",
-                            content: message
-                        }
-                    ]
-                })
-            }
-        );
+- Si la date est connue mais pas l'heure, demande uniquement l'heure.
 
-        if(!reponse.ok){
+- Restaurant : 120 minutes par défaut.
+- Coiffeur : 120 minutes par défaut.
+- Anniversaire / soirée : 180 minutes par défaut.
+- Rendez-vous : 60 minutes par défaut.
 
-    const erreurTexte =
-        await reponse.text();
+- Si elle donne directement l'heure, crée l'action ajouter_evenement.
 
-    console.error(
-        "Erreur Anthropic :",
-        erreurTexte
-    );
+- Ne dis jamais qu'un événement est ajouté si tu demandes encore une information.
 
-    throw new Error(
-        `Erreur serveur ${reponse.status}`
-    );
-}
+- Pour une question générale comme "qu'est-ce que je peux manger ce soir ?", utilise type "message".
 
-        const data = await reponse.json();
+Réponds toujours en français.
+                            `.trim(),
+
+                            messages:[
+                                {
+                                    role:'user',
+                                    content:message
+                                }
+                            ]
+
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if(data.error){
+
+            throw new Error(
+                data.error.message ||
+                data.error
+            );
+
+        }
 
         const texte =
-            data?.content
-                ?.filter(bloc => bloc.type === "text")
-                ?.map(bloc => bloc.text)
-                ?.join("\n")
-                ?.trim();
+            data.content
+                ?.map(
+                    item =>
+                        item.text || ''
+                )
+                .join('')
+                .trim();
 
         if(!texte){
             throw new Error(
@@ -37224,14 +37268,30 @@ Heure actuelle : ${contexte.heure}
             );
         }
 
+        console.log(
+            "Claude EMMA :",
+            texte
+        );
+
         try{
-    return JSON.parse(texte);
-}catch(e){
-    return {
-        type: "message",
-        texte: texte
-    };
-}
+
+            return JSON.parse(
+                texte
+            );
+
+        }catch(e){
+
+            console.error(
+                "JSON Claude invalide :",
+                texte
+            );
+
+            return {
+                type:"message",
+                texte:texte
+            };
+
+        }
 
     }catch(erreur){
 
