@@ -360,23 +360,6 @@ thead tr { background: linear-gradient(135deg, var(--acc), var(--acc2)) !importa
    Les fonctions existantes restent intactes.
 ═══════════════════════════════════════ */
 html { scroll-behavior: smooth; }
-body {
-  background:
-    radial-gradient(circle at 8% 4%, rgba(217,121,140,.23) 0, transparent 28%),
-    radial-gradient(circle at 91% 15%, rgba(216,170,114,.20) 0, transparent 26%),
-    radial-gradient(circle at 82% 88%, rgba(121,163,132,.16) 0, transparent 28%),
-    linear-gradient(145deg, #fff9f6 0%, #fff4f4 46%, #faf7f2 100%) !important;
-  background-attachment: fixed !important;
-}
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  opacity: .42;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E");
-}
 
 .login-page,
 #hubPage,
@@ -431,8 +414,7 @@ body::before {
 .set-block,
 .veri-card { border-radius: 22px !important; }
 .card:hover,
-.tw:hover,
-.hub-card:hover {
+.tw:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow2), var(--shadow-inset) !important;
 }
@@ -477,59 +459,10 @@ textarea:focus {
   box-shadow: 0 0 0 4px rgba(217,121,140,.10), inset 0 1px 0 rgba(255,255,255,.92);
 }
 
-#hubPage {
-  align-items: stretch !important;
-  justify-content: flex-start !important;
-  padding: 52px max(22px, calc((100vw - 1040px) / 2)) 110px !important;
-}
-.emma-home-hero {
-  width: 100%;
-  max-width: 1040px;
-  margin: 0 auto 22px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 22px;
-}
-.emma-home-kicker {
-  color: var(--acc);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  margin-bottom: 7px;
-}
-.emma-home-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(38px, 7vw, 66px);
-  line-height: .95;
-  color: var(--txt);
-  font-weight: 600;
-  letter-spacing: -.025em;
-}
 .emma-home-subtitle{
     display:none;
 }
-.emma-brain-button {
-  width: 54px;
-  height: 54px;
-  flex: 0 0 54px;
-  border: 1px solid rgba(255,255,255,.86);
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(255,255,255,.84), rgba(248,220,226,.64));
-  color: var(--acc);
-  font-size: 22px;
-  box-shadow: var(--shadow), var(--shadow-inset);
-  cursor: pointer;
-}
-.emma-brain-button:hover { transform: translateY(-2px) rotate(4deg); box-shadow: var(--shadow2), var(--shadow-inset); }
 
-#hubPage > div[style*="max-width:640px"],
-#hub-modules-grid {
-  max-width: 1040px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
 #hubPage > div[style*="background:white"],
 #hubPage > div[id$="-wrap"] {
   border-radius: 26px !important;
@@ -543,87 +476,13 @@ textarea:focus {
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
-#hub-modules-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 14px !important;
-}
-.hub-card {
-  border-radius: 24px !important;
-  padding: 24px 16px !important;
-  min-height: 138px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.hub-card-icon {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: rgba(248,220,226,.64);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.92);
-  font-size: 25px !important;
-}
-.hub-card-label {
-  color: var(--txt) !important;
-  font-family: 'Nunito', sans-serif !important;
-  font-size: 13px !important;
-}
-
-.emma-bottom-nav {
-  position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  width: min(620px, calc(100vw - 28px));
-  z-index: 520;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  padding: 8px;
-  background: rgba(255,255,255,.70);
-  border: 1px solid rgba(255,255,255,.88);
-  border-radius: 24px;
-  box-shadow: 0 18px 48px rgba(80,50,60,.16), inset 0 1px 0 rgba(255,255,255,.95);
-  -webkit-backdrop-filter: blur(28px) saturate(155%);
-  backdrop-filter: blur(28px) saturate(155%);
-}
-.emma-nav-item {
-  border: 0;
-  background: transparent;
-  color: var(--mut);
-  border-radius: 17px;
-  min-height: 48px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  font-family: 'Nunito', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.emma-nav-item span:first-child { font-size: 18px; line-height: 1; }
-.emma-nav-item.active {
-  color: var(--acc);
-  background: rgba(248,220,226,.62);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
-}
 .app.visible { padding-bottom: 92px; }
 
 @media (max-width: 760px) {
-  #hubPage { padding: 28px 16px 104px !important; }
-  .emma-home-hero { align-items: center; }
-  .emma-home-title { font-size: 43px; }
-  #hub-modules-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
-  .hub-card { min-height: 118px; padding: 18px 12px !important; }
   .hdr { height: 56px; padding: 0 14px; }
   .hdr-user { display: none; }
   .tabs { top: 56px; padding: 0 8px; }
   .view { padding: 16px 14px 104px; }
-  .emma-bottom-nav { bottom: 10px; }
 }
 
 /* ===== Hero Cards ===== */
