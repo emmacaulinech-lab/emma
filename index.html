@@ -2577,6 +2577,269 @@ textarea,
     }
 
 }
+
+/* ═══════════════════════════════════════
+   ASSISTANT EMMA
+═══════════════════════════════════════ */
+
+#emma-assistant-overlay{
+    position:fixed;
+    inset:0;
+
+    z-index:5000;
+
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+
+    padding:14px;
+
+    background:rgba(48,55,75,.18);
+
+    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(12px);
+}
+
+#emma-assistant-overlay.open{
+    display:flex;
+}
+
+.emma-assistant-sheet{
+    width:min(620px,100%);
+    max-height:85vh;
+
+    display:flex;
+    flex-direction:column;
+
+    padding:10px 16px 16px;
+
+    border-radius:32px;
+
+    background:rgba(249,251,255,.92);
+
+    border:1px solid rgba(255,255,255,.98);
+
+    box-shadow:
+        0 28px 80px rgba(70,85,115,.22),
+        inset 0 1px 0 rgba(255,255,255,1);
+
+    -webkit-backdrop-filter:blur(36px) saturate(175%);
+    backdrop-filter:blur(36px) saturate(175%);
+}
+
+.emma-assistant-handle{
+    width:38px;
+    height:4px;
+
+    margin:2px auto 18px;
+
+    border-radius:99px;
+
+    background:rgba(100,110,130,.18);
+}
+
+.emma-assistant-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+
+    gap:15px;
+
+    margin-bottom:16px;
+}
+
+.emma-assistant-kicker{
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.14em;
+
+    color:#8d91ba;
+}
+
+.emma-assistant-title{
+    margin-top:3px;
+
+    font-family:'Cormorant Garamond',serif;
+    font-size:31px;
+    font-weight:700;
+
+    color:var(--emma-text);
+}
+
+.emma-assistant-subtitle{
+    margin-top:3px;
+
+    font-size:11px;
+
+    color:var(--emma-muted);
+}
+
+.emma-assistant-close{
+    width:38px;
+    height:38px;
+
+    border:0;
+    border-radius:14px;
+
+    background:rgba(255,255,255,.65);
+
+    color:#8a8f9b;
+
+    font-size:22px;
+
+    cursor:pointer;
+}
+
+.emma-assistant-suggestions{
+    display:flex;
+    gap:7px;
+
+    overflow-x:auto;
+
+    padding-bottom:4px;
+    margin-bottom:13px;
+}
+
+.emma-assistant-suggestions button{
+    flex:0 0 auto;
+
+    padding:8px 12px;
+
+    border:1px solid rgba(255,255,255,.95);
+    border-radius:16px;
+
+    background:rgba(255,255,255,.60);
+
+    color:#676d7b;
+
+    font-family:'Nunito',sans-serif;
+    font-size:11px;
+    font-weight:700;
+
+    cursor:pointer;
+}
+
+.emma-assistant-conversation{
+    min-height:150px;
+    max-height:38vh;
+
+    overflow-y:auto;
+
+    display:flex;
+    flex-direction:column;
+
+    gap:9px;
+
+    padding:5px 1px 14px;
+}
+
+.emma-assistant-message{
+    max-width:88%;
+
+    padding:11px 13px;
+
+    border-radius:18px;
+
+    font-size:12px;
+    line-height:1.45;
+}
+
+.emma-assistant-message.assistant{
+    align-self:flex-start;
+
+    background:rgba(235,241,255,.82);
+
+    color:#59657d;
+
+    border-bottom-left-radius:7px;
+}
+
+.emma-assistant-message.user{
+    align-self:flex-end;
+
+    background:rgba(244,235,250,.86);
+
+    color:#5f5870;
+
+    border-bottom-right-radius:7px;
+}
+
+.emma-assistant-input-wrap{
+    display:grid;
+
+    grid-template-columns:minmax(0,1fr) 46px;
+
+    gap:8px;
+
+    padding-top:11px;
+
+    border-top:1px solid rgba(150,160,185,.12);
+}
+
+#emma-assistant-input{
+    width:100%;
+
+    min-height:46px;
+    max-height:110px;
+
+    resize:none;
+
+    padding:13px 14px !important;
+
+    border-radius:17px !important;
+
+    font-family:'Nunito',sans-serif;
+    font-size:12px;
+}
+
+.emma-assistant-send{
+    width:46px;
+    height:46px;
+
+    border:0;
+    border-radius:17px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #a7b9df,
+            #a899d7
+        );
+
+    color:white;
+
+    font-size:20px;
+    font-weight:800;
+
+    cursor:pointer;
+
+    box-shadow:
+        0 8px 20px rgba(130,140,190,.18);
+}
+
+@media(max-width:760px){
+
+    #emma-assistant-overlay{
+        padding:
+            10px
+            10px
+            calc(
+                10px +
+                env(safe-area-inset-bottom)
+            );
+    }
+
+    .emma-assistant-sheet{
+        max-height:88vh;
+
+        border-radius:30px;
+    }
+
+    .emma-assistant-title{
+        font-size:28px;
+    }
+
+}
    
 </style>
 </head>
@@ -2629,13 +2892,14 @@ textarea,
     </div>
 
     <button
-      class="emma-brain-button"
-      type="button"
-      aria-label="Assistant EMMA"
-      title="Assistant EMMA"
-    >
-      ✦
-    </button>
+  class="emma-brain-button"
+  type="button"
+  aria-label="Assistant EMMA"
+  title="Assistant EMMA"
+  onclick="ouvrirAssistantEmma()"
+>
+  ✦
+</button>
 
    <button
   id="emma-enable-notifications"
@@ -36695,6 +36959,487 @@ window.addEventListener(
     );
   }
 );
+
+<div id="emma-assistant-overlay" onclick="fermerAssistantEmma(event)">
+  <div class="emma-assistant-sheet" onclick="event.stopPropagation()">
+
+    <div class="emma-assistant-handle"></div>
+
+    <div class="emma-assistant-header">
+      <div>
+        <div class="emma-assistant-kicker">✦ EMMA</div>
+        <div class="emma-assistant-title">Qu’est-ce qu’on fait ?</div>
+        <div class="emma-assistant-subtitle">
+          Dis-moi simplement ce que tu veux.
+        </div>
+      </div>
+
+      <button
+        class="emma-assistant-close"
+        onclick="fermerAssistantEmma()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="emma-assistant-suggestions">
+
+      <button onclick="commandeRapideEmma('quoi')">
+        ✨ Que dois-je faire ?
+      </button>
+
+      <button onclick="commandeRapideEmma('journal')">
+        📔 Mon journal
+      </button>
+
+      <button onclick="commandeRapideEmma('glow')">
+        🌿 Mon Glow
+      </button>
+
+      <button onclick="commandeRapideEmma('travail')">
+        💼 Travail
+      </button>
+
+    </div>
+
+    <div
+      id="emma-assistant-conversation"
+      class="emma-assistant-conversation"
+    >
+      <div class="emma-assistant-message assistant">
+        Tu peux me demander d’ouvrir un espace, d’ajouter une tâche ou de te dire ce qui mérite ton attention maintenant.
+      </div>
+    </div>
+
+    <div class="emma-assistant-input-wrap">
+
+      <textarea
+        id="emma-assistant-input"
+        rows="1"
+        placeholder="Ex : ajoute acheter du shampoing..."
+        onkeydown="
+          if(event.key==='Enter' && !event.shiftKey){
+            event.preventDefault();
+            envoyerCommandeEmma();
+          }
+        "
+      ></textarea>
+
+      <button
+        class="emma-assistant-send"
+        onclick="envoyerCommandeEmma()"
+      >
+        ↑
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+function ouvrirAssistantEmma(){
+
+    const overlay =
+        document.getElementById(
+            "emma-assistant-overlay"
+        );
+
+    if(!overlay) return;
+
+    overlay.classList.add("open");
+
+    setTimeout(() => {
+
+        document
+            .getElementById(
+                "emma-assistant-input"
+            )
+            ?.focus();
+
+    },150);
+}
+
+
+function fermerAssistantEmma(event){
+
+    if(
+        event &&
+        event.target.id !==
+        "emma-assistant-overlay"
+    ){
+        return;
+    }
+
+    document
+        .getElementById(
+            "emma-assistant-overlay"
+        )
+        ?.classList.remove("open");
+}
+
+
+function ajouterMessageAssistantEmma(
+    texte,
+    auteur = "assistant"
+){
+
+    const zone =
+        document.getElementById(
+            "emma-assistant-conversation"
+        );
+
+    if(!zone) return;
+
+    const message =
+        document.createElement("div");
+
+    message.className =
+        `emma-assistant-message ${auteur}`;
+
+    message.textContent =
+        texte;
+
+    zone.appendChild(message);
+
+    zone.scrollTop =
+        zone.scrollHeight;
+}
+
+
+function normaliserCommandeEmma(texte){
+
+    return String(texte || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+        .trim();
+}
+
+
+function commandeRapideEmma(type){
+
+    if(type === "quoi"){
+
+        traiterCommandeAssistantEmma(
+            "qu'est ce que je dois faire maintenant"
+        );
+
+        return;
+    }
+
+    if(type === "journal"){
+
+        traiterCommandeAssistantEmma(
+            "ouvre journal"
+        );
+
+        return;
+    }
+
+    if(type === "glow"){
+
+        traiterCommandeAssistantEmma(
+            "ouvre glow"
+        );
+
+        return;
+    }
+
+    if(type === "travail"){
+
+        traiterCommandeAssistantEmma(
+            "ouvre travail"
+        );
+
+    }
+}
+
+
+function envoyerCommandeEmma(){
+
+    const input =
+        document.getElementById(
+            "emma-assistant-input"
+        );
+
+    if(!input) return;
+
+    const texte =
+        input.value.trim();
+
+    if(!texte) return;
+
+    input.value = "";
+
+    ajouterMessageAssistantEmma(
+        texte,
+        "user"
+    );
+
+    traiterCommandeAssistantEmma(
+        texte,
+        true
+    );
+}
+
+
+function traiterCommandeAssistantEmma(
+    texte,
+    messageDejaAffiche = false
+){
+
+    if(
+        !messageDejaAffiche &&
+        texte
+    ){
+        ajouterMessageAssistantEmma(
+            texte,
+            "user"
+        );
+    }
+
+    const commande =
+        normaliserCommandeEmma(
+            texte
+        );
+
+
+    /* ───────────────
+       OUVRIR MODULES
+    ─────────────── */
+
+    const modules = [
+        {
+            mots:["compta","comptabilite"],
+            module:"compta",
+            label:"Compta"
+        },
+        {
+            mots:["glow","sport","nutrition"],
+            module:"glow",
+            label:"Glow"
+        },
+        {
+            mots:["journal","planning","journee"],
+            module:"journal",
+            label:"Journal"
+        },
+        {
+            mots:["formation","formations"],
+            module:"formations",
+            label:"Formations"
+        },
+        {
+            mots:["facture","facturation"],
+            module:"facturation",
+            label:"Facturation"
+        },
+        {
+            mots:["banque perso","banqueperso"],
+            module:"banqueperso",
+            label:"Banque perso"
+        },
+        {
+            mots:["lecture","livre"],
+            module:"lecture",
+            label:"Lecture"
+        }
+    ];
+
+
+    if(
+        commande.includes("ouvre") ||
+        commande.includes("va dans")
+    ){
+
+        const cible =
+            modules.find(module =>
+                module.mots.some(
+                    mot =>
+                        commande.includes(mot)
+                )
+            );
+
+        if(cible){
+
+            ajouterMessageAssistantEmma(
+                `J’ouvre ${cible.label}.`
+            );
+
+            setTimeout(() => {
+
+                fermerAssistantEmma();
+
+                goModule(
+                    cible.module
+                );
+
+            },350);
+
+            return;
+        }
+    }
+
+
+    /* ───────────────
+       TRAVAIL
+    ─────────────── */
+
+    if(
+        commande.includes("travail") &&
+        (
+            commande.includes("ouvre") ||
+            commande.includes("va dans")
+        )
+    ){
+
+        ajouterMessageAssistantEmma(
+            "J’ouvre ton espace Travail."
+        );
+
+        setTimeout(() => {
+
+            fermerAssistantEmma();
+
+            emmaNavigate(
+                "travail"
+            );
+
+        },350);
+
+        return;
+    }
+
+
+    /* ───────────────
+       AJOUTER UNE TÂCHE
+    ─────────────── */
+
+    if(
+        commande.startsWith("ajoute ") ||
+        commande.startsWith("ajouter ")
+    ){
+
+        let tache =
+            texte
+                .replace(
+                    /^ajoute[r]?\s+/i,
+                    ""
+                )
+                .trim();
+
+        if(!tache){
+
+            ajouterMessageAssistantEmma(
+                "Qu’est-ce que tu veux ajouter ?"
+            );
+
+            return;
+        }
+
+        const todoInput =
+            document.getElementById(
+                "todo-input"
+            );
+
+        if(
+            todoInput &&
+            typeof ajouterTodo ===
+            "function"
+        ){
+
+            todoInput.value =
+                tache;
+
+            ajouterTodo();
+
+            ajouterMessageAssistantEmma(
+                `C’est ajouté : ${tache} ✓`
+            );
+
+            return;
+        }
+    }
+
+
+    /* ───────────────
+       QUE FAIRE MAINTENANT
+    ─────────────── */
+
+    if(
+        commande.includes("que dois je faire") ||
+        commande.includes("quoi faire") ||
+        commande.includes("faire maintenant") ||
+        commande.includes("priorite")
+    ){
+
+        try{
+
+            if(
+                typeof getToutesNotifications ===
+                "function"
+            ){
+
+                const notifs =
+                    getToutesNotifications(
+                        new Date()
+                    ) || [];
+
+                if(notifs.length){
+
+                    const prioritaires =
+                        notifs
+                            .slice(0,3)
+                            .map(
+                                n =>
+                                    n.texte ||
+                                    n.message ||
+                                    n.titre
+                            )
+                            .filter(Boolean);
+
+                    if(prioritaires.length){
+
+                        ajouterMessageAssistantEmma(
+                            "Je regarderais ça en priorité : " +
+                            prioritaires.join(
+                                " · "
+                            )
+                        );
+
+                        return;
+                    }
+                }
+            }
+
+        }catch(e){
+
+            console.warn(
+                "Assistant priorité",
+                e
+            );
+
+        }
+
+        ajouterMessageAssistantEmma(
+            "Je ne vois rien d’urgent pour l’instant. Tu peux ouvrir ton Journal pour voir la suite de ta journée."
+        );
+
+        return;
+    }
+
+
+    /* ───────────────
+       FALLBACK
+    ─────────────── */
+
+    ajouterMessageAssistantEmma(
+        "Je comprends l’idée, mais cette action n’est pas encore reliée. Pour l’instant je sais ouvrir tes espaces, ajouter une tâche et te dire quoi regarder en priorité."
+    );
+}
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
