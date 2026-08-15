@@ -36960,82 +36960,6 @@ window.addEventListener(
   }
 );
 
-<div id="emma-assistant-overlay" onclick="fermerAssistantEmma(event)">
-  <div class="emma-assistant-sheet" onclick="event.stopPropagation()">
-
-    <div class="emma-assistant-handle"></div>
-
-    <div class="emma-assistant-header">
-      <div>
-        <div class="emma-assistant-kicker">✦ EMMA</div>
-        <div class="emma-assistant-title">Qu’est-ce qu’on fait ?</div>
-        <div class="emma-assistant-subtitle">
-          Dis-moi simplement ce que tu veux.
-        </div>
-      </div>
-
-      <button
-        class="emma-assistant-close"
-        onclick="fermerAssistantEmma()"
-      >
-        ×
-      </button>
-    </div>
-
-    <div class="emma-assistant-suggestions">
-
-      <button onclick="commandeRapideEmma('quoi')">
-        ✨ Que dois-je faire ?
-      </button>
-
-      <button onclick="commandeRapideEmma('journal')">
-        📔 Mon journal
-      </button>
-
-      <button onclick="commandeRapideEmma('glow')">
-        🌿 Mon Glow
-      </button>
-
-      <button onclick="commandeRapideEmma('travail')">
-        💼 Travail
-      </button>
-
-    </div>
-
-    <div
-      id="emma-assistant-conversation"
-      class="emma-assistant-conversation"
-    >
-      <div class="emma-assistant-message assistant">
-        Tu peux me demander d’ouvrir un espace, d’ajouter une tâche ou de te dire ce qui mérite ton attention maintenant.
-      </div>
-    </div>
-
-    <div class="emma-assistant-input-wrap">
-
-      <textarea
-        id="emma-assistant-input"
-        rows="1"
-        placeholder="Ex : ajoute acheter du shampoing..."
-        onkeydown="
-          if(event.key==='Enter' && !event.shiftKey){
-            event.preventDefault();
-            envoyerCommandeEmma();
-          }
-        "
-      ></textarea>
-
-      <button
-        class="emma-assistant-send"
-        onclick="envoyerCommandeEmma()"
-      >
-        ↑
-      </button>
-
-    </div>
-
-  </div>
-</div>
 
 function ouvrirAssistantEmma(){
 
@@ -37443,5 +37367,83 @@ function traiterCommandeAssistantEmma(
    
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
+
+   
+<div id="emma-assistant-overlay" onclick="fermerAssistantEmma(event)">
+  <div class="emma-assistant-sheet" onclick="event.stopPropagation()">
+
+    <div class="emma-assistant-handle"></div>
+
+    <div class="emma-assistant-header">
+      <div>
+        <div class="emma-assistant-kicker">✦ EMMA</div>
+        <div class="emma-assistant-title">Qu’est-ce qu’on fait ?</div>
+        <div class="emma-assistant-subtitle">
+          Dis-moi simplement ce que tu veux.
+        </div>
+      </div>
+
+      <button
+        class="emma-assistant-close"
+        onclick="fermerAssistantEmma()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="emma-assistant-suggestions">
+
+      <button onclick="commandeRapideEmma('quoi')">
+        ✨ Que dois-je faire ?
+      </button>
+
+      <button onclick="commandeRapideEmma('journal')">
+        📔 Mon journal
+      </button>
+
+      <button onclick="commandeRapideEmma('glow')">
+        🌿 Mon Glow
+      </button>
+
+      <button onclick="commandeRapideEmma('travail')">
+        💼 Travail
+      </button>
+
+    </div>
+
+    <div
+      id="emma-assistant-conversation"
+      class="emma-assistant-conversation"
+    >
+      <div class="emma-assistant-message assistant">
+        Tu peux me demander d’ouvrir un espace, d’ajouter une tâche ou de te dire ce qui mérite ton attention maintenant.
+      </div>
+    </div>
+
+    <div class="emma-assistant-input-wrap">
+
+      <textarea
+        id="emma-assistant-input"
+        rows="1"
+        placeholder="Ex : ajoute acheter du shampoing..."
+        onkeydown="
+          if(event.key==='Enter' && !event.shiftKey){
+            event.preventDefault();
+            envoyerCommandeEmma();
+          }
+        "
+      ></textarea>
+
+      <button
+        class="emma-assistant-send"
+        onclick="envoyerCommandeEmma()"
+      >
+        ↑
+      </button>
+
+    </div>
+
+  </div>
+</div>
 </body>
 </html>
