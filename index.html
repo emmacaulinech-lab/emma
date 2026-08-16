@@ -2840,6 +2840,210 @@ textarea,
     }
 
 }
+
+/* ═══════════════════════════════════════
+   ROUTINE MATIN EMMA
+═══════════════════════════════════════ */
+
+.emma-morning-overlay{
+    position:fixed;
+    inset:0;
+    z-index:6000;
+
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+
+    padding:14px;
+
+    background:rgba(50,58,78,.18);
+
+    -webkit-backdrop-filter:blur(15px);
+    backdrop-filter:blur(15px);
+}
+
+.emma-morning-overlay.open{
+    display:flex;
+}
+
+.emma-morning-sheet{
+    width:min(560px,100%);
+
+    padding:10px 18px 18px;
+
+    border-radius:34px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(250,252,255,.95),
+            rgba(249,247,253,.91)
+        );
+
+    border:1px solid rgba(255,255,255,.98);
+
+    box-shadow:
+        0 28px 80px rgba(70,85,115,.20),
+        inset 0 1px 0 rgba(255,255,255,1);
+
+    -webkit-backdrop-filter:blur(36px) saturate(175%);
+    backdrop-filter:blur(36px) saturate(175%);
+}
+
+.emma-morning-handle{
+    width:38px;
+    height:4px;
+
+    margin:2px auto 22px;
+
+    border-radius:99px;
+
+    background:rgba(100,110,130,.17);
+}
+
+.emma-morning-kicker{
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.14em;
+
+    color:#8995b5;
+
+    margin-bottom:5px;
+}
+
+.emma-morning-title{
+    font-family:'Cormorant Garamond',serif;
+
+    font-size:34px;
+    line-height:1.05;
+
+    font-weight:700;
+
+    color:var(--emma-text);
+
+    margin-bottom:4px;
+}
+
+.emma-morning-subtitle{
+    font-size:11px;
+
+    color:var(--emma-muted);
+
+    margin-bottom:20px;
+}
+
+.emma-morning-options{
+    display:flex;
+    flex-direction:column;
+
+    gap:10px;
+}
+
+.emma-morning-option{
+    width:100%;
+
+    display:grid;
+    grid-template-columns:52px minmax(0,1fr) 24px;
+
+    align-items:center;
+
+    gap:12px;
+
+    padding:14px;
+
+    border:1px solid rgba(255,255,255,.95);
+    border-radius:22px;
+
+    background:rgba(255,255,255,.56);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.98);
+
+    text-align:left;
+
+    font-family:'Nunito',sans-serif;
+
+    cursor:pointer;
+}
+
+.emma-morning-option.travail{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(234,243,255,.82),
+            rgba(255,255,255,.56)
+        );
+}
+
+.emma-morning-option.repos{
+    background:
+        linear-gradient(
+            145deg,
+            rgba(239,249,244,.82),
+            rgba(255,255,255,.56)
+        );
+}
+
+.emma-morning-icon{
+    width:52px;
+    height:52px;
+
+    display:grid;
+    place-items:center;
+
+    border-radius:18px;
+
+    background:rgba(255,255,255,.68);
+
+    font-size:23px;
+}
+
+.emma-morning-option span:nth-child(2){
+    display:flex;
+    flex-direction:column;
+}
+
+.emma-morning-option strong{
+    font-size:13px;
+
+    color:var(--emma-text);
+}
+
+.emma-morning-option small{
+    font-size:10px;
+
+    color:var(--emma-muted);
+
+    margin-top:3px;
+}
+
+.emma-morning-option b{
+    font-size:26px;
+    font-weight:400;
+
+    color:#a0a8b8;
+}
+
+.emma-morning-later{
+    width:100%;
+
+    margin-top:13px;
+
+    padding:11px;
+
+    border:0;
+    border-radius:17px;
+
+    background:transparent;
+
+    color:var(--emma-muted);
+
+    font-family:'Nunito',sans-serif;
+    font-size:11px;
+    font-weight:700;
+
+    cursor:pointer;
+}
    
 </style>
 </head>
@@ -11805,6 +12009,29 @@ renderAgenda();
 
 await sauvegarderAgendaImporte();
 await syncAgendaVersJournal();
+
+const preparationMatin =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(preparationMatin === "travail_planity"){
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "travail_autre"
+    );
+
+    setTimeout(() => {
+
+        ouvrirAssistantEmma?.();
+
+        ajouterMessageAssistantEmma?.(
+            "Planning importé 💼✨ J’ai placé tes rendez-vous. Tu as autre chose de prévu aujourd’hui ? Tu peux me dire par exemple : « resto à 20h », « courses après le travail » ou « je veux faire la salle de bain ce soir »."
+        );
+
+    },350);
+}
 
  } catch(e) {
     el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--dep)">⚠️ Erreur : ${e.message||JSON.stringify(e)}</div>`;
@@ -27023,6 +27250,7 @@ function ensureJournalData(){
             etatPieces: {},
             tachesForcees: {},
             preparationJour: {},
+            habitudes: [],
             versionMaison: 2
         };
     }
@@ -27043,6 +27271,11 @@ function ensureJournalData(){
         DB.journal.preparationJour = {};
     }
 
+   if(!Array.isArray(DB.journal.habitudes)){
+
+    DB.journal.habitudes = [];
+
+}
 
     // ==========================================
     // MIGRATION MAISON V2
@@ -27305,10 +27538,143 @@ async function validerConvertirTodo(){
   toast('✓ Ajouté comme sous-tâche dans '+zone.nom+' !');
 }
 
+function dateJourEmma(){
+    return new Date()
+        .toLocaleDateString(
+            "fr-CA"
+        );
+}
+
+
+function ouvrirRoutineMatinEmma(force = false){
+
+    const aujourdHui =
+        dateJourEmma();
+
+    const dejaFait =
+        localStorage.getItem(
+            "emma_routine_matin"
+        );
+
+    if(
+        !force &&
+        dejaFait === aujourdHui
+    ){
+        return;
+    }
+
+    document
+        .getElementById(
+            "emma-morning-overlay"
+        )
+        ?.classList.add("open");
+}
+
+
+function fermerRoutineMatinEmma(){
+
+    document
+        .getElementById(
+            "emma-morning-overlay"
+        )
+        ?.classList.remove("open");
+}
+
+function ouvrirImportPlanityMatinEmma(){
+
+    // Cherche l'import Planity du Journal
+    const inputs = [
+        ...document.querySelectorAll(
+            'input[type="file"][onchange*="importerPlanity"]'
+        )
+    ];
+
+    if(!inputs.length){
+        toast("⚠️ Import Planity introuvable");
+        return;
+    }
+
+    // On privilégie celui qui se trouve dans le Journal
+    const inputJournal =
+        inputs.find(input =>
+            input.closest("#module-journal")
+        ) || inputs[0];
+
+    inputJournal.click();
+}
+
+function choisirTypeJourneeEmma(type){
+
+    const aujourdHui =
+        dateJourEmma();
+
+    localStorage.setItem(
+        "emma_routine_matin",
+        aujourdHui
+    );
+
+    fermerRoutineMatinEmma();
+
+
+    if(type === "travail"){
+
+    emmaNavigate?.("journal");
+
+    // On mémorise qu'on est dans la préparation du matin
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "travail_planity"
+    );
+
+    setTimeout(() => {
+
+        toast("📅 Importe ton planning Planity");
+
+        ouvrirImportPlanityMatinEmma();
+
+    },400);
+
+    return;
+}
+
+
+    if(type === "repos"){
+
+    emmaNavigate?.("journal");
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "repos_activites"
+    );
+
+    setTimeout(() => {
+
+        ouvrirAssistantEmma?.();
+
+        ajouterMessageAssistantEmma?.(
+            "Journée repos ☁️✨ Tu as quelque chose de prévu aujourd’hui ? Rendez-vous, courses, repas, sortie, sport… Dis-moi tout, même en vrac. Si tu n’as rien de prévu, dis-moi simplement « rien »."
+        );
+
+    },300);
+
+    return;
+}
+}
+
 function renderJournalModule(){
-  ensureJournalData();
-  goJTab(jTabActive);
-  if(jTabActive===0) scrollVersMaintenant();
+
+    ensureJournalData();
+
+    goJTab(jTabActive);
+
+    if(jTabActive===0){
+        scrollVersMaintenant();
+    }
+
+    setTimeout(() => {
+        ouvrirRoutineMatinEmma();
+    },250);
+
 }
 
 function joursDepuis(dateStr){
@@ -37811,6 +38177,111 @@ if(tachesDeplacees !== false){
     return false;
 }
 
+function normaliserHabitudeEmma(texte){
+
+    return String(texte || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.,!?;:]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+
+function enregistrerHabitudeEmma(
+    texte,
+    typeJournee = "repos"
+){
+
+    ensureJournalData();
+
+    if(!Array.isArray(DB.journal.habitudes)){
+        DB.journal.habitudes = [];
+    }
+
+    const propre =
+        normaliserHabitudeEmma(texte);
+
+    if(!propre || propre.length < 3){
+        return;
+    }
+
+    const maintenant =
+        new Date();
+
+    const jourSemaine =
+        maintenant.getDay();
+
+    const today =
+        maintenant.toLocaleDateString(
+            "fr-CA"
+        );
+
+    const existante =
+        DB.journal.habitudes.find(h =>
+            h.texte === propre &&
+            h.typeJournee === typeJournee &&
+            h.jourSemaine === jourSemaine
+        );
+
+    if(existante){
+
+        // Une même habitude ne compte qu'une fois par jour
+        if(existante.derniereFois !== today){
+            existante.occurrences =
+                (existante.occurrences || 0) + 1;
+        }
+
+        existante.derniereFois =
+            today;
+
+    }else{
+
+        DB.journal.habitudes.push({
+            id: "hab_" + genId(),
+            texte: propre,
+            label: String(texte || "").trim(),
+            typeJournee,
+            jourSemaine,
+            occurrences: 1,
+            derniereFois: today
+        });
+
+    }
+
+    saveAll?.();
+}
+
+
+function getHabitudesProposeesEmma(
+    typeJournee = "repos"
+){
+
+    ensureJournalData();
+
+    const habitudes =
+        Array.isArray(DB.journal.habitudes)
+            ? DB.journal.habitudes
+            : [];
+
+    const jour =
+        new Date().getDay();
+
+    return habitudes
+        .filter(h =>
+            h.typeJournee === typeJournee &&
+            h.jourSemaine === jour &&
+            (h.occurrences || 0) >= 2
+        )
+        .sort(
+            (a,b) =>
+                (b.occurrences || 0) -
+                (a.occurrences || 0)
+        )
+        .slice(0,3);
+}
+
 function traiterCommandeAssistantEmma(
     texte,
     messageDejaAffiche = false
@@ -37830,6 +38301,382 @@ function traiterCommandeAssistantEmma(
         normaliserCommandeEmma(
             texte
         );
+
+   /* ═══════════════════════════════
+   ROUTINE DU MATIN
+═══════════════════════════════ */
+
+const preparationMatin =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(preparationMatin === "travail_autre"){
+
+    const reponseCourte =
+        normaliserCommandeEmma(texte);
+
+    // Rien d'autre de prévu
+    if(
+        reponseCourte === "non" ||
+        reponseCourte === "non rien" ||
+        reponseCourte.includes("rien de prevu") ||
+        reponseCourte.includes("rien d'autre")
+    ){
+
+        sessionStorage.setItem(
+            "emma_preparation_matin",
+            "travail_taches"
+        );
+
+        ajouterMessageAssistantEmma(
+            "Parfait 💼 Ton travail est calé. Maintenant, tu veux que je place des tâches maison dans ta journée ? Tu peux me dire par exemple « salle de bain ce soir », « aspirateur après le travail » ou simplement « oui, organise-moi ça »."
+        );
+
+        return;
+    }
+
+    /*
+       Sinon on laisse Claude comprendre
+       les événements donnés naturellement.
+
+       Après son traitement, on passera
+       automatiquement à l'étape tâches.
+    */
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "travail_autre_traitement"
+    );
+}
+
+/* ═══════════════════════════════
+   ROUTINE MATIN — TÂCHES MAISON
+═══════════════════════════════ */
+
+const etapeRoutineMatin =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(etapeRoutineMatin === "travail_taches"){
+
+    const today =
+        new Date()
+            .toLocaleDateString(
+                "fr-CA"
+            );
+
+    const reponse =
+        normaliserCommandeEmma(
+            texte
+        );
+
+    const veutOrganisationAuto =
+        reponse.includes("organise") ||
+        reponse.includes("organiser") ||
+        reponse.includes("comme tu veux") ||
+        reponse.includes("fais au mieux") ||
+        reponse.includes("automatique") ||
+        reponse === "oui";
+
+
+    /* ─────────────────────
+       ORGANISATION AUTOMATIQUE
+    ───────────────────── */
+
+    if(veutOrganisationAuto){
+
+        ajouterMessageAssistantEmma(
+            "Je regarde les meilleurs créneaux autour de ton travail… ✨"
+        );
+
+        appliquerPlanningIntelligent(today)
+            .then(async proposition => {
+
+                sessionStorage.setItem(
+                    "emma_preparation_matin",
+                    "terminee"
+                );
+
+                const nbBlocs =
+                    proposition?.blocs?.length || 0;
+
+                const nonPlaces =
+                    proposition?.nonPlaces || [];
+
+                try{
+                    await synchroniserNotificationsPlanningEmma?.(
+                        today
+                    );
+                }catch(e){
+                    console.warn(
+                        "Notifications planning",
+                        e
+                    );
+                }
+
+                try{
+                    renderJAujourdhui?.();
+                    renderHubOverview?.();
+                }catch(e){
+                    console.warn(e);
+                }
+
+                if(nbBlocs){
+
+                    let message =
+                        `C’est fait ✨ J’ai organisé ta journée et placé ${nbBlocs} bloc${nbBlocs > 1 ? "s" : ""} autour de ton travail.`;
+
+                    if(nonPlaces.length){
+                        message +=
+                            ` Je n’ai pas trouvé de place correcte pour ${nonPlaces.length} tâche${nonPlaces.length > 1 ? "s" : ""}, donc je les ai laissées de côté.`;
+                    }
+
+                    ajouterMessageAssistantEmma(
+                        message
+                    );
+
+                }else{
+
+                    ajouterMessageAssistantEmma(
+                        "Ton planning de travail est bien calé ✨ Je n’ai rien ajouté autour pour l’instant."
+                    );
+
+                }
+
+                setTimeout(() => {
+
+                    ajouterMessageAssistantEmma(
+                        "Ta journée est prête 🤍 Si quelque chose change, dis-moi simplement « j’ai fini plus tôt », « je rentre plus tard » ou ajoute-moi un événement."
+                    );
+
+                },300);
+
+            })
+            .catch(erreur => {
+
+                console.error(
+                    "Routine matin planning",
+                    erreur
+                );
+
+                ajouterMessageAssistantEmma(
+                    "Je n’ai pas réussi à organiser automatiquement la journée. Réessaie dans quelques secondes."
+                );
+
+            });
+
+        return;
+    }
+
+
+    /* ─────────────────────
+       PAS DE TÂCHES MAISON
+    ───────────────────── */
+
+    if(
+        reponse === "non" ||
+        reponse === "non merci" ||
+        reponse.includes("rien pour la maison") ||
+        reponse.includes("pas de tache") ||
+        reponse.includes("pas de ménage") ||
+        reponse.includes("pas de menage")
+    ){
+
+        sessionStorage.setItem(
+            "emma_preparation_matin",
+            "terminee"
+        );
+
+        ajouterMessageAssistantEmma(
+            "Très bien 💼 Je garde seulement ton travail et ce que tu avais déjà prévu. Ta journée est prête ✨"
+        );
+
+        return;
+    }
+
+
+    /*
+       Si Emma écrit des tâches précises :
+       "salle de bain vers 19h",
+       "aspirateur ce soir", etc.
+
+       On laisse Claude / le système existant
+       traiter le texte juste après.
+    */
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "travail_taches_traitement"
+    );
+}
+
+/* ═══════════════════════════════
+   ROUTINE MATIN — JOUR DE REPOS
+═══════════════════════════════ */
+
+const etapeRepos =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(etapeRepos === "repos_activites"){
+
+    const reponseRepos =
+        normaliserCommandeEmma(
+            texte
+        );
+
+    /* RIEN DE PRÉVU */
+
+    if(
+        reponseRepos === "rien" ||
+        reponseRepos === "non" ||
+        reponseRepos === "non rien" ||
+        reponseRepos.includes("rien de prevu")
+    ){
+
+        sessionStorage.setItem(
+            "emma_preparation_matin",
+            "repos_taches"
+        );
+
+        const habitudes =
+    getHabitudesProposeesEmma(
+        "repos"
+    );
+
+if(habitudes.length){
+
+    const liste =
+        habitudes
+            .map(h => `« ${h.label} »`)
+            .join(", ");
+
+    ajouterMessageAssistantEmma(
+        `Parfait ☁️ Tu fais souvent ${liste} ce jour-là. Tu veux que je te le propose pour aujourd’hui ? Sinon donne-moi simplement ce que tu aimerais faire.`
+    );
+
+}else{
+
+    ajouterMessageAssistantEmma(
+        "Parfait ☁️ Alors on construit ta journée comme on veut. Tu as des tâches que tu aimerais absolument faire aujourd’hui ? Tu peux me les donner, ou me dire « organise ma journée »."
+    );
+
+}
+
+        return;
+    }
+
+    /* ACTIVITÉS DONNÉES :
+       Claude les ajoute au planning */
+
+   
+   enregistrerHabitudeEmma(
+    texte,
+    "repos"
+);
+   
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "repos_activites_traitement"
+    );
+}
+
+if(etapeRepos === "repos_taches"){
+
+    const today =
+        new Date()
+            .toLocaleDateString(
+                "fr-CA"
+            );
+
+    const reponseRepos =
+        normaliserCommandeEmma(
+            texte
+        );
+
+    const veutOrganisation =
+        reponseRepos.includes("organise") ||
+        reponseRepos.includes("organiser") ||
+        reponseRepos.includes("fais au mieux") ||
+        reponseRepos.includes("comme tu veux") ||
+        reponseRepos === "oui";
+
+
+    if(veutOrganisation){
+
+        ajouterMessageAssistantEmma(
+            "Je te construis une journée équilibrée autour de ce que tu as prévu ✨"
+        );
+
+        appliquerPlanningIntelligent(today)
+            .then(async proposition => {
+
+                sessionStorage.setItem(
+                    "emma_preparation_matin",
+                    "terminee"
+                );
+
+                try{
+                    await synchroniserNotificationsPlanningEmma?.(
+                        today
+                    );
+                }catch(e){
+                    console.warn(e);
+                }
+
+                renderJAujourdhui?.();
+                renderHubOverview?.();
+
+                ajouterMessageAssistantEmma(
+                    "C’est prêt 🤍 J’ai organisé ta journée. Et si tes plans changent, dis-le-moi simplement et je réadapterai le planning."
+                );
+
+            })
+            .catch(e => {
+
+                console.error(
+                    "Routine repos",
+                    e
+                );
+
+                ajouterMessageAssistantEmma(
+                    "Je n’ai pas réussi à organiser la journée automatiquement."
+                );
+
+            });
+
+        return;
+    }
+
+
+    if(
+        reponseRepos === "non" ||
+        reponseRepos === "rien" ||
+        reponseRepos.includes("rien d'autre")
+    ){
+
+        sessionStorage.setItem(
+            "emma_preparation_matin",
+            "terminee"
+        );
+
+        ajouterMessageAssistantEmma(
+            "Très bien ☁️ Je garde une journée tranquille autour de ce que tu as déjà prévu."
+        );
+
+        return;
+    }
+
+
+    // Tâches précises → Claude les traite
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "repos_taches_traitement"
+    );
+}
 
    /* ───────────────
    RÉPONSE À UNE QUESTION EN ATTENTE
@@ -38138,7 +38985,166 @@ demanderClaudeEmma(texte)
             reponse
         );
 
-    })
+        const etapeMatin =
+            sessionStorage.getItem(
+                "emma_preparation_matin"
+            );
+
+        /*
+        Après avoir enregistré ce qu'Emma
+        avait d'autre de prévu
+        */
+        if(
+            etapeMatin ===
+            "travail_autre_traitement"
+        ){
+
+            sessionStorage.setItem(
+                "emma_preparation_matin",
+                "travail_taches"
+            );
+
+            setTimeout(() => {
+
+                ajouterMessageAssistantEmma(
+                    "Autre chose pour la maison ? 🏡 Tu peux me dire les tâches que tu aimerais faire et, si tu veux, à quel moment. Sinon dis-moi simplement « organise mes tâches » et je chercherai les meilleurs créneaux autour de ton travail."
+                );
+
+            },250);
+        }
+
+const etapeApresTaches =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(
+    etapeApresTaches ===
+    "travail_taches_traitement"
+){
+
+    const today =
+        new Date()
+            .toLocaleDateString(
+                "fr-CA"
+            );
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "terminee"
+    );
+
+    setTimeout(async () => {
+
+        ajouterMessageAssistantEmma(
+            "C’est noté 🏡✨ Je réorganise maintenant le reste de ta journée autour de tout ça."
+        );
+
+        try{
+
+            await appliquerPlanningIntelligent(
+                today
+            );
+
+            await synchroniserNotificationsPlanningEmma?.(
+                today
+            );
+
+            renderJAujourdhui?.();
+            renderHubOverview?.();
+
+            ajouterMessageAssistantEmma(
+                "Ta journée est prête 🤍"
+            );
+
+        }catch(e){
+
+            console.error(
+                "Organisation finale matin",
+                e
+            );
+
+        }
+
+    },250);
+}
+
+const etapeReposApresActivites =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(
+    etapeReposApresActivites ===
+    "repos_activites_traitement"
+){
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "repos_taches"
+    );
+
+    setTimeout(() => {
+
+        ajouterMessageAssistantEmma(
+            "C’est noté ☁️✨ Maintenant, tu veux faire quoi d’autre aujourd’hui ? Donne-moi tes tâches, ou dis-moi simplement « organise ma journée »."
+        );
+
+    },250);
+}
+
+const etapeReposFinale =
+    sessionStorage.getItem(
+        "emma_preparation_matin"
+    );
+
+if(
+    etapeReposFinale ===
+    "repos_taches_traitement"
+){
+
+    const today =
+        new Date()
+            .toLocaleDateString(
+                "fr-CA"
+            );
+
+    sessionStorage.setItem(
+        "emma_preparation_matin",
+        "terminee"
+    );
+
+    setTimeout(async () => {
+
+        ajouterMessageAssistantEmma(
+            "C’est noté ✨ Je place tout ça intelligemment dans ta journée."
+        );
+
+        try{
+
+            await appliquerPlanningIntelligent(
+                today
+            );
+
+            await synchroniserNotificationsPlanningEmma?.(
+                today
+            );
+
+            renderJAujourdhui?.();
+            renderHubOverview?.();
+
+            ajouterMessageAssistantEmma(
+                "Ta journée est prête 🤍"
+            );
+
+        }catch(e){
+            console.error(e);
+        }
+
+    },250);
+}
+   })
+   
     .catch(erreur => {
 
         if(messageAttente){
@@ -38228,6 +39234,65 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
       </button>
 
     </div>
+
+  </div>
+</div>
+
+<div id="emma-morning-overlay" class="emma-morning-overlay">
+  <div class="emma-morning-sheet">
+
+    <div class="emma-morning-handle"></div>
+
+    <div class="emma-morning-kicker">
+      ✦ EMMA · AUJOURD’HUI
+    </div>
+
+    <div class="emma-morning-title">
+      Qu’est-ce qu’on fait aujourd’hui ?
+    </div>
+
+    <div class="emma-morning-subtitle">
+      Je prépare ta journée avec toi.
+    </div>
+
+    <div class="emma-morning-options">
+
+      <button
+        class="emma-morning-option travail"
+        onclick="choisirTypeJourneeEmma('travail')"
+      >
+        <span class="emma-morning-icon">💼</span>
+
+        <span>
+          <strong>Je travaille</strong>
+          <small>Importer Planity et organiser le reste</small>
+        </span>
+
+        <b>›</b>
+      </button>
+
+      <button
+        class="emma-morning-option repos"
+        onclick="choisirTypeJourneeEmma('repos')"
+      >
+        <span class="emma-morning-icon">☁️</span>
+
+        <span>
+          <strong>Je suis en repos</strong>
+          <small>Construire une journée perso</small>
+        </span>
+
+        <b>›</b>
+      </button>
+
+    </div>
+
+    <button
+      class="emma-morning-later"
+      onclick="fermerRoutineMatinEmma()"
+    >
+      Plus tard
+    </button>
 
   </div>
 </div>
