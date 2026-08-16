@@ -31970,14 +31970,128 @@ async function recalculerResteJourneeEmma(date){
     );
 }
 
-function genererPlanningIntelligent(date){
+function genererPlanningIntelligent(
+    date,
+    options = {}
+){
+    let elements =
+    getElementsJourIntelligents(date);
 
-    const elements =
-        getElementsJourIntelligents(date);
 
-    const creneaux =
-        getCreneauxLibresIntelligents(date)
-        .map(c => ({ ...c }));
+/* =========================
+   PLAGE IMPOSÉE PAR EMMA
+========================= */
+
+let creneaux =
+    getCreneauxLibresIntelligents(date)
+    .map(c => ({ ...c }));
+
+
+// =========================
+// PLAGES TÂCHES IMPOSÉES
+// =========================
+
+const plagesTaches =
+    Array.isArray(options.plagesTaches)
+        ? options.plagesTaches
+        : [];
+
+
+if(plagesTaches.length){
+
+    const toMinutes = heure => {
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+
+    const toHeureLocale = minutes => {
+
+        const h =
+            Math.floor(minutes / 60);
+
+        const m =
+            minutes % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+
+    const creneauxLimites = [];
+
+
+    creneaux.forEach(creneau => {
+
+        const debutLibre =
+            toMinutes(creneau.debut);
+
+        const finLibre =
+            toMinutes(creneau.fin);
+
+
+        plagesTaches.forEach(plage => {
+
+            if(
+                !plage?.debut ||
+                !plage?.fin
+            ){
+                return;
+            }
+
+            const debutPlage =
+                toMinutes(plage.debut);
+
+            const finPlage =
+                toMinutes(plage.fin);
+
+
+            const debut =
+                Math.max(
+                    debutLibre,
+                    debutPlage
+                );
+
+            const fin =
+                Math.min(
+                    finLibre,
+                    finPlage
+                );
+
+
+            if(fin - debut >= 10){
+
+                creneauxLimites.push({
+
+                    ...creneau,
+
+                    debut:
+                        toHeureLocale(debut),
+
+                    fin:
+                        toHeureLocale(fin),
+
+                    duree:
+                        fin - debut
+
+                });
+
+            }
+
+        });
+
+    });
+
+
+    creneaux =
+        creneauxLimites;
+}
 
     const resultat = [];
     const nonPlaces = [];
@@ -32773,12 +32887,18 @@ creneaux.splice(
     };
 }
 
-async function appliquerPlanningIntelligent(date){
-
+async function appliquerPlanningIntelligent(
+    date,
+    options = {}
+){
+   
     ensureJournalData();
 
     const proposition =
-        genererPlanningIntelligent(date);
+        genererPlanningIntelligent(
+            date,
+            options
+        );
 
     const blocs =
         proposition?.blocs || [];
@@ -37641,6 +37761,105 @@ function envoyerCommandeEmma(){
 
 let attenteAssistantEmma = null;
 
+function getContexteTachesAssistantEmma(){
+
+    try{
+
+        ensureJournalData?.();
+
+        const zones =
+            Array.isArray(DB.journal?.zones)
+                ? DB.journal.zones
+                : [];
+
+        const taches = [];
+
+        zones.forEach(zone => {
+
+            const actions =
+                Array.isArray(zone.actions)
+                    ? zone.actions
+                    : [];
+
+            actions.forEach(action => {
+
+                const sousTaches =
+                    Array.isArray(action.sousTaches)
+                        ? action.sousTaches
+                        : [];
+
+                sousTaches.forEach(tache => {
+
+                    const nom =
+                        tache.customNom ||
+                        tache.nom ||
+                        tache.label;
+
+                    if(!nom) return;
+
+                    taches.push({
+                        zone:
+                            zone.nom ||
+                            zone.label ||
+                            "Maison",
+
+                        action:
+                            action.nom ||
+                            action.label ||
+                            "",
+
+                        tache: nom,
+
+                        id:
+                            tache.id || null
+                    });
+
+                });
+
+            });
+
+        });
+
+
+        if(!taches.length){
+            return "Aucune tâche enregistrée.";
+        }
+
+
+        return taches
+            .slice(0,100)
+            .map(t => {
+
+                let chemin = "";
+
+                if(t.zone){
+                    chemin += t.zone;
+                }
+
+                if(t.action){
+                    chemin +=
+                        ` > ${t.action}`;
+                }
+
+                chemin +=
+                    ` > ${t.tache}`;
+
+                return `- ${chemin}`;
+
+            })
+            .join("\n");
+
+    }catch(e){
+
+        console.warn(
+            "Contexte tâches EMMA :",
+            e
+        );
+
+        return "Liste des tâches indisponible.";
+    }
+}
+
 async function demanderClaudeEmma(message){
 
     try{
@@ -37674,6 +37893,9 @@ async function demanderClaudeEmma(message){
                         minute:"2-digit"
                     }
                 );
+
+       const contexteTaches =
+    getContexteTachesAssistantEmma();
 
         const response =
             await fetch(
@@ -37732,8 +37954,38 @@ AJOUTER UN ÉVÉNEMENT
     "titre":"Restaurant",
     "date":"YYYY-MM-DD",
     "heure":"HH:MM",
-    "duree":120,
-    "texte":"confirmation"
+    "duree":120
+}
+
+AJOUTER PLUSIEURS ÉVÉNEMENTS
+{
+    "type":"ajouter_evenements",
+    "evenements":[
+        {
+            "titre":"Préparation",
+            "date":"YYYY-MM-DD",
+            "heure":"11:30",
+            "duree":90
+        },
+        {
+            "titre":"Plage",
+            "date":"YYYY-MM-DD",
+            "heure":"13:00",
+            "duree":240
+        }
+    ]
+}
+
+ORGANISER LES TÂCHES
+{
+    "type":"organiser_taches",
+    "date":"YYYY-MM-DD",
+    "plages":[
+        {
+            "debut":"HH:MM",
+            "fin":"HH:MM"
+        }
+    ]
 }
 
 Règles :
@@ -37744,6 +37996,65 @@ Règles :
 
 - Si elle dit qu'elle va au restaurant, à un anniversaire, chez le coiffeur, chez quelqu'un, à une soirée, à un rendez-vous ou à une sortie, considère cela comme un événement à mettre dans son planning.
 
+- Si elle donne plusieurs activités ou plusieurs créneaux dans le même message, utilise TOUJOURS "ajouter_evenements".
+
+- Ne demande jamais confirmation si les informations nécessaires sont déjà présentes.
+
+- Si l'utilisatrice donne une ou plusieurs plages précises pour ses tâches, utilise "plages".
+
+Exemple :
+
+"organise mes tâches de 9h30 à 11h30"
+
+=>
+{
+    "type":"organiser_taches",
+    "date":"${date}",
+    "plages":[
+        {
+            "debut":"09:30",
+            "fin":"11:30"
+        }
+    ]
+}
+
+Exemple avec plusieurs plages :
+
+"je veux faire mes tâches de 9h30 à 11h30 puis de 18h30 à 20h"
+
+=>
+{
+    "type":"organiser_taches",
+    "date":"${date}",
+    "plages":[
+        {
+            "debut":"09:30",
+            "fin":"11:30"
+        },
+        {
+            "debut":"18:30",
+            "fin":"20:00"
+        }
+    ]
+}
+
+- Si elle ne donne aucune plage horaire, "plages" peut être omis.
+
+- Les plages indiquées concernent uniquement le temps disponible pour organiser les tâches.
+
+- Si elle dit par exemple :
+  "préparation de 11h30 à 13h, plage de 13h à 17h puis piscine jusqu'à 18h30"
+  tu dois créer directement plusieurs événements.
+
+- Si elle donne une heure de début et une heure de fin, calcule la durée en minutes.
+
+Exemples :
+11h30 → 13h = 90 minutes
+13h → 17h = 240 minutes
+17h → 18h30 = 90 minutes
+
+- Si elle donne directement l'heure, crée l'action immédiatement.
+
 - Si la date est connue mais pas l'heure, demande uniquement l'heure.
 
 - Restaurant : 120 minutes par défaut.
@@ -37751,14 +38062,49 @@ Règles :
 - Anniversaire / soirée : 180 minutes par défaut.
 - Rendez-vous : 60 minutes par défaut.
 
-- Si elle donne directement l'heure, crée l'action ajouter_evenement.
+- Si plusieurs événements sont donnés et qu'un seul n'a pas d'heure, ne bloque pas tous les autres. Ajoute ceux qui sont complets et pose une question uniquement si nécessaire.
+
+- Ne réponds jamais avec un récapitulatif demandant "veux-tu que je les ajoute ?" si les horaires sont déjà connus.
 
 - Ne dis jamais qu'un événement est ajouté si tu demandes encore une information.
 
 - Pour une question générale comme "qu'est-ce que je peux manger ce soir ?", utilise type "message".
 
+- Quand une phrase contient à la fois des événements et une demande d'organisation, commence par créer les événements explicitement donnés. L'organisation automatique du reste est gérée par EMMA OS.
+
+TÂCHES RÉELLEMENT ENREGISTRÉES DANS EMMA OS :
+
+${contexteTaches}
+
+Règles concernant les tâches :
+
+- Cette liste correspond aux vraies tâches enregistrées dans le Journal de l'utilisatrice.
+
+- Tu as donc accès à sa liste de tâches. Ne dis jamais que tu n'y as pas accès.
+
+- Si elle parle de "mes tâches", "les tâches de la maison", "mon ménage" ou demande quelles tâches elle doit faire, utilise cette liste comme contexte.
+
+- Ne transforme pas automatiquement chaque tâche de cette liste en événement de planning.
+
+- Si elle demande d'organiser, répartir ou placer ses tâches dans sa journée, utilise "organiser_taches".
+
+- Exemples :
+  "organise mes tâches"
+  "place mes tâches aujourd'hui"
+  "organise-moi le ménage"
+  "mets mes tâches dans les trous"
+
+  => réponds directement avec :
+  {
+      "type":"organiser_taches",
+      "date":"${date}"
+  }
+
+- Ne réponds jamais que tu ne peux pas organiser les tâches si elles sont présentes dans la liste fournie.
+- N'invente pas de tâche qui n'existe pas dans cette liste, sauf si l'utilisatrice demande explicitement d'en créer une nouvelle.
+
 Réponds toujours en français.
-                            `.trim(),
+`.trim(),
 
                             messages:[
                                 {
@@ -38096,6 +38442,239 @@ async function executerActionAssistantEmma(action){
         return true;
     }
 
+   /* ═══════════════════════════════
+   ORGANISER LES TÂCHES
+═══════════════════════════════ */
+
+if(action.type === "organiser_taches"){
+
+    const today =
+        action.date ||
+        new Date().toLocaleDateString("fr-CA");
+
+    ajouterMessageAssistantEmma(
+        "Je place tes tâches dans les meilleurs créneaux ✨"
+    );
+
+    try{
+
+        let plagesTaches = [];
+
+
+if(
+    Array.isArray(action.plages) &&
+    action.plages.length
+){
+
+    plagesTaches =
+        action.plages;
+
+}else if(
+    action.heureDebut &&
+    action.heureFin
+){
+
+    // Compatibilité avec l'ancien format
+    plagesTaches = [
+        {
+            debut:
+                action.heureDebut,
+
+            fin:
+                action.heureFin
+        }
+    ];
+
+}
+
+
+const proposition =
+    await appliquerPlanningIntelligent(
+        today,
+        {
+            plagesTaches
+        }
+    );
+
+        try{
+            await synchroniserNotificationsPlanningEmma?.(
+                today
+            );
+        }catch(e){
+            console.warn(e);
+        }
+
+        try{
+            renderJAujourdhui?.();
+            renderHubOverview?.();
+        }catch(e){
+            console.warn(e);
+        }
+
+        const nbBlocs =
+            proposition?.blocs?.length || 0;
+
+        const nonPlaces =
+            proposition?.nonPlaces || [];
+
+        let message =
+            nbBlocs
+                ? `C’est fait 🤍 J’ai organisé ${nbBlocs} bloc${nbBlocs > 1 ? "s" : ""} dans ta journée.`
+                : "J’ai vérifié ton planning 🤍 Je n’ai pas trouvé de nouvelle tâche à placer.";
+
+        if(nonPlaces.length){
+            message +=
+                ` ${nonPlaces.length} tâche${nonPlaces.length > 1 ? "s" : ""} n’a pas trouvé de créneau correct.`;
+        }
+
+        ajouterMessageAssistantEmma(
+            message
+        );
+
+    }catch(e){
+
+        console.error(
+            "Organisation tâches EMMA",
+            e
+        );
+
+        ajouterMessageAssistantEmma(
+            "Je n’ai pas réussi à organiser les tâches pour le moment."
+        );
+
+    }
+
+    return true;
+}
+
+/* ═══════════════════════════════
+   PLUSIEURS ÉVÉNEMENTS D'UN COUP
+═══════════════════════════════ */
+
+if(action.type === "ajouter_evenements"){
+
+    const evenements =
+        Array.isArray(action.evenements)
+            ? action.evenements
+            : [];
+
+    if(!evenements.length){
+
+        ajouterMessageAssistantEmma(
+            "Je n’ai trouvé aucun créneau à ajouter."
+        );
+
+        return true;
+    }
+
+    let ajoutes = [];
+    let erreurs = [];
+
+    for(const evenement of evenements){
+
+        try{
+
+            if(
+                !evenement.date ||
+                !evenement.heure
+            ){
+                erreurs.push(
+                    evenement.titre || "Événement"
+                );
+
+                continue;
+            }
+
+            const resultat =
+                await ajouterEvenementPlanningEmma(
+                    evenement
+                );
+
+            if(resultat !== false){
+
+                ajoutes.push(
+                    evenement.titre ||
+                    "Événement"
+                );
+
+            }else{
+
+                erreurs.push(
+                    evenement.titre ||
+                    "Événement"
+                );
+
+            }
+
+        }catch(e){
+
+            console.error(
+                "Ajout multiple EMMA",
+                evenement,
+                e
+            );
+
+            erreurs.push(
+                evenement.titre ||
+                "Événement"
+            );
+        }
+    }
+
+
+    attenteAssistantEmma = null;
+
+
+    /* RAFRAÎCHISSEMENT */
+
+    try{
+
+        if(
+            typeof renderJAujourdhui ===
+            "function"
+        ){
+            renderJAujourdhui();
+        }
+
+        if(
+            typeof renderHubOverview ===
+            "function"
+        ){
+            renderHubOverview();
+        }
+
+    }catch(e){
+        console.warn(e);
+    }
+
+
+    /* RÉPONSE */
+
+    if(ajoutes.length){
+
+        let message =
+            `C’est fait ✨ J’ai ajouté ${ajoutes.join(", ")} à ton planning.`;
+
+        if(erreurs.length){
+
+            message +=
+                ` Je n’ai pas réussi à placer ${erreurs.join(", ")}.`;
+        }
+
+        ajouterMessageAssistantEmma(
+            message
+        );
+
+    }else{
+
+        ajouterMessageAssistantEmma(
+            "Je n’ai pas réussi à ajouter les créneaux."
+        );
+
+    }
+
+    return true;
+}
 
     /* ÉVÉNEMENT PLANNING */
 
