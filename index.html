@@ -32910,10 +32910,42 @@ if(prefs.length){
         // =========================
 
         const reste =
-            creneau.duree -
-            element.duree;
+    creneau.duree -
+    element.duree;
 
-        score -= reste / 120;
+
+// =========================
+// 🧩 REMPLISSAGE INTELLIGENT
+// =========================
+
+// Ajustement parfait
+if(reste === 0){
+    score += 12;
+}
+
+// Très bon remplissage : moins de 10 min perdues
+else if(reste < 10){
+    score += 9;
+}
+
+// Bon remplissage : moins de 20 min restantes
+else if(reste < 20){
+    score += 5;
+}
+
+// On évite de gaspiller un petit créneau
+else if(
+    creneau.duree <= 30 &&
+    reste >= 15
+){
+    score -= 6;
+}
+
+// Pour les grands créneaux,
+// petite pénalité proportionnelle au vide restant
+else{
+    score -= reste / 60;
+}
 
 
         return score;
@@ -33171,8 +33203,34 @@ if(
     ajouterVraiePause();
 }
 
-// On ajoute toute la pièce ensemble.
-sequence.push(...session);
+// On garde la pièce groupée,
+// mais on favorise les tâches qui seront
+// les plus faciles à combiner dans les créneaux.
+
+const sessionOptimisee =
+    [...session].sort((a,b) => {
+
+        // 1. Les tâches importantes restent prioritaires
+        const scoreA =
+            Number(a.scoreTache || 0);
+
+        const scoreB =
+            Number(b.scoreTache || 0);
+
+        if(scoreA !== scoreB){
+            return scoreB - scoreA;
+        }
+
+        // 2. À priorité égale,
+        // on commence par les tâches courtes
+        // pour mieux remplir les petits créneaux.
+        return (
+            Number(a.duree || 0) -
+            Number(b.duree || 0)
+        );
+    });
+
+sequence.push(...sessionOptimisee);
 
 minutesMaisonCumulees += dureeSession;
 
@@ -33250,7 +33308,37 @@ sequence.push(
 // =========================
 
 const elementsTries =
-    sequence;
+    [...sequence].sort((a,b) => {
+
+        // Les éléments avec horaire imposé restent prioritaires
+        if(a.plageHoraire && !b.plageHoraire){
+            return -1;
+        }
+
+        if(!a.plageHoraire && b.plageHoraire){
+            return 1;
+        }
+
+        // Les priorités fortes restent prioritaires
+        const prioriteA =
+            Number(a.priorite ?? 5);
+
+        const prioriteB =
+            Number(b.priorite ?? 5);
+
+        if(prioriteA !== prioriteB){
+            return prioriteA - prioriteB;
+        }
+
+        // À priorité égale :
+        // les tâches longues passent d'abord.
+        // Les petits morceaux restants pourront ensuite
+        // être remplis avec les tâches courtes.
+        return (
+            Number(b.duree || 0) -
+            Number(a.duree || 0)
+        );
+    });
 
 
     // =========================
