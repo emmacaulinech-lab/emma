@@ -36556,6 +36556,10 @@ const estTempsLibre =
 
 let couleur = "#993556";
 
+// Couleur propre enregistrée sur l'événement
+if(p.couleur){
+    couleur = p.couleur;
+}
 
 // Temps libre
 if(estTempsLibre){
@@ -36635,12 +36639,15 @@ else if(categorie === "repas"){
     couleur = "#C4A24E";
 }
 
-
 // Bloc classique / manuel
 else if(zone?.couleur){
     couleur = zone.couleur;
 }
 
+     
+if(p.couleur){
+    couleur = p.couleur;
+}
 
 const bg =
     estTempsLibre
@@ -39059,6 +39066,51 @@ async function ajouterEvenementPlanningEmma(action){
     const fin =
         debut + duree;
 
+   // 🎨 Couleur automatique des événements personnels
+const paletteEvenements = [
+    "#E8A6BB", // rose
+    "#8DB9E8", // bleu
+    "#E8C96A", // jaune
+    "#A99AD9", // lilas
+    "#8FC9AD", // vert
+    "#E7A77F", // pêche
+    "#83C9D2"  // turquoise
+];
+
+// Couleurs déjà utilisées aujourd'hui par les événements perso
+const couleursUtilisees =
+    DB.journal.planning[action.date]
+        .filter(p =>
+            p.type === "perso" &&
+            p.couleur
+        )
+        .map(p => p.couleur);
+
+// On privilégie une couleur pas encore utilisée
+let couleurEvenement =
+    paletteEvenements.find(
+        couleur =>
+            !couleursUtilisees.includes(couleur)
+    );
+
+// Si toute la palette a déjà été utilisée,
+// on recommence en tournant dans la palette
+if(!couleurEvenement){
+
+    const nbEvenements =
+        DB.journal.planning[action.date]
+            .filter(p =>
+                p.type === "perso"
+            )
+            .length;
+
+    couleurEvenement =
+        paletteEvenements[
+            nbEvenements %
+            paletteEvenements.length
+        ];
+}
+
     // Création du vrai bloc Journal
     DB.journal.planning[action.date].push({
 
@@ -39074,6 +39126,9 @@ async function ajouterEvenementPlanningEmma(action){
 
         categorie:
             "evenement",
+
+       couleur:
+    couleurEvenement,
 
         nom:
             action.titre ||
