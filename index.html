@@ -4223,6 +4223,7 @@ auth.onAuthStateChanged(async user => {
 let DB = {
   caisse: [],
   banque: [],
+  semainesPerso: [],
   fixes: [],
   variables: [],
   salaires: [],
@@ -6105,6 +6106,9 @@ async function loadAll() {
       if(d.banque)      DB.banque      = JSON.parse(d.banque);
       if(d.fixes)       DB.fixes       = JSON.parse(d.fixes);
       if(d.variables)   DB.variables   = JSON.parse(d.variables);
+      if(d.semainesPerso){
+    DB.semainesPerso = JSON.parse(d.semainesPerso);
+}
       if(d.prestations) DB.prestations = JSON.parse(d.prestations);
       if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
        if(d.salaires) DB.salaires=JSON.parse(d.salaires);
@@ -6166,6 +6170,7 @@ async function loadAll() {
       caisse:      JSON.stringify(DB.caisse),
       banque:      JSON.stringify(DB.banque),
       fixes:       JSON.stringify(DB.fixes),
+      semainesPerso: JSON.stringify(DB.semainesPerso),
       variables:   JSON.stringify(DB.variables),
       prestations: JSON.stringify(DB.prestations),
       boutique:    JSON.stringify(DB.boutique),
@@ -6316,11 +6321,11 @@ function tooltip(val, formula){ return`<div class="tt-wrap"><span style="font-fa
 
     // Si des semaines personnalisées existent pour ce mois
     if(
-        DB.compta?.semainesPerso?.[cle] &&
-        DB.compta.semainesPerso[cle].length
-    ){
-        return DB.compta.semainesPerso[cle];
-    }
+    DB.semainesPerso?.[cle] &&
+    DB.semainesPerso[cle].length
+){
+    return DB.semainesPerso[cle];
+}
 
     // Sinon : fonctionnement automatique actuel
     const lastDay = new Date(y, m, 0).getDate();
@@ -6397,11 +6402,11 @@ async function modifierDatesSemaine(mois, index){
         DB.compta = {};
     }
 
-    if(!DB.compta.semainesPerso){
-        DB.compta.semainesPerso = {};
-    }
+    if(!DB.semainesPerso){
+    DB.semainesPerso = {};
+}
 
-    if(!DB.compta.semainesPerso[cleMois]){
+    if(!DB.semainesPerso[cleMois]){
 
     const lastDay =
         new Date(y, m, 0).getDate();
@@ -6433,11 +6438,11 @@ async function modifierDatesSemaine(mois, index){
         day = endDay + 1;
     }
 
-    DB.compta.semainesPerso[cleMois] =
+    DB.semainesPerso[cleMois] =
         semainesAuto;
 }
 
-    DB.compta.semainesPerso[cleMois][index] = {
+    DB.semainesPerso[cleMois][index] = {
         s,
         e
     };
