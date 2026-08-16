@@ -31977,6 +31977,18 @@ function genererPlanningIntelligent(
     let elements =
     getElementsJourIntelligents(date);
 
+// =========================
+// MODE TÂCHES MAISON UNIQUEMENT
+// =========================
+
+if(options.uniquementMaison){
+
+    elements =
+        elements.filter(element =>
+            element.categorie === "maison"
+        );
+
+}
 
 /* =========================
    PLAGE IMPOSÉE PAR EMMA
@@ -32891,8 +32903,11 @@ async function appliquerPlanningIntelligent(
     date,
     options = {}
 ){
-   
+
     ensureJournalData();
+
+    const mode =
+        options.mode || "remplacer";
 
     const proposition =
         genererPlanningIntelligent(
@@ -32907,25 +32922,94 @@ async function appliquerPlanningIntelligent(
         DB.journal.planning[date] = [];
     }
 
-    // On retire uniquement les anciens blocs auto-planifiés.
-    // Les clientes Planity et les blocs manuels restent intacts.
-    DB.journal.planning[date] =
-        DB.journal.planning[date]
-        .filter(p =>
-            !p.autoPlanifie
-        );
+
+    /* =========================
+       MODE REMPLACER
+       = construction complète
+    ========================= */
+
+    if(mode === "remplacer"){
+
+        DB.journal.planning[date] =
+            DB.journal.planning[date]
+            .filter(p =>
+                !p.autoPlanifie
+            );
+
+    }
+
+
+    /* =========================
+       MODE AJOUTER
+       = on garde tout ce qui
+         existe déjà
+    ========================= */
+
+    const planningActuel =
+        DB.journal.planning[date];
+
 
     blocs.forEach(bloc => {
 
-        DB.journal.planning[date].push({
+        const existeDeja =
+            planningActuel.some(p =>
+
+                (
+                    bloc.sourceId &&
+                    p.sourceId === bloc.sourceId
+                )
+
+                ||
+
+                (
+                    p.nom === bloc.nom &&
+                    p.heureDebut === bloc.heureDebut &&
+                    p.heureFin === bloc.heureFin
+                )
+
+            );
+
+
+        if(existeDeja){
+            return;
+        }
+
+
+        planningActuel.push({
+
             ...bloc,
+
             id:
                 bloc.id ||
                 genId(),
-            autoPlanifie: true
+
+            autoPlanifie:
+                true
+
         });
 
     });
+
+
+    planningActuel.sort((a,b) => {
+
+        const toMin = h => {
+
+            if(!h) return 9999;
+
+            const [heure,minute] =
+                h.split(":").map(Number);
+
+            return heure * 60 + minute;
+        };
+
+        return (
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
+        );
+
+    });
+
 
     await saveAll();
 
@@ -38492,6 +38576,8 @@ const proposition =
     await appliquerPlanningIntelligent(
         today,
         {
+            mode: "ajouter",
+            uniquementMaison: true,
             plagesTaches
         }
     );
