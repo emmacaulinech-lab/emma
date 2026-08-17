@@ -28021,6 +28021,15 @@ function ensureJournalData(){
             String(zone.icon || '').includes('\uFFFD')
         );
 
+    const contientIconePlanningCorrompue =
+        Object.values(DB.journal.planning || {})
+            .some(planningJour =>
+                Array.isArray(planningJour) &&
+                planningJour.some(bloc =>
+                    String(bloc.iconOverride || '').includes('\uFFFD')
+                )
+            );
+
     const iconesZonesOfficielles =
         contientIconeCorrompue
             ? new Map(
@@ -28059,6 +28068,39 @@ function ensureJournalData(){
         }
 
     });
+
+    // Les blocs déjà enregistrés conservent leur propre copie
+    // de l'icône. On la répare aussi pour tous les jours planifiés.
+    if(contientIconePlanningCorrompue){
+        const zonesParId =
+            new Map(
+                DB.journal.zones.map(zone => [zone.id, zone])
+            );
+
+        Object.values(DB.journal.planning || {})
+            .forEach(planningJour => {
+
+                if(!Array.isArray(planningJour)){
+                    return;
+                }
+
+                planningJour.forEach(bloc => {
+                    if(
+                        !String(bloc.iconOverride || '').includes('\uFFFD')
+                    ){
+                        return;
+                    }
+
+                    const zone =
+                        zonesParId.get(bloc.zoneId);
+
+                    if(zone?.icon){
+                        bloc.iconOverride = zone.icon;
+                        migre = true;
+                    }
+                });
+            });
+    }
 
     if(migre){
         saveAll();
