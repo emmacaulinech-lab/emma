@@ -36608,6 +36608,26 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
     return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg}"></div>`;
   }).join('');
 
+   // ─────────────────────────────
+// LIGNES HORAIRES — APPLE STYLE
+// ─────────────────────────────
+
+const lignesHoraires = reperes
+    .filter(h => h % 60 === 0)
+    .map(h => `
+        <div style="
+            position:absolute;
+            top:${yMap[h]}px;
+            left:0;
+            right:0;
+            height:1px;
+            background:rgba(60,60,67,.07);
+            pointer-events:none;
+            z-index:1;
+        "></div>
+    `)
+    .join('');
+
   const gouttiere=1;
   const blocsHtml=planning.map(p=>{
 
@@ -36750,9 +36770,44 @@ const bg =
     const clickHandlers=clickable?`onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')"`:`onclick="goModule('journal')"`;
     const checkHandler=clickable?`onclick="event.stopPropagation();togglePlanningFait('${p.id}')"`:'';
 
-    return`<div ${clickHandlers} style="position:absolute;top:${top}px;left:calc(${leftPct}% + ${gouttiere}px);width:calc(${largeurPct}% - ${gouttiere*2}px);height:${hgt}px;background:${bg};border:2px solid ${couleur};border-radius:12px;padding:0 12px;cursor:pointer;z-index:${expanded?50:2};box-sizing:border-box;overflow:visible;display:flex;flex-direction:column;justify-content:center">
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;text-align:center">
-      ${modeEditionPlanningJournal ? `
+return`<div ${clickHandlers} style="
+    position:absolute;
+    top:${top + 2}px;
+    left:calc(${leftPct}% + ${gouttiere + 2}px);
+    width:calc(${largeurPct}% - ${(gouttiere + 2) * 2}px);
+    height:${Math.max(hgt - 4, 24)}px;
+
+    background:${bg};
+    border:1px solid ${couleur}55;
+    border-left:4px solid ${couleur};
+
+    border-radius:10px;
+    padding:6px 10px;
+
+    cursor:pointer;
+    z-index:${expanded ? 50 : 2};
+    box-sizing:border-box;
+    overflow:visible;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+
+    box-shadow:
+        0 1px 2px rgba(0,0,0,.04),
+        0 3px 10px rgba(0,0,0,.035);
+
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+">      
+<div style="
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:7px;
+    text-align:left;
+    width:100%;
+">      ${modeEditionPlanningJournal ? `
     <span
         onclick="
             event.stopPropagation();
@@ -36778,18 +36833,83 @@ const bg =
         }
     </span>
 ` : ''}
-        <span ${checkHandler} style="width:20px;height:20px;border-radius:50%;border:2px solid ${couleur};background:${faitBloc?couleur:'white'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>':''}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.iconOverride||zone?.icon||'📌'} ${p.nom||p.customNom||'Tâche'}</div>
-          <div style="font-size:10px;color:${couleur};opacity:.8">${p.heureDebut}–${p.heureFin}</div>
-        </div>
-        ${clickable?`<span onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')" style="color:${couleur};font-size:11px;cursor:pointer;flex-shrink:0">${expanded?'▲':'▼'}</span>`:''}
-      </div>
-      ${expanded ? `
+<span ${checkHandler} style="
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    border:1.5px solid ${faitBloc ? couleur : couleur + '99'};
+    background:${faitBloc ? couleur : 'rgba(255,255,255,.75)'};
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    box-shadow:${faitBloc ? `0 1px 4px ${couleur}40` : 'none'};
+">        
+${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>':''}</span>
+        <div style="
+    flex:1;
+    min-width:0;
+    line-height:1.15;
+">
 
+    <div style="
+        font-weight:650;
+        font-size:12px;
+        letter-spacing:-0.15px;
+        color:#1d1d1f;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    ">
+        ${p.iconOverride||zone?.icon||'📌'}
+        ${p.nom||p.customNom||'Tâche'}
+    </div>
+
+    <div style="
+        margin-top:2px;
+        font-size:9.5px;
+        font-weight:500;
+        color:#6e6e73;
+        white-space:nowrap;
+    ">
+        ${p.heureDebut} – ${p.heureFin}
+    </div>
+
+</div>
+${clickable?`
+<span
+    onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')"
+    style="
+        width:22px;
+        height:22px;
+        border-radius:50%;
+        background:rgba(255,255,255,.55);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#8e8e93;
+        font-size:9px;
+        cursor:pointer;
+        flex-shrink:0;
+    "
+>
+    ${expanded ? '▲' : '▼'}
+</span>
+`:''}
+</div>
+      ${expanded ? `
 <div
-    style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"
-    onclick="event.stopPropagation()"
+style="
+    margin-top:7px;
+    padding-top:7px;
+    border-top:1px solid rgba(60,60,67,.10);
+    display:flex;
+    gap:5px;
+    flex-wrap:wrap;
+    align-items:center;
+"
+onclick="event.stopPropagation()"
 >
 
     ${
@@ -36808,25 +36928,65 @@ const bg =
             </div>
         `
         : `
-            <button class="btn bg bsm"
-                onclick="ouvrirAjustementHoraire('${p.id}')">
-                ⏱️ Ajuster horaires
-            </button>
+            <button
+onclick="ouvrirAjustementHoraire('${p.id}')"
+style="
+    border:0;
+    background:rgba(118,118,128,.10);
+    color:#3c3c43;
+    border-radius:9px;
+    padding:6px 9px;
+    font-size:10px;
+    font-weight:600;
+    cursor:pointer;
+">
+⏱ Ajuster
+</button>
 
-            <button class="btn bg bsm"
-                onclick="ouvrirReporter('${p.id}')">
-                ⏭️ Reporter
-            </button>
+<button
+onclick="ouvrirReporter('${p.id}')"
+style="
+    border:0;
+    background:rgba(118,118,128,.10);
+    color:#3c3c43;
+    border-radius:9px;
+    padding:6px 9px;
+    font-size:10px;
+    font-weight:600;
+    cursor:pointer;
+">
+⏭ Reporter
+</button>
 
-            <button class="btn bg bsm"
-                onclick="ouvrirRemplacer('${p.id}')">
-                🔄 Remplacer
-            </button>
+<button
+onclick="ouvrirRemplacer('${p.id}')"
+style="
+    border:0;
+    background:rgba(118,118,128,.10);
+    color:#3c3c43;
+    border-radius:9px;
+    padding:6px 9px;
+    font-size:10px;
+    font-weight:600;
+    cursor:pointer;
+">
+↻ Remplacer
+</button>
 
-            <button class="btn br bsm"
-                onclick="delPlanningItem('${p.id}')">
-                ✕ Retirer
-            </button>
+<button
+onclick="delPlanningItem('${p.id}')"
+style="
+    border:0;
+    background:rgba(255,59,48,.08);
+    color:#d84b43;
+    border-radius:9px;
+    padding:6px 9px;
+    font-size:10px;
+    font-weight:600;
+    cursor:pointer;
+">
+✕ Retirer
+</button>
         `
     }
 
@@ -36855,26 +37015,162 @@ const bg =
         }
       }
       if(yNow!==null){
-        ligneMaintenantHtml=`<div id="now-marker" style="position:absolute;top:${yNow}px;left:0;right:0;height:2px;background:#e11d48;z-index:45;pointer-events:none">
-          <div style="position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#e11d48"></div>
-          <div style="position:absolute;right:6px;top:-9px;background:#e11d48;color:white;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;font-family:'DM Mono',monospace">${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</div>
-        </div>`;
+ligneMaintenantHtml=`<div id="now-marker" style="position:absolute;top:${yNow}px;left:0;right:0;height:1px;background:#ff3b30;z-index:45;pointer-events:none">
+<div style="position:absolute;left:-4px;top:-4px;width:9px;height:9px;border-radius:50%;background:#ff3b30;box-shadow:0 0 0 2px rgba(255,255,255,.9)"></div>
+<div style="position:absolute;right:7px;top:-10px;background:#ff3b30;color:white;font-size:9px;font-weight:600;padding:2px 6px;border-radius:7px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif">
+</div>`;
       }
     }
   }
 
   return`
-    <div style="display:flex;position:relative;border-radius:16px;${options.noShadow?'':'box-shadow:var(--shadow);border:1.5px solid var(--brd);'}overflow:hidden">
-      <div style="width:56px;flex-shrink:0;border-right:1.5px solid var(--brd);position:relative;height:${hauteurTotale}px;background:white;z-index:5">
-        ${reperes.map(h=>`<div style="position:absolute;top:${yMap[h]-6}px;right:6px;font-size:9px;color:var(--mut);font-family:'DM Mono',monospace">${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}</div>`).join('')}
-      </div>
-      <div id="timeline-clickzone" ${clickable?`onmousemove="handleTimelineHover(event)" onmouseleave="handleTimelineLeave()" onclick="handleTimelineClick(event)"`:''} style="flex:1;position:relative;height:${hauteurTotale}px;background:white;${clickable?'cursor:pointer':''}">
+<div style="
+    display:flex;
+    position:relative;
+    border-radius:24px;
+
+    ${options.noShadow
+        ? ''
+        : `
+            box-shadow:
+                0 12px 35px rgba(30,50,80,.07),
+                inset 0 1px 0 rgba(255,255,255,.95);
+
+            border:
+                1px solid rgba(60,60,67,.08);
+        `
+    }
+
+    overflow:hidden;
+    background:rgba(255,255,255,.72);
+
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+">      <div style="
+    width:58px;
+    flex-shrink:0;
+    border-right:1px solid rgba(60,60,67,.06);
+    position:relative;
+    height:${hauteurTotale}px;
+    background:rgba(248,249,252,.62);
+    z-index:5;
+">
+
+${reperes.map(h=>`
+<div style="
+    position:absolute;
+    top:${yMap[h]-6}px;
+    right:8px;
+    font-size:9px;
+    color:#8e8e93;
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;
+    font-weight:500;
+    letter-spacing:-.1px;
+">
+    ${String(Math.floor(h/60)).padStart(2,'0')}:${String(h%60).padStart(2,'0')}
+</div>
+`).join('')}
+
+</div>
+      <div id="timeline-clickzone" ${clickable?`onmousemove="handleTimelineHover(event)" onmouseleave="handleTimelineLeave()" onclick="handleTimelineClick(event)"`:''} 
+      style="
+    flex:1;
+    position:relative;
+    height:${hauteurTotale}px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255,255,255,.84),
+            rgba(248,249,252,.76)
+        );
+
+    ${clickable ? 'cursor:pointer;' : ''}
+">
         ${fondsDispo}
-        ${blocsHtml}
+${lignesHoraires}
+${blocsHtml}
         ${ligneMaintenantHtml}
-        ${clickable?`<div id="timeline-hover-line" style="display:none;position:absolute;left:0;right:0;height:1px;background:var(--acc);z-index:40;pointer-events:none">
-          <div id="timeline-hover-label" style="position:absolute;left:6px;top:-9px;background:var(--acc);color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;font-family:'DM Mono',monospace"></div>
-        </div>`:''}
+        ${clickable ? `
+<div
+    id="timeline-hover-line"
+    style="
+        display:none;
+        position:absolute;
+        left:0;
+        right:0;
+
+        height:1px;
+
+        background:#7893c5;
+
+        z-index:40;
+        pointer-events:none;
+
+        box-shadow:
+            0 0 0 1px rgba(120,147,197,.08);
+    "
+>
+
+    <div style="
+        position:absolute;
+        left:-3px;
+        top:-3px;
+
+        width:7px;
+        height:7px;
+
+        border-radius:50%;
+
+        background:#7893c5;
+
+        box-shadow:
+            0 0 0 2px rgba(255,255,255,.92);
+    "></div>
+
+    <div
+        id="timeline-hover-label"
+        style="
+            position:absolute;
+            left:8px;
+            top:-12px;
+
+            min-width:42px;
+
+            padding:3px 7px;
+
+            border-radius:8px;
+
+            background:
+                rgba(255,255,255,.94);
+
+            border:
+                1px solid rgba(60,60,67,.10);
+
+            color:#5c6f91;
+
+            font-size:9px;
+            font-weight:650;
+
+            text-align:center;
+
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                'SF Pro Text',
+                'Helvetica Neue',
+                Arial,
+                sans-serif;
+
+            box-shadow:
+                0 3px 10px rgba(30,50,80,.08);
+
+            backdrop-filter:blur(12px);
+        "
+    ></div>
+
+</div>
+` : ''}
       </div>
     </div>`;
 }
