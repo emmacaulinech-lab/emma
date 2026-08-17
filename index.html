@@ -35829,6 +35829,12 @@ ouvrirValidationScanJournal(
 
     };
 
+    input.oncancel = () => {
+        if(organisationJourneeApresScan){
+            ouvrirAnalyseMaisonJournal(true);
+        }
+    };
+
 
     input.click();
 }
@@ -36000,11 +36006,7 @@ function ouvrirValidationScanJournal(zoneId){
                     <button
                         class="btn bg"
                         style="flex:1"
-                        onclick="
-                            document
-                                .getElementById('modal-validation-scan')
-                                ?.remove()
-                        "
+                        onclick="fermerValidationScanJournal()"
                     >
                         Annuler
                     </button>
@@ -36023,11 +36025,7 @@ function ouvrirValidationScanJournal(zoneId){
                             <button
                                 class="btn bp"
                                 style="flex:2"
-                                onclick="
-                                    document
-                                        .getElementById('modal-validation-scan')
-                                        ?.remove()
-                                "
+                                onclick="fermerValidationScanJournal()"
                             >
                                 Terminer
                             </button>
@@ -36046,6 +36044,14 @@ function ouvrirValidationScanJournal(zoneId){
         "beforeend",
         html
     );
+}
+
+function fermerValidationScanJournal(){
+    document.getElementById("modal-validation-scan")?.remove();
+
+    if(organisationJourneeApresScan){
+        ouvrirAnalyseMaisonJournal(true);
+    }
 }
 
 async function validerScanJournal(zoneId){
@@ -36119,12 +36125,19 @@ async function validerScanJournal(zoneId){
     // RECALCULER LE FUTUR
     // =========================
 
+    // Pendant la préparation d'une journée, on peut scanner
+    // plusieurs pièces avant de générer une seule proposition.
+    if(organisationJourneeApresScan){
+        ouvrirAnalyseMaisonJournal(true);
+        return;
+    }
+
     // Cela ouvre une NOUVELLE proposition.
     // La timeline ne change pas avant validation.
     reorganiserPlanningMaintenant();
 }
 
-function ouvrirAnalyseMaisonJournal(){
+function ouvrirAnalyseMaisonJournal(avantOrganisation = false){
 
     ensureJournalData();
 
@@ -36196,7 +36209,10 @@ function ouvrirAnalyseMaisonJournal(){
 
                     <button
                         class="btn bg"
-                        onclick="document.getElementById('modal-scan-maison')?.remove()"
+                        onclick="${avantOrganisation
+                            ? "terminerScanEtOrganiserJournal()"
+                            : "document.getElementById('modal-scan-maison')?.remove()"
+                        }"
                     >
                         ×
                     </button>
@@ -36255,6 +36271,16 @@ function ouvrirAnalyseMaisonJournal(){
 
                 </div>
 
+                ${avantOrganisation ? `
+                    <button
+                        class="btn bp"
+                        style="width:100%;justify-content:center;margin-top:16px"
+                        onclick="terminerScanEtOrganiserJournal()"
+                    >
+                        ✓ Terminer les scans et organiser ma journée
+                    </button>
+                ` : ""}
+
             </div>
 
         </div>
@@ -36264,6 +36290,18 @@ function ouvrirAnalyseMaisonJournal(){
         "beforeend",
         html
     );
+}
+
+async function terminerScanEtOrganiserJournal(){
+    document.getElementById("modal-scan-maison")?.remove();
+
+    const action = organisationJourneeApresScan;
+    organisationJourneeApresScan = null;
+
+    if(!action) return;
+
+    action.scanMaisonPropose = true;
+    await executerActionAssistantEmma(action);
 }
 
 function reorganiserPlanningMaintenant(){
@@ -39101,6 +39139,7 @@ function envoyerCommandeEmma(){
 }
 
 let attenteAssistantEmma = null;
+let organisationJourneeApresScan = null;
 
 function getContexteTachesAssistantEmma(){
 
@@ -39905,6 +39944,17 @@ async function executerActionAssistantEmma(action){
 ========================= */
 
 if(action.type === "organiser_journee"){
+
+    if(!action.scanMaisonPropose){
+        organisationJourneeApresScan = action;
+
+        ajouterMessageAssistantEmma(
+            "Avant de construire ta journée, tu peux scanner les pièces que tu veux prioriser 📸"
+        );
+
+        ouvrirAnalyseMaisonJournal(true);
+        return true;
+    }
 
     const date =
         action.date ||
