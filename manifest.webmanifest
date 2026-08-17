@@ -1,0 +1,17 @@
+{
+  "name": "EMMA OS",
+  "short_name": "EMMA",
+  "start_url": "/emma/",
+  "scope": "/emma/",
+  "display": "standalone",
+  "background_color": "#fff9f6",
+  "theme_color": "#d9798c",
+  "icons": [
+    {
+      "src": "/emma/emma-icon.png?v=2",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
