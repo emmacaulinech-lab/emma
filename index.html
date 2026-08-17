@@ -32733,7 +32733,9 @@ function genererPlanningIntelligent(
     options = {}
 ){
     let elements =
-    getElementsJourIntelligents(date);
+    options.selectionManuelle === true
+        ? []
+        : getElementsJourIntelligents(date);
 
 // Activités demandées directement à EMMA
 if(
@@ -36291,6 +36293,15 @@ async function terminerScanEtOrganiserJournal(){
 
     if(!action) return;
 
+    if(action.type === "preparation_planning_conversationnelle"){
+        ouvrirAssistantEmma();
+        ajouterMessageAssistantEmma(
+            "Merci pour les photos ♡ Je prépare maintenant les propositions à valider avec toi."
+        );
+        preparerCandidatsPlanningConversationEmma();
+        return;
+    }
+
     action.scanMaisonPropose = true;
     await executerActionAssistantEmma(action);
 }
@@ -39196,6 +39207,14 @@ function executerReponseRapideEmma(action,valeur=''){
     if(action==='terminer_tache') return terminerAccompagnementEmma();
     if(action==='plus_temps') return ajouterTempsAccompagnementEmma(10);
     if(action==='pause_tache') return mettreEnPauseAccompagnementEmma();
+    if(action==='planning_scan_oui') return choisirScanPreparationPlanningEmma(true);
+    if(action==='planning_scan_non') return choisirScanPreparationPlanningEmma(false);
+    if(action==='planning_oui') return repondreCandidatPlanningEmma('oui');
+    if(action==='planning_non') return repondreCandidatPlanningEmma('non');
+    if(action==='planning_prioritaire') return repondreCandidatPlanningEmma('prioritaire');
+    if(action==='planning_creer') return creerPlanningDepuisConversationEmma();
+    if(action==='planning_modifier') return recommencerChoixPlanningEmma();
+    if(action==='planning_annuler') return annulerPreparationPlanningEmma();
 }
 
 function initialiserAccueilConversationEmma(){
@@ -39217,6 +39236,12 @@ function initialiserAccueilConversationEmma(){
         }
 
         effacerAccompagnementEmma();
+    }
+
+    const preparationPlanning=chargerPreparationPlanningEmma();
+    if(preparationPlanning){
+        reprendrePreparationPlanningEmma();
+        return;
     }
 
     const session=chargerSessionPieceConversationEmma();
@@ -39339,6 +39364,322 @@ let organisationJourneeApresScan = null;
 let sessionScanMaison = null;
 let sessionPieceConversationEmma = null;
 let sessionAccompagnementEmma = null;
+let sessionPreparationPlanningEmma = null;
+
+function chargerPreparationPlanningEmma(){
+    if(sessionPreparationPlanningEmma){
+        return sessionPreparationPlanningEmma;
+    }
+
+    try{
+        sessionPreparationPlanningEmma=JSON.parse(
+            sessionStorage.getItem('emma_preparation_planning')||'null'
+        );
+    }catch(e){
+        sessionPreparationPlanningEmma=null;
+    }
+
+    return sessionPreparationPlanningEmma;
+}
+
+function sauvegarderPreparationPlanningEmma(){
+    if(sessionPreparationPlanningEmma){
+        sessionStorage.setItem(
+            'emma_preparation_planning',
+            JSON.stringify(sessionPreparationPlanningEmma)
+        );
+    }else{
+        sessionStorage.removeItem('emma_preparation_planning');
+    }
+}
+
+function demarrerPreparationPlanningEmma(mode='journee'){
+    const date=new Date().toLocaleDateString('fr-CA');
+
+    sessionPreparationPlanningEmma={
+        date,
+        mode,
+        etape:'choix_scan',
+        index:0,
+        candidats:[],
+        choix:[]
+    };
+    sauvegarderPreparationPlanningEmma();
+
+    ajouterMessageAssistantEmma(
+        mode==='suite'
+            ? 'D’accord ♡ Je garde tout ce qui est déjà fait. Avant de préparer la suite, veux-tu utiliser des photos de la maison ?'
+            : 'D’accord ♡ Avant de préparer ta journée, veux-tu utiliser des photos pour que mes propositions correspondent à l’état réel de la maison ?'
+    );
+    afficherReponsesRapidesEmma([
+        {label:'📸 Oui, avec un scan',action:'planning_scan_oui'},
+        {label:'✨ Non, sans scan',action:'planning_scan_non'},
+        {label:'Annuler',action:'planning_annuler'}
+    ]);
+}
+
+function reprendrePreparationPlanningEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+
+    if(session.etape==='choix_scan'){
+        ajouterMessageAssistantEmma(
+            'On préparait ton planning. Veux-tu continuer avec un scan de la maison ?'
+        );
+        afficherReponsesRapidesEmma([
+            {label:'📸 Oui, avec un scan',action:'planning_scan_oui'},
+            {label:'✨ Non, sans scan',action:'planning_scan_non'},
+            {label:'Annuler',action:'planning_annuler'}
+        ]);
+        return;
+    }
+
+    if(session.etape==='validation'){
+        afficherCandidatPlanningEmma();
+        return;
+    }
+
+    afficherRecapPlanningEmma();
+}
+
+function choisirScanPreparationPlanningEmma(avecScan){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+
+    session.avecScan=avecScan;
+    sauvegarderPreparationPlanningEmma();
+
+    if(avecScan){
+        sessionScanMaison=null;
+        organisationJourneeApresScan={
+            type:'preparation_planning_conversationnelle'
+        };
+        ajouterMessageAssistantEmma(
+            'Parfait 📸 Prends les photos utiles. Je préparerai ensuite les choix avec toi, sans encore toucher au planning.'
+        );
+        fermerAssistantEmma();
+        ouvrirAnalyseMaisonJournal(true);
+        return;
+    }
+
+    preparerCandidatsPlanningConversationEmma();
+}
+
+function cleElementPlanningConversationEmma(element){
+    return element?.data?.sousTacheId ||
+        element?.stId ||
+        element?.sourceId ||
+        element?.id;
+}
+
+function preparerCandidatsPlanningConversationEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+
+    ensureJournalData();
+    const maintenant=new Date();
+    const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+    const planning=DB.journal.planning?.[session.date]||[];
+    const faitMap=DB.journal.faitAujourdhui?.[session.date]||{};
+
+    const existants=planning
+        .filter(bloc=>
+            bloc.heureFin&&
+            strToMin(bloc.heureFin)>minuteActuelle&&
+            !faitMap[bloc.id]&&
+            !faitMap[cleElementPlanningConversationEmma(bloc)]&&
+            !bloc.verrouille&&
+            bloc.source!=='planity'&&
+            bloc.type!=='tempsLibre'
+        )
+        .map(bloc=>({
+            cle:cleElementPlanningConversationEmma(bloc),
+            origine:'existante',
+            planningId:bloc.id,
+            nom:bloc.nom||bloc.customNom||'Tâche prévue',
+            icon:bloc.iconOverride||'📌',
+            duree:Number(bloc.duree||5),
+            raison:`Déjà prévue à ${bloc.heureDebut}`,
+            element:bloc
+        }))
+        .slice(0,12);
+
+    const clesExistantes=new Set(existants.map(item=>item.cle));
+    const nouvelles=getElementsJourIntelligents(session.date)
+        .filter(element=>!clesExistantes.has(cleElementPlanningConversationEmma(element)))
+        .slice(0,Math.max(0,12-existants.length))
+        .map(element=>({
+            cle:cleElementPlanningConversationEmma(element),
+            origine:'nouvelle',
+            nom:element.nom||element.customNom||'Proposition',
+            icon:element.icon||element.iconOverride||'✨',
+            duree:Number(element.duree||5),
+            raison:
+                element.categorie==='detente'
+                    ? 'Pause proposée selon le rythme de ta journée'
+                    : element.prioritaireScan
+                        ? 'Repérée grâce aux photos'
+                        : 'Utile aujourd’hui selon tes priorités',
+            element
+        }));
+
+    session.candidats=[...existants,...nouvelles];
+    session.index=0;
+    session.choix=[];
+    session.etape='validation';
+    sauvegarderPreparationPlanningEmma();
+
+    ouvrirAssistantEmma();
+    ajouterMessageAssistantEmma(
+        session.candidats.length
+            ? `J’ai ${session.candidats.length} proposition${session.candidats.length>1?'s':''} à vérifier avec toi. Rien ne sera ajouté avant ton accord final.`
+            : 'Je n’ai trouvé aucune tâche utile à ajouter pour le moment.'
+    );
+
+    if(session.candidats.length){
+        afficherCandidatPlanningEmma();
+    }else{
+        afficherRecapPlanningEmma();
+    }
+}
+
+function afficherCandidatPlanningEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+    const candidat=session.candidats[session.index];
+
+    if(!candidat){
+        afficherRecapPlanningEmma();
+        return;
+    }
+
+    ajouterMessageAssistantEmma(
+        `${candidat.icon} ${candidat.nom} — environ ${candidat.duree} min. ${candidat.raison}. Tu veux la garder aujourd’hui ?`
+    );
+    afficherReponsesRapidesEmma([
+        {label:'✓ Oui, aujourd’hui',action:'planning_oui'},
+        {label:'★ Oui, prioritaire',action:'planning_prioritaire'},
+        {label:'Non, pas aujourd’hui',action:'planning_non'},
+        {label:'Annuler',action:'planning_annuler'}
+    ]);
+}
+
+function repondreCandidatPlanningEmma(reponse){
+    const session=chargerPreparationPlanningEmma();
+    const candidat=session?.candidats?.[session.index];
+    if(!session||!candidat) return;
+
+    session.choix.push({
+        cle:candidat.cle,
+        origine:candidat.origine,
+        planningId:candidat.planningId||null,
+        accepte:reponse!=='non',
+        prioritaire:reponse==='prioritaire',
+        candidat
+    });
+    session.index+=1;
+    sauvegarderPreparationPlanningEmma();
+    afficherCandidatPlanningEmma();
+}
+
+function afficherRecapPlanningEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+    session.etape='recap';
+    sauvegarderPreparationPlanningEmma();
+
+    const retenues=(session.choix||[]).filter(choix=>choix.accepte);
+    const refusees=(session.choix||[]).filter(choix=>!choix.accepte);
+    const liste=retenues.length
+        ? retenues.map(choix=>`${choix.prioritaire?'★ ':'• '}${choix.candidat.nom}`).join('\n')
+        : '• Aucune nouvelle tâche';
+
+    ajouterMessageAssistantEmma(
+        `Voici ton choix :\n${liste}\n\n${refusees.length} proposition${refusees.length>1?'s':''} laissée${refusees.length>1?'s':''} de côté. Les tâches déjà faites restent protégées.`
+    );
+    afficherReponsesRapidesEmma([
+        {label:'✓ Créer mon planning',action:'planning_creer'},
+        {label:'↩ Modifier mes choix',action:'planning_modifier'},
+        {label:'Annuler',action:'planning_annuler'}
+    ]);
+}
+
+function recommencerChoixPlanningEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+    session.index=0;
+    session.choix=[];
+    session.etape='validation';
+    sauvegarderPreparationPlanningEmma();
+    ajouterMessageAssistantEmma('D’accord, on reprend les choix depuis le début.');
+    afficherCandidatPlanningEmma();
+}
+
+async function creerPlanningDepuisConversationEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+    const planning=DB.journal.planning?.[session.date]||[];
+    const choix=session.choix||[];
+
+    const idsExistantsRefuses=new Set(
+        choix
+            .filter(choix=>choix.origine==='existante'&&!choix.accepte)
+            .map(choix=>choix.planningId)
+    );
+
+    DB.journal.planning[session.date]=planning.filter(bloc=>
+        !idsExistantsRefuses.has(bloc.id)
+    );
+
+    const nouveaux=choix
+        .filter(choix=>choix.origine==='nouvelle'&&choix.accepte)
+        .map(choix=>({
+            ...choix.candidat.element,
+            priorite:choix.prioritaire
+                ? 0
+                : choix.candidat.element.priorite
+        }));
+
+    const proposition=await appliquerPlanningIntelligent(
+        session.date,
+        {
+            mode:'ajouter',
+            selectionManuelle:true,
+            elementsSupplementaires:nouveaux
+        }
+    );
+
+    await synchroniserNotificationsPlanningEmma?.(session.date);
+    renderJAujourdhui?.();
+    renderHubOverview?.();
+
+    const ajoutes=proposition?.blocs?.length||0;
+    sessionPreparationPlanningEmma=null;
+    sauvegarderPreparationPlanningEmma();
+    organisationJourneeApresScan=null;
+
+    ajouterMessageAssistantEmma(
+        `C’est prêt ♡ J’ai gardé tes choix et placé ${ajoutes} nouveau${ajoutes>1?'x':''} bloc${ajoutes>1?'s':''} dans les créneaux libres. Rien de déjà fait n’a été supprimé.`
+    );
+    afficherReponsesRapidesEmma([
+        {label:'📔 Voir la timeline',action:'journal'},
+        {label:'✨ Ajuster encore',action:'organiser'}
+    ]);
+}
+
+function annulerPreparationPlanningEmma(){
+    sessionPreparationPlanningEmma=null;
+    sauvegarderPreparationPlanningEmma();
+    organisationJourneeApresScan=null;
+    sessionScanMaison=null;
+    ajouterMessageAssistantEmma(
+        'D’accord, j’annule cette préparation. Ton planning reste inchangé.'
+    );
+    afficherReponsesRapidesEmma([
+        {label:'📔 Voir ma journée',action:'journal'},
+        {label:'✨ Recommencer',action:'organiser'}
+    ]);
+}
 
 function chargerAccompagnementEmma(){
     if(sessionAccompagnementEmma) return sessionAccompagnementEmma;
@@ -40489,118 +40830,13 @@ async function executerActionAssistantEmma(action){
 
 if(action.type === "organiser_journee"){
 
-    if(!action.scanMaisonPropose){
-        organisationJourneeApresScan = action;
+    const mode =
+        action.mode === "suite" ||
+        action.reorganiser === true
+            ? "suite"
+            : "journee";
 
-        ajouterMessageAssistantEmma(
-            "Avant de construire ta journée, tu peux scanner les pièces que tu veux prioriser 📸"
-        );
-
-        ouvrirAnalyseMaisonJournal(true);
-        return true;
-    }
-
-    const date =
-        action.date ||
-        new Date().toLocaleDateString("fr-CA");
-
-    const activites =
-        Array.isArray(action.activites)
-            ? action.activites
-            : [];
-
-    // Ajouter les activités demandées par l'utilisatrice
-    const elementsSupplementaires =
-        activites.map((activite,index) => ({
-
-            id:
-                "assistant_activite_" +
-                Date.now() +
-                "_" +
-                index,
-
-            source:"assistant",
-
-            type:"perso",
-
-            categorie:
-                activite.categorie ||
-                "detente",
-
-            nom:
-                activite.titre ||
-                "Temps libre",
-
-            customNom:
-                activite.titre ||
-                "Temps libre",
-
-            icon:
-                activite.categorie === "lecture"
-                    ? "📖"
-                    : activite.categorie === "sport"
-                        ? "🌿"
-                        : "☀️",
-
-            duree:
-                Number(activite.duree) || 45,
-
-            priorite:5,
-
-            flexible:true,
-
-            verrouille:false,
-
-            assistantJournee:true
-
-        }));
-
-
-    const options = {
-
-        uniquementMaison:false,
-
-        elementsSupplementaires,
-
-        modeJourneeEquilibree:true
-
-    };
-
-
-    // Si elle impose une heure de début aux tâches maison
-    if(action.heureDebutTaches){
-
-        options.heureDebutTaches =
-            action.heureDebutTaches;
-
-    }
-
-
-    ajouterMessageAssistantEmma(
-        "Je te construis une journée équilibrée autour de ce que tu veux faire ✨"
-    );
-
-
-    const proposition =
-        await appliquerPlanningIntelligent(
-            date,
-            options
-        );
-
-
-    const nombre =
-        proposition?.blocs?.length || 0;
-
-
-    ajouterMessageAssistantEmma(
-        nombre
-            ? `C’est prêt 🤍 J’ai réparti ta journée avec tes tâches et tes moments pour toi.`
-            : "Je n’ai pas réussi à construire la journée."
-    );
-
-
-    attenteAssistantEmma = null;
-
+    demarrerPreparationPlanningEmma(mode);
     return true;
 }
 
@@ -41059,6 +41295,67 @@ function traiterCommandeAssistantEmma(
             mettreEnPauseAccompagnementEmma();
             return;
         }
+    }
+
+    const preparationPlanningActive=chargerPreparationPlanningEmma?.();
+    if(preparationPlanningActive){
+        if(/^(annule|annuler|stop)$/.test(commande)){
+            annulerPreparationPlanningEmma();
+            return;
+        }
+
+        if(preparationPlanningActive.etape==='choix_scan'){
+            if(/(avec.*scan|avec.*photo|oui.*scan)/.test(commande)){
+                choisirScanPreparationPlanningEmma(true);
+                return;
+            }
+            if(/(sans.*scan|sans.*photo|^non$)/.test(commande)){
+                choisirScanPreparationPlanningEmma(false);
+                return;
+            }
+        }
+
+        if(preparationPlanningActive.etape==='validation'){
+            if(/(prioritaire|absolument|important)/.test(commande)){
+                repondreCandidatPlanningEmma('prioritaire');
+                return;
+            }
+            if(/^(oui|garde|je veux|d'accord|d accord)/.test(commande)){
+                repondreCandidatPlanningEmma('oui');
+                return;
+            }
+            if(/^(non|retire|pas aujourd'hui|pas aujourd hui)/.test(commande)){
+                repondreCandidatPlanningEmma('non');
+                return;
+            }
+        }
+
+        if(preparationPlanningActive.etape==='recap'){
+            if(/(cree|creer|valide|construis|fais le planning)/.test(commande)){
+                creerPlanningDepuisConversationEmma();
+                return;
+            }
+            if(/(modifie|recommence|changer)/.test(commande)){
+                recommencerChoixPlanningEmma();
+                return;
+            }
+        }
+    }
+
+    if(
+        /(reorganise|reorganiser|réorganise|réorganiser)/.test(commande) &&
+        /(suite|reste|journee|journée)/.test(commande)
+    ){
+        demarrerPreparationPlanningEmma('suite');
+        return;
+    }
+
+    if(
+        /(organise|organiser)/.test(commande) &&
+        /(ma journee|la journee|mon planning)/.test(commande)
+    ){
+        demarrerPreparationPlanningEmma('journee');
+        return;
     }
 
     const zoneMaisonDemandee =
