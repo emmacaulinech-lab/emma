@@ -32617,6 +32617,46 @@ function genererPlanningIntelligent(
     let elements =
     getElementsJourIntelligents(date);
 
+// Activités demandées directement à EMMA
+if(
+    Array.isArray(options.elementsSupplementaires) &&
+    options.elementsSupplementaires.length
+){
+    elements = [
+        ...elements,
+        ...options.elementsSupplementaires
+    ];
+}
+
+// Si l'utilisatrice donne une heure
+// à partir de laquelle commencer le ménage
+if(options.heureDebutTaches){
+
+    elements =
+        elements.map(element => {
+
+            if(
+                element.categorie !== "maison"
+            ){
+                return element;
+            }
+
+            return {
+                ...element,
+
+                plageHoraire:{
+                    debut:
+                        options.heureDebutTaches,
+
+                    fin:
+                        "20:00"
+                }
+            };
+
+        });
+
+}
+
 // =========================
 // MODE TÂCHES MAISON UNIQUEMENT
 // =========================
@@ -32865,12 +32905,65 @@ if(plagesTaches.length){
 
         if(element.categorie === "lecture"){
 
-            // Lecture plutôt en fin de journée
-            if(debut >= 19 * 60){
-                score += 5;
-            }
+    // Lecture plutôt dans la seconde partie de journée
+    if(debut >= 14 * 60){
+        score += 3;
+    }
 
-        }
+}
+
+// =========================
+// PLAGE HORAIRE PRÉFÉRÉE
+// =========================
+
+if(element.preferenceHoraire){
+
+    const prefDebut =
+        toMin(
+            element.preferenceHoraire.debut
+        );
+
+    const prefFin =
+        toMin(
+            element.preferenceHoraire.fin
+        );
+
+    const milieuElement =
+        debut +
+        element.duree / 2;
+
+
+    // Dans la plage idéale
+    if(
+        debut >= prefDebut &&
+        finElement <= prefFin
+    ){
+        score += 12;
+    }
+
+    // Avant la plage idéale
+    else if(finElement <= prefDebut){
+
+        const ecart =
+            prefDebut -
+            finElement;
+
+        score -=
+            ecart / 15;
+    }
+
+    // Après la plage idéale
+    else if(debut >= prefFin){
+
+        const ecart =
+            debut -
+            prefFin;
+
+        score -=
+            ecart / 15;
+    }
+
+}
 
        // =========================
 // HEURE(S) PRÉFÉRÉE(S)
@@ -33000,15 +33093,36 @@ const detente = elements.filter(e =>
     !e.plageHoraire
 );
 
+// Vraies activités détente demandées à EMMA
+const detenteJournee =
+    detente.filter(e =>
+        e.assistantJournee
+    );
+
 const projetsPerso = elements.filter(e =>
     e.categorie === "projetPerso" &&
     !e.plageHoraire
 );
 
-const lecture = elements.filter(e =>
-    e.categorie === "lecture" &&
-    !e.plageHoraire
-);
+const lecture = elements
+    .filter(e =>
+        e.categorie === "lecture" &&
+        !e.plageHoraire
+    )
+    .map(e => ({
+        ...e,
+
+        // En mode journée équilibrée,
+        // la lecture est plutôt un moment calme
+        // à placer dans la seconde partie de journée.
+        preferenceHoraire:
+            options.modeJourneeEquilibree
+                ? {
+                    debut:"14:00",
+                    fin:"20:00"
+                }
+                : e.preferenceHoraire
+    }));
 
 const sport = elements.filter(e =>
     e.categorie === "sport" &&
@@ -33142,9 +33256,11 @@ let minutesMaisonCumulees = 0;
 function ajouterVraiePause(){
 
     const pauseDisponible =
-        detente.find((bloc,index) =>
-            index >= indexDetente
-        );
+    detente.find((bloc,index) =>
+        index >= indexDetente &&
+        !bloc.assistantJournee &&
+        Number(bloc.duree || 0) <= 30
+    );
 
     if(pauseDisponible){
 
@@ -33235,6 +33351,26 @@ sequence.push(...sessionOptimisee);
 minutesMaisonCumulees += dureeSession;
 
 // =========================
+// 🌤️ JOURNÉE ÉQUILIBRÉE
+// =========================
+
+// Après environ 2 sessions maison,
+// on insère une vraie activité détente
+// demandée à EMMA : piscine, balade, etc.
+
+if(
+    options.modeJourneeEquilibree &&
+    detenteJournee.length &&
+    index === 1
+){
+
+    sequence.push(
+        ...detenteJournee
+    );
+
+}
+
+// =========================
 // 💻 PROJET PERSO ENTRE DEUX
 // SESSIONS MAISON
 // =========================
@@ -33308,37 +33444,7 @@ sequence.push(
 // =========================
 
 const elementsTries =
-    [...sequence].sort((a,b) => {
-
-        // Les éléments avec horaire imposé restent prioritaires
-        if(a.plageHoraire && !b.plageHoraire){
-            return -1;
-        }
-
-        if(!a.plageHoraire && b.plageHoraire){
-            return 1;
-        }
-
-        // Les priorités fortes restent prioritaires
-        const prioriteA =
-            Number(a.priorite ?? 5);
-
-        const prioriteB =
-            Number(b.priorite ?? 5);
-
-        if(prioriteA !== prioriteB){
-            return prioriteA - prioriteB;
-        }
-
-        // À priorité égale :
-        // les tâches longues passent d'abord.
-        // Les petits morceaux restants pourront ensuite
-        // être remplis avec les tâches courtes.
-        return (
-            Number(b.duree || 0) -
-            Number(a.duree || 0)
-        );
-    });
+    sequence;
 
 
     // =========================
@@ -39103,11 +39209,80 @@ ORGANISER LES TÂCHES
     ]
 }
 
+ORGANISER LA JOURNÉE
+{
+    "type":"organiser_journee",
+    "date":"YYYY-MM-DD",
+    "heureDebutTaches":"HH:MM",
+    "activites":[
+        {
+            "titre":"Piscine",
+            "categorie":"detente",
+            "duree":90
+        },
+        {
+            "titre":"Lecture",
+            "categorie":"lecture",
+            "duree":45
+        }
+    ]
+}
+
 Règles :
 
 - "ce soir" = ${date}
 - "aujourd'hui" = ${date}
 - heure actuelle = ${heure}
+
+-- "organise mes tâches" et "organise ma journée" ne veulent PAS dire la même chose.
+
+- Si l'utilisatrice demande uniquement de placer ses tâches ou son ménage :
+  utilise "organiser_taches".
+
+- Si elle demande d'organiser toute sa journée :
+  utilise TOUJOURS "organiser_journee".
+
+- Une organisation de journée peut contenir :
+  tâches maison,
+  pauses,
+  lecture,
+  détente,
+  sport,
+  projets personnels
+  et les activités qu'elle mentionne.
+
+- Si elle indique l'heure à laquelle elle veut commencer les tâches,
+  renseigne "heureDebutTaches".
+
+- Si elle cite des activités souhaitées comme piscine, lecture, balade,
+  repos, bronzage, etc., ajoute-les dans "activites".
+
+- Ne remplis jamais toute la matinée uniquement avec des tâches maison
+  lorsqu'elle demande une journée équilibrée.
+
+Exemple :
+
+"rien, organise ma journée, je veux commencer les tâches maison à partir
+de 8h30 et je veux des moments de détente, piscine et lecture"
+
+=>
+{
+    "type":"organiser_journee",
+    "date":"${date}",
+    "heureDebutTaches":"08:30",
+    "activites":[
+        {
+            "titre":"Piscine",
+            "categorie":"detente",
+            "duree":90
+        },
+        {
+            "titre":"Lecture",
+            "categorie":"lecture",
+            "duree":45
+        }
+    ]
+}
 
 - Si elle dit qu'elle va au restaurant, à un anniversaire, chez le coiffeur, chez quelqu'un, à une soirée, à un rendez-vous ou à une sortie, considère cela comme un événement à mettre dans son planning.
 
@@ -39604,6 +39779,116 @@ async function executerActionAssistantEmma(action){
 
         return true;
     }
+
+   /* =========================
+   ORGANISER LA JOURNÉE
+========================= */
+
+if(action.type === "organiser_journee"){
+
+    const date =
+        action.date ||
+        new Date().toLocaleDateString("fr-CA");
+
+    const activites =
+        Array.isArray(action.activites)
+            ? action.activites
+            : [];
+
+    // Ajouter les activités demandées par l'utilisatrice
+    const elementsSupplementaires =
+        activites.map((activite,index) => ({
+
+            id:
+                "assistant_activite_" +
+                Date.now() +
+                "_" +
+                index,
+
+            source:"assistant",
+
+            type:"perso",
+
+            categorie:
+                activite.categorie ||
+                "detente",
+
+            nom:
+                activite.titre ||
+                "Temps libre",
+
+            customNom:
+                activite.titre ||
+                "Temps libre",
+
+            icon:
+                activite.categorie === "lecture"
+                    ? "📖"
+                    : activite.categorie === "sport"
+                        ? "🌿"
+                        : "☀️",
+
+            duree:
+                Number(activite.duree) || 45,
+
+            priorite:5,
+
+            flexible:true,
+
+            verrouille:false,
+
+            assistantJournee:true
+
+        }));
+
+
+    const options = {
+
+        uniquementMaison:false,
+
+        elementsSupplementaires,
+
+        modeJourneeEquilibree:true
+
+    };
+
+
+    // Si elle impose une heure de début aux tâches maison
+    if(action.heureDebutTaches){
+
+        options.heureDebutTaches =
+            action.heureDebutTaches;
+
+    }
+
+
+    ajouterMessageAssistantEmma(
+        "Je te construis une journée équilibrée autour de ce que tu veux faire ✨"
+    );
+
+
+    const proposition =
+        await appliquerPlanningIntelligent(
+            date,
+            options
+        );
+
+
+    const nombre =
+        proposition?.blocs?.length || 0;
+
+
+    ajouterMessageAssistantEmma(
+        nombre
+            ? `C’est prêt 🤍 J’ai réparti ta journée avec tes tâches et tes moments pour toi.`
+            : "Je n’ai pas réussi à construire la journée."
+    );
+
+
+    attenteAssistantEmma = null;
+
+    return true;
+}
 
    /* ═══════════════════════════════
    ORGANISER LES TÂCHES
