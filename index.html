@@ -5055,7 +5055,7 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
     goHub();
-    setTimeout(verifierCheckinEmma,700); 
+    setTimeout(initialiserAccueilConversationEmma,700);
   } else {
     currentUser = null;
     userRef = null;
@@ -35584,6 +35584,11 @@ function analyserPhotoPieceJournal(zoneId){
 
         if(!file){
             input.remove();
+            if(chargerSessionPieceConversationEmma?.()){
+                ouvrirAssistantEmma();
+                proposerProchainePhotoConversationEmma();
+                return;
+            }
             if(sessionScanMaison){
                 ouvrirAnalyseMaisonJournal(
                     sessionScanMaison.avantOrganisation
@@ -35882,6 +35887,34 @@ Réponds UNIQUEMENT en JSON valide :
             sessionScanMaison.pieces[zone.id] = pieceSession;
 
             toast(`✓ Photo ${pieceSession.nombrePhotos} analysée pour ${zone.nom}`);
+
+            const sessionConversation=
+                chargerSessionPieceConversationEmma?.();
+
+            if(sessionConversation?.zoneId===zone.id){
+                sessionConversation.nombrePhotos=pieceSession.nombrePhotos;
+
+                if(sessionConversation.sousZoneDemandee){
+                    sessionConversation.zonesVues=[
+                        ...new Set([
+                            ...(sessionConversation.zonesVues||[]),
+                            sessionConversation.sousZoneDemandee
+                        ])
+                    ];
+                }
+
+                sessionConversation.sousZoneDemandee=null;
+                sauvegarderSessionPieceConversationEmma();
+                ouvrirAssistantEmma();
+                ajouterMessageAssistantEmma(
+                    analyse.resume
+                        ? `J’ai analysé cette photo : ${analyse.resume}`
+                        : `Photo ${pieceSession.nombrePhotos} reçue pour ${zone.nom}.`
+                );
+                proposerProchainePhotoConversationEmma();
+                return;
+            }
+
             ouvrirAnalyseMaisonJournal(
                 sessionScanMaison.avantOrganisation
             );
@@ -35898,6 +35931,15 @@ Réponds UNIQUEMENT en JSON valide :
                 "Impossible d'analyser la photo"
             );
 
+            if(chargerSessionPieceConversationEmma?.()){
+                ouvrirAssistantEmma();
+                ajouterMessageAssistantEmma(
+                    "Je n’ai pas réussi à analyser cette photo. Tu peux réessayer ou terminer avec les photos déjà reçues."
+                );
+                proposerProchainePhotoConversationEmma();
+                return;
+            }
+
             if(sessionScanMaison){
                 ouvrirAnalyseMaisonJournal(
                     sessionScanMaison.avantOrganisation
@@ -35912,6 +35954,11 @@ Réponds UNIQUEMENT en JSON valide :
 
     input.oncancel = () => {
         input.remove();
+        if(chargerSessionPieceConversationEmma?.()){
+            ouvrirAssistantEmma();
+            proposerProchainePhotoConversationEmma();
+            return;
+        }
         if(sessionScanMaison){
             ouvrirAnalyseMaisonJournal(
                 sessionScanMaison.avantOrganisation
@@ -36463,7 +36510,7 @@ function ouvrirValidationGlobaleScanJournal(){
 
                 <div style="display:flex;gap:8px;margin-top:18px">
                     <button class="btn bg" style="flex:1" onclick="document.getElementById('modal-validation-scan-global')?.remove();ouvrirAnalyseMaisonJournal(${sessionScanMaison.avantOrganisation})">Retour</button>
-                    <button class="btn bp" style="flex:2" onclick="validerScanMaisonGlobal()">✓ Valider et ${sessionScanMaison.avantOrganisation ? "organiser" : "recalculer"}</button>
+                    <button class="btn bp" style="flex:2" onclick="validerScanMaisonGlobal()">✓ Valider et ${chargerSessionPieceConversationEmma?.() ? "continuer" : (sessionScanMaison.avantOrganisation ? "organiser" : "recalculer")}</button>
                 </div>
             </div>
         </div>`;
@@ -36473,6 +36520,9 @@ function ouvrirValidationGlobaleScanJournal(){
 
 async function validerScanMaisonGlobal(){
     if(!sessionScanMaison) return;
+
+    const sessionConversation =
+        chargerSessionPieceConversationEmma?.();
 
     const idsParZone = new Map();
     document.querySelectorAll(".scan-global-checkbox:checked")
@@ -36507,6 +36557,33 @@ async function validerScanMaisonGlobal(){
 
     await saveAll();
     toast("✓ Scan maison validé");
+
+    if(sessionConversation){
+        const nombreTaches = [...idsParZone.values()]
+            .reduce((total,ids) => total + ids.length,0);
+
+        ouvrirAssistantEmma();
+        ajouterMessageAssistantEmma(
+            nombreTaches
+                ? `J’ai retenu ${nombreTaches} tâche${nombreTaches > 1 ? "s" : ""} pour ${sessionConversation.zoneNom} ✨ Tu préfères qu’on s’en occupe maintenant ou que je les place intelligemment dans ta journée ?`
+                : `La pièce a l’air plutôt bien ✨ Je n’ai rien d’urgent à ajouter pour ${sessionConversation.zoneNom}.`
+        );
+
+        if(nombreTaches){
+            afficherReponsesRapidesEmma([
+                {label:"🧤 Faire maintenant",action:"faire_session"},
+                {label:"🗓️ Placer dans ma journée",action:"planifier_session"}
+            ]);
+        }else{
+            sessionPieceConversationEmma=null;
+            sauvegarderSessionPieceConversationEmma();
+            afficherReponsesRapidesEmma([
+                {label:"📸 Reprendre des photos",action:"session_piece",valeur:sessionConversation.zoneNom},
+                {label:"✨ Que faire maintenant ?",action:"quoi"}
+            ]);
+        }
+        return;
+    }
 
     if(avantOrganisation && organisationJourneeApresScan){
         await terminerScanEtOrganiserJournal();
@@ -39461,6 +39538,67 @@ function ajouterMessageAssistantEmma(
         zone.scrollHeight;
 }
 
+function afficherReponsesRapidesEmma(reponses=[]){
+    const zone=document.querySelector('.emma-assistant-suggestions');
+    if(!zone) return;
+
+    zone.innerHTML=reponses.map(reponse=>`
+        <button onclick="executerReponseRapideEmma('${reponse.action}','${reponse.valeur||''}')">
+            ${reponse.label}
+        </button>
+    `).join('');
+}
+
+function executerReponseRapideEmma(action,valeur=''){
+    if(action==='quoi') return commandeRapideEmma('quoi');
+    if(action==='journal') return commandeRapideEmma('journal');
+    if(action==='organiser') return traiterCommandeAssistantEmma('organise ma journée');
+    if(action==='session_piece') return demarrerSessionPieceConversationEmma(valeur);
+    if(action==='photo_piece') return prendrePhotoConversationEmma(valeur);
+    if(action==='fin_photos') return terminerPhotosConversationEmma();
+    if(action==='annuler_session') return annulerSessionPieceConversationEmma();
+    if(action==='planifier_session') return finaliserSessionPieceConversationEmma('planifier');
+    if(action==='faire_session') return finaliserSessionPieceConversationEmma('maintenant');
+}
+
+function initialiserAccueilConversationEmma(){
+    ouvrirAssistantEmma();
+
+    const session=chargerSessionPieceConversationEmma();
+    if(session){
+        ajouterMessageAssistantEmma(
+            `On était en train de regarder ${session.zoneNom}. Tu as déjà envoyé ${session.nombrePhotos||0} photo${session.nombrePhotos>1?'s':''}. On continue ?`
+        );
+        proposerProchainePhotoConversationEmma();
+        return;
+    }
+
+    const date=new Date().toISOString().split('T')[0];
+    const retard=getPlanningEnRetard?.()||[];
+    const planning=DB.journal?.planning?.[date]||[];
+    const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
+    const faites=planning.filter(p=>faitMap[p.id]).length;
+
+    if(retard.length){
+        ajouterMessageAssistantEmma(
+            `Bonjour Emma ♡ Tu as ${retard.length} tâche${retard.length>1?'s':''} en retard${faites?` et déjà ${faites} terminée${faites>1?'s':''}`:''}. Qu’est-ce qu’on fait ?`
+        );
+    }else{
+        ajouterMessageAssistantEmma(
+            faites
+                ? `Bonjour Emma ♡ Tu as déjà terminé ${faites} tâche${faites>1?'s':''}. Tu veux continuer, organiser la suite ou t’occuper d’une pièce ?`
+                : `Bonjour Emma ♡ Je suis prête. On organise ta journée ou on s’occupe d’une pièce de la maison ?`
+        );
+    }
+
+    afficherReponsesRapidesEmma([
+        {label:'✨ Que dois-je faire ?',action:'quoi'},
+        {label:'🍳 Faire la cuisine',action:'session_piece',valeur:'Cuisine'},
+        {label:'📔 Voir ma journée',action:'journal'},
+        {label:'🗓 Organiser',action:'organiser'}
+    ]);
+}
+
 
 function normaliserCommandeEmma(texte){
 
@@ -39544,6 +39682,154 @@ function envoyerCommandeEmma(){
 let attenteAssistantEmma = null;
 let organisationJourneeApresScan = null;
 let sessionScanMaison = null;
+let sessionPieceConversationEmma = null;
+
+const ZONES_PHOTOS_CONVERSATION = {
+    cuisine:["vue générale","évier","plaque","plan de travail","sol"],
+    salon:["vue générale","canapé","table basse","sol"],
+    chambre:["vue générale","lit","surfaces","sol"],
+    buanderie:["vue générale","machines","linge","sol"]
+};
+
+function chargerSessionPieceConversationEmma(){
+    if(sessionPieceConversationEmma) return sessionPieceConversationEmma;
+    try{
+        sessionPieceConversationEmma=JSON.parse(
+            sessionStorage.getItem('emma_session_piece')||'null'
+        );
+    }catch(e){
+        sessionPieceConversationEmma=null;
+    }
+    return sessionPieceConversationEmma;
+}
+
+function sauvegarderSessionPieceConversationEmma(){
+    if(sessionPieceConversationEmma){
+        sessionStorage.setItem('emma_session_piece',JSON.stringify(sessionPieceConversationEmma));
+    }else{
+        sessionStorage.removeItem('emma_session_piece');
+    }
+}
+
+function demarrerSessionPieceConversationEmma(nomZone){
+    ensureJournalData();
+    const recherche=normaliserCommandeEmma(nomZone);
+    const zone=DB.journal.zones.find(z=>
+        normaliserCommandeEmma(z.nom).includes(recherche)||
+        recherche.includes(normaliserCommandeEmma(z.nom))
+    );
+
+    if(!zone){
+        ajouterMessageAssistantEmma(`Je ne trouve pas encore la pièce « ${nomZone} » dans ta maison.`);
+        return;
+    }
+
+    const cle=normaliserCommandeEmma(zone.nom).split(' ')[0];
+    sessionPieceConversationEmma={
+        zoneId:zone.id,
+        zoneNom:zone.nom,
+        zonesAttendues:ZONES_PHOTOS_CONVERSATION[cle]||["vue générale","surfaces","sol"],
+        zonesVues:[],
+        nombrePhotos:0,
+        sousZoneDemandee:null
+    };
+    sauvegarderSessionPieceConversationEmma();
+
+    ajouterMessageAssistantEmma(
+        `D’accord ♡ On s’occupe de ${zone.nom}. Envoie-moi d’abord une vue générale, puis je te demanderai seulement les angles encore utiles.`
+    );
+    proposerProchainePhotoConversationEmma();
+}
+
+function proposerProchainePhotoConversationEmma(){
+    const session=chargerSessionPieceConversationEmma();
+    if(!session) return;
+    const suivante=session.zonesAttendues.find(z=>!session.zonesVues.includes(z));
+
+    if(!suivante){
+        ajouterMessageAssistantEmma(`J’ai une bonne vue de ${session.zoneNom}. On peut vérifier les tâches détectées.`);
+        afficherReponsesRapidesEmma([
+            {label:'✓ Vérifier les tâches',action:'fin_photos'},
+            {label:'📸 Ajouter une autre photo',action:'photo_piece',valeur:'autre angle'},
+            {label:'Annuler',action:'annuler_session'}
+        ]);
+        return;
+    }
+
+    afficherReponsesRapidesEmma([
+        {label:`📸 Envoyer : ${suivante}`,action:'photo_piece',valeur:suivante},
+        ...(session.nombrePhotos?[{label:'✓ J’ai terminé les photos',action:'fin_photos'}]:[]),
+        {label:'Annuler',action:'annuler_session'}
+    ]);
+}
+
+function prendrePhotoConversationEmma(sousZone){
+    const session=chargerSessionPieceConversationEmma();
+    if(!session) return;
+    session.sousZoneDemandee=sousZone;
+    sauvegarderSessionPieceConversationEmma();
+    fermerAssistantEmma();
+    analyserPhotoPieceJournal(session.zoneId);
+}
+
+function terminerPhotosConversationEmma(){
+    if(!sessionScanMaison||!Object.keys(sessionScanMaison.pieces||{}).length){
+        ajouterMessageAssistantEmma('Envoie-moi au moins une photo avant de terminer le scan.');
+        proposerProchainePhotoConversationEmma();
+        return;
+    }
+    fermerAssistantEmma();
+    ouvrirValidationGlobaleScanJournal();
+}
+
+function annulerSessionPieceConversationEmma(){
+    sessionPieceConversationEmma=null;
+    sessionScanMaison=null;
+    sauvegarderSessionPieceConversationEmma();
+    ajouterMessageAssistantEmma('D’accord, j’arrête cette session. Tu pourras la recommencer quand tu veux.');
+    afficherReponsesRapidesEmma([
+        {label:'✨ Que dois-je faire ?',action:'quoi'},
+        {label:'📔 Voir ma journée',action:'journal'}
+    ]);
+}
+
+async function finaliserSessionPieceConversationEmma(mode){
+    const session=chargerSessionPieceConversationEmma();
+    if(!session) return;
+
+    const date=new Date().toISOString().split('T')[0];
+    ajouterMessageAssistantEmma(
+        mode==='maintenant'
+            ? `Je réorganise la suite pour commencer par ${session.zoneNom} ✨`
+            : `Je place les tâches de ${session.zoneNom} dans les meilleurs créneaux ✨`
+    );
+
+    if(mode==='maintenant'){
+        await recalculerResteJourneeEmma(date);
+    }else{
+        await appliquerPlanningIntelligent(date);
+        await synchroniserNotificationsPlanningEmma?.(date);
+        renderJAujourdhui?.();
+    }
+
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    const prochaine=(DB.journal.planning?.[date]||[])
+        .filter(p=>!faitMap[p.id]&&(p.data?.zoneId||p.zoneId)===session.zoneId)
+        .sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''))[0];
+
+    ajouterMessageAssistantEmma(
+        prochaine
+            ? `${prochaine.nom||prochaine.customNom} est la prochaine action, prévue à ${prochaine.heureDebut}. Tu la retrouveras dans la timeline.`
+            : `C’est enregistré. Je n’ai pas trouvé de tâche supplémentaire à placer pour cette pièce.`
+    );
+
+    sessionPieceConversationEmma=null;
+    sauvegarderSessionPieceConversationEmma();
+    afficherReponsesRapidesEmma([
+        {label:'📔 Voir la timeline',action:'journal'},
+        {label:'✨ Que faire ensuite ?',action:'quoi'}
+    ]);
+}
 
 function getContexteTachesAssistantEmma(){
 
@@ -40904,6 +41190,23 @@ function traiterCommandeAssistantEmma(
         normaliserCommandeEmma(
             texte
         );
+
+    const zoneMaisonDemandee =
+        (DB.journal?.zones || []).find(zone =>
+            commande.includes(
+                normaliserCommandeEmma(zone.nom || "")
+            )
+        );
+
+    if(
+        zoneMaisonDemandee &&
+        /(menage|netto|ranger|m'occuper|m occuper|faire la|faire le)/.test(commande)
+    ){
+        demarrerSessionPieceConversationEmma(
+            zoneMaisonDemandee.nom
+        );
+        return;
+    }
 
    /* ═══════════════════════════════
    ROUTINE DU MATIN
