@@ -31214,6 +31214,9 @@ const idsTachesForcees =
             t => t.sousTacheId
         )
     );
+
+const faitMapJour =
+    DB.journal.faitAujourdhui?.[date] || {};
    
 const tachesCandidates = [];
 
@@ -31224,6 +31227,12 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
         const sousTachesCandidates =
     (action.sousTaches || [])
     .filter(st => {
+
+        // Une tâche déjà réellement terminée aujourd'hui
+        // ne doit jamais revenir dans le futur du planning.
+        if(faitMapJour[st.id] === true){
+            return false;
+        }
 
         // =========================
         // PROJET
@@ -32579,6 +32588,8 @@ async function recalculerResteJourneeEmma(date){
         return h * 60 + m;
     };
 
+    dedupliquerPlanningEmma(date);
+
     const planning =
         DB.journal.planning?.[date] || [];
 
@@ -32676,6 +32687,8 @@ async function recalculerResteJourneeEmma(date){
                 b.heureDebut || ""
             )
     );
+
+    dedupliquerPlanningEmma(date);
 
 
     await saveAll();
@@ -37295,6 +37308,10 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         white-space:nowrap;
     ">
         ${p.heureDebut} – ${p.heureFin}
+        ${p.realiseA && p.heurePrevueDebut
+            ? ` · prévu ${p.heurePrevueDebut}, fait ${p.realiseA}`
+            : ''
+        }
     </div>
 
 </div>
@@ -38232,7 +38249,13 @@ function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
   const today=getJournalJour();
+  const nombreAvant=(DB.journal.planning[today]||[]).length;
+  dedupliquerPlanningEmma(today);
   const planning=DB.journal.planning[today]||[];
+
+  if(planning.length<nombreAvant){
+    sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+  }
   const dispos =
     getCreneauxLibresIntelligents(today);
   if(!dispos.length&&!planning.length){ el.innerHTML=''; return; }
@@ -38298,7 +38321,29 @@ el.innerHTML =
             clickable:true,
             estAujourdhui
         }
-    );}
+    );
+
+  demarrerActualisationTimelineEmma();
+}
+
+let timerTimelineEmma=null;
+
+function demarrerActualisationTimelineEmma(){
+  if(timerTimelineEmma) return;
+
+  timerTimelineEmma=setInterval(()=>{
+    const timeline=document.getElementById('planning-timeline');
+    const moduleJournal=document.getElementById('module-journal');
+
+    if(
+      timeline &&
+      moduleJournal &&
+      getJournalJour()===new Date().toISOString().split('T')[0]
+    ){
+      renderPlanningTimeline();
+    }
+  },30000);
+}
 
 function scrollVersMaintenant(){
   setTimeout(()=>{
@@ -38519,33 +38564,141 @@ async function validerAjoutTacheHeure(){
   toast('✓ Tâche ajoutée');
 }
 
+function cleTachePlanningEmma(bloc){
+  return bloc.data?.sousTacheId||bloc.stId||bloc.sourceId||bloc.id;
+}
+
+function dedupliquerPlanningEmma(date){
+  const planning=DB.journal.planning?.[date]||[];
+  const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+  const vus=new Map();
+
+  planning.forEach(bloc=>{
+    const cle=cleTachePlanningEmma(bloc);
+    const deja=vus.get(cle);
+    if(!deja){ vus.set(cle,bloc); return; }
+
+    // On conserve en priorité la réalisation effective,
+    // puis un bloc fixe plutôt qu'une copie automatique.
+    const blocFait=faitMap[bloc.id]||bloc.realiseA;
+    const dejaFait=faitMap[deja.id]||deja.realiseA;
+    if((blocFait&&!dejaFait)||(bloc.verrouille&&!deja.verrouille)){
+      vus.set(cle,bloc);
+    }
+  });
+
+  DB.journal.planning[date]=[...vus.values()]
+    .sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
+}
+
 async function togglePlanningFait(planningId){
   const today=getJournalJour();
   if(!DB.journal.faitAujourdhui) DB.journal.faitAujourdhui={};
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
+
+  dedupliquerPlanningEmma(today);
   const item=(DB.journal.planning[today]||[]).find(p=>p.id===planningId);
   if(!item) return;
 
+  const sousTacheId=cleTachePlanningEmma(item);
+  const zoneId=item.data?.zoneId||item.zoneId;
+  const actionId=item.data?.actionId||item.actionId;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone?.actions.find(a=>a.id===actionId);
+  const st=action?.sousTaches.find(x=>x.id===sousTacheId);
+  const maintenant=new Date();
+  const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+  const heureReelle=minToStr(minuteActuelle);
+  const ancienDebut=item.heureDebut;
+  const ancienFin=item.heureFin;
+  const cocheMaintenant=!faitMap[planningId];
+  const termineeEnAvance=
+    cocheMaintenant && strToMin(ancienDebut)>minuteActuelle;
+
   if(faitMap[planningId]){
     delete faitMap[planningId];
-  } else {
+    delete faitMap[sousTacheId];
+
+    if(item.heurePrevueDebut){
+      item.heureDebut=item.heurePrevueDebut;
+      item.heureFin=item.heurePrevueFin;
+    }
+    delete item.heurePrevueDebut;
+    delete item.heurePrevueFin;
+    delete item.realiseA;
+
+    if(st?.dernierFait===today){
+      st.dernierFait=null;
+      st.compteurFait=Math.max(0,Number(st.compteurFait||1)-1);
+    }
+  }else{
     faitMap[planningId]=true;
-    const zone=DB.journal.zones.find(z=>z.id===item.zoneId);
-    const action=zone?.actions.find(a=>a.id===item.actionId);
-    const st=action?.sousTaches.find(x=>x.id===item.stId);
+    faitMap[sousTacheId]=true;
+
+    const debutPrevu=strToMin(item.heureDebut);
+    if(debutPrevu>minuteActuelle){
+      const realisations=(DB.journal.planning[today]||[])
+        .filter(p=>p.realiseA)
+        .map(p=>strToMin(p.heureDebut));
+      const finReelle=realisations.length
+        ? Math.min(minuteActuelle,...realisations)
+        : minuteActuelle;
+
+      item.heurePrevueDebut=item.heureDebut;
+      item.heurePrevueFin=item.heureFin;
+      item.heureFin=minToStr(finReelle);
+      item.heureDebut=minToStr(Math.max(0,finReelle-Number(item.duree||5)));
+    }
+    item.realiseA=heureReelle;
+
     if(st){
       st.dernierFait=today;
       st.compteurFait=(st.compteurFait||0)+1;
-      const heure=new Date().toTimeString().slice(0,5);
       if(!DB.journal.historique) DB.journal.historique={};
       if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
-      DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure,duree:st.duree});
+      DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure:heureReelle,duree:st.duree,heurePrevue:item.heurePrevueDebut||item.heureDebut});
     }
   }
-  await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
-   await recalculerResteJourneeEmma(today);
+
+  dedupliquerPlanningEmma(today);
+  await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+  await recalculerResteJourneeEmma(today);
   renderPlanningTimeline();
+
+  if(termineeEnAvance){
+    ouvrirSuggestionCreneauLibereEmma(
+      item,
+      ancienDebut,
+      ancienFin
+    );
+  }
+}
+
+function ouvrirSuggestionCreneauLibereEmma(tacheFaite,debutLibere,finLibere){
+  const date=getJournalJour();
+  const cleFaite=cleTachePlanningEmma(tacheFaite);
+  const remplacement=(DB.journal.planning?.[date]||[])
+    .filter(bloc=>
+      !DB.journal.faitAujourdhui?.[date]?.[bloc.id] &&
+      cleTachePlanningEmma(bloc)!==cleFaite &&
+      bloc.heureDebut>=debutLibere
+    )
+    .sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""))[0];
+
+  document.getElementById('modal-suggestion-emma')?.remove();
+
+  const html=`<div id="modal-suggestion-emma" style="position:fixed;inset:0;z-index:10020;background:rgba(30,20,25,.32);backdrop-filter:blur(9px);display:flex;align-items:flex-end;justify-content:center;padding:16px">
+    <div style="width:min(520px,100%);background:white;border-radius:26px;padding:20px;box-shadow:0 24px 70px rgba(50,30,40,.24)">
+      <div style="font-size:10px;color:var(--acc);font-weight:800;letter-spacing:.12em">✨ EMMA S'ADAPTE</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;margin:5px 0 8px">Bravo, tu as pris de l'avance</div>
+      <div style="font-size:12px;color:var(--mut);line-height:1.5">La tâche a été déplacée à son heure réelle. Le créneau ${debutLibere}–${finLibere} est maintenant libre.</div>
+      ${remplacement?`<div style="margin-top:14px;padding:13px;border-radius:16px;background:var(--bg2)"><b>${remplacement.nom||remplacement.customNom||'Tâche suivante'}</b><div style="font-size:10px;color:var(--mut);margin-top:3px">Proposée à ${remplacement.heureDebut}–${remplacement.heureFin}</div></div>`:`<div style="margin-top:14px;padding:13px;border-radius:16px;background:var(--bg2)">☕ Aucun remplacement nécessaire : garde ce temps pour toi.</div>`}
+      <button class="btn bp" style="width:100%;justify-content:center;margin-top:14px" onclick="document.getElementById('modal-suggestion-emma')?.remove()">Ça me va</button>
+    </div>
+  </div>`;
+
+  document.body.insertAdjacentHTML('beforeend',html);
 }
 
 function ouvrirAjustementHoraire(planningId){
