@@ -28564,7 +28564,62 @@ function ouvrirDetailSousTache(zoneId,actionId,stId){
       </div>
     </div>
   `;
+  document.querySelector('#sousTachesModal .ma').innerHTML=`
+    <button class="btn br" onclick="supprimerSousTacheDefinitivement('${zoneId}','${actionId}','${stId}')">🗑 Supprimer définitivement</button>
+    <button class="btn bg" onclick="closeMo('sousTachesModal')">Fermer</button>
+  `;
   document.getElementById('sousTachesModal').classList.add('open');
+}
+
+async function supprimerSousTacheDefinitivement(zoneId,actionId,stId){
+  const zone=DB.journal.zones.find(z=>z.id===zoneId);
+  const action=zone?.actions.find(a=>a.id===actionId);
+  const st=action?.sousTaches.find(x=>x.id===stId);
+  if(!st) return;
+
+  if(!confirm(`Supprimer définitivement « ${st.nom} » ?\n\nElle disparaîtra de tous les plannings futurs, mais son historique restera conservé.`)){
+    return;
+  }
+
+  action.sousTaches=action.sousTaches.filter(x=>x.id!==stId);
+
+  const idsPlanningSupprimes=[];
+
+  Object.keys(DB.journal.planning||{}).forEach(date=>{
+    DB.journal.planning[date]=(DB.journal.planning[date]||[])
+      .filter(bloc=>{
+        const supprimer=cleTachePlanningEmma(bloc)===stId;
+        if(supprimer) idsPlanningSupprimes.push(bloc.id);
+        return !supprimer;
+      });
+  });
+
+  Object.keys(DB.journal.propositionIntelligente||{}).forEach(date=>{
+    DB.journal.propositionIntelligente[date]=
+      (DB.journal.propositionIntelligente[date]||[])
+      .filter(bloc=>cleTachePlanningEmma(bloc)!==stId);
+  });
+
+  Object.keys(DB.journal.tachesForcees||{}).forEach(date=>{
+    DB.journal.tachesForcees[date]=(DB.journal.tachesForcees[date]||[])
+      .filter(t=>t.sousTacheId!==stId);
+  });
+
+  Object.values(DB.journal.etatPieces||{}).forEach(etat=>{
+    etat.tachesDetectees=(etat.tachesDetectees||[]).filter(id=>id!==stId);
+    etat.tachesValidees=(etat.tachesValidees||[]).filter(id=>id!==stId);
+  });
+
+  Object.values(DB.journal.faitAujourdhui||{}).forEach(faitMap=>{
+    delete faitMap[stId];
+    idsPlanningSupprimes.forEach(id=>delete faitMap[id]);
+  });
+
+  await saveAll();
+  closeMo('sousTachesModal');
+  renderJAujourdhui();
+  await synchroniserNotificationsPlanningEmma(getJournalJour());
+  toast('✓ Tâche supprimée définitivement');
 }
 
 function renderJTachesRetardLongtemps(){
@@ -37060,6 +37115,28 @@ const zone =
         z.id === zoneId
     );
 
+const actionId =
+    p.data?.actionId ||
+    p.actionId;
+
+const sousTacheId =
+    p.data?.sousTacheId ||
+    p.stId ||
+    p.sourceId;
+
+const aUneFicheTache =
+    !!(
+        zone &&
+        actionId &&
+        sousTacheId &&
+        zone.actions?.some(action =>
+            action.id === actionId &&
+            action.sousTaches?.some(st =>
+                st.id === sousTacheId
+            )
+        )
+    );
+
 const zoneNom =
     (
         p.data?.zoneNom ||
@@ -37366,6 +37443,22 @@ onclick="event.stopPropagation()"
             </div>
         `
         : `
+            ${aUneFicheTache ? `
+<button
+onclick="ouvrirDetailSousTache('${zoneId}','${actionId}','${sousTacheId}')"
+style="
+    border:0;
+    background:rgba(114,139,168,.13);
+    color:#526f91;
+    border-radius:9px;
+    padding:6px 9px;
+    font-size:10px;
+    font-weight:700;
+    cursor:pointer;
+">
+📋 Voir la fiche
+</button>
+            ` : ''}
             <button
 onclick="ouvrirAjustementHoraire('${p.id}')"
 style="
