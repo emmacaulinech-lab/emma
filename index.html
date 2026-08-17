@@ -28716,7 +28716,8 @@ function renderJSemaineApercu(){
       const faitBloc=!!faitMap[p.id];
       const largeurPct=100/p._maxCols;
       const leftPct=p._col*largeurPct;
-      const nom=p.nom||p.customNom||'Tâche';
+      const nom=String(p.nom||p.customNom||'Tâche')
+        .replace(/^\uFFFD+\uFE0F?\s*/, '');
       const iconeSource=zone?.icon||p.iconOverride||'📌';
       const icone=String(iconeSource).includes('\uFFFD')
         ? String(zone?.nom||'').toLowerCase().includes('salon')
@@ -36878,6 +36879,10 @@ const iconeBloc =
             : '🏠'
         : iconeBlocSource;
 
+const nomBloc =
+    String(p.nom || p.customNom || 'Tâche')
+        .replace(/^\uFFFD+\uFE0F?\s*/, '');
+
 
 // =========================
 // 🎨 COULEUR DU BLOC
@@ -37084,7 +37089,7 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         text-overflow:ellipsis;
     ">
         ${iconeBloc}
-        ${p.nom||p.customNom||'Tâche'}
+        ${nomBloc}
     </div>
 
     <div style="
