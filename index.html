@@ -32622,9 +32622,34 @@ if(
     Array.isArray(options.elementsSupplementaires) &&
     options.elementsSupplementaires.length
 ){
+
+    const supplementsUniques =
+        options.elementsSupplementaires.filter(supplement => {
+
+            return !elements.some(existant => {
+
+                const memeCategorie =
+                    existant.categorie === supplement.categorie;
+
+                const memeNom =
+                    String(existant.nom || existant.customNom || "")
+                        .trim()
+                        .toLowerCase() ===
+                    String(supplement.nom || supplement.customNom || "")
+                        .trim()
+                        .toLowerCase();
+
+                // Lecture / piscine / etc. déjà présente :
+                // on ne la recrée pas.
+                return memeCategorie && memeNom;
+
+            });
+
+        });
+
     elements = [
         ...elements,
-        ...options.elementsSupplementaires
+        ...supplementsUniques
     ];
 }
 
@@ -33084,8 +33109,7 @@ contraintes.sort((a,b) => {
 });
 
 const maison = elements.filter(e =>
-    e.categorie === "maison" &&
-    !e.plageHoraire
+    e.categorie === "maison"
 );
 
 const detente = elements.filter(e =>
