@@ -28717,9 +28717,15 @@ function renderJSemaineApercu(){
       const largeurPct=100/p._maxCols;
       const leftPct=p._col*largeurPct;
       const nom=p.nom||p.customNom||'Tâche';
+      const iconeSource=zone?.icon||p.iconOverride||'📌';
+      const icone=String(iconeSource).includes('\uFFFD')
+        ? String(zone?.nom||'').toLowerCase().includes('salon')
+          ? '🛋️'
+          : '🏠'
+        : iconeSource;
 
       return`<div onclick="journalJourAffiche='${j}';window.journalVue='jour';renderJAujourdhui()" title="${nom} — ${p.heureDebut}" style="position:absolute;top:${top}px;left:calc(${leftPct}% + 1px);width:calc(${largeurPct}% - 2px);height:${hgt}px;background:${bg};border:1.5px solid ${couleur};border-radius:7px;padding:2px 5px;cursor:pointer;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;justify-content:center">
-        <div style="font-size:9px;font-weight:700;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${faitBloc?'text-decoration:line-through;opacity:.55':''}">${zone?.icon||p.iconOverride||'📌'} ${nom}</div>
+        <div style="font-size:9px;font-weight:700;color:${couleur};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${faitBloc?'text-decoration:line-through;opacity:.55':''}">${icone} ${nom}</div>
       </div>`;
     }).join('');
 
