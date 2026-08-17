@@ -29621,50 +29621,8 @@ function organiserAujourdhuiJournal(){
         maintenant.toISOString();
 
 
-    // =========================
-    // SUPPRIMER UNIQUEMENT
-    // L'ANCIEN AUTO-PLANNING
-    // =========================
-
-    const planningActuel =
-        DB.journal.planning?.[date] || [];
-
-    DB.journal.planning[date] =
-        planningActuel.filter(bloc => {
-
-            // On garde les RDV,
-            // blocs manuels et blocs verrouillés.
-            if(!bloc.autoPlanifie){
-                return true;
-            }
-
-            if(bloc.verrouille){
-                return true;
-            }
-
-            // On garde également un ancien bloc
-            // s'il est déjà commencé/passé.
-            if(bloc.heureDebut){
-
-                const [h,m] =
-                    bloc.heureDebut
-                    .split(":")
-                    .map(Number);
-
-                const debutBloc =
-                    h * 60 + m;
-
-                const minuteActuelle =
-                    maintenant.getHours() * 60 +
-                    maintenant.getMinutes();
-
-                if(debutBloc < minuteActuelle){
-                    return true;
-                }
-            }
-
-            return false;
-        });
+    // Le planning existant reste intact. Le moteur le traite comme occupé
+    // et propose seulement ce qui peut entrer dans ses espaces libres.
 
 
     // =========================
@@ -29783,7 +29741,11 @@ function ouvrirValidationPlanningJournal(date){
                             font-weight:700;
                             margin-top:4px;
                         ">
-                            Organiser ma journée
+                            Compléter les créneaux libres
+                        </div>
+
+                        <div style="font-size:11px;color:var(--mut);margin-top:4px">
+                            Rien avant maintenant et aucun bloc déjà prévu ne sera déplacé.
                         </div>
                     </div>
 
@@ -30103,57 +30065,59 @@ function validerPropositionJournal(date){
     };
 
 
-    // =========================
-    // CONSERVER UNIQUEMENT
-    // CE QUI NE DOIT PAS BOUGER
-    // =========================
+    // La validation est strictement additive : aucun bloc existant
+    // n'est supprimé ou déplacé par une proposition.
+    const planningExistant =
+        DB.journal.planning[date];
 
-    DB.journal.planning[date] =
-        DB.journal.planning[date]
-        .filter(bloc => {
-
-            // Bloc sans horaire :
-            // on le conserve.
-            if(!bloc.heureDebut){
-                return true;
-            }
-
-
-            // Passé / déjà commencé :
-            // on ne touche pas.
-            if(
-                estAujourdhui &&
-                toMin(bloc.heureDebut) <
-                minuteActuelle
-            ){
-                return true;
-            }
-
-
-            // Bloc manuel / fixe / RDV :
-            // on le conserve.
-            if(
-                bloc.verrouille === true ||
-                bloc.autoPlanifie !== true
-            ){
-                return true;
-            }
-
-
-            // Tout ancien bloc auto-planifié
-            // futur est remplacé.
-            return false;
-        });
-
-
-    // =========================
-    // AJOUTER LA NOUVELLE
-    // PROPOSITION VALIDÉE
-    // =========================
+    const blocsAjoutes = [];
 
     blocsValides.forEach(bloc => {
 
-        DB.journal.planning[date].push({
+        if(
+            estAujourdhui &&
+            toMin(bloc.heureDebut) < minuteActuelle
+        ){
+            return;
+        }
+
+        const cleBloc =
+            bloc.data?.sousTacheId ||
+            bloc.sourceId ||
+            bloc.id;
+
+        const existeDeja =
+            planningExistant.some(existant =>
+                (
+                    cleBloc &&
+                    (
+                        existant.data?.sousTacheId ||
+                        existant.stId ||
+                        existant.sourceId ||
+                        existant.id
+                    ) === cleBloc
+                )
+            );
+
+        const chevauchement =
+            planningExistant.some(existant =>
+                !(
+                    existant.type === "tempsLibre" &&
+                    String(existant.nom || existant.customNom || "")
+                        .trim()
+                        .toLowerCase() === "non précisé"
+                ) &&
+                existant.heureDebut &&
+                existant.heureFin &&
+                toMin(existant.heureDebut) < toMin(bloc.heureFin) &&
+                toMin(existant.heureFin) > toMin(bloc.heureDebut)
+            );
+
+        if(existeDeja || chevauchement){
+            return;
+        }
+
+        const nouveauBloc = {
 
             ...bloc,
 
@@ -30163,7 +30127,10 @@ function validerPropositionJournal(date){
 
             valide: true
 
-        });
+        };
+
+        planningExistant.push(nouveauBloc);
+        blocsAjoutes.push(nouveauBloc);
 
     });
 
@@ -30199,7 +30166,9 @@ function validerPropositionJournal(date){
     renderJAujourdhui();
 
     toast(
-        `✓ Planning réorganisé avec ${blocsValides.length} bloc(s)`
+        blocsAjoutes.length
+            ? `✓ ${blocsAjoutes.length} proposition${blocsAjoutes.length > 1 ? "s" : ""} ajoutée${blocsAjoutes.length > 1 ? "s" : ""} dans les créneaux libres`
+            : "Le planning n’a pas changé : aucun créneau libre compatible"
     );
 }
 
@@ -30690,10 +30659,24 @@ function getChargeJournee(date){
     // DURÉE DE LA JOURNÉE
     // =========================
 
+    const aujourdHui =
+        new Date().toISOString().split("T")[0];
+
+    const maintenant = new Date();
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
     const debutJour =
-        toMin(
-            preparation.heureLever ||
-            "07:30"
+        Math.max(
+            toMin(
+                preparation.heureLever ||
+                "07:30"
+            ),
+            date === aujourdHui
+                ? minuteActuelle
+                : 0
         );
 
     const finJour =
@@ -32115,6 +32098,29 @@ if(
 
 if(date === aujourdHui){
 
+    const planningJour =
+        DB.journal.planning?.[date] || [];
+
+    const faitMap =
+        DB.journal.faitAujourdhui?.[date] || {};
+
+    const blocsTermines =
+        planningJour.filter(bloc =>
+            faitMap[bloc.id] === true ||
+            bloc.realiseA
+        );
+
+    const minutesEffort =
+        blocsTermines.reduce(
+            (total,bloc) =>
+                total + Number(bloc.duree || 0),
+            0
+        );
+
+    const besoinRecuperation =
+        blocsTermines.length >= 3 ||
+        minutesEffort >= 45;
+
     // =========================
     // 📚 LECTURE
     // =========================
@@ -32183,58 +32189,35 @@ if(date === aujourdHui){
 
 
     // =========================
-    // 📱 DÉTENTE / TÉLÉPHONE
+    // ☕ PAUSE DE RÉCUPÉRATION
     // =========================
 
-    if(charge.niveau !== "saturee"){
+    if(besoinRecuperation){
 
         elements.push({
-            id: "detente_tel_" + date,
+            id: "pause_recuperation_" + date,
             source: "journal",
             type: "perso",
             categorie: "detente",
-            nom: "Temps libre / téléphone",
-            icon: "📱",
-            duree:
-                charge.niveau === "legere"
-                    ? 30
-                    : 20,
-            priorite: 7,
-            flexible: true,
-            verrouille: false,
-            heuresPreferees:[
-                "11:30",
-                "16:00",
-                "20:00"
-            ]
-        });
-
-    }
-
-
-    // =========================
-    // ☕ PAUSE TRANQUILLE
-    // =========================
-
-    if(
-        charge.niveau === "legere" ||
-        charge.niveau === "normale"
-    ){
-
-        elements.push({
-            id: "pause_tranquille_" + date,
-            source: "journal",
-            type: "perso",
-            categorie: "detente",
-            nom: "Pause tranquille",
+            nom:
+                blocsTermines.length >= 4
+                    ? "Vraie pause après tout ce que tu as fait"
+                    : "Pause de récupération",
             icon: "☕",
-            duree: 15,
-            priorite: 7,
+            duree:
+                minutesEffort >= 90
+                    ? 25
+                    : 15,
+            priorite: 1,
             flexible: true,
             verrouille: false,
             heuresPreferees:[
-                "10:30",
-                "15:30"
+                minToStr(
+                    Math.min(
+                        21 * 60,
+                        minutesMaintenant + 10
+                    )
+                )
             ]
         });
 
@@ -32302,10 +32285,24 @@ function getCreneauxLibresIntelligents(date){
     // JOURNÉE
     // =========================
 
+    const aujourdHui =
+        new Date().toISOString().split("T")[0];
+
+    const maintenant = new Date();
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
     const debutJour =
-        toMin(
-            preparation.heureLever ||
-            "07:30"
+        Math.max(
+            toMin(
+                preparation.heureLever ||
+                "07:30"
+            ),
+            date === aujourdHui
+                ? minuteActuelle
+                : 0
         );
 
     const finJour =
@@ -32423,7 +32420,12 @@ function getCreneauxLibresIntelligents(date){
                 return false;
             }
 
-            if(p.type === "tempsLibre"){
+            if(
+                p.type === "tempsLibre" &&
+                String(p.nom || p.customNom || "")
+                    .trim()
+                    .toLowerCase() === "non précisé"
+            ){
                 return false;
             }
 
@@ -32645,43 +32647,8 @@ async function recalculerResteJourneeEmma(date){
 
     dedupliquerPlanningEmma(date);
 
-    const planning =
-        DB.journal.planning?.[date] || [];
-
-
-    // =========================
-    // CONSERVER CE QUI EST FIXE
-    // OU DÉJÀ PASSÉ / COMMENCÉ
-    // =========================
-
-    DB.journal.planning[date] =
-        planning.filter(bloc => {
-
-            // RDV Planity / bloc verrouillé
-            if(
-                bloc.source === "planity" ||
-                bloc.verrouille === true
-            ){
-                return true;
-            }
-
-            // Bloc manuel
-            if(bloc.autoPlanifie !== true){
-                return true;
-            }
-
-            // Bloc déjà commencé ou passé
-            if(
-                toMin(bloc.heureDebut) <=
-                minuteActuelle
-            ){
-                return true;
-            }
-
-            // Les futurs blocs automatiques
-            // seront recalculés
-            return false;
-        });
+    // Toutes les tâches existantes restent en place. Si une action terminée
+    // libère un créneau, le moteur peut le compléter sans toucher au reste.
 
 
     // =========================
@@ -32803,6 +32770,26 @@ if(
         ...supplementsUniques
     ];
 }
+
+// Une proposition complète uniquement les trous : elle ne repropose
+// jamais un élément qui figure déjà dans la journée actuelle.
+const clesDejaPlanifiees = new Set(
+    (DB.journal.planning?.[date] || []).map(bloc =>
+        bloc.data?.sousTacheId ||
+        bloc.stId ||
+        bloc.sourceId ||
+        bloc.id
+    )
+);
+
+elements = elements.filter(element => {
+    const cle =
+        element.data?.sousTacheId ||
+        element.sourceId ||
+        element.id;
+
+    return !cle || !clesDejaPlanifiees.has(cle);
+});
 
 // Si l'utilisatrice donne une heure
 // à partir de laquelle commencer le ménage
@@ -33916,7 +33903,7 @@ async function appliquerPlanningIntelligent(
     ensureJournalData();
 
     const mode =
-        options.mode || "remplacer";
+        options.mode || "ajouter";
 
     const proposition =
         genererPlanningIntelligent(
@@ -36317,10 +36304,6 @@ function reorganiserPlanningMaintenant(){
     const date =
         maintenant.toISOString().split("T")[0];
 
-    const minuteActuelle =
-        maintenant.getHours() * 60 +
-        maintenant.getMinutes();
-
     const heureActuelle =
         String(maintenant.getHours()).padStart(2,"0") +
         ":" +
@@ -36356,84 +36339,8 @@ function reorganiserPlanningMaintenant(){
         maintenant.toISOString();
 
 
-    // =========================
-    // CONSERVER LE PASSÉ
-    // ET LES BLOCS FIXES
-    // =========================
-
-    const planningActuel =
-        DB.journal.planning?.[date] || [];
-
-    const faitMap =
-    DB.journal.faitAujourdhui?.[date] || {};
-
-const blocsConserves =
-    planningActuel.filter(bloc => {
-
-        if(!bloc.heureDebut){
-            return true;
-        }
-
-        const [h,m] =
-            bloc.heureDebut
-            .split(":")
-            .map(Number);
-
-        const debut =
-            h * 60 + m;
-
-
-        // =========================
-        // BLOC FIXE / MANUEL
-        // =========================
-
-        if(
-            bloc.verrouille === true ||
-            bloc.autoPlanifie !== true
-        ){
-            return true;
-        }
-
-
-        // =========================
-        // BLOC AUTOMATIQUE PASSÉ
-        // =========================
-
-        if(debut < minuteActuelle){
-
-            const sousTacheId =
-                bloc.data?.sousTacheId;
-
-            const estFait =
-                sousTacheId
-                    ? faitMap[sousTacheId] === true
-                    : faitMap[bloc.id] === true;
-
-
-            // Terminé = on garde dans l'historique.
-            if(estFait){
-                return true;
-            }
-
-
-            // Non terminé = on retire l'ancien bloc.
-            // Le moteur pourra le replacer proprement.
-            return false;
-        }
-
-
-        // =========================
-        // FUTUR AUTO-PLANIFIÉ
-        // =========================
-
-        // Tout le futur automatique
-        // sera recalculé.
-        return false;
-    });
-
-
-    DB.journal.planning[date] =
-        blocsConserves;
+    // Le planning actuel ne bouge pas pendant la préparation du brouillon.
+    // Ses blocs deviennent les occupations autour desquelles EMMA travaille.
 
 
     // =========================
@@ -36647,7 +36554,7 @@ function renderPreviewPlanningIntelligent(proposition){
             font-weight:800;
         "
     >
-        ⏱️ Réorganiser à partir de maintenant
+        ✨ Proposer dans les créneaux libres
     </button>
 </div>
 
