@@ -32793,6 +32793,19 @@ elements = elements.filter(element => {
     return !cle || !clesDejaPlanifiees.has(cle);
 });
 
+const refusDuJour = new Set(
+    DB.journal.refusPlanningJour?.[date] || []
+);
+
+elements = elements.filter(element => {
+    const cle =
+        element.data?.sousTacheId ||
+        element.sourceId ||
+        element.id;
+
+    return !cle || !refusDuJour.has(cle);
+});
+
 // Si l'utilisatrice donne une heure
 // à partir de laquelle commencer le ménage
 if(options.heureDebutTaches){
@@ -39505,8 +39518,14 @@ function preparerCandidatsPlanningConversationEmma(){
         .slice(0,12);
 
     const clesExistantes=new Set(existants.map(item=>item.cle));
+    const refusDuJour=new Set(
+        DB.journal.refusPlanningJour?.[session.date]||[]
+    );
     const nouvelles=getElementsJourIntelligents(session.date)
-        .filter(element=>!clesExistantes.has(cleElementPlanningConversationEmma(element)))
+        .filter(element=>{
+            const cle=cleElementPlanningConversationEmma(element);
+            return !clesExistantes.has(cle)&&!refusDuJour.has(cle);
+        })
         .slice(0,Math.max(0,12-existants.length))
         .map(element=>({
             cle:cleElementPlanningConversationEmma(element),
@@ -39620,6 +39639,30 @@ async function creerPlanningDepuisConversationEmma(){
     if(!session) return;
     const planning=DB.journal.planning?.[session.date]||[];
     const choix=session.choix||[];
+
+    DB.journal.refusPlanningJour=
+        DB.journal.refusPlanningJour||{};
+
+    const refusDuJour=new Set(
+        DB.journal.refusPlanningJour[session.date]||[]
+    );
+
+    choix.forEach(choixItem=>{
+        if(!choixItem.cle) return;
+
+        if(choixItem.accepte){
+            refusDuJour.delete(choixItem.cle);
+        }else{
+            refusDuJour.add(choixItem.cle);
+        }
+    });
+
+    DB.journal.refusPlanningJour[session.date]=
+        [...refusDuJour];
+
+    if(DB.journal.propositionIntelligente?.[session.date]){
+        DB.journal.propositionIntelligente[session.date]=[];
+    }
 
     const idsExistantsRefuses=new Set(
         choix
