@@ -37536,6 +37536,22 @@ style="
 📋 Voir la fiche
 </button>
             ` : ''}
+            ${!faitBloc ? `
+<button
+onclick="commencerAccompagnementEmma('${p.id}')"
+style="
+    border:0;
+    background:rgba(153,53,86,.12);
+    color:var(--acc);
+    border-radius:9px;
+    padding:6px 9px;
+    font-size:10px;
+    font-weight:800;
+    cursor:pointer;
+">
+▶ Commencer avec EMMA
+</button>
+            ` : ''}
             <button
 onclick="ouvrirAjustementHoraire('${p.id}')"
 style="
@@ -39542,11 +39558,19 @@ function afficherReponsesRapidesEmma(reponses=[]){
     const zone=document.querySelector('.emma-assistant-suggestions');
     if(!zone) return;
 
-    zone.innerHTML=reponses.map(reponse=>`
-        <button onclick="executerReponseRapideEmma('${reponse.action}','${reponse.valeur||''}')">
-            ${reponse.label}
-        </button>
-    `).join('');
+    zone.innerHTML='';
+    reponses.forEach(reponse=>{
+        const bouton=document.createElement('button');
+        bouton.type='button';
+        bouton.textContent=reponse.label;
+        bouton.addEventListener('click',()=>
+            executerReponseRapideEmma(
+                reponse.action,
+                reponse.valeur||''
+            )
+        );
+        zone.appendChild(bouton);
+    });
 }
 
 function executerReponseRapideEmma(action,valeur=''){
@@ -39559,10 +39583,32 @@ function executerReponseRapideEmma(action,valeur=''){
     if(action==='annuler_session') return annulerSessionPieceConversationEmma();
     if(action==='planifier_session') return finaliserSessionPieceConversationEmma('planifier');
     if(action==='faire_session') return finaliserSessionPieceConversationEmma('maintenant');
+    if(action==='commencer_tache') return commencerAccompagnementEmma(valeur);
+    if(action==='terminer_tache') return terminerAccompagnementEmma();
+    if(action==='plus_temps') return ajouterTempsAccompagnementEmma(10);
+    if(action==='pause_tache') return mettreEnPauseAccompagnementEmma();
 }
 
 function initialiserAccueilConversationEmma(){
     ouvrirAssistantEmma();
+
+    const accompagnement=chargerAccompagnementEmma();
+    if(accompagnement){
+        const item=(DB.journal?.planning?.[accompagnement.date]||[])
+            .find(bloc=>bloc.id===accompagnement.planningId);
+        const fait=DB.journal?.faitAujourdhui?.[accompagnement.date]?.[accompagnement.planningId];
+
+        if(item&&!fait){
+            const minutes=Math.max(1,Math.round((Date.now()-accompagnement.startedAt)/60000));
+            ajouterMessageAssistantEmma(
+                `Tu étais en train de faire « ${accompagnement.nom} » depuis environ ${minutes} minute${minutes>1?'s':''}. Où en es-tu ?`
+            );
+            afficherCommandesAccompagnementEmma();
+            return;
+        }
+
+        effacerAccompagnementEmma();
+    }
 
     const session=chargerSessionPieceConversationEmma();
     if(session){
@@ -39683,6 +39729,201 @@ let attenteAssistantEmma = null;
 let organisationJourneeApresScan = null;
 let sessionScanMaison = null;
 let sessionPieceConversationEmma = null;
+let sessionAccompagnementEmma = null;
+
+function chargerAccompagnementEmma(){
+    if(sessionAccompagnementEmma) return sessionAccompagnementEmma;
+    try{
+        sessionAccompagnementEmma=JSON.parse(
+            localStorage.getItem('emma_accompagnement_actif')||'null'
+        );
+    }catch(e){
+        sessionAccompagnementEmma=null;
+    }
+    return sessionAccompagnementEmma;
+}
+
+function sauvegarderAccompagnementEmma(){
+    if(sessionAccompagnementEmma){
+        localStorage.setItem(
+            'emma_accompagnement_actif',
+            JSON.stringify(sessionAccompagnementEmma)
+        );
+    }else{
+        localStorage.removeItem('emma_accompagnement_actif');
+    }
+}
+
+function effacerAccompagnementEmma(){
+    sessionAccompagnementEmma=null;
+    sauvegarderAccompagnementEmma();
+}
+
+function afficherCommandesAccompagnementEmma(){
+    afficherReponsesRapidesEmma([
+        {label:'✓ Terminé',action:'terminer_tache'},
+        {label:'＋ 10 minutes',action:'plus_temps'},
+        {label:'⏸ Pause',action:'pause_tache'}
+    ]);
+}
+
+async function commencerAccompagnementEmma(planningId){
+    ensureJournalData();
+    const date=getJournalJour();
+    const aujourdHui=new Date().toISOString().split('T')[0];
+
+    if(date!==aujourdHui){
+        toast('Cette tâche n’est pas prévue aujourd’hui');
+        return;
+    }
+
+    const item=(DB.journal.planning?.[date]||[])
+        .find(bloc=>bloc.id===planningId);
+    if(!item) return;
+
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    if(faitMap[item.id]){
+        toast('Cette tâche est déjà terminée');
+        return;
+    }
+
+    const maintenant=new Date();
+    const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+    const duree=Math.max(1,Number(item.duree||5));
+
+    if(!item.heurePrevueDebut){
+        item.heurePrevueDebut=item.heureDebut;
+        item.heurePrevueFin=item.heureFin;
+    }
+
+    item.heureDebut=minToStr(minuteActuelle);
+    item.heureFin=minToStr(Math.min(23*60+59,minuteActuelle+duree));
+    item.enCoursEmma=true;
+
+    sessionAccompagnementEmma={
+        planningId:item.id,
+        date,
+        nom:item.nom||item.customNom||'Cette tâche',
+        startedAt:Date.now(),
+        duree
+    };
+    sauvegarderAccompagnementEmma();
+
+    await recalculerResteJourneeEmma(date);
+    ouvrirAssistantEmma();
+    ajouterMessageAssistantEmma(
+        `C’est parti pour « ${sessionAccompagnementEmma.nom} » ♡ Je garde le fil avec toi. Elle devrait prendre environ ${duree} minute${duree>1?'s':''}.`
+    );
+    afficherCommandesAccompagnementEmma();
+}
+
+function trouverProchaineTacheAccompagnementEmma(date,exclureId){
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    return (DB.journal.planning?.[date]||[])
+        .filter(bloc=>
+            bloc.id!==exclureId&&
+            !faitMap[bloc.id]&&
+            !bloc.verrouille&&
+            bloc.source!=='planity'
+        )
+        .sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''))[0]||null;
+}
+
+async function terminerAccompagnementEmma(){
+    const session=chargerAccompagnementEmma();
+    if(!session) return;
+
+    const item=(DB.journal.planning?.[session.date]||[])
+        .find(bloc=>bloc.id===session.planningId);
+    if(!item){
+        effacerAccompagnementEmma();
+        return;
+    }
+
+    item.enCoursEmma=false;
+    effacerAccompagnementEmma();
+    await togglePlanningFait(item.id);
+
+    document.getElementById('modal-suggestion-emma')?.remove();
+    ouvrirAssistantEmma();
+
+    const minutes=Math.max(1,Math.round((Date.now()-session.startedAt)/60000));
+    const prochaine=trouverProchaineTacheAccompagnementEmma(session.date,item.id);
+    ajouterMessageAssistantEmma(
+        prochaine
+            ? `Bravo ♡ « ${session.nom} » est terminée en environ ${minutes} minute${minutes>1?'s':''}. La meilleure suite est « ${prochaine.nom||prochaine.customNom} ».`
+            : `Bravo ♡ « ${session.nom} » est terminée. Tu n’as rien d’urgent à enchaîner maintenant.`
+    );
+
+    afficherReponsesRapidesEmma(prochaine ? [
+        {label:`▶ Commencer : ${prochaine.nom||prochaine.customNom}`,action:'commencer_tache',valeur:prochaine.id},
+        {label:'📔 Voir la timeline',action:'journal'},
+        {label:'☕ Je fais une pause',action:'pause_tache'}
+    ] : [
+        {label:'📔 Voir la timeline',action:'journal'},
+        {label:'✨ Que faire ensuite ?',action:'quoi'}
+    ]);
+}
+
+async function ajouterTempsAccompagnementEmma(minutes=10){
+    const session=chargerAccompagnementEmma();
+    if(!session) return;
+    const item=(DB.journal.planning?.[session.date]||[])
+        .find(bloc=>bloc.id===session.planningId);
+    if(!item) return;
+
+    const maintenant=new Date();
+    const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+    const nouvelleFin=Math.min(
+        23*60+59,
+        Math.max(strToMin(item.heureFin),minuteActuelle)+minutes
+    );
+    item.heureFin=minToStr(nouvelleFin);
+    item.duree=Math.max(1,strToMin(item.heureFin)-strToMin(item.heureDebut));
+    session.duree=Number(session.duree||0)+minutes;
+    sauvegarderAccompagnementEmma();
+
+    await recalculerResteJourneeEmma(session.date);
+    ajouterMessageAssistantEmma(
+        `Bien sûr, je te laisse ${minutes} minutes de plus et j’adapte la suite de la journée.`
+    );
+    afficherCommandesAccompagnementEmma();
+}
+
+async function mettreEnPauseAccompagnementEmma(){
+    const session=chargerAccompagnementEmma();
+    if(!session){
+        ajouterMessageAssistantEmma('Profite de ta pause ♡ Je suis là quand tu veux reprendre.');
+        afficherReponsesRapidesEmma([
+            {label:'✨ Que faire ensuite ?',action:'quoi'},
+            {label:'📔 Voir la timeline',action:'journal'}
+        ]);
+        return;
+    }
+
+    const item=(DB.journal.planning?.[session.date]||[])
+        .find(bloc=>bloc.id===session.planningId);
+    if(item){
+        const maintenant=new Date();
+        const reprise=maintenant.getHours()*60+maintenant.getMinutes()+10;
+        const reste=Math.max(5,strToMin(item.heureFin)-(maintenant.getHours()*60+maintenant.getMinutes()));
+        item.enCoursEmma=false;
+        item.autoPlanifie=false;
+        item.heureDebut=minToStr(Math.min(reprise,23*60+54));
+        item.heureFin=minToStr(Math.min(reprise+reste,23*60+59));
+        await recalculerResteJourneeEmma(session.date);
+    }
+
+    effacerAccompagnementEmma();
+    ajouterMessageAssistantEmma(
+        `Pause enregistrée ♡ J’ai gardé « ${session.nom} » dans la journée pour que tu puisses la reprendre.`
+    );
+    afficherReponsesRapidesEmma([
+        {label:'▶ Reprendre',action:'commencer_tache',valeur:session.planningId},
+        {label:'📔 Voir la timeline',action:'journal'},
+        {label:'✨ Autre chose',action:'quoi'}
+    ]);
+}
 
 const ZONES_PHOTOS_CONVERSATION = {
     cuisine:["vue générale","évier","plaque","plan de travail","sol"],
@@ -39825,7 +40066,11 @@ async function finaliserSessionPieceConversationEmma(mode){
 
     sessionPieceConversationEmma=null;
     sauvegarderSessionPieceConversationEmma();
-    afficherReponsesRapidesEmma([
+    afficherReponsesRapidesEmma(prochaine ? [
+        {label:`▶ Commencer : ${prochaine.nom||prochaine.customNom}`,action:'commencer_tache',valeur:prochaine.id},
+        {label:'📔 Voir la timeline',action:'journal'},
+        {label:'✨ Que faire ensuite ?',action:'quoi'}
+    ] : [
         {label:'📔 Voir la timeline',action:'journal'},
         {label:'✨ Que faire ensuite ?',action:'quoi'}
     ]);
@@ -41190,6 +41435,22 @@ function traiterCommandeAssistantEmma(
         normaliserCommandeEmma(
             texte
         );
+
+    const accompagnementActif=chargerAccompagnementEmma?.();
+    if(accompagnementActif){
+        if(/^(termine|terminee|fini|finie|c'est fait|c est fait|j'ai fini|j ai fini)/.test(commande)){
+            terminerAccompagnementEmma();
+            return;
+        }
+        if(/(plus de temps|encore du temps|10 minutes|dix minutes)/.test(commande)){
+            ajouterTempsAccompagnementEmma(10);
+            return;
+        }
+        if(/^(pause|je fais une pause|mettre en pause)/.test(commande)){
+            mettreEnPauseAccompagnementEmma();
+            return;
+        }
+    }
 
     const zoneMaisonDemandee =
         (DB.journal?.zones || []).find(zone =>
