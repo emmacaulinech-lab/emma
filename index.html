@@ -35477,6 +35477,14 @@ function analyserPhotoPieceJournal(zoneId){
 
     if(!zone) return;
 
+    if(!sessionScanMaison){
+        sessionScanMaison = {
+            avantOrganisation:
+                !!organisationJourneeApresScan,
+            pieces: {}
+        };
+    }
+
 
     // =========================
     // 📸 SÉLECTION PHOTO
@@ -35765,56 +35773,37 @@ Réponds UNIQUEMENT en JSON valide :
                     : [];
 
 
-            // =========================
-            // ENREGISTREMENT
-            // =========================
+            // Une pièce peut être photographiée sous plusieurs angles.
+            // On fusionne les résultats sans modifier le planning.
+            const pieceSession =
+                sessionScanMaison.pieces[zone.id] || {
+                    nombrePhotos: 0,
+                    scores: [],
+                    tachesDetectees: [],
+                    resumes: []
+                };
 
-            DB.journal.etatPieces =
-                DB.journal.etatPieces || {};
+            pieceSession.nombrePhotos += 1;
+            pieceSession.scores.push(
+                Math.max(0, Math.min(100, Number(analyse.score ?? 100)))
+            );
+            pieceSession.tachesDetectees = [
+                ...new Set([
+                    ...pieceSession.tachesDetectees,
+                    ...idsDetectes
+                ])
+            ];
 
+            if(analyse.resume){
+                pieceSession.resumes.push(String(analyse.resume));
+            }
 
-            DB.journal.etatPieces[
-                zone.id
-            ] = {
+            sessionScanMaison.pieces[zone.id] = pieceSession;
 
-                score:
-                    Math.max(
-                        0,
-                        Math.min(
-                            100,
-                            Number(
-                                analyse.score ?? 100
-                            )
-                        )
-                    ),
-
-                tachesDetectees:
-                    idsDetectes,
-
-               tachesValidees:
-    [],
-
-                resume:
-                    String(
-                        analyse.resume || ""
-                    ),
-
-                dateAnalyse:
-                    new Date()
-                        .toISOString()
-
-            };
-
-
-            await saveAll();
-
-// =========================
-// VALIDATION DU SCAN
-// =========================
-
-ouvrirValidationScanJournal(
-    zone.id
-);
+            toast(`✓ Photo ${pieceSession.nombrePhotos} analysée pour ${zone.nom}`);
+            ouvrirAnalyseMaisonJournal(
+                sessionScanMaison.avantOrganisation
+            );
 
 
         }catch(error){
@@ -35833,8 +35822,10 @@ ouvrirValidationScanJournal(
     };
 
     input.oncancel = () => {
-        if(organisationJourneeApresScan){
-            ouvrirAnalyseMaisonJournal(true);
+        if(sessionScanMaison){
+            ouvrirAnalyseMaisonJournal(
+                sessionScanMaison.avantOrganisation
+            );
         }
     };
 
@@ -36144,6 +36135,15 @@ function ouvrirAnalyseMaisonJournal(avantOrganisation = false){
 
     ensureJournalData();
 
+    if(!sessionScanMaison){
+        sessionScanMaison = {
+            avantOrganisation,
+            pieces: {}
+        };
+    }else if(avantOrganisation){
+        sessionScanMaison.avantOrganisation = true;
+    }
+
     document
         .getElementById("modal-scan-maison")
         ?.remove();
@@ -36154,6 +36154,14 @@ function ouvrirAnalyseMaisonJournal(avantOrganisation = false){
             ![
                 "Voiture"
             ].includes(zone.nom)
+        );
+
+    const nombrePhotos =
+        Object.values(sessionScanMaison.pieces)
+        .reduce(
+            (total,piece) =>
+                total + Number(piece.nombrePhotos || 0),
+            0
         );
 
     const html = `
@@ -36228,7 +36236,12 @@ function ouvrirAnalyseMaisonJournal(avantOrganisation = false){
                     gap:10px;
                 ">
 
-                    ${zonesMaison.map(zone => `
+                    ${zonesMaison.map(zone => {
+
+                        const scan =
+                            sessionScanMaison.pieces[zone.id];
+
+                        return `
 
                         <button
                             onclick="
@@ -36266,21 +36279,32 @@ function ouvrirAnalyseMaisonJournal(avantOrganisation = false){
                                 color:var(--mut);
                                 margin-top:3px;
                             ">
-                                Prendre / choisir une photo
+                                ${scan
+                                    ? `${scan.nombrePhotos} photo${scan.nombrePhotos > 1 ? "s" : ""} · ${scan.tachesDetectees.length} action${scan.tachesDetectees.length > 1 ? "s" : ""}`
+                                    : "Prendre une première photo"
+                                }
                             </div>
                         </button>
 
-                    `).join("")}
+                    `}).join("")}
 
                 </div>
 
-                ${avantOrganisation ? `
+                ${nombrePhotos ? `
                     <button
                         class="btn bp"
                         style="width:100%;justify-content:center;margin-top:16px"
+                        onclick="ouvrirValidationGlobaleScanJournal()"
+                    >
+                        ✓ Analyser les résultats (${nombrePhotos} photo${nombrePhotos > 1 ? "s" : ""})
+                    </button>
+                ` : avantOrganisation ? `
+                    <button
+                        class="btn bg"
+                        style="width:100%;justify-content:center;margin-top:16px"
                         onclick="terminerScanEtOrganiserJournal()"
                     >
-                        ✓ Terminer les scans et organiser ma journée
+                        Organiser sans scanner
                     </button>
                 ` : ""}
 
@@ -36295,8 +36319,116 @@ function ouvrirAnalyseMaisonJournal(avantOrganisation = false){
     );
 }
 
+function ouvrirValidationGlobaleScanJournal(){
+    if(!sessionScanMaison) return;
+
+    document.getElementById("modal-validation-scan-global")?.remove();
+
+    const pieces = Object.entries(sessionScanMaison.pieces)
+        .map(([zoneId,scan]) => {
+            const zone = DB.journal.zones.find(z => z.id === zoneId);
+            if(!zone) return null;
+
+            const taches = [];
+            (zone.actions || []).forEach(action => {
+                (action.sousTaches || []).forEach(st => {
+                    if(scan.tachesDetectees.includes(st.id)){
+                        taches.push({
+                            id: st.id,
+                            nom: st.nom,
+                            actionNom: action.nom
+                        });
+                    }
+                });
+            });
+
+            return {zoneId,zone,scan,taches};
+        })
+        .filter(Boolean);
+
+    const html = `
+        <div id="modal-validation-scan-global" style="position:fixed;inset:0;z-index:10000;background:rgba(30,20,25,.35);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:18px">
+            <div style="width:min(560px,100%);max-height:90vh;overflow:auto;background:white;border-radius:28px;padding:22px;box-shadow:0 24px 70px rgba(50,30,40,.25)">
+                <div style="font-size:10px;color:var(--acc);font-weight:800;letter-spacing:.12em">📸 ANALYSE DE LA MAISON</div>
+                <div style="font-family:'Cormorant Garamond',serif;font-size:27px;font-weight:700;margin:4px 0 6px">Vérifie les actions détectées</div>
+                <div style="font-size:12px;color:var(--mut);margin-bottom:18px">Les doublons ont été regroupés. Décoche ce qui ne te semble pas nécessaire.</div>
+
+                ${pieces.map(({zoneId,zone,scan,taches}) => `
+                    <div style="border:1px solid var(--brd);border-radius:18px;padding:14px;margin-bottom:10px">
+                        <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
+                            <strong>${zone.icon || "🏠"} ${zone.nom}</strong>
+                            <span style="font-size:10px;color:var(--mut)">${scan.nombrePhotos} photo${scan.nombrePhotos > 1 ? "s" : ""}</span>
+                        </div>
+                        ${taches.length
+                            ? taches.map(t => `
+                                <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--brd)">
+                                    <input type="checkbox" class="scan-global-checkbox" data-zone-id="${zoneId}" value="${t.id}" checked>
+                                    <span><b style="font-size:12px">${t.nom}</b><small style="display:block;color:var(--mut)">${t.actionNom}</small></span>
+                                </label>
+                            `).join("")
+                            : `<div style="font-size:11px;color:var(--mut)">✨ Rien de particulier détecté</div>`
+                        }
+                    </div>
+                `).join("")}
+
+                <div style="display:flex;gap:8px;margin-top:18px">
+                    <button class="btn bg" style="flex:1" onclick="document.getElementById('modal-validation-scan-global')?.remove();ouvrirAnalyseMaisonJournal(${sessionScanMaison.avantOrganisation})">Retour</button>
+                    <button class="btn bp" style="flex:2" onclick="validerScanMaisonGlobal()">✓ Valider et ${sessionScanMaison.avantOrganisation ? "organiser" : "recalculer"}</button>
+                </div>
+            </div>
+        </div>`;
+
+    document.body.insertAdjacentHTML("beforeend",html);
+}
+
+async function validerScanMaisonGlobal(){
+    if(!sessionScanMaison) return;
+
+    const idsParZone = new Map();
+    document.querySelectorAll(".scan-global-checkbox:checked")
+        .forEach(cb => {
+            const zoneId = cb.dataset.zoneId;
+            if(!idsParZone.has(zoneId)) idsParZone.set(zoneId,[]);
+            idsParZone.get(zoneId).push(cb.value);
+        });
+
+    DB.journal.etatPieces = DB.journal.etatPieces || {};
+
+    Object.entries(sessionScanMaison.pieces)
+        .forEach(([zoneId,scan]) => {
+            const scoreMoyen = scan.scores.length
+                ? Math.round(scan.scores.reduce((s,n) => s+n,0) / scan.scores.length)
+                : 100;
+
+            DB.journal.etatPieces[zoneId] = {
+                score: scoreMoyen,
+                tachesDetectees: scan.tachesDetectees,
+                tachesValidees: idsParZone.get(zoneId) || [],
+                resume: [...new Set(scan.resumes)].join(" "),
+                nombrePhotos: scan.nombrePhotos,
+                dateAnalyse: new Date().toISOString(),
+                dateValidation: new Date().toISOString()
+            };
+        });
+
+    const avantOrganisation = sessionScanMaison.avantOrganisation;
+    sessionScanMaison = null;
+    document.getElementById("modal-validation-scan-global")?.remove();
+
+    await saveAll();
+    toast("✓ Scan maison validé");
+
+    if(avantOrganisation && organisationJourneeApresScan){
+        await terminerScanEtOrganiserJournal();
+    }else{
+        reorganiserPlanningMaintenant();
+    }
+}
+
 async function terminerScanEtOrganiserJournal(){
     document.getElementById("modal-scan-maison")?.remove();
+
+    sessionScanMaison = null;
 
     const action = organisationJourneeApresScan;
     organisationJourneeApresScan = null;
@@ -39143,6 +39275,7 @@ function envoyerCommandeEmma(){
 
 let attenteAssistantEmma = null;
 let organisationJourneeApresScan = null;
+let sessionScanMaison = null;
 
 function getContexteTachesAssistantEmma(){
 
