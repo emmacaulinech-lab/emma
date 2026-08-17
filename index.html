@@ -36860,6 +36860,18 @@ const categorie =
 const estTempsLibre =
     p.type === "tempsLibre";
 
+const iconeBlocSource =
+    p.iconOverride ||
+    zone?.icon ||
+    '📌';
+
+const iconeBloc =
+    String(iconeBlocSource).includes('\uFFFD')
+        ? zoneNom.includes("salon")
+            ? '🛋️'
+            : '🏠'
+        : iconeBlocSource;
+
 
 // =========================
 // 🎨 COULEUR DU BLOC
@@ -37065,7 +37077,7 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         overflow:hidden;
         text-overflow:ellipsis;
     ">
-        ${p.iconOverride||zone?.icon||'📌'}
+        ${iconeBloc}
         ${p.nom||p.customNom||'Tâche'}
     </div>
 
