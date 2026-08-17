@@ -28016,7 +28016,38 @@ function ensureJournalData(){
 
     let migre = false;
 
+    const contientIconeCorrompue =
+        DB.journal.zones.some(zone =>
+            String(zone.icon || '').includes('\uFFFD')
+        );
+
+    const iconesZonesOfficielles =
+        contientIconeCorrompue
+            ? new Map(
+                seedJournalZones().map(zone => [
+                    String(zone.nom || '').trim().toLowerCase(),
+                    zone.icon
+                ])
+            )
+            : null;
+
     DB.journal.zones.forEach(zone => {
+
+        // Répare les anciens emojis dont la paire Unicode
+        // a été enregistrée sous forme de caractères invalides.
+        if(
+            String(zone.icon || '').includes('\uFFFD')
+        ){
+            const iconeOfficielle =
+                iconesZonesOfficielles?.get(
+                    String(zone.nom || '').trim().toLowerCase()
+                );
+
+            if(iconeOfficielle){
+                zone.icon = iconeOfficielle;
+                migre = true;
+            }
+        }
 
         if(!zone.couleur){
 
