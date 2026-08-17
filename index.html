@@ -35495,6 +35495,7 @@ function analyserPhotoPieceJournal(zoneId){
 
     input.type = "file";
     input.accept = "image/*";
+    input.style.display = "none";
 
     // Sur téléphone :
     // permet appareil photo OU photothèque.
@@ -35503,13 +35504,25 @@ function analyserPhotoPieceJournal(zoneId){
         "environment"
     );
 
+    // Safari mobile peut perdre un input fichier qui n'est pas
+    // réellement attaché à la page entre deux ouvertures caméra.
+    document.body.appendChild(input);
+
 
     input.onchange = async () => {
 
         const file =
             input.files?.[0];
 
-        if(!file) return;
+        if(!file){
+            input.remove();
+            if(sessionScanMaison){
+                ouvrirAnalyseMaisonJournal(
+                    sessionScanMaison.avantOrganisation
+                );
+            }
+            return;
+        }
 
 
         try{
@@ -35817,11 +35830,20 @@ Réponds UNIQUEMENT en JSON valide :
                 "Impossible d'analyser la photo"
             );
 
+            if(sessionScanMaison){
+                ouvrirAnalyseMaisonJournal(
+                    sessionScanMaison.avantOrganisation
+                );
+            }
+
+        }finally{
+            input.remove();
         }
 
     };
 
     input.oncancel = () => {
+        input.remove();
         if(sessionScanMaison){
             ouvrirAnalyseMaisonJournal(
                 sessionScanMaison.avantOrganisation
