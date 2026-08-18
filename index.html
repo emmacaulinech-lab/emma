@@ -1719,6 +1719,211 @@ textarea,
         saturate(170%);
 }
 
+/* ═══════════════════════════════════════
+   ACCUEIL IPHONE — 4 UNIVERS
+═══════════════════════════════════════ */
+
+.emma-home-quick-strip{
+    width:100%;
+    max-width:1120px;
+    margin:0 auto 18px;
+    padding:8px;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:7px;
+    border-radius:22px;
+    background:rgba(255,255,255,.50);
+    border:1px solid rgba(255,255,255,.9);
+    box-shadow:var(--emma-shadow);
+}
+
+.emma-home-quick-strip button{
+    min-height:44px;
+    border:0;
+    border-radius:16px;
+    background:rgba(255,255,255,.48);
+    color:var(--emma-text);
+    font:700 12px/1.2 inherit;
+    cursor:pointer;
+}
+
+#hub-modules-grid.emma-hub-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+
+#hub-modules-grid .hub-legacy-card{
+    display:none !important;
+}
+
+#hub-modules-grid .emma-dashboard-card{
+    grid-column:span 1;
+    min-height:0;
+    padding:18px;
+    border-radius:25px;
+}
+
+#hub-modules-grid .emma-dashboard-card .hub-smart-header{
+    margin-bottom:12px;
+}
+
+#hub-modules-grid .emma-dashboard-card .hub-smart-title{
+    font-size:25px;
+    line-height:1;
+}
+
+#hub-modules-grid .emma-dashboard-card .hub-smart-icon{
+    width:40px;
+    height:40px;
+    border-radius:14px;
+    font-size:17px;
+}
+
+#hub-modules-grid .emma-journal-card > .hub-smart-inner,
+#hub-modules-grid .emma-dashboard-card > .hub-card-notifications{
+    display:none !important;
+}
+
+.emma-house-card{
+    background:linear-gradient(145deg,rgba(255,245,237,.78),rgba(255,255,255,.48));
+}
+
+.emma-work-card{
+    background:linear-gradient(145deg,rgba(239,244,255,.82),rgba(247,241,253,.52));
+}
+
+.emma-card-rows{
+    display:grid;
+    gap:7px;
+}
+
+.emma-card-row{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    min-height:43px;
+    padding:9px 11px;
+    border:1px solid rgba(255,255,255,.86);
+    border-radius:14px;
+    background:rgba(255,255,255,.48);
+    color:var(--emma-text);
+    font-size:11px;
+}
+
+button.emma-card-row{
+    width:100%;
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+}
+
+.emma-card-row strong{display:block;font-size:11px}
+.emma-card-row small{display:block;color:var(--emma-muted);font-size:9px;margin-top:2px}
+.emma-card-row > span:last-child{margin-left:auto}
+
+.emma-glow-meal-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+    margin-top:8px;
+}
+
+.emma-glow-meal-actions button{
+    min-height:38px;
+    padding:7px;
+    border-radius:12px;
+    border:1px solid rgba(126,145,180,.18);
+    background:rgba(255,255,255,.62);
+    color:var(--emma-text);
+    font-size:9px;
+    font-weight:800;
+    cursor:pointer;
+}
+
+.emma-assistant-dock{
+    width:100%;
+    max-width:1120px;
+    margin:18px auto 0;
+    min-height:52px;
+    padding:0 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid rgba(255,255,255,.92);
+    border-radius:20px;
+    background:rgba(255,255,255,.62);
+    box-shadow:var(--emma-shadow);
+    color:var(--emma-muted);
+    cursor:pointer;
+}
+
+@media(max-width:760px){
+    #hubPage{
+        padding:14px 12px calc(18px + env(safe-area-inset-bottom)) !important;
+        min-height:100svh !important;
+    }
+
+    .emma-home-hero{
+        margin-bottom:10px !important;
+        padding:14px 16px !important;
+        border-radius:23px !important;
+    }
+
+    .emma-home-title{font-size:34px !important;line-height:1 !important}
+    .emma-home-subtitle{display:none !important}
+    #emma-enable-notifications{display:none !important}
+    .emma-brain-button{width:42px !important;height:42px !important;flex:0 0 42px !important}
+
+    .emma-home-quick-strip{
+        margin-bottom:10px;
+        padding:6px;
+        border-radius:18px;
+    }
+
+    .emma-home-quick-strip button{min-height:38px;font-size:10px}
+
+    #hub-modules-grid.emma-hub-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+        gap:9px !important;
+    }
+
+    #hub-modules-grid .emma-dashboard-card{
+        grid-column:span 1 !important;
+        padding:12px !important;
+        border-radius:20px !important;
+        height:clamp(220px,31vh,292px);
+        overflow:hidden;
+    }
+
+    #hub-modules-grid .emma-dashboard-card .hub-smart-header{margin-bottom:8px}
+    #hub-modules-grid .emma-dashboard-card .hub-smart-title{font-size:19px !important}
+    #hub-modules-grid .emma-dashboard-card .hub-smart-kicker{font-size:8px !important}
+    #hub-modules-grid .emma-dashboard-card .hub-smart-icon{display:none}
+    #hub-modules-grid .emma-dashboard-card .hub-smart-footer{padding-top:8px;font-size:9px}
+
+    #hub-planning-scroll{max-height:165px !important;overflow:hidden !important}
+    #hub-planning-mini .timeline-shell{transform-origin:top left}
+    .emma-card-row{min-height:35px;padding:7px 8px;font-size:9px}
+    .emma-card-row strong{font-size:9px}
+    .emma-card-row small{font-size:8px}
+    .emma-glow-meal-actions button{font-size:8px;min-height:34px}
+    .emma-glow-meal-actions button{
+        white-space:normal;
+        line-height:1.15;
+        overflow:visible;
+    }
+    .emma-glow-card .hub-smart-title{font-size:18px !important}
+
+    .emma-assistant-dock{
+        margin-top:10px;
+        min-height:46px;
+        border-radius:18px;
+        font-size:11px;
+    }
+
+    #hubPage > .emma-bottom-nav{display:none !important}
+}
+
 
 .emma-nav-item{
     color:#817c82 !important;
@@ -3688,6 +3893,54 @@ textarea,
   }
 }
 
+@media(max-width:760px){
+  #hub-modules-grid.emma-hub-grid{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:9px !important;
+  }
+  #hub-modules-grid .emma-dashboard-card{
+    grid-column:span 1 !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    height:clamp(220px,31vh,292px) !important;
+    padding:12px !important;
+    border-radius:20px !important;
+  }
+  #hub-modules-grid .hub-legacy-card{display:none !important}
+}
+@media(max-width:760px) and (max-height:700px){
+  #hubPage{padding:7px 9px calc(7px + env(safe-area-inset-bottom)) !important}
+  .emma-home-hero{
+    min-height:0 !important;
+    margin-bottom:6px !important;
+    padding:9px 12px !important;
+    border-radius:19px !important;
+  }
+  .emma-home-kicker{font-size:7px !important;margin-bottom:2px !important}
+  .emma-home-title{font-size:28px !important}
+  .emma-brain-button{width:34px !important;height:34px !important;flex-basis:34px !important}
+  .emma-home-quick-strip{margin-bottom:6px !important;padding:4px !important;border-radius:15px !important}
+  .emma-home-quick-strip button{min-height:29px !important;font-size:9px !important}
+  #hub-modules-grid.emma-hub-grid{gap:7px !important}
+  #hub-modules-grid .emma-dashboard-card{
+    height:228px !important;
+    padding:10px !important;
+    border-radius:18px !important;
+  }
+  #hub-modules-grid .emma-dashboard-card .hub-smart-header{margin-bottom:5px !important}
+  #hub-modules-grid .emma-dashboard-card .hub-smart-title{font-size:17px !important}
+  #hub-modules-grid .emma-glow-card .hub-smart-title{font-size:15px !important}
+  .emma-card-rows{gap:4px !important}
+  .emma-card-row{min-height:29px !important;padding:5px 6px !important;gap:6px !important}
+  .emma-card-row strong{font-size:8px !important}
+  .emma-card-row small{font-size:7px !important;margin-top:0 !important}
+  .emma-glow-meal-actions{gap:4px !important;margin-top:5px !important}
+  .emma-glow-meal-actions button{min-height:29px !important;padding:4px !important;font-size:7px !important}
+  #hub-modules-grid .emma-dashboard-card .hub-smart-footer{padding-top:5px !important;font-size:8px !important}
+  .emma-assistant-dock{margin-top:6px !important;min-height:38px !important;height:38px !important}
+}
 </style>
 </head>
 <body>
@@ -3758,13 +4011,19 @@ textarea,
 
   </section>
 
+  <div class="emma-home-quick-strip" aria-label="Accès rapides">
+    <button type="button" onclick="goModule('journal')">📅 Agenda</button>
+    <button type="button" onclick="ouvrirAssistantEmma()">✦ Assistante</button>
+    <button type="button" onclick="ouvrirVueMinuteEmma()">◷ Vue minute</button>
+  </div>
+
 
  <!-- ═══════════════ HUB — CARTES INTELLIGENTES ═══════════════ -->
 
 <div class="emma-hub-grid" id="hub-modules-grid">
 
   <!-- JOURNAL -->
-  <section class="hub-smart-card journal-smart-card" onclick="goModule('journal')">
+  <section class="hub-smart-card journal-smart-card emma-dashboard-card emma-journal-card" onclick="goModule('journal')">
 
     <div class="hub-smart-header">
       <div>
@@ -3816,15 +4075,51 @@ textarea,
 
   </section>
 
+  <!-- MAISON -->
+  <section class="hub-smart-card emma-house-card emma-dashboard-card" onclick="ouvrirMaisonDepuisHub()">
+    <div class="hub-smart-header">
+      <div>
+        <div class="hub-smart-kicker">🏠 MAISON</div>
+        <div class="hub-smart-title">État des pièces</div>
+      </div>
+      <div class="hub-smart-icon">⌂</div>
+    </div>
+    <div class="emma-card-rows" id="hub-house-mini"></div>
+    <div class="hub-smart-footer">Voir →</div>
+  </section>
+
+  <!-- TRAVAIL -->
+  <section class="hub-smart-card emma-work-card emma-dashboard-card" onclick="emmaNavigate('travail')">
+    <div class="hub-smart-header">
+      <div>
+        <div class="hub-smart-kicker">💼 TRAVAIL</div>
+        <div class="hub-smart-title">Mon travail</div>
+      </div>
+      <div class="hub-smart-icon">▣</div>
+    </div>
+    <div class="emma-card-rows">
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('compta')">
+        <span>💼</span><span><strong>Emploi</strong><small id="hub-work-employment">Agenda et activité</small></span><span>›</span>
+      </button>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('formations')">
+        <span>🎓</span><span><strong>Formations</strong><small id="hub-work-training">Élèves et kits</small></span><span>›</span>
+      </button>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('facturation')">
+        <span>🧾</span><span><strong>Facturation</strong><small id="hub-work-billing">Factures et règlements</small></span><span>›</span>
+      </button>
+    </div>
+    <div class="hub-smart-footer">Continuer →</div>
+  </section>
+
 
   <!-- GLOW -->
-  <section class="hub-smart-card glow-smart-card" onclick="goModule('glow')">
+  <section class="hub-smart-card glow-smart-card emma-dashboard-card" onclick="goModule('glow')">
 
     <div class="hub-smart-header">
 
       <div>
         <div class="hub-smart-kicker">✨ GLOW</div>
-        <div class="hub-smart-title">Prends soin de toi</div>
+        <div class="hub-smart-title">Nutrition, sport &amp; hydratation</div>
       </div>
 
       <div class="glow-score-circle">
@@ -3834,27 +4129,15 @@ textarea,
     </div>
 
 
-    <div class="glow-actions">
+    <div class="emma-card-rows">
+      <div class="emma-card-row"><span>💧</span><span><strong>Eau</strong><small id="hub-glow-water">0 / 8 verres</small></span></div>
+      <div class="emma-card-row"><span>🏃</span><span><strong>Sport</strong><small id="hub-glow-sport">0 / 30 min</small></span></div>
+      <div class="emma-card-row"><span>🥗</span><span><strong>Nutrition</strong><small id="hub-glow-meals">0 repas renseigné</small></span></div>
+    </div>
 
-      <div>💧 Eau</div>
-
-      <div>🏋️ Sport</div>
-
-      <div
-        onclick="
-          event.stopPropagation();
-          goModule('glow');
-          setTimeout(() => {
-            renderGlowNutrition();
-          },50);
-        "
-        style="cursor:pointer"
-      >
-        🥗 Nutrition
-      </div>
-
-      <div>🌙 Sommeil</div>
-
+    <div class="emma-glow-meal-actions" onclick="event.stopPropagation()">
+      <button type="button" onclick="renseignerRepasDepuisHub()">Renseigner un repas</button>
+      <button type="button" onclick="choisirRepasDepuisHub()">Choisir un repas</button>
     </div>
 
     <div class="hub-card-notifications" id="hub-notifs-glow"></div>
@@ -3867,7 +4150,7 @@ textarea,
 
 
   <!-- COMPTA -->
-  <section class="hub-smart-card compta-smart-card" onclick="goModule('compta')">
+  <section class="hub-smart-card compta-smart-card hub-legacy-card" onclick="goModule('compta')">
 
     <div class="hub-smart-header">
 
@@ -3966,7 +4249,7 @@ textarea,
 
 
   <!-- FORMATIONS -->
-  <section class="hub-smart-card formations-smart-card" onclick="goModule('formations')">
+  <section class="hub-smart-card formations-smart-card hub-legacy-card" onclick="goModule('formations')">
 
     <div class="hub-smart-header">
 
@@ -3993,7 +4276,7 @@ textarea,
 
 
   <!-- FACTURATION -->
-  <section class="hub-smart-card facturation-smart-card" onclick="goModule('facturation')">
+  <section class="hub-smart-card facturation-smart-card hub-legacy-card" onclick="goModule('facturation')">
 
     <div class="hub-smart-header">
 
@@ -4020,7 +4303,7 @@ textarea,
 
 
   <!-- BANQUE PERSO -->
-  <section class="hub-smart-card banque-smart-card" onclick="goModule('banqueperso')">
+  <section class="hub-smart-card banque-smart-card hub-legacy-card" onclick="goModule('banqueperso')">
 
     <div class="hub-smart-header">
 
@@ -4053,7 +4336,7 @@ textarea,
 
 
   <!-- LECTURE -->
-  <section class="hub-smart-card lecture-smart-card" onclick="goModule('lecture')">
+  <section class="hub-smart-card lecture-smart-card hub-legacy-card" onclick="goModule('lecture')">
 
     <div class="hub-smart-header">
 
@@ -4079,6 +4362,9 @@ textarea,
   </section>
 
 </div>
+  <button class="emma-assistant-dock" type="button" onclick="ouvrirAssistantEmma()">
+    <span>✦</span><span>Parler à mon assistante…</span><span style="margin-left:auto">🎙</span>
+  </button>
   <nav class="emma-bottom-nav" aria-label="Navigation principale">
 
   <button
@@ -15590,6 +15876,7 @@ function ouvrirTacheDepuisNotificationEmma(notificationId){
   renderTodos();
   renderHumeurJour();
   renderHubPlanningMini();
+  renderHubCardsEmma();
   const soldeProEl=document.getElementById('hub-solde-pro');
   const soldePersoEl=document.getElementById('hub-solde-perso');
   if(!soldeProEl) return;
@@ -16670,12 +16957,117 @@ function choisirMeilleureSeanceGlow(){
 function renderGlowAccueil(){
 
     const el = document.getElementById("hub-glow-score");
-
-    if(!el) return;
-
     const score = calculGlowScore();
 
-    el.textContent = score.total + "%";
+    if(el){
+        el.textContent = score.total + "%";
+    }
+
+    renderHubCardsEmma();
+}
+
+function renderHubCardsEmma(){
+    if(!document.getElementById("hubPage")) return;
+
+    ensureJournalData();
+    initialiserGlowDuJour();
+
+    const today = new Date().toISOString().split("T")[0];
+    const zones = (DB.journal?.zones || [])
+        .map(zone => ({
+            zone,
+            ...calculerScorePieceJournal(zone,today)
+        }))
+        .sort((a,b) => a.score - b.score)
+        .slice(0,3);
+
+    const house = document.getElementById("hub-house-mini");
+    if(house){
+        house.innerHTML = zones.length
+            ? zones.map(item => `
+                <button class="emma-card-row" type="button"
+                    onclick="event.stopPropagation();ouvrirPieceDepuisHub('${item.zone.id}')">
+                    <span>${item.zone.icon || "🏠"}</span>
+                    <span><strong>${item.zone.nom}</strong><small>${item.score}% · ${item.niveau === "urgent" ? "À faire" : item.niveau === "attention" ? "À surveiller" : "En cours"}</small></span>
+                    <span>›</span>
+                </button>
+            `).join("")
+            : `<div class="emma-card-row"><span>🏠</span><span><strong>Maison</strong><small>Ajoute tes pièces dans le Journal</small></span></div>`;
+    }
+
+    const notifs = getToutesNotifications(new Date());
+    const formations = notifs.filter(n => String(n.onclick || "").includes("formations")).length;
+    const factures = notifs.filter(n => String(n.onclick || "").includes("facturation")).length;
+    const rdv = Array.isArray(agendaData)
+        ? agendaData.filter(r => !r.date || r.date === today).length
+        : 0;
+
+    const employment = document.getElementById("hub-work-employment");
+    const training = document.getElementById("hub-work-training");
+    const billing = document.getElementById("hub-work-billing");
+    if(employment) employment.textContent = rdv ? `${rdv} rendez-vous aujourd’hui` : "Agenda et activité";
+    if(training) training.textContent = formations ? `${formations} élément${formations > 1 ? "s" : ""} à traiter` : "Élèves et kits à jour";
+    if(billing) billing.textContent = factures ? `${factures} facture${factures > 1 ? "s" : ""} à traiter` : "Factures à jour";
+
+    const eau = Number(DB.glow?.eau || 0);
+    const repas = DB.glow?.nutrition?.repas || [];
+    const debutSemaine = new Date();
+    debutSemaine.setHours(0,0,0,0);
+    debutSemaine.setDate(debutSemaine.getDate() - 6);
+    const minutesSport = (DB.glow?.historiqueSeances || DB.historiqueGlow || [])
+        .filter(item => item?.terminee && item?.date && new Date(item.date) >= debutSemaine)
+        .reduce((total,item) => total + Number(item.duree || 0),0);
+
+    const water = document.getElementById("hub-glow-water");
+    const sport = document.getElementById("hub-glow-sport");
+    const meals = document.getElementById("hub-glow-meals");
+    if(water) water.textContent = `${eau} / 8 verres`;
+    if(sport) sport.textContent = `${minutesSport} / 30 min`;
+    if(meals) meals.textContent = `${repas.length} repas renseigné${repas.length > 1 ? "s" : ""}`;
+}
+
+function ouvrirMaisonDepuisHub(){
+    goModule("journal");
+    setTimeout(() => {
+        document.getElementById("journal-etat-maison")?.scrollIntoView({behavior:"smooth",block:"start"});
+    },120);
+}
+
+function ouvrirPieceDepuisHub(zoneId){
+    goModule("journal");
+    setTimeout(() => ouvrirDetailPieceJournal(zoneId),120);
+}
+
+function renseignerRepasDepuisHub(){
+    goModule("glow");
+    setTimeout(() => renderGlowNutrition(),60);
+}
+
+function choisirRepasDepuisHub(){
+    goModule("glow");
+    setTimeout(() => renderGlowNutrition(),60);
+}
+
+function ouvrirVueMinuteEmma(){
+    ensureJournalData();
+    const today = new Date().toISOString().split("T")[0];
+    const planning = DB.journal.planning[today] || [];
+    const faitMap = DB.journal.faitAujourdhui?.[today] || {};
+    const maintenant = new Date();
+    const minuteActuelle = maintenant.getHours() * 60 + maintenant.getMinutes();
+    const aVenir = planning
+        .filter(item => !faitMap[item.id] && strToMin(item.heureFin) >= minuteActuelle)
+        .sort((a,b) => strToMin(a.heureDebut) - strToMin(b.heureDebut));
+
+    ouvrirMenuNavigationEmma(
+        "Vue minute",
+        aVenir.length ? `${aVenir.length} chose${aVenir.length > 1 ? "s" : ""} encore prévue${aVenir.length > 1 ? "s" : ""} aujourd’hui` : "Ta journée est à jour",
+        [
+            ...(aVenir[0] ? [{icon:aVenir[0].iconOverride || "✓",titre:"Maintenant",texte:`${aVenir[0].nom} · ${aVenir[0].heureDebut}`,action:() => goModule("journal")}] : []),
+            {icon:"📔",titre:"Voir le journal",texte:"Ouvrir toute la journée",action:() => goModule("journal")},
+            {icon:"✦",titre:"Parler à EMMA",texte:"Réorganiser ou demander de l’aide",action:() => ouvrirAssistantEmma()}
+        ]
+    );
 }
 
 function recommanderProgrammeGlow(){
