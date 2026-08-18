@@ -3941,6 +3941,24 @@ button.emma-card-row{
   #hub-modules-grid .emma-dashboard-card .hub-smart-footer{padding-top:5px !important;font-size:8px !important}
   .emma-assistant-dock{margin-top:6px !important;min-height:38px !important;height:38px !important}
 }
+/* =========================
+   MA MAISON — VUE DÉDIÉE
+========================= */
+#module-maison{background:radial-gradient(circle at 5% 5%,rgba(223,232,255,.92),transparent 38%),radial-gradient(circle at 94% 20%,rgba(255,231,220,.72),transparent 42%),linear-gradient(145deg,#f9fbff,#fffaf8 58%,#f8fffc)}
+.maison-page{width:min(1180px,100%);margin:0 auto;padding:28px 24px 70px;color:#242632}
+.maison-hero,.maison-panel{background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.92);box-shadow:0 18px 60px rgba(67,76,112,.09);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.maison-hero{border-radius:30px;padding:28px 30px;display:flex;align-items:flex-end;justify-content:space-between;gap:22px;margin-bottom:18px}
+.maison-kicker{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#7b8294;font-weight:800;margin-bottom:6px}
+.maison-title{font-family:Georgia,'Times New Roman',serif;font-size:42px;line-height:1;margin:0;font-weight:500}
+.maison-subtitle{font-size:12px;color:#858999;margin-top:10px}
+.maison-stats{display:flex;gap:10px}.maison-stat{min-width:84px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.72);text-align:center}.maison-stat strong{display:block;font-family:Georgia,serif;font-size:23px}.maison-stat small{font-size:9px;color:#878b98;text-transform:uppercase;letter-spacing:.8px}
+.maison-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.8fr);gap:18px;margin-bottom:18px}.maison-side{display:grid;gap:18px;align-content:start}
+.maison-panel{border-radius:28px;padding:22px}.maison-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.maison-panel h2{font-family:Georgia,serif;font-size:24px;font-weight:500;margin:0}.maison-soft-btn{border:0;border-radius:14px;background:rgba(255,255,255,.84);box-shadow:0 5px 20px rgba(64,71,104,.08);padding:10px 13px;font:700 11px 'Nunito',sans-serif;color:#5d6684;cursor:pointer}
+.maison-floor-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;grid-auto-rows:112px;gap:9px;padding:10px;border-radius:24px;background:rgba(236,240,248,.48)}
+.maison-room{border:1px solid rgba(255,255,255,.92);border-radius:20px;padding:14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;color:#30313a;box-shadow:inset 0 0 28px rgba(255,255,255,.58);transition:.2s transform}.maison-room:active{transform:scale(.98)}.maison-room:nth-child(1){grid-row:span 2}.maison-room:nth-child(4){grid-column:span 2}.maison-room-top{display:flex;justify-content:space-between;gap:8px;font-size:18px}.maison-room-name{font:600 15px Georgia,serif}.maison-room-score{font-size:11px;font-weight:800}.maison-room-bar,.maison-progress{height:4px;background:rgba(55,57,70,.09);border-radius:9px;overflow:hidden}.maison-room-bar i,.maison-progress i{height:100%;display:block;border-radius:9px}.maison-room small{font-size:9px;color:#747887}
+.maison-priority{background:linear-gradient(145deg,rgba(255,244,242,.92),rgba(255,255,255,.7))}.maison-priority-name{font:500 28px Georgia,serif;margin:-3px 0 4px}.maison-priority-copy{font-size:11px;color:#888b96;margin-bottom:15px}.maison-task-row{display:flex;align-items:center;gap:9px;padding:10px 11px;background:rgba(255,255,255,.66);border-radius:14px;margin-top:7px;font-size:11px}.maison-task-row span:nth-child(2){flex:1}.maison-task-row small{color:#9295a1}.maison-add-btn{width:100%;border:0;border-radius:16px;padding:12px;margin-top:14px;background:linear-gradient(135deg,#849bd2,#6f86bd);color:white;font:800 11px 'Nunito';box-shadow:0 8px 20px rgba(102,127,188,.22);cursor:pointer}
+.maison-today-number{font:500 36px Georgia,serif}.maison-today-copy{font-size:11px;color:#858997;margin:4px 0 12px}.maison-rooms-list{display:grid;gap:5px}.maison-list-row{display:grid;grid-template-columns:minmax(110px,1fr) minmax(100px,2fr) auto;align-items:center;gap:14px;border:0;background:rgba(255,255,255,.45);border-radius:14px;padding:10px 12px;text-align:left;cursor:pointer;color:#343640}.maison-list-row strong{font-size:12px}.maison-list-row small{font-size:10px;color:#8c909d;white-space:nowrap}
+@media(max-width:700px){.maison-page{padding:16px 12px 88px}.maison-hero{padding:20px;border-radius:24px;display:block}.maison-title{font-size:34px}.maison-stats{margin-top:18px}.maison-stat{min-width:0;flex:1;padding:10px 6px}.maison-layout{grid-template-columns:1fr}.maison-panel{padding:17px;border-radius:23px}.maison-floor-grid{grid-template-columns:1fr 1fr;grid-auto-rows:100px;padding:7px}.maison-room:nth-child(1){grid-row:span 2}.maison-room:nth-child(4){grid-column:auto}.maison-room{padding:12px}.maison-list-row{grid-template-columns:minmax(105px,1fr) 1.3fr}.maison-list-row small{display:none}}
 </style>
 </head>
 <body>
@@ -5137,6 +5155,33 @@ button.emma-card-row{
 <div id="module-banqueperso" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">👛 Banque perso</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/banqueperso/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
+</div>
+<div id="module-maison" style="display:none;min-height:100vh;flex-direction:column">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🏠 Maison</div></div>
+  <main class="maison-page">
+    <section class="maison-hero">
+      <div><div class="maison-kicker">Maison</div><h1 class="maison-title">Ma maison ✨</h1><div class="maison-subtitle">Tout ce qui mérite ton attention, pièce par pièce.</div></div>
+      <div class="maison-stats">
+        <div class="maison-stat"><strong id="maison-total-tasks">0</strong><small>tâches</small></div>
+        <div class="maison-stat"><strong id="maison-done">0</strong><small>faites</small></div>
+        <div class="maison-stat"><strong id="maison-overdue">0</strong><small>à traiter</small></div>
+      </div>
+    </section>
+    <div class="maison-layout">
+      <section class="maison-panel">
+        <div class="maison-panel-head"><div><div class="maison-kicker">Vue d'ensemble</div><h2>État des pièces</h2></div><button class="maison-soft-btn" onclick="ouvrirAnalyseMaisonJournal()">📷 Scanner</button></div>
+        <div id="maison-floor-grid" class="maison-floor-grid"></div>
+      </section>
+      <div class="maison-side">
+        <section id="maison-priority-card" class="maison-panel maison-priority"></section>
+        <section id="maison-today-card" class="maison-panel"></section>
+      </div>
+    </div>
+    <section class="maison-panel">
+      <div class="maison-panel-head"><div><div class="maison-kicker">Détail</div><h2>Toutes les pièces</h2></div></div>
+      <div id="maison-all-rooms" class="maison-rooms-list"></div>
+    </section>
+  </main>
 </div>
 <div id="module-glow" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
 
@@ -14946,7 +14991,7 @@ async function delHumeurEntree(jour,idx){
 function goHub(){
   document.getElementById('hubPage').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  ['facturation','formations','banqueperso','glow','lecture','journal'].forEach(m=>{
+  ['facturation','formations','banqueperso','maison','glow','lecture','journal'].forEach(m=>{
     document.getElementById('module-'+m).style.display='none';
   });
   setEmmaNav('accueil');
@@ -14966,6 +15011,7 @@ function goModule(name){
     if(name==='lecture') renderLectureModule();
     if(name==='journal') renderJournalModule();
     if(name==='glow') renderGlowModule();
+    if(name==='maison') renderMaisonModule();
   }
 }
 
@@ -17027,15 +17073,87 @@ function renderHubCardsEmma(){
 }
 
 function ouvrirMaisonDepuisHub(){
-    goModule("journal");
-    setTimeout(() => {
-        document.getElementById("journal-etat-maison")?.scrollIntoView({behavior:"smooth",block:"start"});
-    },120);
+    goModule("maison");
 }
 
 function ouvrirPieceDepuisHub(zoneId){
-    goModule("journal");
+    goModule("maison");
     setTimeout(() => ouvrirDetailPieceJournal(zoneId),120);
+}
+
+function getMaisonDashboardData(){
+    ensureJournalData();
+    const date = new Date().toISOString().split("T")[0];
+    const faitMap = DB.journal.faitAujourdhui?.[date] || {};
+    const horsMaison = new Set(["Pro / Admin","Marketing","Voiture"]);
+    const pieces = (DB.journal.zones || []).filter(zone => !horsMaison.has(zone.nom)).map(zone => {
+        const taches = [];
+        (zone.actions || []).forEach(action => {
+            (action.sousTaches || []).forEach(st => {
+                const score = calculerScoreTacheJournal(zone,action,st,date);
+                taches.push({zone,action,st,score});
+            });
+        });
+        taches.sort((a,b) => b.score-a.score);
+        return {zone,taches,actives:taches.filter(t => t.score > 0),...calculerScorePieceJournal(zone,date)};
+    });
+    const toutes = pieces.flatMap(piece => piece.actives);
+    const faites = pieces.flatMap(piece => piece.taches).filter(t => faitMap[t.st.id] || t.st.dernierFait === date);
+    return {date,faitMap,pieces,toutes,faites};
+}
+
+function maisonMetaNiveau(niveau){
+    return {
+        urgent:{label:"À faire",color:"#d96b64",fond:"rgba(249,218,214,.72)"},
+        attention:{label:"À surveiller",color:"#d2a13d",fond:"rgba(250,237,199,.72)"},
+        moyen:{label:"En cours",color:"#668bbd",fond:"rgba(216,229,250,.76)"},
+        ok:{label:"Tout va bien",color:"#70a58a",fond:"rgba(218,240,228,.76)"}
+    }[niveau] || {label:"En cours",color:"#7d8dac",fond:"rgba(228,233,244,.72)"};
+}
+
+function renderMaisonModule(){
+    const data = getMaisonDashboardData();
+    const planning = DB.journal.planning?.[data.date] || [];
+    const maisonPlanning = planning.filter(item => item.categorie === "maison" || item.zoneId || item.data?.zoneId);
+    const prioritaires = [...data.pieces].sort((a,b) => a.score-b.score);
+    const priorite = prioritaires.find(p => p.actives.length) || prioritaires[0];
+    const total = document.getElementById("maison-total-tasks");
+    const done = document.getElementById("maison-done");
+    const overdue = document.getElementById("maison-overdue");
+    if(total) total.textContent = data.toutes.length;
+    if(done) done.textContent = data.faites.length;
+    if(overdue) overdue.textContent = data.toutes.filter(t => t.score >= 60).length;
+
+    const floor = document.getElementById("maison-floor-grid");
+    if(floor) floor.innerHTML = data.pieces.map(piece => {
+        const meta = maisonMetaNiveau(piece.niveau);
+        return `<button class="maison-room" style="background:${meta.fond}" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')">
+          <div class="maison-room-top"><span>${piece.zone.icon || "🏠"}</span><span class="maison-room-score" style="color:${meta.color}">${piece.score}%</span></div>
+          <div><div class="maison-room-name">${piece.zone.nom}</div><small>${piece.actives.length} tâche${piece.actives.length>1?"s":""} · ${meta.label}</small><div class="maison-room-bar"><i style="width:${piece.score}%;background:${meta.color}"></i></div></div>
+        </button>`;
+    }).join("");
+
+    const priorityCard = document.getElementById("maison-priority-card");
+    if(priorityCard && priorite){
+        const top = priorite.actives.slice(0,3);
+        priorityCard.innerHTML = `<div class="maison-kicker">⭐ Priorité</div><div class="maison-priority-name">${priorite.zone.icon || "🏠"} ${priorite.zone.nom}</div><div class="maison-priority-copy">${top.length ? `${top.length} action${top.length>1?"s":""} utile${top.length>1?"s":""} maintenant` : "Cette pièce est à jour"}</div>
+          ${top.map(t => `<div class="maison-task-row"><span>○</span><span>${t.st.nom || t.action.nom}</span><small>${t.st.duree || 5} min</small></div>`).join("")}
+          <button class="maison-add-btn" onclick="ajouterPrioriteMaisonAuPlanning('${priorite.zone.id}')">＋ Ajouter au planning</button>`;
+    }
+    const today = document.getElementById("maison-today-card");
+    if(today) today.innerHTML = `<div class="maison-kicker">Aujourd'hui</div><div class="maison-today-number">${maisonPlanning.length}</div><div class="maison-today-copy">tâche${maisonPlanning.length>1?"s":""} maison dans ton planning</div><button class="maison-soft-btn" style="width:100%" onclick="goModule('journal')">Voir ma journée →</button>`;
+
+    const list = document.getElementById("maison-all-rooms");
+    if(list) list.innerHTML = prioritaires.map(piece => {
+        const meta = maisonMetaNiveau(piece.niveau);
+        return `<button class="maison-list-row" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')"><strong>${piece.zone.icon || "🏠"} ${piece.zone.nom}</strong><div class="maison-progress"><i style="width:${piece.score}%;background:${meta.color}"></i></div><small>${piece.actives.length} à faire · ${piece.score}% ›</small></button>`;
+    }).join("");
+}
+
+async function ajouterPrioriteMaisonAuPlanning(zoneId){
+    await forcerTopTachesPieceJournal(zoneId);
+    await appliquerPlanningIntelligent(new Date().toISOString().split("T")[0],{mode:"ajouter"});
+    renderMaisonModule();
 }
 
 function renseignerRepasDepuisHub(){
