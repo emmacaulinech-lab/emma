@@ -29591,7 +29591,7 @@ function renderJAujourdhui(){
 ${
     estAujourdhui
     ? `
-        <div style="
+        <div id="journal-organiser-card" style="
             background:
                 linear-gradient(
                     135deg,
@@ -29676,7 +29676,7 @@ ${
                     estAujourdhui
                     ? `
 
-                        <div style="
+                        <div id="journal-demain-card" style="
                             background:
                                 linear-gradient(
                                     135deg,
@@ -29859,53 +29859,6 @@ ${
                             </div>
 
 
-                            <!-- MAISON -->
-
-                            <div style="
-                                background:rgba(255,255,255,.50);
-                                border-radius:17px;
-                                padding:14px;
-                                margin-bottom:14px;
-                            ">
-
-                                <div style="
-                                    display:flex;
-                                    justify-content:space-between;
-                                    align-items:center;
-                                    gap:10px;
-                                ">
-
-                                    <div>
-
-                                        <div style="
-                                            font-size:12px;
-                                            font-weight:800;
-                                        ">
-                                            🏠 État de la maison
-                                        </div>
-
-                                        <div style="
-                                            font-size:10px;
-                                            color:var(--mut);
-                                            margin-top:3px;
-                                        ">
-                                            Scanne les pièces importantes avant qu’EMMA organise demain.
-                                        </div>
-
-                                    </div>
-
-                                    <button
-                                        class="btn bg bsm"
-                                        onclick="ouvrirAnalyseMaisonJournal()"
-                                    >
-                                        📸 Scanner
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-
                             <!-- ORGANISER -->
 ${
     propositionDemain.length
@@ -30026,11 +29979,6 @@ ${
                 }
 
 
-                <!-- MAISON -->
-
-                <div id="journal-etat-maison"></div>
-
-
                 <!-- ANALYSE JOURNÉE -->
 
                 <div id="estimation-temps" style="margin-bottom:14px"></div>
@@ -30040,7 +29988,7 @@ ${
 
                 <div id="planning-intelligent-preview"></div>
 
-               <div style="
+               <div id="journal-edit-actions" style="
     display:flex;
     justify-content:flex-end;
     margin-bottom:10px;
@@ -30072,9 +30020,6 @@ ${
 
 
     if(window.journalVue !== "semaine"){
-
-        renderEtatMaisonJournal(today);
-
         renderPreviewPlanningIntelligent(
             proposition
         );
@@ -30082,6 +30027,21 @@ ${
         renderPlanningTimeline();
 
         renderEstimationTemps();
+
+        // Le Journal raconte désormais la journée dans son ordre naturel :
+        // organiser, choisir les propositions, voir la timeline, puis demain.
+        const journalRoot = document.getElementById("jview-aujourdhui");
+        [
+            "journal-organiser-card",
+            "planning-intelligent-preview",
+            "estimation-temps",
+            "journal-edit-actions",
+            "planning-timeline",
+            "journal-demain-card"
+        ].forEach(id => {
+            const bloc = document.getElementById(id);
+            if(bloc) journalRoot.appendChild(bloc);
+        });
     }
 }
 
@@ -36920,6 +36880,11 @@ function renderPreviewPlanningIntelligent(proposition){
     const nonPlaces =
         proposition?.nonPlaces || [];
 
+    // La proposition reste une aide à la décision, pas une deuxième timeline.
+    // On montre uniquement les premières options utiles sur l'écran mobile.
+    const suggestions = blocs.slice(0,6);
+    const autresSuggestions = Math.max(0,blocs.length - suggestions.length);
+
     if(!blocs.length && !nonPlaces.length){
 
         el.innerHTML = "";
@@ -36976,14 +36941,14 @@ function renderPreviewPlanningIntelligent(proposition){
                     font-weight:800;
                     white-space:nowrap;
                 ">
-                    ${blocs.length} bloc${blocs.length > 1 ? "s" : ""}
+                    ${suggestions.length} idée${suggestions.length > 1 ? "s" : ""}
                 </div>
 
             </div>
 
 
             ${
-                blocs.map(bloc => `
+                suggestions.map(bloc => `
 
                     <div style="
                         display:flex;
@@ -37034,6 +36999,8 @@ function renderPreviewPlanningIntelligent(proposition){
 
                 `).join("")
             }
+
+            ${autresSuggestions ? `<div style="font-size:10px;color:var(--mut);text-align:center;padding:9px 0 2px">＋ ${autresSuggestions} autre${autresSuggestions>1?"s":""} possibilité${autresSuggestions>1?"s":""} sera organisée selon tes choix</div>` : ""}
 
 
             ${
@@ -37119,8 +37086,10 @@ function renderEstimationTemps(){
     const nonPlaces =
         proposition?.nonPlaces || [];
 
+    const apercu = blocs.slice(0,6);
+
     const minutesProposees =
-        blocs.reduce(
+        apercu.reduce(
             (total,bloc) =>
                 total + Number(bloc.duree || 0),
             0
@@ -37209,7 +37178,7 @@ function renderEstimationTemps(){
                     margin-top:4px;
                 ">
                     ${Math.round(charge.minutesLibres / 60 * 10) / 10} h libres aujourd’hui
-                    · ${blocs.length} bloc${blocs.length > 1 ? "s" : ""} proposé${blocs.length > 1 ? "s" : ""}
+                    · ${apercu.length} suggestion${apercu.length > 1 ? "s" : ""}
                     · ${dureeProposee}
                 </div>
 
