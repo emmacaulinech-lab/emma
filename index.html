@@ -14924,7 +14924,13 @@ function getPlanningEnRetard(){
   const heureActuelle=maintenant.getHours()*60+maintenant.getMinutes();
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
 
-  return planning.filter(p=>!faitMap[p.id]&&toMin(p.heureFin)<heureActuelle)
+  return planning.filter(p=>
+      !faitMap[p.id]&&
+      !faitMap[cleTachePlanningEmma(p)]&&
+      p.type!=="tempsLibre"&&
+      p.heureFin&&
+      toMin(p.heureFin)<heureActuelle
+    )
     .sort((a,b)=>a.heureFin.localeCompare(b.heureFin));
 }
 
@@ -14933,20 +14939,61 @@ function ouvrirPopupTachesRetard(){
   if(!enRetard.length) return; // pas de pop-up si rien en retard
   {
     document.getElementById('tachesRetardBody').innerHTML=enRetard.map(p=>{
-      const zone=DB.journal.zones.find(z=>z.id===p.zoneId);
+      const zoneId=p.data?.zoneId||p.zoneId;
+      const zone=DB.journal.zones.find(z=>z.id===zoneId);
       const couleur=zone?.couleur||'#993556';
       const zoneIcon=zone?.icon||'📌';
       const zoneNom=zone?.nom||'—';
-      return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:10px;margin-bottom:6px">
-        <input type="checkbox" onchange="cocherPlanningRetard('${p.id}',this)" style="width:18px;height:18px;accent-color:${couleur}">
-        <div style="flex:1">
+      return`<div style="padding:11px 12px;background:${couleurPastel(couleur)};border:1.5px solid ${couleur};border-radius:14px;margin-bottom:8px">
+        <div>
           <div style="font-size:13px;font-weight:600;color:${couleur}">${zoneIcon} ${p.nom}</div>
           <div style="font-size:11px;color:var(--mut)">${zoneNom} · prévu ${p.heureDebut}–${p.heureFin}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:9px">
+          <button class="btn bgrn bsm" onclick="traiterTacheRetardEmma('${p.id}','faite')">✓ Faite</button>
+          <button class="btn bg bsm" onclick="traiterTacheRetardEmma('${p.id}','reporter')">Reporter</button>
+          <button class="btn bd bsm" onclick="traiterTacheRetardEmma('${p.id}','reorganiser')">Réorganiser</button>
         </div>
       </div>`;
     }).join('');
   }
   document.getElementById('tachesRetardModal').classList.add('open');
+}
+
+async function traiterTacheRetardEmma(planningId,action){
+  closeMo('tachesRetardModal');
+
+  if(action==='faite'){
+    await togglePlanningFait(planningId);
+    toast('✓ Tâche enregistrée comme faite');
+    return;
+  }
+
+  if(action==='reporter'){
+    ouvrirReporter(planningId);
+    return;
+  }
+
+  const today=new Date().toISOString().split('T')[0];
+  const planning=DB.journal.planning?.[today]||[];
+  const item=planning.find(bloc=>bloc.id===planningId);
+  if(!item) return;
+
+  DB.journal.planning[today]=planning.filter(bloc=>bloc.id!==planningId);
+  const maintenant=new Date();
+  const debutSouhaite=minToStr(maintenant.getHours()*60+maintenant.getMinutes()+5);
+  const place=placerSansChevauchement(today,debutSouhaite,Number(item.duree||5));
+  item.heurePrevueInitiale=item.heurePrevueInitiale||item.heureDebut;
+  item.heureDebut=place.heureDebut;
+  item.heureFin=place.heureFin;
+  item.reorganiseeRetardA=new Date().toISOString();
+  DB.journal.planning[today].push(item);
+  DB.journal.planning[today].sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''));
+
+  await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+  await synchroniserNotificationsPlanningEmma(today);
+  renderJAujourdhui();
+  toast(`✨ « ${item.nom||item.customNom} » replacée à ${item.heureDebut}`);
 }
 
 async function cocherPlanningRetard(planningId,checkbox){
@@ -15001,6 +15048,10 @@ function goHub(){
 
 function goModule(name){
   document.getElementById('hubPage').style.display='none';
+  ['facturation','formations','banqueperso','maison','glow','lecture','journal'].forEach(moduleName=>{
+    const module=document.getElementById('module-'+moduleName);
+    if(module) module.style.display='none';
+  });
   if(name==='compta'){
     document.getElementById('app').classList.add('visible');
     renderAll();
@@ -17081,21 +17132,47 @@ function ouvrirPieceDepuisHub(zoneId){
     setTimeout(() => ouvrirDetailPieceJournal(zoneId),120);
 }
 
+function getAnglesAttendusMaison(zone){
+    const nom = String(zone?.nom || "").toLowerCase();
+    const modeles = [
+        ["cuisine",["vue générale","évier","plaque","plan de travail","sol"]],
+        ["salon",["vue générale","canapé","table basse","sol"]],
+        ["entrée",["vue générale","rangements","gamelles","sol"]],
+        ["suite",["vue générale","lit","vasque","douche","sol"]],
+        ["dressing",["vue générale","rangements","zone sport","sol"]],
+        ["buanderie",["vue générale","machines","linge","sol"]],
+        ["toilettes",["vue générale","vasque","toilettes","sol"]]
+    ];
+    return modeles.find(([cle]) => nom.includes(cle))?.[1] || ["vue générale","surfaces","sol"];
+}
+
+function getAnglesManquantsMaison(zone){
+    const vus = new Set(DB.journal.etatPieces?.[zone.id]?.anglesVus || []);
+    return getAnglesAttendusMaison(zone).filter(angle => !vus.has(angle));
+}
+
 function getMaisonDashboardData(){
     ensureJournalData();
     const date = new Date().toISOString().split("T")[0];
     const faitMap = DB.journal.faitAujourdhui?.[date] || {};
     const horsMaison = new Set(["Pro / Admin","Marketing","Voiture"]);
     const pieces = (DB.journal.zones || []).filter(zone => !horsMaison.has(zone.nom)).map(zone => {
+        const etatPiece = DB.journal.etatPieces?.[zone.id] || {};
+        const detectees = new Set(etatPiece.tachesValidees || []);
+        const forcees = new Set((DB.journal.tachesForcees?.[date] || []).map(t => t.sousTacheId));
         const taches = [];
         (zone.actions || []).forEach(action => {
             (action.sousTaches || []).forEach(st => {
                 const score = calculerScoreTacheJournal(zone,action,st,date);
-                taches.push({zone,action,st,score});
+                const faite = !!(faitMap[st.id] || st.dernierFait === date);
+                const observee = detectees.has(st.id);
+                const forcee = forcees.has(st.id);
+                const due = !faite && (observee || forcee || score >= 60);
+                taches.push({zone,action,st,score,faite,observee,forcee,due});
             });
         });
         taches.sort((a,b) => b.score-a.score);
-        return {zone,taches,actives:taches.filter(t => t.score > 0),...calculerScorePieceJournal(zone,date)};
+        return {zone,taches,actives:taches.filter(t => t.due),etatPiece,...calculerScorePieceJournal(zone,date)};
     });
     const toutes = pieces.flatMap(piece => piece.actives);
     const faites = pieces.flatMap(piece => piece.taches).filter(t => faitMap[t.st.id] || t.st.dernierFait === date);
@@ -17106,8 +17183,8 @@ function maisonMetaNiveau(niveau){
     return {
         urgent:{label:"À faire",color:"#d96b64",fond:"rgba(249,218,214,.72)"},
         attention:{label:"À surveiller",color:"#d2a13d",fond:"rgba(250,237,199,.72)"},
-        moyen:{label:"En cours",color:"#668bbd",fond:"rgba(216,229,250,.76)"},
-        ok:{label:"Tout va bien",color:"#70a58a",fond:"rgba(218,240,228,.76)"}
+        moyen:{label:"Correct",color:"#668bbd",fond:"rgba(216,229,250,.76)"},
+        ok:{label:"Propre",color:"#70a58a",fond:"rgba(218,240,228,.76)"}
     }[niveau] || {label:"En cours",color:"#7d8dac",fond:"rgba(228,233,244,.72)"};
 }
 
@@ -17122,14 +17199,14 @@ function renderMaisonModule(){
     const overdue = document.getElementById("maison-overdue");
     if(total) total.textContent = data.toutes.length;
     if(done) done.textContent = data.faites.length;
-    if(overdue) overdue.textContent = data.toutes.filter(t => t.score >= 60).length;
+    if(overdue) overdue.textContent = data.pieces.filter(piece => piece.actives.length && piece.niveau === "urgent").length;
 
     const floor = document.getElementById("maison-floor-grid");
     if(floor) floor.innerHTML = data.pieces.map(piece => {
         const meta = maisonMetaNiveau(piece.niveau);
         return `<button class="maison-room" style="background:${meta.fond}" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')">
           <div class="maison-room-top"><span>${piece.zone.icon || "🏠"}</span><span class="maison-room-score" style="color:${meta.color}">${piece.score}%</span></div>
-          <div><div class="maison-room-name">${piece.zone.nom}</div><small>${piece.actives.length} tâche${piece.actives.length>1?"s":""} · ${meta.label}</small><div class="maison-room-bar"><i style="width:${piece.score}%;background:${meta.color}"></i></div></div>
+          <div><div class="maison-room-name">${piece.zone.nom}</div><small>${piece.actives.length ? `${piece.actives.length} à faire` : "Rien de dû"} · ${meta.label}</small><div class="maison-room-bar"><i style="width:${piece.score}%;background:${meta.color}"></i></div></div>
         </button>`;
     }).join("");
 
@@ -17146,13 +17223,23 @@ function renderMaisonModule(){
     const list = document.getElementById("maison-all-rooms");
     if(list) list.innerHTML = prioritaires.map(piece => {
         const meta = maisonMetaNiveau(piece.niveau);
-        return `<button class="maison-list-row" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')"><strong>${piece.zone.icon || "🏠"} ${piece.zone.nom}</strong><div class="maison-progress"><i style="width:${piece.score}%;background:${meta.color}"></i></div><small>${piece.actives.length} à faire · ${piece.score}% ›</small></button>`;
+        return `<button class="maison-list-row" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')"><strong>${piece.zone.icon || "🏠"} ${piece.zone.nom}</strong><div class="maison-progress"><i style="width:${piece.score}%;background:${meta.color}"></i></div><small>${piece.actives.length ? `${piece.actives.length} à faire` : "À jour"} · ${piece.score}% ›</small></button>`;
     }).join("");
 }
 
 async function ajouterPrioriteMaisonAuPlanning(zoneId){
-    await forcerTopTachesPieceJournal(zoneId);
-    await appliquerPlanningIntelligent(new Date().toISOString().split("T")[0],{mode:"ajouter"});
+    const date = new Date().toISOString().split("T")[0];
+    const selection = await forcerTopTachesPieceJournal(zoneId) || [];
+    const elementsChoisis = selection
+        .map(tache => creerElementMaisonDepuisSelection(tache,date))
+        .filter(Boolean);
+    if(elementsChoisis.length){
+        await appliquerPlanningIntelligent(date,{
+            mode:"ajouter",
+            selectionManuelle:true,
+            elementsSupplementaires:elementsChoisis
+        });
+    }
     renderMaisonModule();
 }
 
@@ -30131,7 +30218,8 @@ const blocsSansDoublons =
         idsDejaVus.add(cle);
 
         return true;
-    });
+    })
+    .slice(0,12);
 
     DB.journal.propositionIntelligente =
     DB.journal.propositionIntelligente || {};
@@ -30233,23 +30321,16 @@ function ouvrirValidationPlanningJournal(date){
                     ${proposition.map((bloc,index) => `
 
                         <div style="
-                            display:flex;
-                            align-items:center;
                             gap:10px;
                             padding:12px;
                             border-radius:16px;
-                            background:white;
+                            background:${bloc.selectionne === false ? "rgba(247,247,250,.72)" : "white"};
                             margin-bottom:8px;
-                            border:1px solid var(--brd);
+                            border:1px solid ${bloc.selectionne === false ? "rgba(120,120,130,.12)" : "rgba(106,134,194,.20)"};
+                            opacity:${bloc.selectionne === false ? ".68" : "1"};
                         ">
 
-                            <input
-                                type="checkbox"
-                                ${bloc.selectionne !== false ? "checked" : ""}
-                                onchange="toggleBlocPropositionJournal('${date}',${index},this.checked)"
-                            >
-
-                            <div style="flex:1">
+                            <div>
 
                                 <div style="
                                     font-size:12px;
@@ -30271,14 +30352,17 @@ function ouvrirValidationPlanningJournal(date){
                                     ${bloc.duree} min
                                 </div>
 
+                                <div style="font-size:10px;color:#75809a;margin-top:5px;line-height:1.35">
+                                    ${expliquerBlocPropositionJournal(bloc)}
+                                </div>
+
                             </div>
 
-                            <button
-                                class="btn bg bsm"
-                                onclick="ouvrirEditionBlocPropositionJournal('${date}','${bloc.id}')"
-                            >
-                                Modifier
-                            </button>
+                            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:10px">
+                                <button class="btn bsm ${bloc.selectionne !== false ? "bd" : "bg"}" onclick="choisirBlocPropositionJournal('${date}',${index},true)">✓ Oui</button>
+                                <button class="btn bg bsm" onclick="choisirBlocPropositionJournal('${date}',${index},false)">Pas aujourd’hui</button>
+                                <button class="btn bg bsm" onclick="ouvrirEditionBlocPropositionJournal('${date}','${bloc.id}')">Modifier</button>
+                            </div>
 
                         </div>
 
@@ -30296,7 +30380,7 @@ function ouvrirValidationPlanningJournal(date){
                         min-height:48px;
                     "
                 >
-                    ✓ Valider la sélection
+                    ✓ Créer mon planning avec ces choix
                 </button>
 
             </div>
@@ -30308,6 +30392,41 @@ function ouvrirValidationPlanningJournal(date){
         "beforeend",
         html
     );
+}
+
+function cleBlocPropositionJournal(bloc){
+    return bloc?.data?.sousTacheId ||
+        bloc?.sousTacheId ||
+        bloc?.stId ||
+        bloc?.sourceId ||
+        bloc?.id;
+}
+
+function expliquerBlocPropositionJournal(bloc){
+    if(bloc.prioritaireScan || bloc.data?.prioritaireScan){
+        return "Repérée grâce au scan de la maison, dans un créneau encore libre.";
+    }
+    if(bloc.categorie === "detente" || bloc.type === "tempsLibre"){
+        return "Une pause placée ici pour éviter d’enchaîner trop longtemps.";
+    }
+    if(bloc.categorie === "lecture"){
+        return "Un moment calme proposé à une heure adaptée à tes préférences.";
+    }
+    if(bloc.categorie === "sport"){
+        return "Ce créneau est assez long et compatible avec une séance.";
+    }
+    if(bloc.categorie === "maison"){
+        return "Cette tâche est utile aujourd’hui et tient dans ce créneau libre.";
+    }
+    return "EMMA a trouvé un créneau libre compatible avec cette activité.";
+}
+
+function choisirBlocPropositionJournal(date,index,accepte){
+    const proposition = DB.journal.propositionIntelligente?.[date];
+    if(!proposition?.[index]) return;
+    proposition[index].selectionne = accepte;
+    saveAll();
+    ouvrirValidationPlanningJournal(date);
 }
 
 function toggleBlocPropositionJournal(date,index,checked){
@@ -30494,10 +30613,21 @@ function validerPropositionJournal(date){
             bloc.selectionne !== false
         );
 
-    if(!blocsValides.length){
-        toast("Sélectionne au moins un bloc");
-        return;
-    }
+    DB.journal.refusPlanningJour =
+        DB.journal.refusPlanningJour || {};
+
+    const refusDuJour = new Set(
+        DB.journal.refusPlanningJour[date] || []
+    );
+
+    proposition.forEach(bloc => {
+        const cle = cleBlocPropositionJournal(bloc);
+        if(!cle) return;
+        if(bloc.selectionne === false) refusDuJour.add(cle);
+        else refusDuJour.delete(cle);
+    });
+
+    DB.journal.refusPlanningJour[date] = [...refusDuJour];
 
     if(!DB.journal.planning){
         DB.journal.planning = {};
@@ -31619,6 +31749,7 @@ function calculerScorePieceJournal(zone, date){
         zone.actions || [];
 
     const scores = [];
+    const faitMap = DB.journal.faitAujourdhui?.[date] || {};
 
     actions.forEach(action => {
 
@@ -31627,13 +31758,26 @@ function calculerScorePieceJournal(zone, date){
 
         sousTaches.forEach(st => {
 
-            const score =
+            if(faitMap[st.id] || st.dernierFait === date){
+                return;
+            }
+
+            let score =
                 calculerScoreTacheJournal(
                     zone,
                     action,
                     st,
                     date
                 );
+
+            const estForcee = (DB.journal.tachesForcees?.[date] || [])
+                .some(tache => tache.sousTacheId === st.id);
+
+            // Le choix de planifier une tâche ne doit pas rendre la pièce
+            // artificiellement plus sale dans son indicateur d'état.
+            if(estForcee){
+                score = Math.max(0,score - 100);
+            }
 
             scores.push(score);
 
@@ -33101,77 +33245,9 @@ async function recalculerResteJourneeEmma(date){
         return;
     }
 
-    const minuteActuelle =
-        maintenant.getHours() * 60 +
-        maintenant.getMinutes();
-
-    const toMin = heure => {
-
-        if(!heure) return 99999;
-
-        const [h,m] =
-            heure.split(":").map(Number);
-
-        return h * 60 + m;
-    };
-
     dedupliquerPlanningEmma(date);
-
-    // Toutes les tâches existantes restent en place. Si une action terminée
-    // libère un créneau, le moteur peut le compléter sans toucher au reste.
-
-
-    // =========================
-    // EMPÊCHER EMMA DE
-    // REPLANIFIER DANS LE PASSÉ
-    // =========================
-
-    const preparation =
-        getPreparationJour(date);
-
-    const ancienneHeureLever =
-        preparation.heureLever;
-
-    preparation.heureLever =
-        String(
-            maintenant.getHours()
-        ).padStart(2,"0") +
-        ":" +
-        String(
-            maintenant.getMinutes()
-        ).padStart(2,"0");
-
-
-    // =========================
-    // NOUVEAU PLANNING
-    // =========================
-
-    const proposition =
-        genererPlanningIntelligent(date);
-
-    preparation.heureLever =
-        ancienneHeureLever;
-
-
-    (proposition.blocs || [])
-        .filter(bloc =>
-            toMin(bloc.heureDebut) >
-            minuteActuelle
-        )
-        .forEach(bloc => {
-
-            DB.journal.planning[date].push({
-
-                ...bloc,
-
-                autoPlanifie: true,
-
-                valide: true
-            });
-
-        });
-
-
+    // Une actualisation ne crée jamais de nouvelles tâches. Elle conserve
+    // les choix validés, les rendez-vous et les réalisations tels quels.
     DB.journal.planning[date].sort(
         (a,b) =>
             (a.heureDebut || "")
@@ -33193,9 +33269,7 @@ async function recalculerResteJourneeEmma(date){
 
     renderJAujourdhui();
 
-    console.log(
-        "Planning EMMA recalculé automatiquement"
-    );
+    console.log("Planning EMMA actualisé sans ajout automatique");
 }
 
 function genererPlanningIntelligent(
@@ -34264,6 +34338,15 @@ const fin =
             typeElement:
                 element.categorie,
 
+            categorie:
+                element.categorie,
+
+            prioritaireScan:
+                element.prioritaireScan === true,
+
+            scoreTache:
+                element.scoreTache,
+
             type:
                 element.type,
 
@@ -34698,6 +34781,11 @@ function ouvrirDetailPieceJournal(zoneId){
     const date =
         getJournalJour();
 
+    const faitMap = DB.journal.faitAujourdhui?.[date] || {};
+    const etatPiece = DB.journal.etatPieces?.[zone.id] || {};
+    const detectees = new Set(etatPiece.tachesValidees || []);
+    const forcees = new Set((DB.journal.tachesForcees?.[date] || []).map(t => t.sousTacheId));
+
     const taches = [];
 
     (zone.actions || []).forEach(action => {
@@ -34712,6 +34800,9 @@ function ouvrirDetailPieceJournal(zoneId){
                     date
                 );
 
+            const faite = !!(faitMap[st.id] || st.dernierFait === date);
+            const due = !faite && (detectees.has(st.id) || forcees.has(st.id) || score >= 60);
+
             taches.push({
                 zoneId: zone.id,
                 actionId: action.id,
@@ -34721,7 +34812,8 @@ function ouvrirDetailPieceJournal(zoneId){
                 duree: Number(st.duree || 10),
                 freq: Number(st.freq || 1),
                 dernierFait: st.dernierFait || null,
-                score
+                score,
+                due
             });
 
         });
@@ -34732,8 +34824,13 @@ function ouvrirDetailPieceJournal(zoneId){
         (a,b) => b.score - a.score
     );
 
-    const principales =
-        taches.slice(0,6);
+    const tachesDues = taches.filter(t => t.due);
+    const principales = tachesDues.slice(0,6);
+
+    const anglesManquants = getAnglesManquantsMaison(zone);
+    const dernierScan = etatPiece.dateAnalyse
+        ? new Date(etatPiece.dateAnalyse).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})
+        : null;
 
 
     document.body.insertAdjacentHTML(
@@ -34820,8 +34917,23 @@ function ouvrirDetailPieceJournal(zoneId){
                     color:var(--mut);
                     margin-bottom:14px;
                 ">
-                    EMMA classe les actions selon leur fréquence,
-                    leur retard, leur durée et l’état de la pièce.
+                    ${tachesDues.length
+                        ? `${tachesDues.length} action${tachesDues.length>1?"s":""} réellement due${tachesDues.length>1?"s":""} ou repérée${tachesDues.length>1?"s":""} sur les photos.`
+                        : "Cette pièce est à jour. Rien ne demande ton attention maintenant."
+                    }
+                </div>
+
+                <div style="background:rgba(238,244,255,.72);border-radius:17px;padding:13px;margin-bottom:12px">
+                    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+                        <strong style="font-size:11px">📷 Suivi des photos</strong>
+                        <span style="font-size:10px;color:var(--mut)">${dernierScan ? `${etatPiece.nombrePhotos || 0} photo${etatPiece.nombrePhotos>1?"s":""} · ${dernierScan}` : "Pas encore scannée"}</span>
+                    </div>
+                    <div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">
+                        ${anglesManquants.length
+                            ? `Angles encore utiles : ${anglesManquants.slice(0,3).join(", ")}${anglesManquants.length>3?"…":""}`
+                            : "Tous les angles principaux ont été vus ✨"
+                        }
+                    </div>
                 </div>
 
 
@@ -35754,13 +35866,49 @@ async function validerSessionMaisonJournal(){
         ?.remove();
 
 
-    await appliquerPlanningIntelligent(date);
+    const elementsChoisis = selection
+        .map(el => creerElementMaisonDepuisSelection({
+            zoneId:el.dataset.zone,
+            actionId:el.dataset.action,
+            sousTacheId:el.dataset.st
+        },date))
+        .filter(Boolean);
+
+    await appliquerPlanningIntelligent(date,{
+        mode:"ajouter",
+        selectionManuelle:true,
+        elementsSupplementaires:elementsChoisis
+    });
 
 renderJAujourdhui();
 
     toast(
         `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
     );
+}
+
+function creerElementMaisonDepuisSelection(tache,date){
+    const zone = DB.journal.zones.find(z => z.id === tache.zoneId);
+    const action = zone?.actions?.find(a => a.id === tache.actionId);
+    const st = action?.sousTaches?.find(item => item.id === tache.sousTacheId);
+    if(!zone || !action || !st) return null;
+
+    const observee = DB.journal.etatPieces?.[zone.id]?.tachesValidees?.includes(st.id);
+    return {
+        id:"journal_st_" + st.id,
+        source:"journal",
+        sourceId:st.id,
+        type:zone.typeDefaut || "perso",
+        categorie:"maison",
+        prioritaireScan:!!observee,
+        nom:`${zone.icon || "🏠"} ${st.nom}`,
+        icon:"🏠",
+        duree:Number(st.duree || 5),
+        priorite:1,
+        flexible:true,
+        verrouille:false,
+        data:{zoneId:zone.id,actionId:action.id,sousTacheId:st.id,zoneNom:zone.nom,actionNom:action.nom}
+    };
 }
 
 async function forcerTacheJournal(
@@ -35817,6 +35965,15 @@ async function forcerTacheJournal(
     }
 
     await saveAll();
+
+    const elementChoisi = creerElementMaisonDepuisSelection({zoneId,actionId,sousTacheId},date);
+    if(elementChoisi){
+        await appliquerPlanningIntelligent(date,{
+            mode:"ajouter",
+            selectionManuelle:true,
+            elementsSupplementaires:[elementChoisi]
+        });
+    }
 
     document
         .getElementById(
@@ -36007,6 +36164,8 @@ async function forcerTopTachesPieceJournal(zoneId){
         );
 
     }
+
+    return selection;
 }
 function analyserPhotoPieceJournal(zoneId){
 
@@ -36338,7 +36497,8 @@ Réponds UNIQUEMENT en JSON valide :
                     nombrePhotos: 0,
                     scores: [],
                     tachesDetectees: [],
-                    resumes: []
+                    resumes: [],
+                    anglesVus: []
                 };
 
             pieceSession.nombrePhotos += 1;
@@ -36356,14 +36516,18 @@ Réponds UNIQUEMENT en JSON valide :
                 pieceSession.resumes.push(String(analyse.resume));
             }
 
-            sessionScanMaison.pieces[zone.id] = pieceSession;
-
-            toast(`✓ Photo ${pieceSession.nombrePhotos} analysée pour ${zone.nom}`);
-
             const sessionConversation=
                 chargerSessionPieceConversationEmma?.();
 
             if(sessionConversation?.zoneId===zone.id){
+                if(sessionConversation.sousZoneDemandee){
+                    pieceSession.anglesVus = [
+                        ...new Set([
+                            ...(pieceSession.anglesVus || []),
+                            sessionConversation.sousZoneDemandee
+                        ])
+                    ];
+                }
                 sessionConversation.nombrePhotos=pieceSession.nombrePhotos;
 
                 if(sessionConversation.sousZoneDemandee){
@@ -36377,6 +36541,8 @@ Réponds UNIQUEMENT en JSON valide :
 
                 sessionConversation.sousZoneDemandee=null;
                 sauvegarderSessionPieceConversationEmma();
+                sessionScanMaison.pieces[zone.id] = pieceSession;
+                toast(`✓ Photo ${pieceSession.nombrePhotos} analysée pour ${zone.nom}`);
                 ouvrirAssistantEmma();
                 ajouterMessageAssistantEmma(
                     analyse.resume
@@ -36386,6 +36552,9 @@ Réponds UNIQUEMENT en JSON valide :
                 proposerProchainePhotoConversationEmma();
                 return;
             }
+
+            sessionScanMaison.pieces[zone.id] = pieceSession;
+            toast(`✓ Photo ${pieceSession.nombrePhotos} analysée pour ${zone.nom}`);
 
             ouvrirAnalyseMaisonJournal(
                 sessionScanMaison.avantOrganisation
@@ -36714,14 +36883,31 @@ async function validerScanMaisonGlobal(){
                 ? Math.round(scan.scores.reduce((s,n) => s+n,0) / scan.scores.length)
                 : 100;
 
+            const precedent = DB.journal.etatPieces[zoneId] || {};
+            const maintenant = new Date().toISOString();
+            const analyseCourante = {
+                date: maintenant,
+                score: scoreMoyen,
+                nombrePhotos: scan.nombrePhotos,
+                anglesVus: [...new Set(scan.anglesVus || [])],
+                resume: [...new Set(scan.resumes)].join(" "),
+                nombreTaches: (idsParZone.get(zoneId) || []).length
+            };
+
             DB.journal.etatPieces[zoneId] = {
+                ...precedent,
                 score: scoreMoyen,
                 tachesDetectees: scan.tachesDetectees,
                 tachesValidees: idsParZone.get(zoneId) || [],
-                resume: [...new Set(scan.resumes)].join(" "),
+                resume: analyseCourante.resume,
                 nombrePhotos: scan.nombrePhotos,
-                dateAnalyse: new Date().toISOString(),
-                dateValidation: new Date().toISOString()
+                anglesVus: analyseCourante.anglesVus,
+                historiqueScans: [
+                    ...(precedent.historiqueScans || []),
+                    analyseCourante
+                ].slice(-8),
+                dateAnalyse: maintenant,
+                dateValidation: maintenant
             };
         });
 
@@ -36851,6 +37037,7 @@ function reorganiserPlanningMaintenant(){
 
     DB.journal.propositionIntelligente[date] =
         (proposition.blocs || [])
+        .slice(0,12)
         .map(bloc => ({
             ...bloc,
             selectionne: true
@@ -38561,6 +38748,11 @@ function renderPlanningTimeline(){
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
   const estAujourdhui=today===new Date().toISOString().split('T')[0];
+  const retard=estAujourdhui?getPlanningEnRetard():[];
+  const bandeauRetard=retard.length?`
+    <button onclick="ouvrirPopupTachesRetard()" style="width:100%;border:1px solid rgba(215,111,104,.24);background:rgba(255,239,237,.86);border-radius:16px;padding:11px 13px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;cursor:pointer;color:#8f4f4b">
+      <span><b style="font-size:12px">⏰ ${retard.length} tâche${retard.length>1?'s':''} à vérifier</b><small style="display:block;margin-top:2px;color:#9d7470">Faite, reporter ou réorganiser</small></span><span>›</span>
+    </button>`:"";
 const barreEdition =
     modeEditionPlanningJournal
     ? `
@@ -38610,6 +38802,7 @@ const barreEdition =
     : "";
 
 el.innerHTML =
+    bandeauRetard +
     barreEdition +
     genererHtmlTimeline(
         planning,
@@ -38912,7 +39105,7 @@ async function togglePlanningFait(planningId){
   const ancienFin=item.heureFin;
   const cocheMaintenant=!faitMap[planningId];
   const termineeEnAvance=
-    cocheMaintenant && strToMin(ancienDebut)>minuteActuelle;
+    cocheMaintenant && strToMin(ancienFin)>minuteActuelle;
 
   if(faitMap[planningId]){
     delete faitMap[planningId];
@@ -38925,30 +39118,29 @@ async function togglePlanningFait(planningId){
     delete item.heurePrevueDebut;
     delete item.heurePrevueFin;
     delete item.realiseA;
+    delete item.realiseTimestamp;
 
     if(st?.dernierFait===today){
       st.dernierFait=null;
       st.compteurFait=Math.max(0,Number(st.compteurFait||1)-1);
     }
+
+    const etatPiece=DB.journal.etatPieces?.[zoneId];
+    if(etatPiece?.tachesResoluesDepuisScan?.includes(sousTacheId)){
+      etatPiece.tachesValidees=[...new Set([...(etatPiece.tachesValidees||[]),sousTacheId])];
+      etatPiece.tachesResoluesDepuisScan=etatPiece.tachesResoluesDepuisScan.filter(id=>id!==sousTacheId);
+    }
   }else{
     faitMap[planningId]=true;
     faitMap[sousTacheId]=true;
 
-    const debutPrevu=strToMin(item.heureDebut);
-    if(debutPrevu>minuteActuelle){
-      const realisations=(DB.journal.planning[today]||[])
-        .filter(p=>p.realiseA)
-        .map(p=>strToMin(p.heureDebut));
-      const finReelle=realisations.length
-        ? Math.min(minuteActuelle,...realisations)
-        : minuteActuelle;
-
+    const finPrevue=strToMin(item.heureFin);
+    if(finPrevue>minuteActuelle){
       item.heurePrevueDebut=item.heureDebut;
       item.heurePrevueFin=item.heureFin;
-      item.heureFin=minToStr(finReelle);
-      item.heureDebut=minToStr(Math.max(0,finReelle-Number(item.duree||5)));
     }
     item.realiseA=heureReelle;
+    item.realiseTimestamp=Date.now();
 
     if(st){
       st.dernierFait=today;
@@ -38957,12 +39149,27 @@ async function togglePlanningFait(planningId){
       if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
       DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure:heureReelle,duree:st.duree,heurePrevue:item.heurePrevueDebut||item.heureDebut});
     }
+
+
+    // Une tâche observée sur les photos disparaît de l'état « à faire »
+    // dès qu'elle est réellement cochée dans la timeline.
+    const etatPiece=DB.journal.etatPieces?.[zoneId];
+    if(etatPiece?.tachesValidees?.includes(sousTacheId)){
+      etatPiece.tachesValidees=etatPiece.tachesValidees.filter(id=>id!==sousTacheId);
+      etatPiece.tachesResoluesDepuisScan=[...new Set([...(etatPiece.tachesResoluesDepuisScan||[]),sousTacheId])];
+      etatPiece.derniereMiseAJour=new Date().toISOString();
+    }
   }
+
+  repositionnerTachesFaitesAvantMaintenant(today,minuteActuelle);
 
   dedupliquerPlanningEmma(today);
   await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
   await recalculerResteJourneeEmma(today);
   renderPlanningTimeline();
+  if(document.getElementById('module-maison')?.style.display==='flex'){
+    renderMaisonModule();
+  }
 
   if(termineeEnAvance){
     ouvrirSuggestionCreneauLibereEmma(
@@ -38973,16 +39180,68 @@ async function togglePlanningFait(planningId){
   }
 }
 
+function repositionnerTachesFaitesAvantMaintenant(date,minuteActuelle){
+  const faitesEnAvance=(DB.journal.planning?.[date]||[])
+    .filter(bloc=>bloc.heurePrevueDebut&&bloc.realiseTimestamp)
+    .sort((a,b)=>Number(a.realiseTimestamp)-Number(b.realiseTimestamp));
+
+  const dureeTotale=faitesEnAvance.reduce((total,bloc)=>total+Number(bloc.duree||5),0);
+  let curseur=Math.max(0,minuteActuelle-dureeTotale);
+
+  faitesEnAvance.forEach(bloc=>{
+    bloc.heureDebut=minToStr(curseur);
+    curseur+=Number(bloc.duree||5);
+    bloc.heureFin=minToStr(curseur);
+  });
+}
+
 function ouvrirSuggestionCreneauLibereEmma(tacheFaite,debutLibere,finLibere){
   const date=getJournalJour();
   const cleFaite=cleTachePlanningEmma(tacheFaite);
-  const remplacement=(DB.journal.planning?.[date]||[])
-    .filter(bloc=>
-      !DB.journal.faitAujourdhui?.[date]?.[bloc.id] &&
-      cleTachePlanningEmma(bloc)!==cleFaite &&
-      bloc.heureDebut>=debutLibere
-    )
+  const planning=DB.journal.planning?.[date]||[];
+  const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+  const maintenant=new Date();
+  const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+  const dureeLibre=Math.max(1,strToMin(finLibere)-strToMin(debutLibere));
+
+  const termineesRecentes=planning.filter(bloc=>{
+    if(!bloc.realiseA) return false;
+    const minute=strToMin(bloc.realiseA);
+    return minuteActuelle-minute<=90 && minuteActuelle-minute>=0;
+  });
+
+  const disponibles=planning.filter(bloc=>
+    !faitMap[bloc.id] &&
+    !faitMap[cleTachePlanningEmma(bloc)] &&
+    cleTachePlanningEmma(bloc)!==cleFaite &&
+    bloc.type!=="tempsLibre" &&
+    Number(bloc.duree||5)<=dureeLibre
+  );
+
+  const enRetard=disponibles
+    .filter(bloc=>strToMin(bloc.heureFin)<minuteActuelle)
+    .sort((a,b)=>(a.heureFin||"").localeCompare(b.heureFin||""))[0];
+
+  const future=disponibles
+    .filter(bloc=>strToMin(bloc.heureDebut)>=strToMin(debutLibere))
     .sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""))[0];
+
+  let suggestion=null;
+  if(termineesRecentes.length>=3 && dureeLibre>=10){
+    suggestion={type:"pause",nom:"Pause tranquille",icon:"☕",duree:Math.min(20,dureeLibre),raison:"Tu viens d’enchaîner plusieurs tâches : ce créneau peut devenir une vraie pause."};
+  }else if(enRetard){
+    suggestion={type:"existante",blocId:enRetard.id,nom:enRetard.nom||enRetard.customNom,icon:enRetard.iconOverride||"⏰",duree:Number(enRetard.duree||5),raison:"Cette tâche est en retard et tient dans le créneau libéré."};
+  }else if(future){
+    suggestion={type:"existante",blocId:future.id,nom:future.nom||future.customNom,icon:future.iconOverride||"✨",duree:Number(future.duree||5),raison:"Tu peux avancer cette tâche sans modifier le reste de la journée."};
+  }else{
+    const nouvelle=(genererPlanningIntelligent(date).blocs||[])
+      .find(bloc=>Number(bloc.duree||5)<=dureeLibre && strToMin(bloc.heureDebut)>=minuteActuelle);
+    if(nouvelle){
+      suggestion={type:"nouvelle",bloc:nouvelle,nom:nouvelle.nom||nouvelle.customNom,icon:nouvelle.iconOverride||"✨",duree:Number(nouvelle.duree||5),raison:"EMMA a trouvé une proposition utile qui tient exactement dans ce trou."};
+    }
+  }
+
+  window.suggestionCreneauLibereEmma={suggestion,date,debutLibere,finLibere};
 
   document.getElementById('modal-suggestion-emma')?.remove();
 
@@ -38991,12 +39250,45 @@ function ouvrirSuggestionCreneauLibereEmma(tacheFaite,debutLibere,finLibere){
       <div style="font-size:10px;color:var(--acc);font-weight:800;letter-spacing:.12em">✨ EMMA S'ADAPTE</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;margin:5px 0 8px">Bravo, tu as pris de l'avance</div>
       <div style="font-size:12px;color:var(--mut);line-height:1.5">La tâche a été déplacée à son heure réelle. Le créneau ${debutLibere}–${finLibere} est maintenant libre.</div>
-      ${remplacement?`<div style="margin-top:14px;padding:13px;border-radius:16px;background:var(--bg2)"><b>${remplacement.nom||remplacement.customNom||'Tâche suivante'}</b><div style="font-size:10px;color:var(--mut);margin-top:3px">Proposée à ${remplacement.heureDebut}–${remplacement.heureFin}</div></div>`:`<div style="margin-top:14px;padding:13px;border-radius:16px;background:var(--bg2)">☕ Aucun remplacement nécessaire : garde ce temps pour toi.</div>`}
-      <button class="btn bp" style="width:100%;justify-content:center;margin-top:14px" onclick="document.getElementById('modal-suggestion-emma')?.remove()">Ça me va</button>
+      ${suggestion?`<div style="margin-top:14px;padding:13px;border-radius:16px;background:var(--bg2)"><b>${suggestion.icon} ${suggestion.nom}</b><div style="font-size:10px;color:var(--mut);margin-top:4px;line-height:1.4">${suggestion.raison}</div></div>`:`<div style="margin-top:14px;padding:13px;border-radius:16px;background:var(--bg2)">☕ Rien d’urgent à replacer : tu peux garder ce temps pour toi.</div>`}
+      ${suggestion?`<button class="btn bp" style="width:100%;justify-content:center;margin-top:14px" onclick="accepterSuggestionCreneauLibereEmma()">${suggestion.type==='pause'?'☕ Garder cette pause':'✓ Utiliser ce créneau'}</button>`:""}
+      <button class="btn bg" style="width:100%;justify-content:center;margin-top:8px" onclick="document.getElementById('modal-suggestion-emma')?.remove()">Laisser le créneau libre</button>
     </div>
   </div>`;
 
   document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function accepterSuggestionCreneauLibereEmma(){
+  const contexte=window.suggestionCreneauLibereEmma;
+  const suggestion=contexte?.suggestion;
+  if(!contexte||!suggestion) return;
+
+  const planning=DB.journal.planning?.[contexte.date]||[];
+  const debut=strToMin(contexte.debutLibere);
+  const finDisponible=strToMin(contexte.finLibere);
+  const fin=minToStr(Math.min(finDisponible,debut+Number(suggestion.duree||5)));
+
+  if(suggestion.type==='existante'){
+    const bloc=planning.find(item=>item.id===suggestion.blocId);
+    if(bloc){
+      bloc.heureAvantSuggestion=bloc.heureAvantSuggestion||bloc.heureDebut;
+      bloc.heureDebut=contexte.debutLibere;
+      bloc.heureFin=fin;
+      bloc.avanceParEmmaA=new Date().toISOString();
+    }
+  }else if(suggestion.type==='nouvelle'){
+    planning.push({...suggestion.bloc,id:suggestion.bloc.id||genId(),heureDebut:contexte.debutLibere,heureFin:fin,valide:true,autoPlanifie:true});
+  }else{
+    planning.push({id:genId(),nom:suggestion.nom,customNom:suggestion.nom,iconOverride:suggestion.icon,type:"tempsLibre",categorie:"detente",heureDebut:contexte.debutLibere,heureFin:fin,duree:Number(suggestion.duree||5),valide:true});
+  }
+
+  planning.sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''));
+  await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+  await synchroniserNotificationsPlanningEmma(contexte.date);
+  document.getElementById('modal-suggestion-emma')?.remove();
+  renderJAujourdhui();
+  toast('✓ Créneau actualisé');
 }
 
 function ouvrirAjustementHoraire(planningId){
@@ -39430,18 +39722,13 @@ if (utilisateur) {
         }, { merge: true });
 }
 
-alert("TOKEN PUSH OK");
-
 return token;
 
     } catch (erreur) {
 
     console.error("Erreur Push EMMA :", erreur);
 
-    alert(
-        "ERREUR PUSH : " +
-        (erreur?.message || erreur)
-    );
+    toast("⚠️ Je n’ai pas pu activer les notifications pour le moment");
 
     return null;
 }
@@ -39461,6 +39748,11 @@ async function synchroniserNotificationsPlanningEmma(date){
 
     const faitMap =
         DB.journal?.faitAujourdhui?.[date] || {};
+
+    const maintenant=new Date();
+    const aujourdHui=maintenant.toLocaleDateString('fr-CA');
+    const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+    const energie=DB.journal?.contexteJour?.[date]?.energie||'normale';
 
     const collection =
         firebase.firestore()
@@ -39498,6 +39790,16 @@ async function synchroniserNotificationsPlanningEmma(date){
                 return;
             }
 
+            const cle=cleTachePlanningEmma(bloc);
+            if(faitMap[bloc.id]||faitMap[cle]){
+                return;
+            }
+
+            // Une tâche passée ne doit pas recréer un ancien rappel Push.
+            if(date<aujourdHui||(date===aujourdHui&&strToMin(bloc.heureFin||bloc.heureDebut)<=minuteActuelle)){
+                return;
+            }
+
             // Pas de notification 5 min avant les clientes Planity
             if(
                 bloc.source === "planity" ||
@@ -39531,6 +39833,20 @@ async function synchroniserNotificationsPlanningEmma(date){
             const ref =
                 collection.doc(idDocument);
 
+            const duree=Number(bloc.duree||0);
+            const rappelMinutes=energie==='forte'
+                ? 10
+                : duree>=45
+                    ? 10
+                    : 5;
+            const categorie=bloc.categorie||bloc.data?.categorie||'tache';
+            const texte=bloc.nom||bloc.customNom||'Tâche';
+            const message=categorie==='detente'
+                ? `${texte} approche. Ce moment est là pour souffler ♡`
+                : energie==='forte'
+                    ? `${texte} approche. Fais seulement ce que ton énergie permet ♡`
+                    : `${texte} commence bientôt. Tu veux t’y mettre ?`;
+
             batch.set(
                 ref,
                 {
@@ -39541,10 +39857,11 @@ async function synchroniserNotificationsPlanningEmma(date){
 
                     planningId,
 
-                    texte:
-                        bloc.nom ||
-                        bloc.customNom ||
-                        "Tâche",
+                    texte,
+
+                    titre:"EMMA ✨",
+
+                    message,
 
                     heure:
                         bloc.heureDebut,
@@ -39552,11 +39869,15 @@ async function synchroniserNotificationsPlanningEmma(date){
                     heureFin:
                         bloc.heureFin || null,
 
-                    duree:
-                        Number(bloc.duree || 0),
+                    duree,
 
-                    faite:
-                        !!faitMap[bloc.id],
+                    rappelMinutes,
+
+                    categorie,
+
+                    url:`/emma/?module=journal&type=tache&id=${encodeURIComponent(planningId)}`,
+
+                    faite:false,
 
                     source:
                         bloc.source || "journal",
@@ -39586,6 +39907,92 @@ async function synchroniserNotificationsPlanningEmma(date){
 
     }
 }
+
+function getConseilNotificationIntelligenteEmma(){
+    ensureJournalData();
+    const date=new Date().toLocaleDateString('fr-CA');
+    const planning=DB.journal.planning?.[date]||[];
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    const maintenant=new Date();
+    const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+    const estFait=bloc=>!!(faitMap[bloc.id]||faitMap[cleTachePlanningEmma(bloc)]);
+    const retards=getPlanningEnRetard?.()||[];
+
+    if(retards.length){
+        return {
+            tag:`retards_${date}_${retards.map(item=>item.id).join('_')}`,
+            texte:`Tu as ${retards.length} tâche${retards.length>1?'s':''} passée${retards.length>1?'s':''}. On vérifie ce qui est fait, ce qu’on reporte et ce qu’on réorganise ?`,
+            reponses:[
+                {label:'✓ Faire le point',action:'notification_retards'},
+                {label:'✨ Réorganiser la suite',action:'fatigue_reorganiser'},
+                {label:'Plus tard',action:'journal'}
+            ]
+        };
+    }
+
+    const prochaine=planning
+        .filter(bloc=>!estFait(bloc)&&bloc.type!=='tempsLibre'&&bloc.heureDebut)
+        .map(bloc=>({...bloc,ecart:strToMin(bloc.heureDebut)-minuteActuelle}))
+        .filter(bloc=>bloc.ecart>=0&&bloc.ecart<=10)
+        .sort((a,b)=>a.ecart-b.ecart)[0];
+
+    if(prochaine){
+        return {
+            tag:`prochaine_${date}_${prochaine.id}`,
+            texte:`${prochaine.iconOverride||prochaine.icon||'✨'} « ${prochaine.nom||prochaine.customNom||'Ta prochaine tâche'} » commence ${prochaine.ecart===0?'maintenant':`dans ${prochaine.ecart} min`}. Tu veux que je t’accompagne ?`,
+            reponses:[
+                {label:'▶ Commencer',action:'commencer_tache',valeur:prochaine.id},
+                {label:'📔 Voir la journée',action:'journal'}
+            ]
+        };
+    }
+
+    const recentes=planning.filter(bloc=>{
+        if(!estFait(bloc)||!bloc.realiseTimestamp) return false;
+        return Date.now()-new Date(bloc.realiseTimestamp).getTime()<=90*60000;
+    });
+    const prochaineDans=planning
+        .filter(bloc=>!estFait(bloc)&&bloc.heureDebut&&strToMin(bloc.heureDebut)>=minuteActuelle)
+        .sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut))[0];
+    const minutesLibres=prochaineDans?strToMin(prochaineDans.heureDebut)-minuteActuelle:30;
+
+    if(recentes.length>=3&&minutesLibres>=15){
+        return {
+            tag:`pause_${date}_${Math.floor(minuteActuelle/30)}`,
+            texte:`Tu viens d’enchaîner ${recentes.length} tâches. Tu as au moins 15 minutes devant toi : je te conseille une vraie pause ♡`,
+            reponses:[
+                {label:'🫶 Je prends une pause',action:'notification_pause'},
+                {label:'📔 Continuer ma journée',action:'journal'}
+            ]
+        };
+    }
+
+    return null;
+}
+
+function afficherConseilNotificationIntelligenteEmma(){
+    if(!window.DB||!firebase?.auth?.().currentUser) return;
+    const conseil=getConseilNotificationIntelligenteEmma();
+    if(!conseil) return;
+    const cle=`emma_conseil_${conseil.tag}`;
+    if(sessionStorage.getItem(cle)) return;
+    sessionStorage.setItem(cle,new Date().toISOString());
+    ouvrirAssistantEmma();
+    ajouterMessageAssistantEmma(conseil.texte);
+    afficherReponsesRapidesEmma(conseil.reponses);
+}
+
+let emmaApplicationMasqueeA=null;
+document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+        emmaApplicationMasqueeA=Date.now();
+        return;
+    }
+    if(emmaApplicationMasqueeA&&Date.now()-emmaApplicationMasqueeA>=60000){
+        setTimeout(afficherConseilNotificationIntelligenteEmma,500);
+    }
+    emmaApplicationMasqueeA=null;
+});
 
 window.addEventListener(
   "load",
@@ -39689,6 +40096,25 @@ function executerReponseRapideEmma(action,valeur=''){
     if(action==='quoi') return commandeRapideEmma('quoi');
     if(action==='journal') return commandeRapideEmma('journal');
     if(action==='organiser') return traiterCommandeAssistantEmma('organise ma journée');
+    if(action==='fatigue') return demanderNiveauFatigueEmma();
+    if(action==='fatigue_niveau') return enregistrerNiveauFatigueEmma(valeur);
+    if(action==='fatigue_reorganiser') return demarrerPreparationPlanningEmma('suite');
+    if(action==='scanner_piece') return proposerPiecesAScannerEmma();
+    if(action==='temps_20') return proposerTachesVingtMinutesEmma();
+    if(action==='choisir_20') return choisirTacheVingtMinutesEmma(valeur);
+    if(action==='confirmer_20') return confirmerTacheVingtMinutesEmma();
+    if(action==='annuler_20') return annulerTacheVingtMinutesEmma();
+    if(action==='notification_retards'){
+        fermerAssistantEmma();
+        return ouvrirPopupTachesRetard();
+    }
+    if(action==='notification_pause'){
+        ajouterMessageAssistantEmma('Je garde ce moment libre. Bois un peu d’eau, assieds-toi et reprends seulement quand tu te sens prête ♡');
+        return afficherReponsesRapidesEmma([
+            {label:'📔 Voir la suite',action:'journal'},
+            {label:'✨ Réorganiser doucement',action:'fatigue_reorganiser'}
+        ]);
+    }
     if(action==='session_piece') return demarrerSessionPieceConversationEmma(valeur);
     if(action==='photo_piece') return prendrePhotoConversationEmma(valeur);
     if(action==='fin_photos') return terminerPhotosConversationEmma();
@@ -39709,8 +40135,127 @@ function executerReponseRapideEmma(action,valeur=''){
     if(action==='planning_annuler') return annulerPreparationPlanningEmma();
 }
 
+function actionsAccueilAssistantEmma(){
+    afficherReponsesRapidesEmma([
+        {label:'🗓 Organise ma journée',action:'organiser'},
+        {label:'🫶 Je suis fatiguée',action:'fatigue'},
+        {label:'📸 Scanner une pièce',action:'scanner_piece'},
+        {label:'⏱ J’ai 20 minutes',action:'temps_20'}
+    ]);
+}
+
+function demanderNiveauFatigueEmma(){
+    ajouterMessageAssistantEmma('Je t’écoute ♡ Ton niveau de fatigue est plutôt léger, moyen ou fort ?');
+    afficherReponsesRapidesEmma([
+        {label:'🙂 Légère',action:'fatigue_niveau',valeur:'legere'},
+        {label:'😮‍💨 Moyenne',action:'fatigue_niveau',valeur:'moyenne'},
+        {label:'🛋 Forte',action:'fatigue_niveau',valeur:'forte'}
+    ]);
+}
+
+async function enregistrerNiveauFatigueEmma(niveau){
+    ensureJournalData();
+    const date=new Date().toLocaleDateString('fr-CA');
+    DB.journal.contexteJour=DB.journal.contexteJour||{};
+    DB.journal.contexteJour[date]={...(DB.journal.contexteJour[date]||{}),energie:niveau,misAJourA:new Date().toISOString()};
+    await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+    const message={
+        legere:'D’accord. Je garde une journée normale, avec un peu plus d’air entre les tâches.',
+        moyenne:'D’accord ♡ On protège ton énergie : moins de tâches, plus courtes, avec une vraie pause.',
+        forte:'Alors on allège vraiment. Je ne garderai que l’essentiel et du repos.'
+    }[niveau]||'D’accord, je vais en tenir compte.';
+    ajouterMessageAssistantEmma(`${message} Tu veux que je réorganise seulement la suite ?`);
+    afficherReponsesRapidesEmma([
+        {label:'✨ Réorganiser doucement',action:'fatigue_reorganiser'},
+        {label:'Non, garder ma journée',action:'journal'}
+    ]);
+}
+
+function proposerPiecesAScannerEmma(){
+    const pieces=[...(getMaisonDashboardData?.().pieces||[])]
+        .sort((a,b)=>(b.actives.length-a.actives.length)||(a.score-b.score))
+        .slice(0,4);
+    ajouterMessageAssistantEmma(pieces.length
+        ? 'Quelle pièce veux-tu regarder ? Je te demanderai les photos utiles une par une.'
+        : 'Je ne trouve pas encore de pièce enregistrée dans Ma maison.');
+    afficherReponsesRapidesEmma(pieces.length
+        ? pieces.map(piece=>({label:`${piece.zone.icon||'🏠'} ${piece.zone.nom}`,action:'session_piece',valeur:piece.zone.nom}))
+        : [{label:'🏠 Ouvrir Ma maison',action:'journal'}]);
+}
+
+function candidatsVingtMinutesEmma(){
+    ensureJournalData();
+    const date=new Date().toLocaleDateString('fr-CA');
+    const planning=DB.journal.planning?.[date]||[];
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    const clesPlanifiees=new Set(planning.map(cleElementPlanningConversationEmma));
+    const refus=new Set(DB.journal.refusPlanningJour?.[date]||[]);
+    return getElementsJourIntelligents(date)
+        .filter(element=>{
+            const cle=cleElementPlanningConversationEmma(element);
+            return Number(element.duree||0)<=20&&Number(element.duree||0)>0&&
+                !clesPlanifiees.has(cle)&&!faitMap[cle]&&!refus.has(cle);
+        })
+        .sort((a,b)=>(a.priorite||99)-(b.priorite||99))
+        .slice(0,3);
+}
+
+function proposerTachesVingtMinutesEmma(){
+    window._suggestions20Emma=candidatsVingtMinutesEmma();
+    window._suggestion20ChoisieEmma=null;
+    const suggestions=window._suggestions20Emma;
+    ajouterMessageAssistantEmma(suggestions.length
+        ? 'Parfait, je te propose seulement des choses utiles qui tiennent réellement en 20 minutes. Laquelle te convient ?'
+        : 'Je ne vois rien d’utile à ajouter en 20 minutes sans surcharger ta journée. Tu peux garder ce temps libre ♡');
+    afficherReponsesRapidesEmma(suggestions.length ? [
+        ...suggestions.map((element,index)=>({label:`${element.icon||'✨'} ${element.nom} · ${element.duree} min`,action:'choisir_20',valeur:String(index)})),
+        {label:'Garder ce temps libre',action:'annuler_20'}
+    ] : [{label:'Voir ma journée',action:'journal'}]);
+}
+
+function choisirTacheVingtMinutesEmma(index){
+    const element=window._suggestions20Emma?.[Number(index)];
+    if(!element) return proposerTachesVingtMinutesEmma();
+    window._suggestion20ChoisieEmma=element;
+    ajouterMessageAssistantEmma(`${element.icon||'✨'} « ${element.nom} » prendra environ ${element.duree} minutes. Je l’ajoute au prochain créneau libre ?`);
+    afficherReponsesRapidesEmma([
+        {label:'✓ Oui, ajoute-la',action:'confirmer_20'},
+        {label:'↩ Choisir autre chose',action:'temps_20'},
+        {label:'Non, laisser libre',action:'annuler_20'}
+    ]);
+}
+
+async function confirmerTacheVingtMinutesEmma(){
+    const element=window._suggestion20ChoisieEmma;
+    if(!element) return proposerTachesVingtMinutesEmma();
+    const date=new Date().toLocaleDateString('fr-CA');
+    const proposition=await appliquerPlanningIntelligent(date,{mode:'ajouter',selectionManuelle:true,elementsSupplementaires:[element]});
+    await synchroniserNotificationsPlanningEmma?.(date);
+    renderJAujourdhui?.();
+    renderHubOverview?.();
+    window._suggestions20Emma=null;
+    window._suggestion20ChoisieEmma=null;
+    ajouterMessageAssistantEmma(proposition?.blocs?.length
+        ? 'C’est ajouté au prochain créneau libre ♡'
+        : 'Je n’ai pas trouvé de créneau libre assez long aujourd’hui. Je n’ai rien modifié.');
+    afficherReponsesRapidesEmma([
+        {label:'📔 Voir ma journée',action:'journal'},
+        {label:'⏱ Une autre tâche courte',action:'temps_20'}
+    ]);
+}
+
+function annulerTacheVingtMinutesEmma(){
+    window._suggestions20Emma=null;
+    window._suggestion20ChoisieEmma=null;
+    ajouterMessageAssistantEmma('D’accord, je garde ce moment libre ♡');
+    actionsAccueilAssistantEmma();
+}
+
 function initialiserAccueilConversationEmma(){
     ouvrirAssistantEmma();
+
+    const conversation=document.getElementById('emma-assistant-conversation');
+    if(conversation) conversation.innerHTML='';
 
     const accompagnement=chargerAccompagnementEmma();
     if(accompagnement){
@@ -39749,26 +40294,29 @@ function initialiserAccueilConversationEmma(){
     const retard=getPlanningEnRetard?.()||[];
     const planning=DB.journal?.planning?.[date]||[];
     const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
-    const faites=planning.filter(p=>faitMap[p.id]).length;
+    const faites=planning.filter(p=>faitMap[p.id]||faitMap[cleTachePlanningEmma(p)]).length;
+    const maintenant=new Date();
+    const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
+    const restantes=planning.filter(p=>
+        !faitMap[p.id]&&!faitMap[cleTachePlanningEmma(p)]&&p.type!=='tempsLibre'&&
+        (!p.heureFin||strToMin(p.heureFin)>=minuteActuelle)
+    );
+    const prochaine=[...restantes].filter(p=>p.heureDebut).sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut))[0];
+    const prioriteMaison=[...(getMaisonDashboardData?.().pieces||[])]
+        .filter(piece=>piece.actives.length)
+        .sort((a,b)=>(b.actives.length-a.actives.length)||(a.score-b.score))[0];
 
     if(retard.length){
         ajouterMessageAssistantEmma(
-            `Bonjour Emma ♡ Tu as ${retard.length} tâche${retard.length>1?'s':''} en retard${faites?` et déjà ${faites} terminée${faites>1?'s':''}`:''}. Qu’est-ce qu’on fait ?`
+            `Bonjour Emma ♡ Tu as déjà terminé ${faites} tâche${faites>1?'s':''}. Il en reste ${restantes.length}, dont ${retard.length} en retard.${prochaine?` La prochaine est « ${prochaine.nom||prochaine.customNom||'tâche prévue'} » à ${prochaine.heureDebut}.`:''}${prioriteMaison?` Côté maison, ${prioriteMaison.zone.nom} mérite le plus d’attention.`:''}`
         );
     }else{
         ajouterMessageAssistantEmma(
-            faites
-                ? `Bonjour Emma ♡ Tu as déjà terminé ${faites} tâche${faites>1?'s':''}. Tu veux continuer, organiser la suite ou t’occuper d’une pièce ?`
-                : `Bonjour Emma ♡ Je suis prête. On organise ta journée ou on s’occupe d’une pièce de la maison ?`
+            `Bonjour Emma ♡ ${faites?`Tu as déjà terminé ${faites} tâche${faites>1?'s':''}. `:''}${restantes.length?`Il t’en reste ${restantes.length}.${prochaine?` La prochaine est « ${prochaine.nom||prochaine.customNom||'tâche prévue'} » à ${prochaine.heureDebut}.`:''}`:'Ton planning est libre pour le moment.'}${prioriteMaison?` Côté maison, ${prioriteMaison.zone.nom} est la priorité.`:''}`
         );
     }
 
-    afficherReponsesRapidesEmma([
-        {label:'✨ Que dois-je faire ?',action:'quoi'},
-        {label:'🍳 Faire la cuisine',action:'session_piece',valeur:'Cuisine'},
-        {label:'📔 Voir ma journée',action:'journal'},
-        {label:'🗓 Organiser',action:'organiser'}
-    ]);
+    actionsAccueilAssistantEmma();
 }
 
 
@@ -40000,12 +40548,25 @@ function preparerCandidatsPlanningConversationEmma(){
     const refusDuJour=new Set(
         DB.journal.refusPlanningJour?.[session.date]||[]
     );
+    const energie=DB.journal.contexteJour?.[session.date]?.energie||'normale';
+    const limiteTotale=energie==='forte'?6:energie==='moyenne'?8:12;
+    const dureeMax=energie==='forte'?15:energie==='moyenne'?25:Infinity;
     const nouvelles=getElementsJourIntelligents(session.date)
         .filter(element=>{
             const cle=cleElementPlanningConversationEmma(element);
-            return !clesExistantes.has(cle)&&!refusDuJour.has(cle);
+            return !clesExistantes.has(cle)&&
+                !refusDuJour.has(cle)&&
+                (element.categorie==='detente'||Number(element.duree||0)<=dureeMax);
         })
-        .slice(0,Math.max(0,12-existants.length))
+        .sort((a,b)=>{
+            if(energie==='forte'||energie==='moyenne'){
+                const pauseA=a.categorie==='detente'?0:1;
+                const pauseB=b.categorie==='detente'?0:1;
+                if(pauseA!==pauseB) return pauseA-pauseB;
+            }
+            return (a.priorite||99)-(b.priorite||99);
+        })
+        .slice(0,Math.max(0,limiteTotale-existants.length))
         .map(element=>({
             cle:cleElementPlanningConversationEmma(element),
             origine:'nouvelle',
@@ -40397,13 +40958,6 @@ async function mettreEnPauseAccompagnementEmma(){
     ]);
 }
 
-const ZONES_PHOTOS_CONVERSATION = {
-    cuisine:["vue générale","évier","plaque","plan de travail","sol"],
-    salon:["vue générale","canapé","table basse","sol"],
-    chambre:["vue générale","lit","surfaces","sol"],
-    buanderie:["vue générale","machines","linge","sol"]
-};
-
 function chargerSessionPieceConversationEmma(){
     if(sessionPieceConversationEmma) return sessionPieceConversationEmma;
     try{
@@ -40437,11 +40991,10 @@ function demarrerSessionPieceConversationEmma(nomZone){
         return;
     }
 
-    const cle=normaliserCommandeEmma(zone.nom).split(' ')[0];
     sessionPieceConversationEmma={
         zoneId:zone.id,
         zoneNom:zone.nom,
-        zonesAttendues:ZONES_PHOTOS_CONVERSATION[cle]||["vue générale","surfaces","sol"],
+        zonesAttendues:getAnglesAttendusMaison(zone),
         zonesVues:[],
         nombrePhotos:0,
         sousZoneDemandee:null
@@ -41803,6 +42356,21 @@ function traiterCommandeAssistantEmma(
             texte
         );
 
+    if(/(je suis fatiguee|je suis fatigue|fatiguee|fatigue)/.test(commande)){
+        demanderNiveauFatigueEmma();
+        return;
+    }
+
+    if(/(j'ai|j ai|jai).*(20|vingt).*minute|20 minutes|vingt minutes/.test(commande)){
+        proposerTachesVingtMinutesEmma();
+        return;
+    }
+
+    if(/(scanner|scan).*(piece|maison)/.test(commande)){
+        proposerPiecesAScannerEmma();
+        return;
+    }
+
     const accompagnementActif=chargerAccompagnementEmma?.();
     if(accompagnementActif){
         if(/^(termine|terminee|fini|finie|c'est fait|c est fait|j'ai fini|j ai fini)/.test(commande)){
@@ -42780,20 +43348,20 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
 
     <div class="emma-assistant-suggestions">
 
-      <button onclick="commandeRapideEmma('quoi')">
-        ✨ Que dois-je faire ?
+      <button onclick="executerReponseRapideEmma('organiser')">
+        🗓 Organise ma journée
       </button>
 
-      <button onclick="commandeRapideEmma('journal')">
-        📔 Mon journal
+      <button onclick="executerReponseRapideEmma('fatigue')">
+        🫶 Je suis fatiguée
       </button>
 
-      <button onclick="commandeRapideEmma('glow')">
-        🌿 Mon Glow
+      <button onclick="executerReponseRapideEmma('scanner_piece')">
+        📸 Scanner une pièce
       </button>
 
-      <button onclick="commandeRapideEmma('travail')">
-        💼 Travail
+      <button onclick="executerReponseRapideEmma('temps_20')">
+        ⏱ J’ai 20 minutes
       </button>
 
     </div>
