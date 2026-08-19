@@ -33,6 +33,7 @@ self.addEventListener("push", event => {
     const body =
         notification.body ||
         payload.body ||
+        customData.message ||
         customData.body ||
         "Tu as une nouvelle notification";
 
@@ -60,6 +61,15 @@ self.addEventListener("push", event => {
             notification.tag ||
             customData.id ||
             "emma",
+
+        renotify: false,
+
+        actions: [
+            {
+                action: "open",
+                title: "Ouvrir EMMA"
+            }
+        ],
 
         data: {
             url,
