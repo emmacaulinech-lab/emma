@@ -36894,6 +36894,21 @@ async function validerScanMaisonGlobal(){
             idsParZone.get(zoneId).push(cb.value);
         });
 
+    // Une ancienne photo ne doit jamais réactiver une tâche déjà cochée
+    // aujourd'hui. Les détections brutes restent dans l'historique du scan,
+    // mais seules les tâches encore dues sont validées.
+    const dateAujourdhui=new Date().toLocaleDateString('fr-CA');
+    idsParZone.forEach((ids,zoneId)=>{
+        const zone=DB.journal.zones.find(item=>item.id===zoneId);
+        const sousTaches=new Map();
+        (zone?.actions||[]).forEach(action=>
+            (action.sousTaches||[]).forEach(st=>sousTaches.set(st.id,st))
+        );
+        idsParZone.set(zoneId,ids.filter(id=>
+            !estSousTacheFaiteJourEmma(id,dateAujourdhui,sousTaches.get(id))
+        ));
+    });
+
     DB.journal.etatPieces = DB.journal.etatPieces || {};
 
     Object.entries(sessionScanMaison.pieces)
@@ -39080,6 +39095,16 @@ function cleTachePlanningEmma(bloc){
     bloc.sousTacheId||bloc.stId||bloc.sourceId||bloc.id;
 }
 
+function trouverSousTacheJournalEmma(sousTacheId){
+  for(const zone of DB.journal?.zones||[]){
+    for(const action of zone.actions||[]){
+      const sousTache=(action.sousTaches||[]).find(st=>st.id===sousTacheId);
+      if(sousTache) return {zone,action,sousTache};
+    }
+  }
+  return null;
+}
+
 function estSousTacheFaiteJourEmma(sousTacheId,date,sousTache=null){
   if(!sousTacheId||!date) return false;
   const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
@@ -39125,11 +39150,12 @@ async function togglePlanningFait(planningId){
   if(!item) return;
 
   const sousTacheId=cleTachePlanningEmma(item);
-  const zoneId=item.data?.zoneId||item.zoneId;
-  const actionId=item.data?.actionId||item.actionId;
-  const zone=DB.journal.zones.find(z=>z.id===zoneId);
-  const action=zone?.actions.find(a=>a.id===actionId);
-  const st=action?.sousTaches.find(x=>x.id===sousTacheId);
+  const referenceTache=trouverSousTacheJournalEmma(sousTacheId);
+  const zoneId=item.data?.zoneId||item.zoneId||referenceTache?.zone.id;
+  const actionId=item.data?.actionId||item.actionId||referenceTache?.action.id;
+  const zone=DB.journal.zones.find(z=>z.id===zoneId)||referenceTache?.zone;
+  const action=zone?.actions.find(a=>a.id===actionId)||referenceTache?.action;
+  const st=action?.sousTaches.find(x=>x.id===sousTacheId)||referenceTache?.sousTache;
   const maintenant=new Date();
   const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
   const heureReelle=minToStr(minuteActuelle);
