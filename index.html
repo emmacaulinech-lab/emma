@@ -5385,6 +5385,9 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
+    ensureJournalData();
+    appliquerRoutinesFixesEmma(new Date().toLocaleDateString('fr-CA'));
+    await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
     goHub();
     setTimeout(initialiserAccueilConversationEmma,700);
   } else {
@@ -13335,6 +13338,11 @@ async function syncAgendaVersJournal(){
 });
     ajoutes++;
   });
+
+  // Dès que les clientes sont importées, les routines réservées aux
+  // jours travaillés se positionnent automatiquement autour des RDV.
+  appliquerRoutinesFixesEmma(dateCible);
+
   if(ajoutes>0){
     await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
     toast(`✓ ${ajoutes} RDV ajouté(s) au planning du ${dateCible}`);
@@ -28481,6 +28489,92 @@ const COULEURS_ZONES_DEFAUT = {
     'Voiture':'#475569'
 };
 
+const ROUTINES_QUOTIDIENNES_EMMA = [
+    {nom:'Gérer mails',heure:'07:15',duree:10,condition:'toujours'},
+    {nom:'Répondre messages',heure:'07:25',duree:5,condition:'jour_travaille'},
+    {nom:'Mettre à jour compta',heure:'07:30',duree:15,condition:'jour_travaille'},
+    {nom:'Story Instagram',heure:'09:30',duree:10,condition:'jour_travaille'},
+    {nom:'Faire la vaisselle / lancer le lave-vaisselle',heure:'20:00',duree:5,condition:'toujours'},
+    {nom:'Nettoyer la planche à découper',heure:'20:05',duree:3,condition:'toujours'},
+    {nom:'Lancer Roborock dans la cuisine',heure:'21:45',duree:2,condition:'toujours'},
+    {nom:'Lancer Roborock dans le salon',heure:'21:47',duree:2,condition:'toujours'}
+];
+
+const ROUTINES_CLIENTES_FLEXIBLES_EMMA = [
+    'Filmer contenu',
+    'Prendre photo Before/After'
+];
+
+const TACHES_SUPPRIMEES_ROUTINES_EMMA = [
+    'Vérifier avis Google/réseaux',
+    'Répondre commentaires Instagram'
+];
+
+function normaliserNomRoutineEmma(nom){
+    return String(nom||'').trim().toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .replace(/[’']/g,"'")
+        .replace(/\s+/g,' ');
+}
+
+function trouverRoutineConfigEmma(nom){
+    const cle=normaliserNomRoutineEmma(nom);
+    return ROUTINES_QUOTIDIENNES_EMMA.find(item=>normaliserNomRoutineEmma(item.nom)===cle)||null;
+}
+
+function migrerRoutinesQuotidiennesEmma(){
+    if(DB.journal.versionRoutinesFixes>=1) return false;
+    const supprimees=new Set(TACHES_SUPPRIMEES_ROUTINES_EMMA.map(normaliserNomRoutineEmma));
+    const clientes=new Set(ROUTINES_CLIENTES_FLEXIBLES_EMMA.map(normaliserNomRoutineEmma));
+    const idsSupprimes=new Set();
+
+    (DB.journal.zones||[]).forEach(zone=>{
+        (zone.actions||[]).forEach(action=>{
+            action.sousTaches=(action.sousTaches||[]).filter(st=>{
+                if(supprimees.has(normaliserNomRoutineEmma(st.nom))){
+                    idsSupprimes.add(st.id);
+                    return false;
+                }
+                const config=trouverRoutineConfigEmma(st.nom);
+                if(config){
+                    st.freq=1;
+                    st.duree=config.duree;
+                    st.planificationFixe={heure:config.heure,condition:config.condition};
+                }else if(clientes.has(normaliserNomRoutineEmma(st.nom))){
+                    st.freq=1;
+                    st.planificationFixe=null;
+                    st.conditionPlanning='jour_client';
+                }
+                return true;
+            });
+        });
+    });
+
+    const aujourdHui=new Date().toLocaleDateString('fr-CA');
+    Object.entries(DB.journal.planning||{}).forEach(([date,planning])=>{
+        if(date<aujourdHui||!Array.isArray(planning)) return;
+        const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+        DB.journal.planning[date]=planning.filter(bloc=>{
+            const cle=cleTachePlanningEmma(bloc);
+            const nom=normaliserNomRoutineEmma(bloc.nom||bloc.customNom);
+            const supprimer=idsSupprimes.has(cle)||supprimees.has(nom);
+            return !supprimer||faitMap[bloc.id]||faitMap[cle];
+        });
+    });
+
+    Object.keys(DB.journal.tachesForcees||{}).forEach(date=>{
+        DB.journal.tachesForcees[date]=(DB.journal.tachesForcees[date]||[])
+            .filter(item=>!idsSupprimes.has(item.sousTacheId));
+    });
+    Object.values(DB.journal.etatPieces||{}).forEach(etat=>{
+        etat.tachesDetectees=(etat.tachesDetectees||[]).filter(id=>!idsSupprimes.has(id));
+        etat.tachesValidees=(etat.tachesValidees||[]).filter(id=>!idsSupprimes.has(id));
+    });
+
+    DB.journal.versionRoutinesFixes=1;
+    return true;
+}
+
 function ensureJournalData(){
 
     if(!DB.journal){
@@ -28606,6 +28700,10 @@ function ensureJournalData(){
         DB.journal.zones =
             seedJournalZones();
 
+        saveAll();
+    }
+
+    if(migrerRoutinesQuotidiennesEmma()){
         saveAll();
     }
 
@@ -31890,6 +31988,17 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
     (action.sousTaches || [])
     .filter(st => {
 
+        // Les routines à heure fixe sont placées avant le moteur flexible.
+        if(st.planificationFixe){
+            return false;
+        }
+
+        // Le contenu Before/After et les vidéos ne sont proposés que
+        // lorsqu'au moins une cliente EMMA est présente dans Planity.
+        if(st.conditionPlanning==='jour_client'&&!estJourAvecClientesEmma(date)){
+            return false;
+        }
+
         // Une tâche déjà réellement terminée aujourd'hui
         // ne doit jamais revenir dans le futur du planning.
         if(estSousTacheFaiteJourEmma(st.id,date,st)){
@@ -33282,10 +33391,118 @@ async function recalculerResteJourneeEmma(date){
     console.log("Planning EMMA actualisé sans ajout automatique");
 }
 
+function estJourAvecClientesEmma(date){
+    return (DB.journal?.planning?.[date]||[]).some(bloc=>
+        bloc.source==='planity'||bloc.typeElement==='planity'
+    );
+}
+
+function estJourTravailleEmma(date){
+    const planning=DB.journal?.planning?.[date]||[];
+    return estJourAvecClientesEmma(date)||planning.some(bloc=>
+        !bloc.routineFixe&&
+        (bloc.type==='pro'||bloc.typesAutorises?.includes?.('pro'))
+    );
+}
+
+function trouverSousTacheParNomRoutineEmma(nom){
+    const cle=normaliserNomRoutineEmma(nom);
+    for(const zone of DB.journal?.zones||[]){
+        for(const action of zone.actions||[]){
+            const st=(action.sousTaches||[]).find(item=>normaliserNomRoutineEmma(item.nom)===cle);
+            if(st) return {zone,action,st};
+        }
+    }
+    return null;
+}
+
+function placerRoutineSansConflitEmma(date,heure,duree,ignorerId=null){
+    const occupes=(DB.journal?.planning?.[date]||[])
+        .filter(bloc=>bloc.id!==ignorerId&&bloc.heureDebut&&bloc.heureFin)
+        .map(bloc=>({debut:strToMin(bloc.heureDebut),fin:strToMin(bloc.heureFin)}))
+        .sort((a,b)=>a.debut-b.debut);
+    const maintenant=new Date();
+    const aujourdHui=maintenant.toLocaleDateString('fr-CA');
+    let debut=strToMin(heure);
+    if(date===aujourdHui){
+        debut=Math.max(debut,maintenant.getHours()*60+maintenant.getMinutes());
+    }
+    let conflit=occupes.find(intervalle=>debut<intervalle.fin&&debut+duree>intervalle.debut);
+    while(conflit){
+        debut=conflit.fin;
+        conflit=occupes.find(intervalle=>debut<intervalle.fin&&debut+duree>intervalle.debut);
+    }
+    return {heureDebut:minToStr(debut),heureFin:minToStr(debut+duree)};
+}
+
+function appliquerRoutinesFixesEmma(date){
+    ensureJournalData();
+    DB.journal.planning[date]=DB.journal.planning[date]||[];
+    const planning=DB.journal.planning[date];
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    const jourTravaille=estJourTravailleEmma(date);
+
+    ROUTINES_QUOTIDIENNES_EMMA.forEach(config=>{
+        const reference=trouverSousTacheParNomRoutineEmma(config.nom);
+        if(!reference) return;
+        const {zone,action,st}=reference;
+        const autorisee=config.condition==='toujours'||jourTravaille;
+        const existant=planning.find(bloc=>
+            cleTachePlanningEmma(bloc)===st.id||
+            normaliserNomRoutineEmma(bloc.nom||bloc.customNom)===normaliserNomRoutineEmma(st.nom)
+        );
+        const dejaFaite=estSousTacheFaiteJourEmma(st.id,date,st);
+
+        if(!autorisee){
+            if(existant&&!faitMap[existant.id]&&(existant.autoPlanifie||existant.routineFixe)){
+                const index=planning.indexOf(existant);
+                if(index>=0) planning.splice(index,1);
+            }
+            return;
+        }
+        if(dejaFaite) return;
+
+        const conflitExistant=existant&&planning.some(autre=>
+            autre.id!==existant.id&&autre.heureDebut&&autre.heureFin&&
+            strToMin(autre.heureDebut)<strToMin(existant.heureFin)&&
+            strToMin(autre.heureFin)>strToMin(existant.heureDebut)
+        );
+        const doitRepositionner=!existant||!existant.routineFixe||
+            existant.heureCible!==config.heure||conflitExistant;
+        const place=doitRepositionner
+            ? placerRoutineSansConflitEmma(date,config.heure,config.duree,existant?.id||null)
+            : {heureDebut:existant.heureDebut,heureFin:existant.heureFin};
+        const bloc=existant||{id:`routine_${st.id}_${date}`};
+        Object.assign(bloc,{
+            source:'journal',
+            sourceId:st.id,
+            type:zone.typeDefaut||'perso',
+            categorie:zone.typeDefaut==='pro'?'proAdmin':'maison',
+            nom:`${zone.icon||'✨'} ${st.nom}`,
+            customNom:`${zone.icon||'✨'} ${st.nom}`,
+            iconOverride:zone.icon||'✨',
+            heureDebut:place.heureDebut,
+            heureFin:place.heureFin,
+            heureCible:config.heure,
+            duree:config.duree,
+            priorite:0,
+            autoPlanifie:true,
+            routineFixe:true,
+            verrouille:false,
+            data:{zoneId:zone.id,actionId:action.id,sousTacheId:st.id,zoneNom:zone.nom,actionNom:action.nom}
+        });
+        if(!existant) planning.push(bloc);
+    });
+
+    planning.sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''));
+}
+
 function genererPlanningIntelligent(
     date,
     options = {}
 ){
+    appliquerRoutinesFixesEmma(date);
+
     let elements =
     options.selectionManuelle === true
         ? []
