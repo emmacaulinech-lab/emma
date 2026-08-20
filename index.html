@@ -5387,6 +5387,7 @@ auth.onAuthStateChanged(async user => {
     await loadAll();
     ensureJournalData();
     appliquerRoutinesFixesEmma(new Date().toLocaleDateString('fr-CA'));
+    nettoyerCopiesTachesFaitesEmma(new Date().toLocaleDateString('fr-CA'));
     await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
     goHub();
     setTimeout(initialiserAccueilConversationEmma,700);
@@ -17172,7 +17173,8 @@ function getMaisonDashboardData(){
         (zone.actions || []).forEach(action => {
             (action.sousTaches || []).forEach(st => {
                 const score = calculerScoreTacheJournal(zone,action,st,date);
-                const faite = estSousTacheFaiteJourEmma(st.id,date,st);
+                const faite = estSousTacheFaiteJourEmma(st.id,date,st)||
+                    estSousTacheProtegeeParFrequenceEmma(st,date);
                 const observee = detectees.has(st.id);
                 const forcee = forcees.has(st.id);
                 const due = !faite && (observee || forcee || score >= 60);
@@ -29100,6 +29102,10 @@ function getSousTachesDues(action){
 
     return (action.sousTaches || []).filter(st => {
 
+        if(estSousTacheProtegeeParFrequenceEmma(st,jourRef)){
+            return false;
+        }
+
         const declenchement =
             st.declenchement ||
             (st.freq ? "frequence" : "etat");
@@ -30342,7 +30348,8 @@ function ouvrirValidationPlanningJournal(date){
         .filter(bloc=>{
             const cle=cleBlocPropositionJournal(bloc);
             return !faitMap[bloc.id]&&
-                (!cle||!estSousTacheFaiteJourEmma(cle,date));
+                (!cle||!estSousTacheFaiteJourEmma(cle,date))&&
+                !estTacheOuEquivalentFaiteJourEmma(bloc,date);
         });
 
     if(DB.journal.propositionIntelligente?.[date]){
@@ -31866,7 +31873,8 @@ function calculerScorePieceJournal(zone, date){
 
         sousTaches.forEach(st => {
 
-            if(estSousTacheFaiteJourEmma(st.id,date,st)){
+            if(estSousTacheFaiteJourEmma(st.id,date,st)||
+                estSousTacheProtegeeParFrequenceEmma(st,date)){
                 return;
             }
 
@@ -32001,7 +32009,8 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
 
         // Une tâche déjà réellement terminée aujourd'hui
         // ne doit jamais revenir dans le futur du planning.
-        if(estSousTacheFaiteJourEmma(st.id,date,st)){
+        if(estSousTacheFaiteJourEmma(st.id,date,st)||
+            estSousTacheProtegeeParFrequenceEmma(st,date)){
             return false;
         }
 
@@ -33550,7 +33559,8 @@ elements=elements.filter(element=>{
     const cle=element.data?.sousTacheId||
         ((element.source==='journal'||element.categorie==='maison')?element.data?.id:null)||
         element.sousTacheId||element.stId||element.sourceId||element.id;
-    return !cle||!estSousTacheFaiteJourEmma(cle,date,element.data);
+    return (!cle||!estSousTacheFaiteJourEmma(cle,date,element.data))&&
+        !estTacheOuEquivalentFaiteJourEmma(element,date);
 });
 
 // Une proposition complète uniquement les trous : elle ne repropose
@@ -35036,7 +35046,8 @@ function ouvrirDetailPieceJournal(zoneId){
                     date
                 );
 
-            const faite = estSousTacheFaiteJourEmma(st.id,date,st);
+            const faite = estSousTacheFaiteJourEmma(st.id,date,st)||
+                estSousTacheProtegeeParFrequenceEmma(st,date);
             const due = !faite && (detectees.has(st.id) || forcees.has(st.id) || score >= 60);
 
             taches.push({
@@ -37121,9 +37132,11 @@ async function validerScanMaisonGlobal(){
         (zone?.actions||[]).forEach(action=>
             (action.sousTaches||[]).forEach(st=>sousTaches.set(st.id,st))
         );
-        idsParZone.set(zoneId,ids.filter(id=>
-            !estSousTacheFaiteJourEmma(id,dateAujourdhui,sousTaches.get(id))
-        ));
+        idsParZone.set(zoneId,ids.filter(id=>{
+            const st=sousTaches.get(id);
+            return !estSousTacheFaiteJourEmma(id,dateAujourdhui,st)&&
+                !estSousTacheProtegeeParFrequenceEmma(st,dateAujourdhui);
+        }));
     });
 
     DB.journal.etatPieces = DB.journal.etatPieces || {};
@@ -39143,12 +39156,30 @@ async function toggleSousTacheRonde(zoneId,actionId,stId,span){
   const today=new Date().toISOString().split('T')[0];
   if(st.dernierFait===today){
     st.dernierFait=null; // décoche
+    marquerEquivalentsCatalogueFaitsEmma({nom:st.nom,zoneId,zoneNom:zone.nom},today,false);
+    if(DB.journal.historique?.[today]){
+      DB.journal.historique[today]=DB.journal.historique[today].filter(entree=>
+        !memesTachesVisuellesEmma({nom:st.nom,zoneId,zoneNom:zone.nom},entree)
+      );
+    }
+    const etatPiece=DB.journal.etatPieces?.[zoneId];
+    if(etatPiece?.tachesResoluesDepuisScan?.includes(stId)){
+      etatPiece.tachesValidees=[...new Set([...(etatPiece.tachesValidees||[]),stId])];
+      etatPiece.tachesResoluesDepuisScan=etatPiece.tachesResoluesDepuisScan.filter(id=>id!==stId);
+    }
   } else {
     st.dernierFait=today;
+    marquerEquivalentsCatalogueFaitsEmma({nom:st.nom,zoneId,zoneNom:zone.nom},today,true);
     const heure=new Date().toTimeString().slice(0,5);
     if(!DB.journal.historique) DB.journal.historique={};
     if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
     DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur||'var(--acc)',heure,duree:st.duree});
+    const etatPiece=DB.journal.etatPieces?.[zoneId];
+    if(etatPiece){
+      etatPiece.tachesValidees=(etatPiece.tachesValidees||[]).filter(id=>id!==stId);
+      etatPiece.tachesResoluesDepuisScan=[...new Set([...(etatPiece.tachesResoluesDepuisScan||[]),stId])];
+    }
+    nettoyerCopiesTachesFaitesEmma(today);
   }
   await saveAll();
   renderPlanningTimeline();
@@ -39333,6 +39364,107 @@ function estSousTacheFaiteJourEmma(sousTacheId,date,sousTache=null){
   );
 }
 
+function estSousTacheProtegeeParFrequenceEmma(sousTache,date){
+  if(!sousTache?.dernierFait||!Number(sousTache.freq)) return false;
+  const jours=Math.floor(
+    (new Date(`${date}T12:00:00`)-new Date(`${sousTache.dernierFait}T12:00:00`))/86400000
+  );
+  return jours>=0&&jours<Number(sousTache.freq);
+}
+
+function identiteVisuelleTacheEmma(element){
+  const nomBrut=element?.nom||element?.customNom||element?.sousTache?.nom||'';
+  const nom=normaliserNomRoutineEmma(nomBrut)
+    .replace(/^[^a-z0-9]+/,'')
+    .replace(/^(maison|journal)\s+/,'')
+    .trim();
+  const zoneId=element?.data?.zoneId||element?.zoneId||element?.zone?.id;
+  const zoneTrouvee=(DB.journal?.zones||[]).find(zone=>zone.id===zoneId);
+  const zone=normaliserNomRoutineEmma(
+    element?.data?.zoneNom||element?.zoneNom||element?.zone?.nom||zoneTrouvee?.nom||''
+  );
+  return {nom,zone};
+}
+
+function memesTachesVisuellesEmma(a,b){
+  const identiteA=identiteVisuelleTacheEmma(a);
+  const identiteB=identiteVisuelleTacheEmma(b);
+  return !!identiteA.nom&&identiteA.nom===identiteB.nom&&
+    (!identiteA.zone||!identiteB.zone||identiteA.zone===identiteB.zone);
+}
+
+function marquerEquivalentsCatalogueFaitsEmma(reference,date,estFaite=true){
+  (DB.journal?.zones||[]).forEach(zone=>
+    (zone.actions||[]).forEach(action=>
+      (action.sousTaches||[]).forEach(st=>{
+        const candidate={nom:st.nom,zoneId:zone.id,zoneNom:zone.nom,data:{zoneId:zone.id,zoneNom:zone.nom}};
+        if(!memesTachesVisuellesEmma(reference,candidate)) return;
+        if(estFaite){
+          st.dernierFait=date;
+        }else if(st.dernierFait===date){
+          st.dernierFait=null;
+        }
+      })
+    )
+  );
+}
+
+function getTachesFaitesJourEmma(date){
+  const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
+  const faites=(DB.journal?.planning?.[date]||[]).filter(bloc=>
+    faitMap[bloc.id]||faitMap[cleTachePlanningEmma(bloc)]||bloc.realiseA||bloc.realiseTimestamp
+  );
+  (DB.journal?.historique?.[date]||[]).forEach(entree=>faites.push(entree));
+  (DB.journal?.zones||[]).forEach(zone=>
+    (zone.actions||[]).forEach(action=>
+      (action.sousTaches||[]).forEach(st=>{
+        if(st.dernierFait===date){
+          faites.push({nom:st.nom,zoneId:zone.id,zoneNom:zone.nom,data:{zoneId:zone.id,zoneNom:zone.nom}});
+        }
+      })
+    )
+  );
+  return faites;
+}
+
+function estTacheOuEquivalentFaiteJourEmma(element,date){
+  const cle=cleTachePlanningEmma(element||{});
+  if(cle&&estSousTacheFaiteJourEmma(cle,date,element?.data)) return true;
+  return getTachesFaitesJourEmma(date).some(faite=>memesTachesVisuellesEmma(element,faite));
+}
+
+function nettoyerCopiesTachesFaitesEmma(date){
+  const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
+  const estDirectementFaite=bloc=>!!(
+    faitMap[bloc.id]||faitMap[cleTachePlanningEmma(bloc)]||bloc.realiseA||bloc.realiseTimestamp
+  );
+
+  if(DB.journal?.planning?.[date]){
+    DB.journal.planning[date]=DB.journal.planning[date].filter(bloc=>
+      estDirectementFaite(bloc)||
+      !((bloc.autoPlanifie||bloc.prioritaireScan||bloc.source==='journal')&&estTacheOuEquivalentFaiteJourEmma(bloc,date))
+    );
+  }
+  if(DB.journal?.propositionIntelligente?.[date]){
+    DB.journal.propositionIntelligente[date]=DB.journal.propositionIntelligente[date]
+      .filter(bloc=>!estTacheOuEquivalentFaiteJourEmma(bloc,date));
+  }
+
+  Object.entries(DB.journal?.etatPieces||{}).forEach(([zoneId,etat])=>{
+    const zone=(DB.journal.zones||[]).find(item=>item.id===zoneId);
+    const taches=new Map();
+    (zone?.actions||[]).forEach(action=>
+      (action.sousTaches||[]).forEach(st=>taches.set(st.id,st))
+    );
+    etat.tachesValidees=(etat.tachesValidees||[]).filter(id=>{
+      const st=taches.get(id);
+      return !st||!estTacheOuEquivalentFaiteJourEmma({
+        id:st.id,source:'journal',nom:st.nom,zoneId,data:{zoneId,zoneNom:zone?.nom,sousTacheId:st.id}
+      },date);
+    });
+  });
+}
+
 function dedupliquerPlanningEmma(date){
   const planning=DB.journal.planning?.[date]||[];
   const faitMap=DB.journal.faitAujourdhui?.[date]||{};
@@ -39399,6 +39531,13 @@ async function togglePlanningFait(planningId){
       st.dernierFait=null;
       st.compteurFait=Math.max(0,Number(st.compteurFait||1)-1);
     }
+    marquerEquivalentsCatalogueFaitsEmma(item,today,false);
+
+    if(DB.journal.historique?.[today]){
+      DB.journal.historique[today]=DB.journal.historique[today].filter(entree=>
+        !memesTachesVisuellesEmma(item,entree)
+      );
+    }
 
     const etatPiece=DB.journal.etatPieces?.[zoneId];
     if(etatPiece?.tachesResoluesDepuisScan?.includes(sousTacheId)){
@@ -39433,6 +39572,7 @@ async function togglePlanningFait(planningId){
       if(!DB.journal.historique[today]) DB.journal.historique[today]=[];
       DB.journal.historique[today].push({nom:st.nom,zoneNom:zone.nom,zoneIcon:zone.icon,couleur:zone.couleur,heure:heureReelle,duree:st.duree,heurePrevue:item.heurePrevueDebut||item.heureDebut});
     }
+    marquerEquivalentsCatalogueFaitsEmma(item,today,true);
 
 
     // Une tâche observée sur les photos disparaît de l'état « à faire »
@@ -39443,6 +39583,8 @@ async function togglePlanningFait(planningId){
       etatPiece.tachesResoluesDepuisScan=[...new Set([...(etatPiece.tachesResoluesDepuisScan||[]),sousTacheId])];
       etatPiece.derniereMiseAJour=new Date().toISOString();
     }
+
+    nettoyerCopiesTachesFaitesEmma(today);
   }
 
   repositionnerTachesFaitesAvantMaintenant(today,minuteActuelle);
@@ -40478,7 +40620,8 @@ function candidatsVingtMinutesEmma(){
         .filter(element=>{
             const cle=cleElementPlanningConversationEmma(element);
             return Number(element.duree||0)<=20&&Number(element.duree||0)>0&&
-                !clesPlanifiees.has(cle)&&!faitMap[cle]&&!refus.has(cle);
+                !clesPlanifiees.has(cle)&&!faitMap[cle]&&!refus.has(cle)&&
+                !estTacheOuEquivalentFaiteJourEmma(element,date);
         })
         .sort((a,b)=>(a.priorite||99)-(b.priorite||99))
         .slice(0,3);
@@ -40812,6 +40955,7 @@ function preparerCandidatsPlanningConversationEmma(){
             strToMin(bloc.heureFin)>minuteActuelle&&
             !faitMap[bloc.id]&&
             !faitMap[cleElementPlanningConversationEmma(bloc)]&&
+            !estTacheOuEquivalentFaiteJourEmma(bloc,session.date)&&
             !bloc.verrouille&&
             bloc.source!=='planity'&&
             bloc.type!=='tempsLibre'
@@ -40840,6 +40984,7 @@ function preparerCandidatsPlanningConversationEmma(){
             const cle=cleElementPlanningConversationEmma(element);
             return !clesExistantes.has(cle)&&
                 !refusDuJour.has(cle)&&
+                !estTacheOuEquivalentFaiteJourEmma(element,session.date)&&
                 (element.categorie==='detente'||Number(element.duree||0)<=dureeMax);
         })
         .sort((a,b)=>{
