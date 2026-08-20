@@ -17164,7 +17164,7 @@ function getMaisonDashboardData(){
         (zone.actions || []).forEach(action => {
             (action.sousTaches || []).forEach(st => {
                 const score = calculerScoreTacheJournal(zone,action,st,date);
-                const faite = !!(faitMap[st.id] || st.dernierFait === date);
+                const faite = estSousTacheFaiteJourEmma(st.id,date,st);
                 const observee = detectees.has(st.id);
                 const forcee = forcees.has(st.id);
                 const due = !faite && (observee || forcee || score >= 60);
@@ -30238,8 +30238,18 @@ ouvrirValidationPlanningJournal(date);
 
 function ouvrirValidationPlanningJournal(date){
 
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
     const proposition =
-        DB.journal.propositionIntelligente?.[date] || [];
+        (DB.journal.propositionIntelligente?.[date] || [])
+        .filter(bloc=>{
+            const cle=cleBlocPropositionJournal(bloc);
+            return !faitMap[bloc.id]&&
+                (!cle||!estSousTacheFaiteJourEmma(cle,date));
+        });
+
+    if(DB.journal.propositionIntelligente?.[date]){
+        DB.journal.propositionIntelligente[date]=proposition;
+    }
 
     if(!proposition.length){
         toast("Aucune proposition à afficher");
@@ -31758,7 +31768,7 @@ function calculerScorePieceJournal(zone, date){
 
         sousTaches.forEach(st => {
 
-            if(faitMap[st.id] || st.dernierFait === date){
+            if(estSousTacheFaiteJourEmma(st.id,date,st)){
                 return;
             }
 
@@ -31882,7 +31892,7 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
 
         // Une tâche déjà réellement terminée aujourd'hui
         // ne doit jamais revenir dans le futur du planning.
-        if(faitMapJour[st.id] === true){
+        if(estSousTacheFaiteJourEmma(st.id,date,st)){
             return false;
         }
 
@@ -33316,6 +33326,15 @@ if(
         ...supplementsUniques
     ];
 }
+
+// Une tâche terminée reste exclue même si elle provient d'un ancien
+// planning qui enregistrait seulement l'identifiant du créneau.
+elements=elements.filter(element=>{
+    const cle=element.data?.sousTacheId||
+        ((element.source==='journal'||element.categorie==='maison')?element.data?.id:null)||
+        element.sousTacheId||element.stId||element.sourceId||element.id;
+    return !cle||!estSousTacheFaiteJourEmma(cle,date,element.data);
+});
 
 // Une proposition complète uniquement les trous : elle ne repropose
 // jamais un élément qui figure déjà dans la journée actuelle.
@@ -34800,7 +34819,7 @@ function ouvrirDetailPieceJournal(zoneId){
                     date
                 );
 
-            const faite = !!(faitMap[st.id] || st.dernierFait === date);
+            const faite = estSousTacheFaiteJourEmma(st.id,date,st);
             const due = !faite && (detectees.has(st.id) || forcees.has(st.id) || score >= 60);
 
             taches.push({
@@ -39056,7 +39075,20 @@ async function validerAjoutTacheHeure(){
 }
 
 function cleTachePlanningEmma(bloc){
-  return bloc.data?.sousTacheId||bloc.stId||bloc.sourceId||bloc.id;
+  return bloc.data?.sousTacheId||
+    ((bloc.source==='journal'||bloc.categorie==='maison')?bloc.data?.id:null)||
+    bloc.sousTacheId||bloc.stId||bloc.sourceId||bloc.id;
+}
+
+function estSousTacheFaiteJourEmma(sousTacheId,date,sousTache=null){
+  if(!sousTacheId||!date) return false;
+  const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
+  if(faitMap[sousTacheId]===true||sousTache?.dernierFait===date) return true;
+
+  return (DB.journal?.planning?.[date]||[]).some(bloc=>
+    cleTachePlanningEmma(bloc)===sousTacheId&&
+    (faitMap[bloc.id]===true||!!bloc.realiseA||!!bloc.realiseTimestamp)
+  );
 }
 
 function dedupliquerPlanningEmma(date){
@@ -39133,6 +39165,15 @@ async function togglePlanningFait(planningId){
   }else{
     faitMap[planningId]=true;
     faitMap[sousTacheId]=true;
+
+    // Si cette tâche figurait déjà dans un brouillon de propositions,
+    // elle en disparaît dès qu'elle est cochée.
+    if(DB.journal.propositionIntelligente?.[today]){
+      DB.journal.propositionIntelligente[today]=
+        DB.journal.propositionIntelligente[today].filter(bloc=>
+          cleBlocPropositionJournal(bloc)!==sousTacheId&&bloc.id!==planningId
+        );
+    }
 
     const finPrevue=strToMin(item.heureFin);
     if(finPrevue>minuteActuelle){
