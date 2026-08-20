@@ -17177,7 +17177,8 @@ function getMaisonDashboardData(){
                     estSousTacheProtegeeParFrequenceEmma(st,date);
                 const observee = detectees.has(st.id);
                 const forcee = forcees.has(st.id);
-                const due = !faite && (observee || forcee || score >= 60);
+                const lieeAuScan=st.declenchement==='etat'||st.declenchement==='mixte';
+                const due = !faite && (lieeAuScan ? (observee||forcee) : (forcee||score>=60));
                 taches.push({zone,action,st,score,faite,observee,forcee,due});
             });
         });
@@ -26798,9 +26799,9 @@ async function ajouterRecoALaBiblio(){
                 }),
 
                 creerTacheJournal("Dépoiler le panier des chiens",5,{
-                    freq:3,
+                    freq:null,
                     sousZone:"panier_chiens",
-                    declenchement:"mixte",
+                    declenchement:"etat",
                     typeEntretien:"proprete",
                     impactVisuel:3,
                     importanceHygiene:4,
@@ -28577,6 +28578,89 @@ function migrerRoutinesQuotidiennesEmma(){
     return true;
 }
 
+function migrerPanierChiensSelonPhotoEmma(){
+    if(DB.journal.versionPanierChiensPhoto>=1) return false;
+    const cleNom=normaliserNomRoutineEmma('Dépoiler le panier des chiens');
+    const ids=new Set();
+
+    (DB.journal.zones||[]).forEach(zone=>
+        (zone.actions||[]).forEach(action=>
+            (action.sousTaches||[]).forEach(st=>{
+                if(normaliserNomRoutineEmma(st.nom)!==cleNom) return;
+                st.freq=null;
+                st.declenchement='etat';
+                ids.add(st.id);
+                const etat=DB.journal.etatPieces?.[zone.id];
+                if(etat){
+                    etat.tachesValidees=(etat.tachesValidees||[]).filter(id=>id!==st.id);
+                    etat.tachesDetectees=(etat.tachesDetectees||[]).filter(id=>id!==st.id);
+                }
+            })
+        )
+    );
+
+    const aujourdHui=new Date().toLocaleDateString('fr-CA');
+    Object.entries(DB.journal.planning||{}).forEach(([date,planning])=>{
+        if(date<aujourdHui||!Array.isArray(planning)) return;
+        const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+        DB.journal.planning[date]=planning.filter(bloc=>{
+            const correspond=ids.has(cleTachePlanningEmma(bloc))||
+                normaliserNomRoutineEmma(bloc.nom||bloc.customNom).includes(cleNom);
+            const faite=faitMap[bloc.id]||faitMap[cleTachePlanningEmma(bloc)]||bloc.realiseA;
+            return !correspond||faite;
+        });
+    });
+    Object.keys(DB.journal.propositionIntelligente||{}).forEach(date=>{
+        DB.journal.propositionIntelligente[date]=(DB.journal.propositionIntelligente[date]||[])
+            .filter(bloc=>!ids.has(cleBlocPropositionJournal(bloc))&&
+                !normaliserNomRoutineEmma(bloc.nom||bloc.customNom).includes(cleNom));
+    });
+
+    DB.journal.versionPanierChiensPhoto=1;
+    return true;
+}
+
+function migrerTachesMixtesVersScanEmma(){
+    if(DB.journal.versionTachesScanSeulement>=1) return false;
+    const idsMixtes=new Set();
+    const idsDetectes=new Set();
+
+    (DB.journal.zones||[]).forEach(zone=>{
+        const valides=new Set(DB.journal.etatPieces?.[zone.id]?.tachesValidees||[]);
+        (zone.actions||[]).forEach(action=>
+            (action.sousTaches||[]).forEach(st=>{
+                if(st.declenchement==='mixte'&&!st.planificationFixe){
+                    idsMixtes.add(st.id);
+                    if(valides.has(st.id)) idsDetectes.add(st.id);
+                }
+            })
+        );
+    });
+
+    const aujourdHui=new Date().toLocaleDateString('fr-CA');
+    Object.entries(DB.journal.planning||{}).forEach(([date,planning])=>{
+        if(date<aujourdHui||!Array.isArray(planning)) return;
+        const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+        const forcees=new Set((DB.journal.tachesForcees?.[date]||[]).map(item=>item.sousTacheId));
+        DB.journal.planning[date]=planning.filter(bloc=>{
+            const cle=cleTachePlanningEmma(bloc);
+            if(!idsMixtes.has(cle)||idsDetectes.has(cle)||forcees.has(cle)) return true;
+            return !!(faitMap[bloc.id]||faitMap[cle]||bloc.realiseA||!bloc.autoPlanifie);
+        });
+    });
+    Object.keys(DB.journal.propositionIntelligente||{}).forEach(date=>{
+        const forcees=new Set((DB.journal.tachesForcees?.[date]||[]).map(item=>item.sousTacheId));
+        DB.journal.propositionIntelligente[date]=(DB.journal.propositionIntelligente[date]||[])
+            .filter(bloc=>{
+                const cle=cleBlocPropositionJournal(bloc);
+                return !idsMixtes.has(cle)||idsDetectes.has(cle)||forcees.has(cle);
+            });
+    });
+
+    DB.journal.versionTachesScanSeulement=1;
+    return true;
+}
+
 function ensureJournalData(){
 
     if(!DB.journal){
@@ -28706,6 +28790,14 @@ function ensureJournalData(){
     }
 
     if(migrerRoutinesQuotidiennesEmma()){
+        saveAll();
+    }
+
+    if(migrerPanierChiensSelonPhotoEmma()){
+        saveAll();
+    }
+
+    if(migrerTachesMixtesVersScanEmma()){
         saveAll();
     }
 
@@ -29118,7 +29210,7 @@ function getSousTachesDues(action){
         // Elle doit avoir été détectée par scan
         // ou forcée manuellement.
 
-        if(declenchement === "etat"){
+        if(declenchement === "etat"||declenchement === "mixte"){
 
             const zone =
                 DB.journal.zones.find(z =>
@@ -31605,7 +31697,7 @@ function calculerScoreTacheJournal(zone, action, st, date){
     // ni choisie manuellement,
     // elle n'a aucune raison d'être proposée.
     if(
-        declenchement === "etat" &&
+        (declenchement === "etat"||declenchement === "mixte") &&
         !detecteeParPhoto &&
         !forcee
     ){
@@ -32075,15 +32167,7 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
         // - OU parce que sa fréquence est due.
 
         if(st.declenchement === "mixte"){
-
-            if(detecteeParPhoto){
-                return true;
-            }
-
-            return (
-                getSousTachesDues(action)
-                .some(due => due.id === st.id)
-            );
+            return detecteeParPhoto;
         }
 
 
@@ -35048,7 +35132,10 @@ function ouvrirDetailPieceJournal(zoneId){
 
             const faite = estSousTacheFaiteJourEmma(st.id,date,st)||
                 estSousTacheProtegeeParFrequenceEmma(st,date);
-            const due = !faite && (detectees.has(st.id) || forcees.has(st.id) || score >= 60);
+            const lieeAuScan=st.declenchement==='etat'||st.declenchement==='mixte';
+            const due = !faite && (lieeAuScan
+                ? (detectees.has(st.id)||forcees.has(st.id))
+                : (forcees.has(st.id)||score>=60));
 
             taches.push({
                 zoneId: zone.id,
