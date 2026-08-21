@@ -29187,6 +29187,19 @@ function joursDepuis(dateStr){
   return Math.floor((new Date()-new Date(dateStr+'T12:00:00'))/86400000);
 }
 
+// Une détection photo cesse d'être active dès que la tâche a été faite
+// après (ou le même jour que) le scan qui l'avait signalée. Elle ne pourra
+// revenir qu'après la validation d'un scan réellement plus récent.
+function estDetectionScanActiveEmma(zone,st){
+  const etat=DB.journal.etatPieces?.[zone?.id];
+  if(!etat||!(etat.tachesValidees||[]).includes(st?.id)) return false;
+  if((etat.tachesResoluesDepuisScan||[]).includes(st.id)) return false;
+
+  const dernierScan=(etat.dateValidation||etat.dateAnalyse||'').slice(0,10);
+  if(st.dernierFait&&(!dernierScan||st.dernierFait>=dernierScan)) return false;
+  return true;
+}
+
 function getSousTachesDues(action){
 
     const jourRef =
@@ -29221,14 +29234,7 @@ function getSousTachesDues(action){
                     )
                 );
 
-            const detectee =
-    zone &&
-    Array.isArray(
-        DB.journal.etatPieces?.[zone.id]?.tachesValidees
-    ) &&
-    DB.journal.etatPieces[zone.id]
-        .tachesValidees
-        .includes(st.id);
+            const detectee=estDetectionScanActiveEmma(zone,st);
 
             const forcee =
                 (DB.journal.tachesForcees?.[jourRef] || [])
@@ -31653,12 +31659,7 @@ function calculerScoreTacheJournal(zone, action, st, date){
     const etatPiece =
         DB.journal.etatPieces?.[zone.id];
 
-    const detecteeParPhoto =
-    !!(
-        etatPiece &&
-        Array.isArray(etatPiece.tachesValidees) &&
-        etatPiece.tachesValidees.includes(st.id)
-    );
+    const detecteeParPhoto=estDetectionScanActiveEmma(zone,st);
 
 
     // =========================
@@ -32128,16 +32129,7 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
         const etatPiece =
             DB.journal.etatPieces?.[zone.id];
 
-        const detecteeParPhoto =
-    !!(
-        etatPiece &&
-        Array.isArray(
-            etatPiece.tachesValidees
-        ) &&
-        etatPiece.tachesValidees.includes(
-            st.id
-        )
-    );
+        const detecteeParPhoto=estDetectionScanActiveEmma(zone,st);
 
 
         // =========================
@@ -32415,16 +32407,8 @@ let compteurSessionsMaison = 0;
 
 for(const tache of tachesCandidates){
 
-   const prioritaireScan =
-    !!(
-        DB.journal.etatPieces?.[tache.zoneId] &&
-        Array.isArray(
-            DB.journal.etatPieces[tache.zoneId].tachesValidees
-        ) &&
-        DB.journal.etatPieces[tache.zoneId]
-            .tachesValidees
-            .includes(tache.id)
-    );
+   const zoneTache=DB.journal.zones.find(zone=>zone.id===tache.zoneId);
+   const prioritaireScan=estDetectionScanActiveEmma(zoneTache,tache);
 
     if(
         !tache.forcee &&
@@ -35113,7 +35097,12 @@ function ouvrirDetailPieceJournal(zoneId){
 
     const faitMap = DB.journal.faitAujourdhui?.[date] || {};
     const etatPiece = DB.journal.etatPieces?.[zone.id] || {};
-    const detectees = new Set(etatPiece.tachesValidees || []);
+    const detectees = new Set(
+        (etatPiece.tachesValidees||[]).filter(id=>{
+            const st=(zone.actions||[]).flatMap(action=>action.sousTaches||[]).find(item=>item.id===id);
+            return st&&estDetectionScanActiveEmma(zone,st);
+        })
+    );
     const forcees = new Set((DB.journal.tachesForcees?.[date] || []).map(t => t.sousTacheId));
 
     const taches = [];
@@ -36227,7 +36216,7 @@ function creerElementMaisonDepuisSelection(tache,date){
     const st = action?.sousTaches?.find(item => item.id === tache.sousTacheId);
     if(!zone || !action || !st) return null;
 
-    const observee = DB.journal.etatPieces?.[zone.id]?.tachesValidees?.includes(st.id);
+    const observee=estDetectionScanActiveEmma(zone,st);
     return {
         id:"journal_st_" + st.id,
         source:"journal",
@@ -41045,7 +41034,8 @@ function preparerCandidatsPlanningConversationEmma(){
             !estTacheOuEquivalentFaiteJourEmma(bloc,session.date)&&
             !bloc.verrouille&&
             bloc.source!=='planity'&&
-            bloc.type!=='tempsLibre'
+            bloc.type!=='tempsLibre'&&
+            !trouverSousTacheJournalEmma(cleElementPlanningConversationEmma(bloc))?.sousTache?.planificationFixe
         )
         .map(bloc=>({
             cle:cleElementPlanningConversationEmma(bloc),
