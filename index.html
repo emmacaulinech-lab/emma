@@ -8252,10 +8252,17 @@ function renderCaisse(){
               :`<span class="sok">✅</span>`
         }</td>
         <td style="text-align:center">${
-          t.reglement==='ESP'
-            ?`<span class="${t.depose?'sok':'sno'}">${t.depose?'✅':'⬜'}</span>`
-            :`<span class="sok">✅</span>`
-        }</td>
+  t.reglement==='ESP'
+    ? `<span class="${t.depose?'sok':'sno'}">${t.depose?'✅':'⬜'}</span>`
+
+  : t.reglement==='CHQ'
+    ? `<span class="${t.chqDepose?'sok':'sno'}">${t.chqDepose?'✅':'⬜'}</span>`
+
+  : ['VIR','PLANITY'].includes(t.reglement)
+    ? `<span class="${t.rapprocheBanque?'sok':'sno'}">${t.rapprocheBanque?'✅':'⬜'}</span>`
+
+  : `<span class="sno">⬜</span>`
+}</td>
         <td style="white-space:nowrap">
           <button class="btn bg bsm" onclick="editEntry('caisse','${t.id}')">✏️</button>
           <button class="btn br bsm" onclick="delEntry('caisse','${t.id}')">✕</button>
