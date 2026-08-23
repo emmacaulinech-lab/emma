@@ -7526,6 +7526,28 @@ function tooltip(val, formula){ return`<div class="tt-wrap"><span style="font-fa
 // SEMAINES CALENDAIRES
 // ═══════════════════════════════════════
 
+async function supprimerSemaine(mois,index){
+  const [y,m]=mois.split("-").map(Number);
+  const cle=`${y}-${String(m).padStart(2,"0")}`;
+  const weeks=[...semainesDuMois(y,m)];
+
+  if(weeks.length<=1) return;
+
+  const retiree=weeks[index];
+
+  if(index<weeks.length-1){
+    weeks[index+1].s=retiree.s;
+  }else{
+    weeks[index-1].e=retiree.e;
+  }
+
+  weeks.splice(index,1);
+  DB.semainesPerso[cle]=weeks;
+
+  await saveAll();
+  renderRecap();
+}
+   
    function semainesDuMois(y, m) {
 
     const cle = `${y}-${String(m).padStart(2,'0')}`;
@@ -8616,6 +8638,7 @@ function renderRecap(){
     const[y,m]=mois.split('-').map(Number);
     const weeks=semainesDuMois(y,m);
     const nw=weeks.length;
+     if(!nw) continue;
 
     const chargesLisseesActives=(DB.chargesLissees||[]).filter(c=>c.actif!==false&&c.moisDebut<=mois);
     const nomsLisses=new Set(chargesLisseesActives.map(c=>normalizeNom(c.nom)));
@@ -8643,7 +8666,7 @@ function renderRecap(){
     const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
     const tvaAutoEstim=-(tvaNette(pm));
     const totalEstim=fixEstim+lissageMensuel+salaireLisseMensuel+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
-    const chargeParSemaine=totalEstim/4;
+    const chargeParSemaine=totalEstim/nw;
 
     // fixVarReel : fixes réelles + variables réelles HORS ACHAT/REDEVANCE/TVA (= ton calcul manuel)
     const varReelHorsRedevTva=DB.variables.filter(f=>f.mois===mois&&f.nom!=='ACHAT'&&f.nom!=='REDEVANCE'&&f.nom!=='TVA').reduce((s,f)=>s+(f.montant||0),0);
@@ -8700,6 +8723,9 @@ function renderRecap(){
             >✎</span>
         </div>
 
+        <span onclick="event.stopPropagation();supprimerSemaine('${mois}',${i})"
+      style="cursor:pointer;margin-left:5px;color:var(--dep)">✕</span>
+
     </th>
 `).join('')}
         <th style="text-align:right;min-width:105px">TOTAL</th>
@@ -8753,10 +8779,10 @@ function renderRecap(){
     const achatsW=weeks.map(wk=>DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='ACHATS'&&t.montant<0).reduce((s,t)=>s+t.montant,0));
     const achatsTot=achatsW.reduce((s,v)=>s+v,0);
 
-    const fixVarParSemaine=(fixEstim+varEstim-achatEstim)/4;
+    const fixVarParSemaine=(fixEstim+varEstim-achatEstim)/nw;
     const lissageParSemaine=nw?lissageMensuel/nw:0;
     const salaireLisseParSemaine=nw?salaireLisseMensuel/nw:0;
-    const redevTvaParSemaine=(redevAutoEstim+tvaAutoEstim)/4;
+    const redevTvaParSemaine=(redevAutoEstim+tvaAutoEstim)/nw;
 
     const fixVarW=weeks.map((wk,i)=> i<nw-1 ? fixVarParSemaine : fixVarReel-fixVarParSemaine*(nw-1));
     const lissageW=weeks.map(()=>lissageParSemaine);
