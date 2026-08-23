@@ -8168,7 +8168,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
         const cap=pr.reduce((s,t)=>s+t.montant,0);
         const planp=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
         const chqvirp=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
-        v+=Math.max(0,cap*PARAMS.tauxSoc-(planp+chqvirp));
+        v += cap * PARAMS.tauxSoc - (planp + chqvirp);
       }
       v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===''&&t.reglement==='ESP'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
       v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
