@@ -4552,6 +4552,12 @@ button.emma-card-row{
       <div id="d-nonpayees"></div>
     </div>
 
+    <!-- Assistante financière -->
+    <div style="background:linear-gradient(135deg,#fff9fc,#f4f8ff);border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--pla);font-weight:700">✦ Assistante financière</div><div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:700;color:var(--txt);margin-top:3px">Mes conseils pour ta société</div></div><span style="font-size:10px;color:var(--mut)">Aucune action automatique</span></div>
+      <div id="conseils-financiers-emma"></div>
+    </div>
+
     <!-- Actions rapides -->
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">⚡ Actions rapides</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
@@ -4653,10 +4659,13 @@ button.emma-card-row{
    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">💰 Salaires dus</div>
-        <label style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:white;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif">
-          📄 Importer fiche de paie
-          <input type="file" accept=".pdf" onchange="importerFichePaie(event)" style="display:none">
-        </label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn bg bsm" onclick="openPlanSalaire()">📆 Lisser</button>
+          <label style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:white;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif">
+            📄 Importer fiche de paie
+            <input type="file" accept=".pdf" onchange="importerFichePaie(event)" style="display:none">
+          </label>
+        </div>
       </div>
       <div id="salaires-widget"></div>
     </div>
@@ -4733,6 +4742,13 @@ button.emma-card-row{
 
   <!-- CH. FIXES -->
   <div class="view" id="view-fixes">
+    <div class="fb" style="margin-bottom:16px">
+      <div class="fh">
+        <div><strong>📆 Charges périodiques lissées</strong><div style="font-size:10px;font-weight:400;opacity:.75;margin-top:2px">Trimestrielles, semestrielles ou annuelles · sans créer de faux mouvement bancaire</div></div>
+        <button class="btn bd bsm" onclick="openModal('lissees')">+ Ajouter</button>
+      </div>
+      <div id="chargesLisseesC"></div>
+    </div>
     <div class="sh">
       <div><div class="st">✏️ Charges Fixes</div><div class="ss">Rapprochement auto Banque · Prévu = mois précédent</div></div>
       <div style="display:flex;gap:8px">
@@ -4864,8 +4880,9 @@ button.emma-card-row{
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn bg" onclick="exportData()">📥 Exporter JSON</button>
         <label class="btn bgrn" style="cursor:pointer">📤 Importer JSON<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+        <label class="btn bd" style="cursor:pointer">📊 Importer historique Numbers<input type="file" accept=".numbers,.xlsx,.xls,.csv" onchange="importerHistoriqueNumbers(event)" style="display:none"></label>
       </div>
-      <div style="font-size:11px;color:var(--mut);margin-top:8px">💡 Tes données sont synchronisées en temps réel sur Firebase.</div>
+      <div style="font-size:11px;color:var(--mut);margin-top:8px">💡 Tes données sont synchronisées en temps réel sur Firebase. Pour Numbers, choisis « Exporter → Excel » ou « CSV » avant l’import.</div>
     </div>
   </div>
 
@@ -5407,8 +5424,11 @@ let DB = {
   banque: [],
   semainesPerso: {},
   fixes: [],
+  chargesLissees: [],
   variables: [],
   salaires: [],
+  salairePlan: {actif:false,mensualite:0,moisDebut:''},
+  conseilsFinanciersIgnores: [],
   prestations: [
     'Pose complète - Volume Russe',
     'Remplissage 4 semaines',
@@ -7287,6 +7307,7 @@ async function loadAll() {
       if(d.caisse)      DB.caisse      = JSON.parse(d.caisse);
       if(d.banque)      DB.banque      = JSON.parse(d.banque);
       if(d.fixes)       DB.fixes       = JSON.parse(d.fixes);
+      if(d.chargesLissees) DB.chargesLissees = JSON.parse(d.chargesLissees);
       if(d.variables)   DB.variables   = JSON.parse(d.variables);
       if(d.semainesPerso){
     DB.semainesPerso = JSON.parse(d.semainesPerso);
@@ -7294,6 +7315,8 @@ async function loadAll() {
       if(d.prestations) DB.prestations = JSON.parse(d.prestations);
       if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
        if(d.salaires) DB.salaires=JSON.parse(d.salaires);
+      if(d.salairePlan) DB.salairePlan={...DB.salairePlan,...JSON.parse(d.salairePlan)};
+      if(d.conseilsFinanciersIgnores) DB.conseilsFinanciersIgnores=JSON.parse(d.conseilsFinanciersIgnores);
       if(d.boutique){
         const b=JSON.parse(d.boutique);
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
@@ -7352,11 +7375,14 @@ async function loadAll() {
       caisse:      JSON.stringify(DB.caisse),
       banque:      JSON.stringify(DB.banque),
       fixes:       JSON.stringify(DB.fixes),
+      chargesLissees: JSON.stringify(DB.chargesLissees||[]),
       semainesPerso: JSON.stringify(DB.semainesPerso),
       variables:   JSON.stringify(DB.variables),
       prestations: JSON.stringify(DB.prestations),
       boutique:    JSON.stringify(DB.boutique),
       salaires:    JSON.stringify(DB.salaires),
+      salairePlan: JSON.stringify(DB.salairePlan||{actif:false,mensualite:0,moisDebut:''}),
+      conseilsFinanciersIgnores: JSON.stringify(DB.conseilsFinanciersIgnores||[]),
       formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
       glow: JSON.stringify(DB.glow || {}),
@@ -7795,6 +7821,106 @@ function popSelects(){
 // ═══════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════
+let conseilsFinanciersEmma=[];
+
+function cleLibelleFinancierEmma(nom){
+  return normalizeNom(String(nom||''))
+    .replace(/\b(cb|carte|prlv|prelevement|sepa|facture|paiement)\b/g,' ')
+    .replace(/\b\d+[a-z]*\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+
+function moisEcoulesEmma(dateA,dateB){
+  const a=new Date(dateA+'T12:00:00'),b=new Date(dateB+'T12:00:00');
+  return Math.abs((b-a)/86400000);
+}
+
+function genererConseilsFinanciersEmma(){
+  const conseils=[];
+  const ignores=new Set(DB.conseilsFinanciersIgnores||[]);
+  const groupes=new Map();
+  (DB.banque||[]).filter(b=>Number(b.montant)<0).forEach(b=>{
+    const cle=cleLibelleFinancierEmma(b.nom);
+    if(!cle) return;
+    if(!groupes.has(cle)) groupes.set(cle,[]);
+    groupes.get(cle).push(b);
+  });
+  const nomsLisses=new Set((DB.chargesLissees||[]).map(c=>cleLibelleFinancierEmma(c.nom)));
+
+  groupes.forEach((operations,cle)=>{
+    if(nomsLisses.has(cle)) return;
+    operations.sort((a,b)=>a.date.localeCompare(b.date));
+    const intervalles=operations.slice(1).map((op,i)=>moisEcoulesEmma(operations[i].date,op.date));
+    const moyenneJours=intervalles.length?intervalles.reduce((s,n)=>s+n,0)/intervalles.length:0;
+    let periodiciteMois=0;
+    if(intervalles.length&&moyenneJours>=75&&moyenneJours<=110) periodiciteMois=3;
+    if(intervalles.length&&moyenneJours>=150&&moyenneJours<=220) periodiciteMois=6;
+    if(intervalles.length&&moyenneJours>=300&&moyenneJours<=430) periodiciteMois=12;
+    if(!periodiciteMois&&operations.length===1&&/\bopco\b/.test(cle)) periodiciteMois=12;
+    if(periodiciteMois){
+      const montant=operations.reduce((s,o)=>s+Math.abs(Number(o.montant)),0)/operations.length;
+      const id='lissage_'+cle.replace(/[^a-z0-9]/g,'_');
+      conseils.push({id,type:'lissage',icone:'📆',niveau:'suggestion',titre:`${operations.at(-1).nom} semble ${periodiciteMois===3?'trimestriel':periodiciteMois===6?'semestriel':'annuel'}`,texte:`Environ ${fa(montant)} par échéance, soit ${fa(montant/periodiciteMois)} par mois. Souhaites-tu le lisser dans le RÉCAP ?`,nom:operations.at(-1).nom,montant,periodiciteMois});
+    }
+
+    if(operations.length>=2){
+      const precedente=Math.abs(Number(operations.at(-2).montant));
+      const derniere=Math.abs(Number(operations.at(-1).montant));
+      if(precedente>0&&derniere-precedente>=20&&derniere/precedente>=1.25){
+        const hausse=Math.round((derniere/precedente-1)*100);
+        conseils.push({id:'hausse_'+cle.replace(/[^a-z0-9]/g,'_'),type:'detail',icone:'↗️',niveau:'attention',titre:`${operations.at(-1).nom} a augmenté de ${hausse} %`,texte:`Le dernier débit est de ${fa(derniere)}, contre ${fa(precedente)} auparavant. Vérifie s’il s’agit d’une hausse normale.`});
+      }
+    }
+  });
+
+  const dette=totalSalaireDu();
+  if(dette>0&&!DB.salairePlan?.actif){
+    conseils.push({id:'dette_salaire',type:'salaire',icone:'👤',niveau:'attention',titre:`La société te doit ${fa(dette)}`,texte:`Un rattrapage sur six mois représenterait environ ${fa(Math.ceil(dette/6/10)*10)} par mois. Tu peux ajuster cette proposition.`});
+  }
+
+  const moisAvecDepenses=[...new Set((DB.banque||[]).filter(b=>b.montant<0).map(b=>dm(b.date)))].sort().slice(-3);
+  const depenseMoyenne=moisAvecDepenses.length?moisAvecDepenses.reduce((total,mois)=>total+Math.abs(DB.banque.filter(b=>inM(b.date,mois)&&b.montant<0).reduce((s,b)=>s+b.montant,0)),0)/moisAvecDepenses.length:0;
+  const solde=Number(PARAMS.soldeInit||0)+(DB.banque||[]).reduce((s,b)=>s+Number(b.montant||0),0);
+  if(depenseMoyenne>0&&solde<depenseMoyenne){
+    conseils.push({id:'securite_tresorerie',type:'detail',icone:'🛟',niveau:'attention',titre:'Ta marge de sécurité est inférieure à un mois',texte:`Solde actuel : ${fm(solde)}. Tes sorties moyennes récentes sont d’environ ${fa(depenseMoyenne)} par mois.`});
+  }else if(depenseMoyenne>0&&solde>=depenseMoyenne*2){
+    conseils.push({id:'securite_tresorerie_ok',type:'detail',icone:'🌿',niveau:'positif',titre:'Ta réserve couvre au moins deux mois moyens',texte:`Ton solde représente environ ${(solde/depenseMoyenne).toFixed(1)} mois de sorties récentes. Continue à surveiller les grosses échéances.`});
+  }
+
+  return conseils.filter(c=>!ignores.has(c.id)).slice(0,6);
+}
+
+function renderConseilsFinanciersEmma(){
+  const el=document.getElementById('conseils-financiers-emma');
+  if(!el) return;
+  conseilsFinanciersEmma=genererConseilsFinanciersEmma();
+  if(!conseilsFinanciersEmma.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--rec);background:var(--rec2);padding:11px 13px;border-radius:12px">✓ Rien de particulier à signaler avec les données disponibles.</div>';
+    return;
+  }
+  el.innerHTML=conseilsFinanciersEmma.map((c,index)=>`<div style="background:white;border:1px solid ${c.niveau==='attention'?'#f0d4bd':'var(--brd)'};border-radius:14px;padding:11px 13px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start"><div style="font-size:20px">${c.icone}</div><div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--txt)">${echapperHtmlEmma(c.titre)}</div><div style="font-size:11px;color:var(--mut);line-height:1.45;margin-top:3px">${echapperHtmlEmma(c.texte)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.type==='lissage'?`<button class="btn bd bsm" onclick="ouvrirConseilLissageEmma(${index})">Lisser</button>`:''}${c.type==='salaire'?'<button class="btn bd bsm" onclick="openPlanSalaire()">Planifier</button>':''}${c.type==='detail'?'<button class="btn bg bsm" onclick="goTab(\'banque\',document.querySelector(\'[onclick*=banque]\'))">Voir les mouvements</button>':''}<button class="btn bg bsm" onclick="ignorerConseilFinancierEmma(${index})">Ignorer</button></div></div></div>`).join('');
+}
+
+function ouvrirConseilLissageEmma(index){
+  const conseil=conseilsFinanciersEmma[index];
+  if(!conseil) return;
+  openModal('lissees');
+  document.getElementById('fNom').value=conseil.nom;
+  document.getElementById('fMnt').value=conseil.montant.toFixed(2);
+  document.getElementById('fPeriodicite').value=String(conseil.periodiciteMois);
+  document.getElementById('fMois').value=new Date().toISOString().slice(0,7);
+  document.getElementById('fActif').value='1';
+}
+
+async function ignorerConseilFinancierEmma(index){
+  const conseil=conseilsFinanciersEmma[index];
+  if(!conseil) return;
+  DB.conseilsFinanciersIgnores=[...new Set([...(DB.conseilsFinanciersIgnores||[]),conseil.id])];
+  await saveAll();
+  renderConseilsFinanciersEmma();
+  toast('Conseil masqué');
+}
+
 function dashD(d){ dashM+=d; if(dashM>11){dashM=0;dashY++;} if(dashM<0){dashM=11;dashY--;} renderDash(); }
 
 function renderDash(){
@@ -8049,6 +8175,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
 
    renderFidelite();
    renderSalaires();
+   renderConseilsFinanciersEmma();
 }
 
 // ═══════════════════════════════════════
@@ -8197,7 +8324,33 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
 // ═══════════════════════════════════════
 // CH. FIXES
 // ═══════════════════════════════════════
+function renderChargesLissees(){
+  const cible=document.getElementById('chargesLisseesC');
+  if(!cible) return;
+  const periodes={3:'Trimestrielle',6:'Semestrielle',12:'Annuelle'};
+  const rows=DB.chargesLissees||[];
+  if(!rows.length){
+    cible.innerHTML='<div class="empty" style="padding:18px">Aucune charge lissée pour le moment</div>';
+    return;
+  }
+  cible.innerHTML=`<table><thead><tr><th>Nom</th><th>Fréquence</th><th style="text-align:right">Prélèvement</th><th style="text-align:right">Compté par mois</th><th>Depuis</th><th></th></tr></thead><tbody>
+    ${rows.map(c=>{
+      const mois=Math.max(1,Number(c.periodiciteMois||1));
+      const mensuel=-Math.abs(Number(c.montantCycle||0))/mois;
+      return `<tr style="opacity:${c.actif===false?.55:1}">
+        <td style="font-weight:600">${c.nom}</td>
+        <td>${periodes[mois]||'Tous les '+mois+' mois'}</td>
+        <td class="tn" style="text-align:right">${fm(-Math.abs(Number(c.montantCycle||0)))}</td>
+        <td class="tn" style="text-align:right;font-weight:700">${fm(mensuel)}</td>
+        <td class="tmu">${mf(c.moisDebut)}</td>
+        <td style="white-space:nowrap"><button class="btn bg bsm" onclick="editEntry('lissees','${c.id}')">✏️</button><button class="btn br bsm" onclick="delEntry('chargesLissees','${c.id}')">✕</button></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
 function renderFixes(){
+  renderChargesLissees();
   const ml=[...new Set(DB.fixes.map(f=>f.mois))].sort().reverse();
   let html='';
   for(const mois of ml){
@@ -8453,7 +8606,7 @@ function renderAuto(){
 // RÉCAP
 // ═══════════════════════════════════════
 function renderRecap(){
-  const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date))])].sort().reverse();
+  const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date)),...(DB.chargesLissees||[]).map(c=>c.moisDebut).filter(Boolean)])].sort().reverse();
   let html='';
 
   for(const mois of allMois){
@@ -8461,7 +8614,19 @@ function renderRecap(){
     const weeks=semainesDuMois(y,m);
     const nw=weeks.length;
 
-    const fixRows=DB.fixes.filter(f=>f.mois===mois);
+    const chargesLisseesActives=(DB.chargesLissees||[]).filter(c=>c.actif!==false&&c.moisDebut<=mois);
+    const nomsLisses=new Set(chargesLisseesActives.map(c=>normalizeNom(c.nom)));
+    const lissageMensuel=chargesLisseesActives.reduce((s,c)=>
+      s-Math.abs(Number(c.montantCycle||0))/Math.max(1,Number(c.periodiciteMois||1)),0
+    );
+    const salaireLisseMensuel=mensualiteDetteSalairePourMois(mois);
+    // Une charge lissée remplace dans le RÉCAP la charge fixe du même nom :
+    // le vrai prélèvement reste visible en Banque, sans être compté deux fois ici.
+    const fixRows=DB.fixes.filter(f=>
+      f.mois===mois&&
+      !nomsLisses.has(normalizeNom(f.nom))&&
+      !(salaireLisseMensuel<0&&normalizeNom(f.nom)==='salaire emma')
+    );
     const fixEstim=fixRows.reduce((s,f)=>s+(f.prev||0),0);   // prévues uniquement
     const fixReel=fixRows.reduce((s,f)=>s+f.montant,0);       // réelles pour S finale
 
@@ -8474,7 +8639,7 @@ function renderRecap(){
     const achatEstim=DB.variables.filter(f=>f.mois===mois&&f.nom==='ACHAT').reduce((s,f)=>s+(f.prev||0),0);
     const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
     const tvaAutoEstim=-(tvaNette(pm));
-    const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
+    const totalEstim=fixEstim+lissageMensuel+salaireLisseMensuel+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
     const chargeParSemaine=totalEstim/4;
 
     // fixVarReel : fixes réelles + variables réelles HORS ACHAT/REDEVANCE/TVA (= ton calcul manuel)
@@ -8586,14 +8751,18 @@ function renderRecap(){
     const achatsTot=achatsW.reduce((s,v)=>s+v,0);
 
     const fixVarParSemaine=(fixEstim+varEstim-achatEstim)/4;
+    const lissageParSemaine=nw?lissageMensuel/nw:0;
+    const salaireLisseParSemaine=nw?salaireLisseMensuel/nw:0;
     const redevTvaParSemaine=(redevAutoEstim+tvaAutoEstim)/4;
 
     const fixVarW=weeks.map((wk,i)=> i<nw-1 ? fixVarParSemaine : fixVarReel-fixVarParSemaine*(nw-1));
+    const lissageW=weeks.map(()=>lissageParSemaine);
+    const salaireLisseW=weeks.map(()=>salaireLisseParSemaine);
     const redevTvaW=weeks.map((wk,i)=> i<nw-1 ? redevTvaParSemaine : redevTvaReel-redevTvaParSemaine*(nw-1));
 
     const achatsTotReel=achatsW.reduce((s,v)=>s+v,0);
-    const chargesW=weeks.map((wk,i)=>fixVarW[i]+redevTvaW[i]+achatsW[i]);
-    const chargesTot=fixVarReel+redevTvaReel+achatsTotReel;
+    const chargesW=weeks.map((wk,i)=>fixVarW[i]+lissageW[i]+salaireLisseW[i]+redevTvaW[i]+achatsW[i]);
+    const chargesTot=fixVarReel+lissageMensuel+salaireLisseMensuel+redevTvaReel+achatsTotReel;
 
     html+=row('📋 Ch. fixes+var. réelles',fixVarW,fixVarReel,
       v=>v<0?'var(--dep)':'var(--mut)',
@@ -8601,6 +8770,18 @@ function renderRecap(){
 Estimé/sem: ${fm(fixVarParSemaine)}
 Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Total RÉEL fixes+var: ${fm(fixVarReel)}`
     );
+    if(chargesLisseesActives.length){
+      html+=row('📆 Charges périodiques lissées',lissageW,lissageMensuel,
+        v=>v<0?'var(--dep)':'var(--mut)',
+        (i,v)=>`${chargesLisseesActives.map(c=>`${c.nom}: ${fm(-Math.abs(Number(c.montantCycle||0))/Math.max(1,Number(c.periodiciteMois||1)))}/mois`).join('\n')}`
+      );
+    }
+    if(salaireLisseMensuel<0){
+      html+=row('👤 Dette salaire lissée',salaireLisseW,salaireLisseMensuel,
+        v=>v<0?'var(--dep)':'var(--mut)',
+        ()=>`Plan de rattrapage : ${fm(salaireLisseMensuel)} ce mois\nDette actuelle : ${fa(totalSalaireDu())}`
+      );
+    }
     html+=row('💎 Redevance + TVA réelles',redevTvaW,redevTvaReel,
       v=>v<0?'var(--dep)':'var(--mut)',
       (i,v)=>i>=0?`S${i+1} — ${i<nw-1?'Estimation':'Ajustement réel'}`:`Total RÉEL redevance+TVA: ${fm(redevTvaReel)}`
@@ -9116,7 +9297,7 @@ async function importData(event){
       if(!confirm('Importer ces données ? Tes données Firebase seront remplacées.')) return;
       
       // Mapper les ids numériques en strings pour Firebase
-      for(const col of ['caisse','banque','fixes','variables']){
+      for(const col of ['caisse','banque','fixes','chargesLissees','variables']){
         if(!importedDB[col]) continue;
         importedDB[col] = importedDB[col].map(entry => ({
           ...entry,
@@ -9125,10 +9306,15 @@ async function importData(event){
       }
       
       DB = {
+        ...DB,
         caisse: importedDB.caisse || [],
         banque: importedDB.banque || [],
         fixes: importedDB.fixes || [],
+        chargesLissees: importedDB.chargesLissees || [],
         variables: importedDB.variables || [],
+        salaires: importedDB.salaires || DB.salaires || [],
+        salairePlan: importedDB.salairePlan || DB.salairePlan || {actif:false,mensualite:0,moisDebut:''},
+        conseilsFinanciersIgnores: importedDB.conseilsFinanciersIgnores || DB.conseilsFinanciersIgnores || [],
         prestations: importedDB.prestations || DB.prestations,
       };
       
@@ -9138,7 +9324,7 @@ async function importData(event){
       
       // Push to Firebase
       toast('⏳ Import en cours...');
-      for(const col of ['caisse','banque','fixes','variables']){
+      for(const col of ['caisse','banque','fixes','chargesLissees','variables']){
         for(const entry of DB[col]){
           await saveEntry_fb(col, entry);
         }
@@ -9150,6 +9336,182 @@ async function importData(event){
     }catch(err){toast('Erreur import: '+err.message); console.error(err);}
   };
   reader.readAsText(file);
+}
+
+// Import non destructif des anciens tableaux Numbers exportés en Excel/CSV.
+// Une prévisualisation et un contrôle des doublons précèdent toujours l'ajout.
+let sessionImportHistoriqueNumbers=null;
+
+function echapperHtmlEmma(valeur){
+  return String(valeur??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function chargerSheetJSEmma(){
+  if(window.XLSX) return;
+  await new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload=resolve;
+    script.onerror=()=>reject(new Error('Impossible de charger le lecteur Excel'));
+    document.head.appendChild(script);
+  });
+}
+
+async function importerHistoriqueNumbers(event){
+  const file=event.target.files[0];
+  event.target.value='';
+  if(!file) return;
+  if(file.name.toLowerCase().endsWith('.numbers')){
+    document.getElementById('mTitle').textContent='📊 Préparer le fichier Numbers';
+    document.getElementById('mBody').innerHTML=`<div class="ib">Le format natif .numbers ne peut pas être lu de manière fiable dans le navigateur.</div><div style="font-size:13px;line-height:1.65">Dans Numbers, ouvre ton tableau puis choisis <strong>Fichier → Exporter vers → Excel</strong>. Importe ensuite le fichier .xlsx obtenu ici. Aucune donnée actuelle ne sera remplacée.</div>`;
+    document.querySelector('#mainModal .ma').innerHTML='<button class="btn bd" onclick="closeMo(\'mainModal\')">J’ai compris</button>';
+    document.getElementById('mainModal').classList.add('open');
+    return;
+  }
+  try{
+    toast('⏳ Lecture de l’ancien tableau…');
+    await chargerSheetJSEmma();
+    const workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+    const feuilles=workbook.SheetNames.map(nom=>{
+      const lignes=XLSX.utils.sheet_to_json(workbook.Sheets[nom],{header:1,defval:'',raw:true})
+        .filter(ligne=>ligne.some(cell=>String(cell).trim()!==''));
+      if(lignes.length<2) return null;
+      const entetes=lignes[0].map((h,i)=>String(h||`Colonne ${i+1}`).trim());
+      return {nom,entetes,lignes:lignes.slice(1)};
+    }).filter(Boolean);
+    if(!feuilles.length) throw new Error('Aucune ligne exploitable trouvée');
+    sessionImportHistoriqueNumbers={nomFichier:file.name,feuilles,indexFeuille:0};
+    ouvrirMappingHistoriqueNumbers();
+  }catch(error){
+    console.error(error);
+    toast('⚠ '+error.message);
+  }
+}
+
+function normaliserEnteteHistorique(v){
+  return normalizeNom(v).replace(/[^a-z0-9 ]/g,'');
+}
+
+function trouverColonneHistorique(entetes,mots){
+  const normalisees=entetes.map(normaliserEnteteHistorique);
+  return normalisees.findIndex(h=>mots.some(m=>h.includes(m)));
+}
+
+function optionsColonnesHistorique(entetes,index,facultatif=false){
+  return `${facultatif?'<option value="">— Non renseigné —</option>':''}${entetes.map((h,i)=>`<option value="${i}"${i===index?' selected':''}>${echapperHtmlEmma(h)}</option>`).join('')}`;
+}
+
+function ouvrirMappingHistoriqueNumbers(){
+  const session=sessionImportHistoriqueNumbers;
+  if(!session) return;
+  const feuille=session.feuilles[session.indexFeuille];
+  const h=feuille.entetes;
+  const indexes={
+    date:trouverColonneHistorique(h,['date','jour']),
+    nom:trouverColonneHistorique(h,['cliente','client','nom','libelle','designation']),
+    montant:trouverColonneHistorique(h,['montant','prix','total','ca','encaisse']),
+    prestation:trouverColonneHistorique(h,['prestation','service','soin']),
+    mode:trouverColonneHistorique(h,['reglement','paiement','mode']),
+    praticien:trouverColonneHistorique(h,['praticien','technicien','salarie']),
+    categorie:trouverColonneHistorique(h,['categorie','type'])
+  };
+  document.getElementById('mTitle').textContent='📊 Importer mon historique';
+  document.getElementById('mBody').innerHTML=`
+    <div class="ib" style="margin-bottom:12px">Prévisualisation uniquement : rien ne sera ajouté avant ta confirmation.</div>
+    <div class="g2"><div class="fr"><label>Feuille</label><select id="hist-feuille" onchange="changerFeuilleHistorique(this.value)">${session.feuilles.map((f,i)=>`<option value="${i}"${i===session.indexFeuille?' selected':''}>${echapperHtmlEmma(f.nom)} · ${f.lignes.length} lignes</option>`).join('')}</select></div><div class="fr"><label>Importer dans</label><select id="hist-cible" onchange="actualiserPreviewHistorique()"><option value="caisse">Prestations / Caisse</option><option value="banque">Mouvements Banque</option></select></div></div>
+    <div class="g2"><div class="fr"><label>Colonne Date</label><select id="hist-date" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.date)}</select></div><div class="fr"><label>Colonne Nom / Libellé</label><select id="hist-nom" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.nom)}</select></div></div>
+    <div class="g2"><div class="fr"><label>Colonne Montant</label><select id="hist-montant" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.montant)}</select></div><div class="fr"><label>Mode de règlement</label><select id="hist-mode" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.mode,true)}</select></div></div>
+    <div class="g2"><div class="fr"><label>Prestation</label><select id="hist-prestation" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.prestation,true)}</select></div><div class="fr"><label>Praticien</label><select id="hist-praticien" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.praticien,true)}</select></div></div>
+    <div class="fr"><label>Catégorie bancaire</label><select id="hist-categorie" onchange="actualiserPreviewHistorique()">${optionsColonnesHistorique(h,indexes.categorie,true)}</select></div>
+    <div id="hist-preview"></div>`;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML='<button class="btn bg" onclick="closeMo(\'mainModal\')">Annuler</button><button class="btn bd" id="hist-valider" onclick="validerImportHistoriqueNumbers()">Importer les nouvelles lignes</button>';
+  document.getElementById('mainModal').classList.add('open');
+  actualiserPreviewHistorique();
+}
+
+function changerFeuilleHistorique(index){
+  sessionImportHistoriqueNumbers.indexFeuille=Number(index)||0;
+  ouvrirMappingHistoriqueNumbers();
+}
+
+function valeurHistorique(ligne,id){
+  const valeur=document.getElementById(id)?.value;
+  return valeur===''?'':ligne[Number(valeur)];
+}
+
+function dateHistoriqueEmma(valeur){
+  if(valeur instanceof Date&&!isNaN(valeur)) return valeur.toLocaleDateString('fr-CA');
+  if(typeof valeur==='number'&&window.XLSX){
+    const d=XLSX.SSF.parse_date_code(valeur);
+    if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  const texte=String(valeur||'').trim();
+  if(/^\d{4}-\d{1,2}-\d{1,2}/.test(texte)) return texte.slice(0,10).split('-').map((v,i)=>i?String(v).padStart(2,'0'):v).join('-');
+  const m=texte.match(/(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
+  if(m){const annee=m[3].length===2?'20'+m[3]:m[3];return `${annee}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}
+  return '';
+}
+
+function montantHistoriqueEmma(valeur){
+  if(typeof valeur==='number') return valeur;
+  let texte=String(valeur||'').replace(/\s|€|EUR/gi,'').trim();
+  if(texte.includes(',')&&texte.includes('.')) texte=texte.lastIndexOf(',')>texte.lastIndexOf('.')?texte.replace(/\./g,'').replace(',','.'):texte.replace(/,/g,'');
+  else texte=texte.replace(',','.');
+  return Number(texte);
+}
+
+function lignesImportHistoriquePreparees(){
+  const session=sessionImportHistoriqueNumbers;
+  const feuille=session.feuilles[session.indexFeuille];
+  const cible=document.getElementById('hist-cible')?.value||'caisse';
+  const lignes=feuille.lignes.map((ligne,index)=>{
+    const date=dateHistoriqueEmma(valeurHistorique(ligne,'hist-date'));
+    const nom=String(valeurHistorique(ligne,'hist-nom')||'').trim();
+    const montant=montantHistoriqueEmma(valeurHistorique(ligne,'hist-montant'));
+    if(!date||!nom||!Number.isFinite(montant)||montant===0) return {index,invalide:true};
+    if(cible==='banque'){
+      const categorie=String(valeurHistorique(ligne,'hist-categorie')||'').trim()||detecterCategorieImport(nom,montant);
+      return {index,cible,entry:{id:genId(),date,nom,montant,categorie,tva:0,source:'historique_numbers'}};
+    }
+    const modeBrut=normalizeNom(String(valeurHistorique(ligne,'hist-mode')||'')).toUpperCase();
+    const reglement=['ESP','VIR','CHQ','PLANITY'].find(mode=>modeBrut.includes(mode))||'ESP';
+    const entry={id:genId(),date,nom,prestation:String(valeurHistorique(ligne,'hist-prestation')||'Historique').trim()||'Historique',praticien:String(valeurHistorique(ligne,'hist-praticien')||'').trim().toUpperCase(),montant:Math.abs(montant),reglement,paye:true,depose:true,chqDepose:reglement==='CHQ',source:'historique_numbers'};
+    return {index,cible,entry};
+  });
+  lignes.forEach(item=>{
+    if(item.invalide) return;
+    const collection=item.cible==='banque'?DB.banque:DB.caisse;
+    item.doublon=collection.some(existant=>
+      existant.date===item.entry.date&&
+      normalizeNom(existant.nom)===normalizeNom(item.entry.nom)&&
+      Math.abs(Number(existant.montant)-Number(item.entry.montant))<0.01
+    );
+  });
+  return lignes;
+}
+
+function actualiserPreviewHistorique(){
+  const cible=document.getElementById('hist-preview');
+  if(!cible) return;
+  const lignes=lignesImportHistoriquePreparees();
+  const valides=lignes.filter(l=>!l.invalide);
+  const nouvelles=valides.filter(l=>!l.doublon);
+  const doublons=valides.filter(l=>l.doublon);
+  cible.innerHTML=`<div style="display:flex;gap:8px;margin:10px 0"><span class="bdg" style="background:var(--rec2);color:var(--rec)">${nouvelles.length} nouvelles</span><span class="bdg" style="background:var(--bg2);color:var(--mut)">${doublons.length} doublons ignorés</span><span class="bdg" style="background:var(--dep2);color:var(--dep)">${lignes.filter(l=>l.invalide).length} incomplètes</span></div><div style="max-height:210px;overflow:auto;border:1px solid var(--brd);border-radius:12px"><table><thead><tr><th>Date</th><th>Nom</th><th style="text-align:right">Montant</th><th>État</th></tr></thead><tbody>${valides.slice(0,12).map(l=>`<tr><td>${dlbl(l.entry.date)}</td><td>${echapperHtmlEmma(l.entry.nom)}</td><td style="text-align:right">${fm(l.entry.montant,l.entry.montant>0)}</td><td>${l.doublon?'Déjà présent':'✓ Nouveau'}</td></tr>`).join('')}</tbody></table></div>`;
+  const bouton=document.getElementById('hist-valider');
+  if(bouton){bouton.disabled=!nouvelles.length;bouton.textContent=`Importer ${nouvelles.length} nouvelle${nouvelles.length>1?'s':''} ligne${nouvelles.length>1?'s':''}`;}
+}
+
+async function validerImportHistoriqueNumbers(){
+  const nouvelles=lignesImportHistoriquePreparees().filter(l=>!l.invalide&&!l.doublon);
+  if(!nouvelles.length){toast('Aucune nouvelle ligne à importer');return;}
+  nouvelles.forEach(item=>DB[item.cible].push(item.entry));
+  await saveAll();
+  closeMo('mainModal');
+  renderAll();
+  toast(`✓ ${nouvelles.length} ligne${nouvelles.length>1?'s':''} historique${nouvelles.length>1?'s':''} ajoutée${nouvelles.length>1?'s':''}`);
+  sessionImportHistoriqueNumbers=null;
 }
 
 // ═══════════════════════════════════════
@@ -10410,7 +10772,7 @@ let mCtx='', mEditId=null;
 
 function openModal(ctx, editId=null){
   mCtx=ctx; mEditId=editId;
-  const titles={caisse:editId?'Modifier prestation':'Nouvelle prestation',banque:editId?'Modifier mouvement':'Nouveau mouvement',fixes:editId?'Modifier charge fixe':'Nouvelle charge fixe',variables:editId?'Modifier charge variable':'Nouvelle charge variable'};
+  const titles={caisse:editId?'Modifier prestation':'Nouvelle prestation',banque:editId?'Modifier mouvement':'Nouveau mouvement',fixes:editId?'Modifier charge fixe':'Nouvelle charge fixe',lissees:editId?'Modifier la charge lissée':'Nouvelle charge lissée',variables:editId?'Modifier charge variable':'Nouvelle charge variable'};
   document.getElementById('mTitle').textContent=titles[ctx]||'Nouvelle entrée';
   document.getElementById('mBody').innerHTML=buildForm(ctx,editId);
   // Remet les boutons par défaut (au cas où une autre fenêtre les aurait remplacés)
@@ -10506,6 +10868,26 @@ function buildForm(ctx, editId=null){
     </div>`;
   }
 
+  if(ctx==='lissees'){
+    const t=editId?(DB.chargesLissees||[]).find(x=>x.id===editId):null;
+    return`
+    <div class="ib" style="margin-bottom:14px">Le prélèvement restera dans Banque à sa vraie date. Le RÉCAP utilisera seulement sa part mensuelle.</div>
+    <div class="fr"><label>Nom de la charge</label><input type="text" id="fNom" value="${t?t.nom:''}" placeholder="OPCO, assurance annuelle…" autocomplete="off"></div>
+    <div class="g2">
+      <div class="fr"><label>Montant du prélèvement (€)</label><input type="number" id="fMnt" value="${t?Math.abs(t.montantCycle||0):''}" placeholder="1200" step="0.01" min="0"></div>
+      <div class="fr"><label>Fréquence</label><select id="fPeriodicite">
+        <option value="3"${t?.periodiciteMois===3?' selected':''}>Tous les 3 mois</option>
+        <option value="6"${t?.periodiciteMois===6?' selected':''}>Tous les 6 mois</option>
+        <option value="12"${!t||t.periodiciteMois===12?' selected':''}>Tous les ans</option>
+      </select></div>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>À compter de</label><input type="month" id="fMois" value="${t?t.moisDebut:thisMonth}"></div>
+      <div class="fr"><label>Inclure dans le RÉCAP</label><select id="fActif"><option value="1"${!t||t.actif!==false?' selected':''}>✅ Oui</option><option value="0"${t?.actif===false?' selected':''}>Non, mettre en pause</option></select></div>
+    </div>
+    <div id="apercuLissage" style="background:var(--rec2);border-radius:12px;padding:12px 14px;font-size:12px">Le montant mensuel sera calculé automatiquement.</div>`;
+  }
+
   if(ctx==='variables'){
     const t=editId?DB.variables.find(x=>x.id===editId):null;
     const varNoms=[...new Set([...DB.variables.map(v=>v.nom),'EDF','PLANITY PRO','FRAIS','AUTRE'])].filter(n=>!['REDEVANCE','TVA'].includes(n)).sort();
@@ -10590,6 +10972,15 @@ async function saveEntry(addAnother=false){
       if(mEditId){ const i=DB.fixes.findIndex(x=>x.id===mEditId); DB.fixes[i]=t; }
       else DB.fixes.push(t);
       await saveEntry_fb('fixes',t);
+
+    } else if(mCtx==='lissees'){
+      const montant=Math.abs(parseFloat(g('fMnt'))||0);
+      const periodiciteMois=parseInt(g('fPeriodicite'))||12;
+      const t={id,nom:g('fNom').trim(),montantCycle:montant,periodiciteMois,moisDebut:g('fMois'),actif:g('fActif')==='1'};
+      if(!t.nom||!t.moisDebut||!montant){toast('⚠ Remplis tous les champs');return;}
+      if(mEditId){ const i=DB.chargesLissees.findIndex(x=>x.id===mEditId); DB.chargesLissees[i]=t; }
+      else DB.chargesLissees.push(t);
+      await saveAll();
 
     } else if(mCtx==='variables'){
       const t={id,mois:g('fMois'),nom:g('fNom'),montant:parseFloat(g('fMnt'))||0,prev:parseFloat(g('fPrev'))||0};
@@ -13445,9 +13836,12 @@ async function ajouterPrestationAgenda(prestation, btn){
 // ═══════════════════════════════════════
 // SALAIRES
 // ═══════════════════════════════════════
+let fichePaieEnAttente=null;
+
 async function importerFichePaie(event){
   const file=event.target.files[0];
   if(!file) return;
+  fichePaieEnAttente={nomFichier:file.name};
   const el=document.getElementById('salaires-widget');
   el.innerHTML=`<div style="text-align:center;padding:16px;color:var(--mut);font-size:12px">
     <div class="spinner" style="margin:0 auto 8px"></div>Lecture de la fiche de paie...
@@ -13528,19 +13922,13 @@ async function importerFichePaie(event){
       return;
     }
 
-    // Vérifier si cette période existe déjà
-    const existing=DB.salaires.find(s=>s.periode===periode);
-    if(existing){
-      toast(`⚠ Fiche de ${mf(periode)} déjà importée`);
-      renderSalaires();
-      return;
-    }
-
-    // Ajouter le salaire
-    DB.salaires.push({id:genId(),periode,netPaye,verse:0});
-    await saveAll();
-    renderSalaires();
-    toast(`✓ Fiche de ${mf(periode)} importée — Net payé : ${fa(netPaye)}`);
+    el.innerHTML=`<div style="background:var(--rec2);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:12px;color:var(--rec)">✓ Lecture terminée. Vérifie les informations avant de les enregistrer.</div>
+      <div style="display:flex;gap:8px;align-items:end">
+        <div class="fr" style="flex:1;margin:0"><label>Net réellement dû (€)</label><input type="number" id="manual-net" value="${netPaye.toFixed(2)}" step="0.01"></div>
+        <div class="fr" style="flex:1;margin:0"><label>Mois de la fiche</label><input type="month" id="manual-periode" value="${periode}"></div>
+        <button class="btn bd" onclick="ajouterSalaireManuel()">✓ Confirmer</button>
+      </div>
+      <div style="font-size:10px;color:var(--mut);margin-top:7px">📄 ${file.name}</div>`;
 
   }catch(e){
     console.error(e);
@@ -13555,7 +13943,13 @@ async function ajouterSalaireManuel(){
   if(!net||!periode){toast('⚠ Remplis les deux champs');return;}
   const existing=DB.salaires.find(s=>s.periode===periode);
   if(existing){toast(`⚠ Fiche de ${mf(periode)} déjà importée`);return;}
-  DB.salaires.push({id:genId(),periode,netPaye:net,verse:0});
+  DB.salaires.push({
+    id:genId(),periode,netPaye:net,verse:0,
+    source:fichePaieEnAttente?'pdf':'manuel',
+    nomFichier:fichePaieEnAttente?.nomFichier||undefined,
+    importeLe:new Date().toISOString()
+  });
+  fichePaieEnAttente=null;
   await saveAll();
   renderSalaires();
   toast(`✓ Salaire ${mf(periode)} ajouté`);
@@ -13563,6 +13957,51 @@ async function ajouterSalaireManuel(){
 
 function totalSalaireDu(){
   return DB.salaires.reduce((s,sal)=>s+Math.max(0,sal.netPaye-sal.verse),0);
+}
+
+function mensualiteDetteSalairePourMois(mois){
+  const plan=DB.salairePlan||{};
+  if(!plan.actif||!plan.moisDebut||plan.moisDebut>mois||!Number(plan.mensualite)) return 0;
+  const salairesDus=(DB.salaires||[])
+    .filter(s=>s.periode<=mois)
+    .reduce((total,s)=>total+Math.max(0,Number(s.netPaye||0)),0);
+  const versementsAnterieurs=(DB.fixes||[])
+    .filter(f=>f.mois<mois&&normalizeNom(f.nom)==='salaire emma')
+    .reduce((total,f)=>total+Math.abs(Number(f.montant||0)),0);
+  const detteAvantMois=Math.max(0,salairesDus-versementsAnterieurs);
+  return -Math.min(detteAvantMois,Math.abs(Number(plan.mensualite||0)));
+}
+
+function openPlanSalaire(){
+  const totalDu=totalSalaireDu();
+  const plan=DB.salairePlan||{};
+  const planDejaConfigure=!!(plan.moisDebut&&Number(plan.mensualite));
+  const suggestion=plan.mensualite||Math.min(totalDu,Math.max(100,Math.ceil(totalDu/6/10)*10));
+  document.getElementById('mTitle').textContent='📆 Lisser ce que la société me doit';
+  document.getElementById('mBody').innerHTML=`
+    <div style="background:var(--dep2);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--mut)">Dette actuelle envers Emma</span><strong style="color:var(--dep)">${fa(totalDu)}</strong></div>
+    <div class="g2">
+      <div class="fr"><label>Montant prévu chaque mois (€)</label><input type="number" id="plan-salaire-mnt" value="${Number(suggestion||0).toFixed(2)}" min="0" step="0.01"></div>
+      <div class="fr"><label>À compter de</label><input type="month" id="plan-salaire-debut" value="${plan.moisDebut||new Date().toISOString().slice(0,7)}"></div>
+    </div>
+    <div class="fr"><label>Inclure dans le RÉCAP</label><select id="plan-salaire-actif"><option value="1"${!planDejaConfigure||plan.actif!==false?' selected':''}>✅ Oui</option><option value="0"${planDejaConfigure&&plan.actif===false?' selected':''}>Non, mettre en pause</option></select></div>
+    <div style="background:var(--bg2);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--mut)">Ce plan organise ta trésorerie. Il ne diminue la dette que lorsque tu enregistres réellement un versement.</div>`;
+  document.querySelector('#mainModal .ma').style.display='flex';
+  document.querySelector('#mainModal .ma').innerHTML=`<button class="btn bg" onclick="closeMo('mainModal')">Annuler</button><button class="btn bd" onclick="validerPlanSalaire()">✓ Enregistrer le plan</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function validerPlanSalaire(){
+  const mensualite=Math.abs(parseFloat(document.getElementById('plan-salaire-mnt')?.value)||0);
+  const moisDebut=document.getElementById('plan-salaire-debut')?.value;
+  const actif=document.getElementById('plan-salaire-actif')?.value==='1';
+  if(actif&&(!mensualite||!moisDebut)){toast('⚠ Indique le montant mensuel et le mois de départ');return;}
+  DB.salairePlan={actif,mensualite,moisDebut};
+  await saveAll();
+  closeMo('mainModal');
+  renderSalaires();
+  renderRecap();
+  toast(actif?'✓ Plan de rattrapage ajouté au RÉCAP':'✓ Plan mis en pause');
 }
 
 function renderSalaires(){
@@ -13586,6 +14025,7 @@ function renderSalaires(){
       </div>
       ${totalDu>0?`<button class="btn bd" onclick="openVerserSalaire()" style="background:var(--dep);border-color:var(--dep)">💸 Je me verse</button>`:'<span style="color:var(--rec);font-size:13px;font-weight:700">✅ À jour !</span>'}
     </div>
+    ${DB.salairePlan?.actif&&totalDu>0?`<div style="background:var(--pla2);border:1px solid #c8d5ef;border-radius:12px;padding:10px 13px;margin-bottom:12px;display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div style="font-size:11px;font-weight:700;color:var(--pla)">📆 Rattrapage lissé dès ${mf(DB.salairePlan.moisDebut)}</div><div style="font-size:10px;color:var(--mut)">Environ ${Math.ceil(totalDu/DB.salairePlan.mensualite)} mois au solde actuel</div></div><strong style="color:var(--pla);white-space:nowrap">${fa(DB.salairePlan.mensualite)}/mois</strong></div>`:''}
     <div style="display:flex;flex-direction:column;gap:6px">`;
 
   for(const sal of [...DB.salaires].sort((a,b)=>b.periode.localeCompare(a.periode))){
@@ -13594,7 +14034,7 @@ function renderSalaires(){
     html+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border-radius:12px">
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:700">${mf(sal.periode)}</span>
+          <span style="font-size:12px;font-weight:700">${mf(sal.periode)} ${sal.nomFichier?`<span title="${sal.nomFichier}" style="font-size:10px;color:var(--pla)">📄</span>`:''}</span>
           <span style="font-family:'DM Mono',monospace;font-size:12px;color:${du>0?'var(--dep)':'var(--rec)'}">
             ${du>0?`Reste ${fa(du)}`:'✅ Versé'}
           </span>
