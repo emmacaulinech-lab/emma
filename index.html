@@ -8745,18 +8745,40 @@ function renderRecap(){
       const vals=weeks.map((wk,i)=>{
         const wRows=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement===mo&&t.montant>0);
         if(mo==='ESP'){
-          let v=0;
-          for(const prat of ['MARIE','GIULIA']){
-            const pratRows=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===prat&&t.montant>0);
-            if(!pratRows.length) continue;
-            const ca=pratRows.reduce((s,t)=>s+t.montant,0);
-            const plan=pratRows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
-            const chqvir=pratRows.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
-            v+=Math.max(0,ca*PARAMS.tauxSoc-(plan+chqvir));
-          }
-          v+=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.praticien===''&&t.reglement==='ESP'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-          caNetWeeks[i]+=v; return v;
-        } else {
+  let v=0;
+
+  for(const prat of ['MARIE','GIULIA']){
+    const pratRows=DB.caisse.filter(t=>
+      inSem(t.date,y,m,wk.s,wk.e) &&
+      t.praticien===prat &&
+      t.montant>0
+    );
+
+    if(!pratRows.length) continue;
+
+    const ca=pratRows.reduce((s,t)=>s+t.montant,0);
+    const plan=pratRows
+      .filter(t=>t.reglement==='PLANITY')
+      .reduce((s,t)=>s+t.montant,0);
+    const chqvir=pratRows
+      .filter(t=>['CHQ','VIR'].includes(t.reglement))
+      .reduce((s,t)=>s+t.montant,0);
+
+    v += ca * PARAMS.tauxSoc - (plan + chqvir);
+  }
+
+  v += DB.caisse
+    .filter(t=>
+      inSem(t.date,y,m,wk.s,wk.e) &&
+      t.praticien==='' &&
+      t.reglement==='ESP' &&
+      t.montant>0
+    )
+    .reduce((s,t)=>s+t.montant,0);
+
+  caNetWeeks[i]+=v;
+  return v;
+}else{
           const v=wRows.reduce((s,t)=>s+t.montant,0);
           caNetWeeks[i]+=v; return v;
         }
