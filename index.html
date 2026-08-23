@@ -7986,7 +7986,7 @@ function renderDash(){
     const ca=pratRows.reduce((s,t)=>s+t.montant,0);
     const plan=pratRows.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
     const chqvir=pratRows.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
-    espNet+=Math.max(0,ca*PARAMS.tauxSoc-(plan+chqvir));
+    espNet += ca * PARAMS.tauxSoc - (plan + chqvir);
   }
   // ESP Emma = 100%
   espNet+=cM.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
@@ -8080,7 +8080,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
     const cap=pr.reduce((s,t)=>s+t.montant,0);
     const planp=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
     const chqvirp=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
-    espNetP+=Math.max(0,cap*PARAMS.tauxSoc-(planp+chqvirp));
+    espNetP += cap * PARAMS.tauxSoc - (planp + chqvirp);
   }
   espNetP+=cMP.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
   const caNPrec=espNetP+cMP.filter(t=>t.reglement==='VIR').reduce((s,t)=>s+t.montant,0)+cMP.filter(t=>t.reglement==='CHQ').reduce((s,t)=>s+t.montant,0)+cMP.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
@@ -8115,7 +8115,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
     const capr=pr.reduce((s,t)=>s+t.montant,0);
     const planpr=pr.filter(t=>t.reglement==='PLANITY').reduce((s,t)=>s+t.montant,0);
     const chqvirpr=pr.filter(t=>['CHQ','VIR'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
-    espNetSem+=Math.max(0,capr*PARAMS.tauxSoc-(planpr+chqvirpr));
+    espNetSem += capr * PARAMS.tauxSoc - (planpr + chqvirpr);
   }
   espNetSem+=cSemaine.filter(t=>t.praticien===''&&t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
   const modeValsSem={
