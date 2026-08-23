@@ -5406,6 +5406,9 @@ auth.onAuthStateChanged(async user => {
     appliquerRoutinesFixesEmma(new Date().toLocaleDateString('fr-CA'));
     nettoyerCopiesTachesFaitesEmma(new Date().toLocaleDateString('fr-CA'));
     await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+    if(synchroniserPrevusSalairesExistantsEmma()){
+      await sauvegarderChampSeul('fixes',JSON.stringify(DB.fixes));
+    }
     goHub();
     setTimeout(initialiserAccueilConversationEmma,700);
   } else {
@@ -13942,21 +13945,76 @@ async function ajouterSalaireManuel(){
   const periode=document.getElementById('manual-periode')?.value;
   if(!net||!periode){toast('⚠ Remplis les deux champs');return;}
   const existing=DB.salaires.find(s=>s.periode===periode);
-  if(existing){toast(`⚠ Fiche de ${mf(periode)} déjà importée`);return;}
-  DB.salaires.push({
-    id:genId(),periode,netPaye:net,verse:0,
-    source:fichePaieEnAttente?'pdf':'manuel',
-    nomFichier:fichePaieEnAttente?.nomFichier||undefined,
-    importeLe:new Date().toISOString()
-  });
+  if(existing){
+    existing.netPaye=net;
+    if(fichePaieEnAttente?.nomFichier) existing.nomFichier=fichePaieEnAttente.nomFichier;
+    existing.importeLe=new Date().toISOString();
+  }else{
+    DB.salaires.push({
+      id:genId(),periode,netPaye:net,verse:0,
+      source:fichePaieEnAttente?'pdf':'manuel',
+      nomFichier:fichePaieEnAttente?.nomFichier||undefined,
+      importeLe:new Date().toISOString()
+    });
+  }
+  mettreAJourPrevuSalaireFixeEmma(periode,net);
   fichePaieEnAttente=null;
   await saveAll();
+  renderFixes();
   renderSalaires();
-  toast(`✓ Salaire ${mf(periode)} ajouté`);
+  toast(`✓ ${mf(periode)} synchronisé avec les charges fixes`);
+}
+
+function lignesSalaireEmmaMoisChargeEmma(moisCharge){
+  return (DB.fixes||[]).filter(f=>
+    f.mois===moisCharge&&normalizeNom(f.nom)==='salaire emma'
+  );
+}
+
+function moisPaiementSalaireEmma(periodeFiche){
+  return nextMoisStr(periodeFiche);
+}
+
+function montantVerseSalaireFixesEmma(periodeFiche){
+  return lignesSalaireEmmaMoisChargeEmma(moisPaiementSalaireEmma(periodeFiche))
+    .reduce((total,ligne)=>total+Math.abs(Number(ligne.montant||0)),0);
+}
+
+function verseSalaireEffectifEmma(salaire){
+  return Math.min(
+    Number(salaire.netPaye||0),
+    Math.max(Number(salaire.verse||0),montantVerseSalaireFixesEmma(salaire.periode))
+  );
+}
+
+function mettreAJourPrevuSalaireFixeEmma(periode,netPaye){
+  const moisPaiement=moisPaiementSalaireEmma(periode);
+  const lignes=lignesSalaireEmmaMoisChargeEmma(moisPaiement);
+  let principale=lignes[0];
+  if(!principale){
+    principale={id:genId(),mois:moisPaiement,nom:'SALAIRE EMMA',montant:0,prev:-Math.abs(netPaye),paye:false,periodeSalaire:periode};
+    DB.fixes.push(principale);
+  }else{
+    principale.prev=-Math.abs(netPaye);
+    principale.paye=Math.abs(Number(principale.montant||0))>0;
+    principale.periodeSalaire=periode;
+  }
+  // S'il existe d'anciennes lignes en double, leur réel reste conservé
+  // mais le prévu n'est porté que par une seule ligne.
+  lignes.slice(1).forEach(ligne=>ligne.prev=0);
+  return principale;
+}
+
+function synchroniserPrevusSalairesExistantsEmma(){
+  const avant=JSON.stringify(DB.fixes||[]);
+  (DB.salaires||[]).forEach(salaire=>
+    mettreAJourPrevuSalaireFixeEmma(salaire.periode,Number(salaire.netPaye||0))
+  );
+  return avant!==JSON.stringify(DB.fixes||[]);
 }
 
 function totalSalaireDu(){
-  return DB.salaires.reduce((s,sal)=>s+Math.max(0,sal.netPaye-sal.verse),0);
+  return DB.salaires.reduce((s,sal)=>s+Math.max(0,sal.netPaye-verseSalaireEffectifEmma(sal)),0);
 }
 
 function mensualiteDetteSalairePourMois(mois){
@@ -14029,8 +14087,9 @@ function renderSalaires(){
     <div style="display:flex;flex-direction:column;gap:6px">`;
 
   for(const sal of [...DB.salaires].sort((a,b)=>b.periode.localeCompare(a.periode))){
-    const du=Math.max(0,sal.netPaye-sal.verse);
-    const pct=Math.round(sal.verse/sal.netPaye*100);
+    const verseEffectif=verseSalaireEffectifEmma(sal);
+    const du=Math.max(0,sal.netPaye-verseEffectif);
+    const pct=Math.min(100,Math.round(verseEffectif/sal.netPaye*100));
     html+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border-radius:12px">
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
@@ -14044,7 +14103,7 @@ function renderSalaires(){
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:3px">
           <span style="font-size:10px;color:var(--mut)">Net payé : ${fa(sal.netPaye)}</span>
-          <span style="font-size:10px;color:var(--mut)">Versé : ${fa(sal.verse)} (${pct}%)</span>
+          <span style="font-size:10px;color:var(--mut)">Versé en ${mc(moisPaiementSalaireEmma(sal.periode))} : ${fa(verseEffectif)} (${pct}%)</span>
         </div>
       </div>
       <button onclick="delSalaire('${sal.id}')" style="background:none;border:none;cursor:pointer;color:var(--brd2);font-size:16px">✕</button>
@@ -14066,7 +14125,7 @@ function openVerserSalaire(){
     <div class="fr"><label>Montant à verser ce mois (€)</label>
       <input type="number" id="versement-mnt" value="${totalDu.toFixed(2)}" step="0.01" max="${totalDu}" style="font-size:16px;padding:12px">
     </div>
-    <div class="fr"><label>Mois concerné</label>
+    <div class="fr"><label>Mois du versement</label>
       <input type="month" id="versement-mois" value="${new Date().toISOString().slice(0,7)}" style="font-size:14px;padding:10px">
     </div>
     <div style="background:var(--bg2);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--mut)">
@@ -14086,24 +14145,28 @@ async function validerVersement(){
   const mois=document.getElementById('versement-mois')?.value;
   if(!mnt||mnt<=0||!mois){toast('⚠ Remplis tous les champs');return;}
 
-  // Chercher ou créer la ligne SALAIRE EMMA dans charges fixes
-  let fixe=DB.fixes.find(f=>f.mois===mois&&f.nom==='SALAIRE EMMA');
-  if(fixe){
-    fixe.montant=(fixe.montant||0)-mnt; // négatif car charge
-    fixe.prev=(fixe.prev||0)-mnt;
-  } else {
-    fixe={id:genId(),mois,nom:'SALAIRE EMMA',montant:-mnt,prev:-mnt,paye:true};
-    DB.fixes.push(fixe);
-  }
-
-  // Mettre à jour le versé dans les salaires (du plus ancien au plus récent)
+  // Répartir d'abord le versement sur les dettes les plus anciennes.
+  // Cela évite qu'une ligne créée dans le même mois soit comptée deux fois.
   let restant=mnt;
   for(const sal of [...DB.salaires].sort((a,b)=>a.periode.localeCompare(b.periode))){
     if(restant<=0) break;
-    const du=Math.max(0,sal.netPaye-sal.verse);
+    const dejaVerse=verseSalaireEffectifEmma(sal);
+    const du=Math.max(0,sal.netPaye-dejaVerse);
     const aVerser=Math.min(du,restant);
-    sal.verse+=aVerser;
+    sal.verse=dejaVerse+aVerser;
     restant-=aVerser;
+  }
+
+  // Chercher ou créer la ligne SALAIRE EMMA dans les charges fixes.
+  let fixe=lignesSalaireEmmaMoisChargeEmma(mois)[0];
+  const salaireDuMois=DB.salaires.find(s=>moisPaiementSalaireEmma(s.periode)===mois);
+  if(fixe){
+    fixe.montant=(fixe.montant||0)-mnt;
+    fixe.prev=salaireDuMois?-Math.abs(salaireDuMois.netPaye):(fixe.prev||0)-mnt;
+    fixe.paye=true;
+  } else {
+    fixe={id:genId(),mois,nom:'SALAIRE EMMA',montant:-mnt,prev:salaireDuMois?-Math.abs(salaireDuMois.netPaye):-mnt,paye:true};
+    DB.fixes.push(fixe);
   }
 
   await saveAll();
