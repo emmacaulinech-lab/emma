@@ -3965,6 +3965,37 @@ button.emma-card-row{
    Les règles mobiles existantes restent prioritaires sous 760 px.
    ═══════════════════════════════════════════════════════════════ */
 @media (min-width:1100px){
+  #hubPage{
+    padding-left:max(32px,calc((100vw - 1500px)/2)) !important;
+    padding-right:max(32px,calc((100vw - 1500px)/2)) !important;
+  }
+
+  .emma-home-hero,
+  .emma-home-quick-strip,
+  #hub-modules-grid,
+  .emma-assistant-dock{
+    width:100% !important;
+    max-width:1500px !important;
+  }
+
+  #hub-modules-grid.emma-hub-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+    gap:18px !important;
+  }
+
+  #hub-modules-grid .emma-dashboard-card{
+    min-height:430px !important;
+    padding:22px !important;
+  }
+
+  #hub-modules-grid .emma-dashboard-card .hub-smart-title{
+    font-size:28px !important;
+  }
+
+  .emma-home-hero{
+    padding:30px 34px !important;
+  }
+
   #app .view{
     width:min(1500px,calc(100vw - 64px)) !important;
     max-width:1500px !important;
