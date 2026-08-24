@@ -7857,7 +7857,7 @@ function redevDue(rows){
 
 function tvaCollectee(mois){
   return DB.banque
-    .filter(b=>inM(b.date,mois)&&['CA','VIR'].includes(b.categorie)&&b.montant>0)
+    .filter(b=>inM(b.date,mois)&&['CA','VIR'].includes(b.categorie)&&b.montant!==0)
     .reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
 }
 function tvaDed(mois){
@@ -8440,7 +8440,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
         <td class="${t.montant>=0?'tp':'tn'}" style="text-align:right">${fm(t.montant,t.montant>0)}</td>
         <td class="tmu" style="text-align:right">${fa(sm[t.id]||0)}</td>
         <td style="white-space:nowrap">
-        ${t.montant>0
+        ${['CA','VIR'].includes(t.categorie)
             ?(t.caisseIds?.length
                 ?`<span style="font-size:11px;color:var(--rec)">✅ ${t.caisseIds.length}</span> <button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Détails</button>`
                 :`<button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Lier</button>`)
@@ -9896,6 +9896,28 @@ Réponds UNIQUEMENT en JSON valide sans backticks, sans texte avant/après :
 }
 
 const CATEGORIES_BANQUE=['CH. Fixe','CH. Variable','CA','VIR','ACHATS'];
+const CATEGORIES_CHARGES_BANQUE=['ACHATS','CH. Fixe','CH. Variable'];
+
+function estCategorieChargeBanque(categorie){
+  return CATEGORIES_CHARGES_BANQUE.includes(categorie);
+}
+
+function calculerTvaBanque(montant,categorie){
+  const valeur=Number(montant)||0;
+  if(!['CA','VIR'].includes(categorie)||valeur===0) return 0;
+  return Math.round((valeur/(1+PARAMS.tva)*PARAMS.tva)*100)/100;
+}
+
+function lierChargeImporteeAuMouvement(charge,mouvement){
+  if(!charge||!mouvement) return;
+  if(!charge.banqueIds) charge.banqueIds=[];
+  if(!charge.banqueIds.includes(mouvement.id)) charge.banqueIds.push(mouvement.id);
+  charge.montant=charge.banqueIds.reduce((s,bid)=>{
+    const ligne=DB.banque.find(b=>b.id===bid);
+    return s+(ligne?Number(ligne.montant)||0:0);
+  },0);
+  charge.paye=true;
+}
 
 
 function renderImportBanqueResult(){
@@ -9922,16 +9944,16 @@ function renderImportBanqueResult(){
     if(m.liaisonId===undefined) m.liaisonId='';
     const montantNum=parseFloat(m.montant)||0;
 
-    const optionsLiaison=montantNum>0
-      ?prestationsEnAttente.map(p=>`<option value="prest_${p.id}" ${m.liaisonId==='prest_'+p.id?'selected':''}>💰 ${p.nom} — ${fa(p.montant)} (${dlbl(p.date)})</option>`).join('')
-      :chargesDispo.map(c=>`<option value="charge_${c.type}_${c.id}" ${m.liaisonId==='charge_'+c.type+'_'+c.id?'selected':''}>📄 ${c.nom} — ${fa(c.montant)}</option>`).join('');
+    const optionsLiaison=estCategorieChargeBanque(m.categorie)
+      ?chargesDispo.map(c=>`<option value="charge_${c.type}_${c.id}" ${m.liaisonId==='charge_'+c.type+'_'+c.id?'selected':''}>📄 ${c.nom} — ${fa(c.montant)}</option>`).join('')
+      :prestationsEnAttente.map(p=>`<option value="prest_${p.id}" ${m.liaisonId==='prest_'+p.id?'selected':''}>💰 ${p.nom} — ${fa(p.montant)} (${dlbl(p.date)})</option>`).join('');
 
     html+=`<tr style="opacity:${isDup?0.4:1}">
       <td><input type="date" value="${m.date}" onchange="modifierMouvementImporte(${i},'date',this.value)" style="font-size:11px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px;width:120px" ${isDup?'disabled':''}></td>
       <td><input type="text" value="${m.libelle}" onchange="modifierMouvementImporte(${i},'libelle',this.value)" style="font-size:12px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px;width:100%" ${isDup?'disabled':''}></td>
       <td><input type="number" step="0.01" value="${montantNum}" onchange="modifierMouvementImporte(${i},'montant',parseFloat(this.value)||0)" style="font-size:12px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px;width:90px;text-align:right" ${isDup?'disabled':''}></td>
       <td>
-        <select onchange="modifierMouvementImporte(${i},'categorie',this.value)" style="font-size:11px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px" ${isDup?'disabled':''}>
+        <select onchange="modifierMouvementImporte(${i},'categorie',this.value);renderImportBanqueResult()" style="font-size:11px;padding:4px 6px;border:1.5px solid var(--brd2);border-radius:6px" ${isDup?'disabled':''}>
           ${CATEGORIES_BANQUE.map(c=>`<option value="${c}" ${m.categorie===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </td>
@@ -9950,13 +9972,15 @@ function renderImportBanqueResult(){
 
 function modifierMouvementImporte(i,champ,val){
   importedMouvements[i][champ]=val;
+  if(champ==='categorie') importedMouvements[i].liaisonId='';
 }
 
 async function importerMouvement(i){
   const m=importedMouvements[i];
   const montantNum=parseFloat(m.montant)||0;
-  const tva=montantNum>0?Math.round(montantNum/(1+PARAMS.tva)*PARAMS.tva*100)/100:0;
-  DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:montantNum,categorie:m.categorie,tva});
+  const tva=calculerTvaBanque(montantNum,m.categorie);
+  const mouvement={id:genId(),date:m.date,nom:m.libelle,montant:montantNum,categorie:m.categorie,tva};
+  DB.banque.push(mouvement);
 
   if(m.liaisonId){
     if(m.liaisonId.startsWith('prest_')){
@@ -9964,10 +9988,10 @@ async function importerMouvement(i){
       if(prestation) prestation.rapprocheBanque=true;
     } else if(m.liaisonId.startsWith('charge_fixe_')){
       const charge=DB.fixes.find(c=>c.id===m.liaisonId.replace('charge_fixe_',''));
-      if(charge) charge.paye=true;
+      lierChargeImporteeAuMouvement(charge,mouvement);
     } else if(m.liaisonId.startsWith('charge_variable_')){
       const charge=DB.variables.find(c=>c.id===m.liaisonId.replace('charge_variable_',''));
-      if(charge) charge.paye=true;
+      lierChargeImporteeAuMouvement(charge,mouvement);
     }
   }
 
@@ -9984,8 +10008,10 @@ async function importerTousMouvements(){
     const isDup=DB.banque.some(b=>b.date===m.date&&Math.abs(b.montant-m.montant)<0.01&&b.nom.toLowerCase()===m.libelle.toLowerCase());
     if(isDup) continue;
     const montantNum=parseFloat(m.montant)||0;
-    const tva=montantNum>0?Math.round(montantNum/(1+PARAMS.tva)*PARAMS.tva*100)/100:0;
-    DB.banque.push({id:genId(),date:m.date,nom:m.libelle,montant:montantNum,categorie:m.categorie||detecterCategorieImport(m.libelle,montantNum),tva});
+    const categorie=m.categorie||detecterCategorieImport(m.libelle,montantNum);
+    const tva=calculerTvaBanque(montantNum,categorie);
+    const mouvement={id:genId(),date:m.date,nom:m.libelle,montant:montantNum,categorie,tva};
+    DB.banque.push(mouvement);
 
     if(m.liaisonId){
       if(m.liaisonId.startsWith('prest_')){
@@ -9993,10 +10019,10 @@ async function importerTousMouvements(){
         if(prestation) prestation.rapprocheBanque=true;
       } else if(m.liaisonId.startsWith('charge_fixe_')){
         const charge=DB.fixes.find(c=>c.id===m.liaisonId.replace('charge_fixe_',''));
-        if(charge) charge.paye=true;
+        lierChargeImporteeAuMouvement(charge,mouvement);
       } else if(m.liaisonId.startsWith('charge_variable_')){
         const charge=DB.variables.find(c=>c.id===m.liaisonId.replace('charge_variable_',''));
-        if(charge) charge.paye=true;
+        lierChargeImporteeAuMouvement(charge,mouvement);
       }
     }
     count++;
@@ -10362,7 +10388,7 @@ function renderTvaDetail(){
   if(!tvaDetailMois||!allMois.includes(tvaDetailMois)) tvaDetailMois=allMois[0]||'';
   if(!tvaDetailMois){el.innerHTML='';return;}
 
-  const collecteLignes=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['CA','VIR'].includes(b.categorie)&&b.montant>0);
+  const collecteLignes=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['CA','VIR'].includes(b.categorie)&&b.montant!==0);
   const totalCollecte=collecteLignes.reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
 
   const dedLignesBanque=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id));
@@ -10931,7 +10957,7 @@ async function delFacture(id){
 
 // ── TVA collectée/déductible détaillée ──
 function tvaCollecteeDetail(mois){
-  return DB.banque.filter(b=>inM(b.date,mois)&&b.categorie==='CA'&&b.montant>0)
+  return DB.banque.filter(b=>inM(b.date,mois)&&['CA','VIR'].includes(b.categorie)&&b.montant!==0)
     .reduce((s,b)=>s+(b.tva||0),0);
 }
 function tvaDeductibleDetail(mois){
@@ -11090,9 +11116,9 @@ function calcTvaAuto(){
   const cat=catEl.value;
   const mnt=parseFloat(mntEl.value)||0;
   if(['VIR','CA'].includes(cat)){
-    if(mnt>0) tvaEl.value=(mnt/(1+PARAMS.tva)*PARAMS.tva).toFixed(2);
-    else if(mnt<0) tvaEl.value=(-Math.abs(mnt)/(1+PARAMS.tva)*PARAMS.tva).toFixed(2);
-    else tvaEl.value='0';
+    tvaEl.value=calculerTvaBanque(mnt,cat).toFixed(2);
+  } else {
+    tvaEl.value='0';
   }
 }
 
@@ -11124,7 +11150,9 @@ async function saveEntry(addAnother=false){
       await saveEntry_fb('caisse',t);
 
     } else if(mCtx==='banque'){
-      const t={id,date:g('fDate'),nom:g('fNom'),montant:parseFloat(g('fMnt')),categorie:g('fCat'),tva:parseFloat(g('fTva'))||0};
+      const montant=parseFloat(g('fMnt'));
+      const categorie=g('fCat');
+      const t={id,date:g('fDate'),nom:g('fNom'),montant,categorie,tva:calculerTvaBanque(montant,categorie)};
       if(!t.date||isNaN(t.montant)||!t.nom){toast('⚠ Remplis tous les champs');return;}
       if(mEditId){ const i=DB.banque.findIndex(x=>x.id===mEditId); DB.banque[i]=t; }
       else DB.banque.push(t);
@@ -11240,7 +11268,7 @@ function openTVA(){
     !noTVAList.includes(b.nom)&&
     !b.nom.toUpperCase().includes('DÉPÔT')&&
     !b.nom.toUpperCase().includes('DEPOT')&&
-    b.montant>0&&
+    b.montant!==0&&
     ['VIR','CA'].includes(b.categorie)
   ).sort((a,b)=>b.date.localeCompare(a.date));
   let html=`<div style="max-height:60vh;overflow-y:auto">`;
