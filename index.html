@@ -3997,15 +3997,15 @@ button.emma-card-row{
   }
 
   #app .view{
-    width:min(1500px,calc(100vw - 64px)) !important;
-    max-width:1500px !important;
+    width:min(1800px,calc(100vw - 32px)) !important;
+    max-width:1800px !important;
     padding:32px 28px 125px !important;
   }
 
   #app .hdr,
   #app .tabs{
-    padding-left:max(28px,calc((100vw - 1500px)/2)) !important;
-    padding-right:max(28px,calc((100vw - 1500px)/2)) !important;
+    padding-left:max(16px,calc((100vw - 1800px)/2)) !important;
+    padding-right:max(16px,calc((100vw - 1800px)/2)) !important;
   }
 
   #view-dashboard > div:first-child{
@@ -4013,9 +4013,8 @@ button.emma-card-row{
     max-width:none !important;
   }
 
-  #view-banque > div[style*="grid-template-columns:1fr 260px"]{
-    grid-template-columns:minmax(0,1fr) 320px !important;
-    gap:20px !important;
+  #view-banque .banque-layout{
+    grid-template-columns:minmax(0,1fr) !important;
   }
 
   #app .tw{
@@ -4043,6 +4042,41 @@ button.emma-card-row{
   #app .flt input.fi{
     flex:1 1 260px;
   }
+}
+
+/* iPad : mêmes vues fluides, avec des marges tactiles confortables. */
+@media (min-width:761px) and (max-width:1099px){
+  #app .view{
+    width:calc(100vw - 24px) !important;
+    max-width:none !important;
+    padding:24px 12px 120px !important;
+  }
+
+  #app .hdr,
+  #app .tabs{
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+
+  #view-dashboard > div:first-child{
+    width:100% !important;
+    max-width:none !important;
+  }
+
+  #view-banque .banque-layout{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+
+  #app .tw,
+  #app .tw table{
+    width:100% !important;
+  }
+}
+
+/* Les chèques restent dans les données et les rapprochements,
+   mais n'occupent plus un panneau permanent dans Banque. */
+#view-banque .banque-chq-panel{
+  display:none !important;
 }
 </style>
 </head>
@@ -4815,9 +4849,9 @@ button.emma-card-row{
       <select class="fi" id="bm" onchange="renderBanque()"><option value="">Tous les mois</option></select>
       <select class="fi" id="bc" onchange="renderBanque()"><option value="">Toutes catégories</option></select>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start">
+    <div class="banque-layout" style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start">
       <div class="tw" id="banqueTable"></div>
-      <div style="background:white;border:1.5px solid #c9a8e0;border-radius:16px;padding:15px;box-shadow:var(--shadow)">
+      <div class="banque-chq-panel" style="background:white;border:1.5px solid #c9a8e0;border-radius:16px;padding:15px;box-shadow:var(--shadow)">
         <div style="font-family:'Cormorant Garamond',serif;font-size:13px;color:#6f2da8;margin-bottom:10px;font-weight:700">📝 CHQ à déposer</div>
         <div id="chqList"></div>
         <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:#6f2da8" id="chqTot"></div>
