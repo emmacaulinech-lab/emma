@@ -8031,7 +8031,40 @@ function genererConseilsFinanciersEmma(){
     conseils.push({id:'securite_tresorerie_ok',type:'detail',icone:'🌿',niveau:'positif',titre:'Ta réserve couvre au moins deux mois moyens',texte:`Ton solde représente environ ${(solde/depenseMoyenne).toFixed(1)} mois de sorties récentes. Continue à surveiller les grosses échéances.`});
   }
 
-  return conseils.filter(c=>!ignores.has(c.id)).slice(0,6);
+  const mouvementsNonLies=(DB.banque||[]).filter(b=>{
+    if(['CA','VIR'].includes(b.categorie)) return !(b.caisseIds||[]).length;
+    if(estCategorieChargeBanque(b.categorie)) return ![...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].some(c=>(c.banqueIds||[]).includes(b.id));
+    return false;
+  });
+  mouvementsNonLies.forEach(b=>{
+    const suggestion=trouverSuggestionRapprochementBanque(b.id);
+    if(!suggestion) return;
+    conseils.push({id:`rapprochement_${b.id}`,type:'rapprochement',banqueId:b.id,icone:'🔗',niveau:'suggestion',titre:`Rapprochement probable avec ${suggestion.label}`,texte:`${b.nom} · ${dlbl(b.date)} · ${fm(b.montant)}. Proposition fondée sur : ${suggestion.raison}. À confirmer avant toute modification.`});
+  });
+
+  const tvaManquantes=(DB.banque||[]).filter(b=>['CA','VIR'].includes(b.categorie)&&b.montant!==0&&(!b.tva||Math.abs(b.tva)<.01));
+  if(tvaManquantes.length){
+    conseils.push({id:'tva_manquante',type:'tva',icone:'🧾',niveau:'attention',titre:`TVA à vérifier sur ${tvaManquantes.length} mouvement(s)`,texte:`Les catégories CA et VIR doivent conserver une TVA signée, y compris lorsqu’un montant est négatif.`});
+  }
+
+  (DB.chargesLissees||[]).filter(c=>Math.abs(Number(c.ecartDernier||0))>=.01).forEach(c=>{
+    conseils.push({id:`ecart_lissee_${c.id}_${c.dernierPrelevement||''}`,type:'detail',icone:'⚖️',niveau:'attention',titre:`Écart sur ${c.nom}`,texte:`Prélèvement prévu : ${fa(Math.abs(Number(c.montantCycle||0)))}. Réel rapproché : ${fa(Math.abs(Number(c.dernierMontantReel||0)))}. Écart : ${fm(Number(c.ecartDernier||0))}.`});
+  });
+
+  const vusDoublons=new Set();
+  const doublons=[];
+  (DB.banque||[]).forEach((b,i,rows)=>{
+    const cle=`${b.date}|${cleLibelleFinancierEmma(b.nom)}|${Number(b.montant).toFixed(2)}`;
+    if(vusDoublons.has(cle)) return;
+    const memes=rows.filter(x=>`${x.date}|${cleLibelleFinancierEmma(x.nom)}|${Number(x.montant).toFixed(2)}`===cle);
+    vusDoublons.add(cle);
+    if(memes.length>1) doublons.push(memes[0]);
+  });
+  if(doublons.length){
+    conseils.push({id:'doublons_banque',type:'detail',icone:'👯',niveau:'attention',titre:`${doublons.length} doublon(s) bancaire(s) possible(s)`,texte:'Même date, même libellé normalisé et même montant. Vérifie avant de supprimer quoi que ce soit.'});
+  }
+
+  return conseils.filter(c=>!ignores.has(c.id)).slice(0,10);
 }
 
 function renderConseilsFinanciersEmma(){
@@ -8042,7 +8075,7 @@ function renderConseilsFinanciersEmma(){
     el.innerHTML='<div style="font-size:12px;color:var(--rec);background:var(--rec2);padding:11px 13px;border-radius:12px">✓ Rien de particulier à signaler avec les données disponibles.</div>';
     return;
   }
-  el.innerHTML=conseilsFinanciersEmma.map((c,index)=>`<div style="background:white;border:1px solid ${c.niveau==='attention'?'#f0d4bd':'var(--brd)'};border-radius:14px;padding:11px 13px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start"><div style="font-size:20px">${c.icone}</div><div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--txt)">${echapperHtmlEmma(c.titre)}</div><div style="font-size:11px;color:var(--mut);line-height:1.45;margin-top:3px">${echapperHtmlEmma(c.texte)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.type==='lissage'?`<button class="btn bd bsm" onclick="ouvrirConseilLissageEmma(${index})">Lisser</button>`:''}${c.type==='salaire'?'<button class="btn bd bsm" onclick="openPlanSalaire()">Planifier</button>':''}${c.type==='detail'?'<button class="btn bg bsm" onclick="goTab(\'banque\',document.querySelector(\'[onclick*=banque]\'))">Voir les mouvements</button>':''}<button class="btn bg bsm" onclick="ignorerConseilFinancierEmma(${index})">Ignorer</button></div></div></div>`).join('');
+  el.innerHTML=conseilsFinanciersEmma.map((c,index)=>`<div style="background:white;border:1px solid ${c.niveau==='attention'?'#f0d4bd':'var(--brd)'};border-radius:14px;padding:11px 13px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start"><div style="font-size:20px">${c.icone}</div><div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--txt)">${echapperHtmlEmma(c.titre)}</div><div style="font-size:11px;color:var(--mut);line-height:1.45;margin-top:3px">${echapperHtmlEmma(c.texte)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.type==='lissage'?`<button class="btn bd bsm" onclick="ouvrirConseilLissageEmma(${index})">Lisser</button>`:''}${c.type==='salaire'?'<button class="btn bd bsm" onclick="openPlanSalaire()">Planifier</button>':''}${c.type==='rapprochement'?`<button class="btn bd bsm" onclick="goTab('banque',document.querySelector('[onclick*=banque]'));ouvrirSuggestionRapprochementBanque('${c.banqueId}')">Vérifier et rapprocher</button>`:''}${c.type==='tva'?'<button class="btn bd bsm" onclick="openTVA()">Vérifier la TVA</button>':''}${c.type==='detail'?'<button class="btn bg bsm" onclick="goTab(\'banque\',document.querySelector(\'[onclick*=banque]\'))">Voir les mouvements</button>':''}<button class="btn bg bsm" onclick="ignorerConseilFinancierEmma(${index})">Ignorer</button></div></div></div>`).join('');
 }
 
 function ouvrirConseilLissageEmma(index){
@@ -8432,6 +8465,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
     html+=`<tr class="trm"><td colspan="4" style="padding:8px 11px">▾ ${mf(mois)}</td>
       <td colspan="3" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:${tot>=0?'var(--rec)':'var(--dep)'}">${fm(tot,true)}</td></tr>`;
     for(const t of mrows){
+      const suggestion=trouverSuggestionRapprochementBanque(t.id);
       html+=`<tr>
         <td class="tdt">${dlbl(t.date)}</td>
         <td style="font-weight:500">${t.nom}</td>
@@ -8440,6 +8474,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
         <td class="${t.montant>=0?'tp':'tn'}" style="text-align:right">${fm(t.montant,t.montant>0)}</td>
         <td class="tmu" style="text-align:right">${fa(sm[t.id]||0)}</td>
         <td style="white-space:nowrap">
+        ${suggestion?`<button class="btn bd bsm" title="${echapperHtmlEmma(suggestion.raison)}" onclick="ouvrirSuggestionRapprochementBanque('${t.id}')">✨ ${echapperHtmlEmma(suggestion.label)}</button> `:''}
         ${['CA','VIR'].includes(t.categorie)
             ?(t.caisseIds?.length
                 ?`<span style="font-size:11px;color:var(--rec)">✅ ${t.caisseIds.length}</span> <button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Détails</button>`
@@ -8484,7 +8519,7 @@ function renderChargesLissees(){
     cible.innerHTML='<div class="empty" style="padding:18px">Aucune charge lissée pour le moment</div>';
     return;
   }
-  cible.innerHTML=`<table><thead><tr><th>Nom</th><th>Fréquence</th><th style="text-align:right">Prélèvement</th><th style="text-align:right">Compté par mois</th><th>Depuis</th><th></th></tr></thead><tbody>
+  cible.innerHTML=`<table><thead><tr><th>Nom</th><th>Fréquence</th><th style="text-align:right">Prélèvement prévu</th><th style="text-align:right">Compté par mois</th><th>Dernier prélèvement</th><th></th></tr></thead><tbody>
     ${rows.map(c=>{
       const mois=Math.max(1,Number(c.periodiciteMois||1));
       const mensuel=-Math.abs(Number(c.montantCycle||0))/mois;
@@ -8493,7 +8528,7 @@ function renderChargesLissees(){
         <td>${periodes[mois]||'Tous les '+mois+' mois'}</td>
         <td class="tn" style="text-align:right">${fm(-Math.abs(Number(c.montantCycle||0)))}</td>
         <td class="tn" style="text-align:right;font-weight:700">${fm(mensuel)}</td>
-        <td class="tmu">${mf(c.moisDebut)}</td>
+        <td class="tmu">${c.dernierPrelevement?`${dlbl(c.dernierPrelevement)} · ${fm(Number(c.dernierMontantReel||0))}${Math.abs(Number(c.ecartDernier||0))>=.01?` <span style="color:var(--warn)">(écart ${fm(Number(c.ecartDernier))})</span>`:' · ✓'}`:`Depuis ${mf(c.moisDebut)}`}</td>
         <td style="white-space:nowrap"><button class="btn bg bsm" onclick="editEntry('lissees','${c.id}')">✏️</button><button class="btn br bsm" onclick="delEntry('chargesLissees','${c.id}')">✕</button></td>
       </tr>`;
     }).join('')}
@@ -9912,11 +9947,92 @@ function lierChargeImporteeAuMouvement(charge,mouvement){
   if(!charge||!mouvement) return;
   if(!charge.banqueIds) charge.banqueIds=[];
   if(!charge.banqueIds.includes(mouvement.id)) charge.banqueIds.push(mouvement.id);
-  charge.montant=charge.banqueIds.reduce((s,bid)=>{
+  const total=charge.banqueIds.reduce((s,bid)=>{
     const ligne=DB.banque.find(b=>b.id===bid);
     return s+(ligne?Number(ligne.montant)||0:0);
   },0);
-  charge.paye=true;
+  if(Object.prototype.hasOwnProperty.call(charge,'montantCycle')){
+    actualiserDernierCycleChargeLissee(charge,mouvement.date);
+  }else{
+    charge.montant=total;
+    charge.paye=true;
+  }
+}
+
+function similariteLibellesBanque(a,b){
+  const motsA=new Set(cleLibelleFinancierEmma(a).split(' ').filter(m=>m.length>=3));
+  const motsB=new Set(cleLibelleFinancierEmma(b).split(' ').filter(m=>m.length>=3));
+  if(!motsA.size||!motsB.size) return 0;
+  const commun=[...motsA].filter(m=>motsB.has(m)).length;
+  return commun/Math.max(motsA.size,motsB.size);
+}
+
+function trouverSuggestionRapprochementBanque(banqueId){
+  const b=DB.banque.find(x=>x.id===banqueId);
+  if(!b) return null;
+
+  if(estCategorieChargeBanque(b.categorie)){
+    if([...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].some(c=>(c.banqueIds||[]).includes(b.id))) return null;
+    const charges=[...(DB.fixes||[]).map(c=>({...c,type:'fixes'})),...(DB.variables||[]).map(c=>({...c,type:'variables'})),...(DB.chargesLissees||[]).map(c=>({...c,type:'lissees'}))];
+    const apprentissage=new Map();
+    charges.forEach(c=>(c.banqueIds||[]).forEach(id=>{
+      const ancienne=DB.banque.find(x=>x.id===id);
+      if(!ancienne) return;
+      const score=similariteLibellesBanque(b.nom,ancienne.nom);
+      if(score>=(apprentissage.get(c.id)?.score||0)) apprentissage.set(c.id,{charge:c,score});
+    }));
+    const candidates=charges.filter(c=>c.type==='lissees'||c.mois===dm(b.date)).map(c=>{
+      const appris=apprentissage.get(c.id)?.score||0;
+      const nom=similariteLibellesBanque(b.nom,c.nom);
+      return {type:'charge',chargeType:c.type,id:c.id,label:c.nom,score:Math.max(appris,nom),raison:appris>=.6?'rapprochement déjà utilisé':'libellé similaire'};
+    }).filter(c=>c.score>=.55).sort((a,b)=>b.score-a.score);
+    return candidates[0]||null;
+  }
+
+  if(['CA','VIR'].includes(b.categorie)){
+    if((b.caisseIds||[]).length) return null;
+    const candidats=(DB.caisse||[]).filter(t=>t.montant>0&&!t.rapprocheBanque&&t.date===b.date).map(t=>{
+      const nom=similariteLibellesBanque(b.nom,t.nom);
+      const montant=Math.abs(Math.abs(Number(b.montant))-Math.abs(Number(t.montant)))<.01?1:0;
+      return {type:'caisse',id:t.id,label:t.nom,score:nom*.7+montant*.3,raison:montant&&nom>=.35?'même date, nom et montant':'même date et nom similaire'};
+    }).filter(c=>c.score>=.45).sort((a,b)=>b.score-a.score);
+    return candidats[0]||null;
+  }
+  return null;
+}
+
+function actualiserDernierCycleChargeLissee(charge,dateReference=''){
+  const lignes=(charge.banqueIds||[]).map(id=>DB.banque.find(b=>b.id===id)).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date));
+  const date=dateReference||lignes[0]?.date||'';
+  const mois=date?dm(date):'';
+  const total=mois?lignes.filter(b=>inM(b.date,mois)).reduce((s,b)=>s+(Number(b.montant)||0),0):0;
+  charge.dernierMontantReel=total;
+  charge.dernierPrelevement=date;
+  charge.ecartDernier=date?Math.abs(total)-Math.abs(Number(charge.montantCycle||0)):0;
+}
+
+function ouvrirSuggestionRapprochementBanque(banqueId){
+  const suggestion=trouverSuggestionRapprochementBanque(banqueId);
+  if(!suggestion) return;
+  if(suggestion.type==='charge'){
+    ouvrirRapprochementCharge(banqueId);
+    setTimeout(()=>{
+      const select=document.getElementById('rap-charge-id');
+      if(select) select.value=`${suggestion.chargeType}-${suggestion.id}`;
+    },0);
+  }else{
+    ouvrirRapprochementCaisse(banqueId);
+    setTimeout(()=>{
+      const ligne=DB.caisse.find(t=>t.id===suggestion.id);
+      const mode=document.getElementById('rap-mode');
+      const mois=document.getElementById('rap-mois');
+      if(mode&&ligne) mode.value=ligne.reglement;
+      if(mois) mois.value='ALL';
+      updateRapListe(banqueId);
+      const cb=document.getElementById(`rap-${suggestion.id}`);
+      if(cb){cb.checked=true;updateRapTotal();}
+    },0);
+  }
 }
 
 
@@ -9934,7 +10050,7 @@ function renderImportBanqueResult(){
   const nouveaux=importedMouvements.filter((_,i)=>!doublons.has(i));
 
   const prestationsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
-  const chargesDispo=[...(DB.fixes||[]).map(c=>({...c,type:'fixe'})),...(DB.variables||[]).map(c=>({...c,type:'variable'}))];
+  const chargesDispo=[...(DB.fixes||[]).map(c=>({...c,type:'fixe'})),...(DB.variables||[]).map(c=>({...c,type:'variable'})),...(DB.chargesLissees||[]).filter(c=>c.actif!==false).map(c=>({...c,type:'lissee'}))];
 
   let html=`<div class="tw"><div class="card-hdr">📋 ${nouveaux.length} nouveaux mouvements <button class="btn bd bsm" onclick="importerTousMouvements()">✓ Tout importer</button></div>
     <table><thead><tr><th>Date</th><th>Libellé</th><th style="text-align:right">Montant</th><th>Catégorie</th><th>Lier à</th><th></th></tr></thead><tbody>`;
@@ -9992,6 +10108,9 @@ async function importerMouvement(i){
     } else if(m.liaisonId.startsWith('charge_variable_')){
       const charge=DB.variables.find(c=>c.id===m.liaisonId.replace('charge_variable_',''));
       lierChargeImporteeAuMouvement(charge,mouvement);
+    } else if(m.liaisonId.startsWith('charge_lissee_')){
+      const charge=DB.chargesLissees.find(c=>c.id===m.liaisonId.replace('charge_lissee_',''));
+      lierChargeImporteeAuMouvement(charge,mouvement);
     }
   }
 
@@ -10022,6 +10141,9 @@ async function importerTousMouvements(){
         lierChargeImporteeAuMouvement(charge,mouvement);
       } else if(m.liaisonId.startsWith('charge_variable_')){
         const charge=DB.variables.find(c=>c.id===m.liaisonId.replace('charge_variable_',''));
+        lierChargeImporteeAuMouvement(charge,mouvement);
+      } else if(m.liaisonId.startsWith('charge_lissee_')){
+        const charge=DB.chargesLissees.find(c=>c.id===m.liaisonId.replace('charge_lissee_',''));
         lierChargeImporteeAuMouvement(charge,mouvement);
       }
     }
@@ -10075,13 +10197,15 @@ function ouvrirRapprochementCaisse(banqueId){
     </div>
     <div class="fr"><label>Mois des prestations</label>
       <select id="rap-mois" onchange="updateRapListe('${banqueId}')">
+        <option value="ALL">Tous les mois</option>
         ${[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse().map(m=>`<option value="${m}" ${m===(moisAuto||dm(b.date))?'selected':''}>${mf(m)}</option>`).join('')}
       </select>
     </div>
     <div id="rap-liste"></div>
     <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-top:10px">
       Total sélectionné : <span id="rap-total" style="font-weight:700;color:var(--acc)">0,00 €</span>
-    </div>`;
+    </div>
+    <div id="rap-ecart" data-banque-id="${banqueId}" style="font-size:11px;margin-top:6px;text-align:right"></div>`;
   document.querySelector('#mainModal .ma').style.display='flex';
   document.querySelector('#mainModal .ma').innerHTML=`
     <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
@@ -10109,7 +10233,7 @@ function updateRapListe(banqueId){
 
   const prestations=DB.caisse.filter(t=>{
     if(t.montant<=0||t.reglement!==mode) return false;
-    if(mois&&!inM(t.date,mois)) return false;
+    if(mois&&mois!=='ALL'&&!inM(t.date,mois)) return false;
     return true; // on affiche tout, on ne filtre plus sur depose/chqDepose/rapprocheBanque
   }).sort((a,b)=>{
     const ra=estRapprochee(a),rb=estRapprochee(b);
@@ -10161,6 +10285,14 @@ function updateRapTotal(){
   const tot=[...document.querySelectorAll('#rap-liste input:checked')].reduce((s,c)=>s+parseFloat(c.dataset.mnt),0);
   const el=document.getElementById('rap-total');
   if(el) el.textContent=fa(tot);
+  const ecartEl=document.getElementById('rap-ecart');
+  const b=DB.banque.find(x=>x.id===ecartEl?.dataset.banqueId);
+  if(b&&ecartEl){
+    const ecart=Math.abs(Math.abs(Number(b.montant))-Math.abs(tot));
+    ecartEl.innerHTML=ecart<.01
+      ?'<span style="color:var(--rec);font-weight:700">✓ Les montants correspondent</span>'
+      :`<span style="color:var(--dep);font-weight:700">Écart : ${fa(ecart)} — validation impossible</span>`;
+  }
 }
 
 async function validerRapprochementCaisse(banqueId){
@@ -10168,6 +10300,12 @@ async function validerRapprochementCaisse(banqueId){
   if(!checks.length){toast('⚠ Sélectionne au moins une prestation');return;}
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
+  const totalSelectionne=[...checks].reduce((s,cb)=>s+(parseFloat(cb.dataset.mnt)||0),0);
+  const ecart=Math.abs(Math.abs(Number(b.montant))-Math.abs(totalSelectionne));
+  if(ecart>=.01){
+    toast(`⚠ Les montants diffèrent de ${fa(ecart)} : rapprochement impossible`);
+    return;
+  }
   const ids=[];
   for(const cb of checks){
     const t=DB.caisse.find(x=>x.id===cb.value);
@@ -10200,7 +10338,8 @@ function ouvrirRapprochementCharge(banqueId){
   const mois=dm(b.date);
   const chargesDispo=[
     ...DB.fixes.filter(f=>f.mois===mois).map(f=>({...f,type:'fixes'})),
-    ...DB.variables.filter(f=>f.mois===mois).map(f=>({...f,type:'variables'}))
+    ...DB.variables.filter(f=>f.mois===mois).map(f=>({...f,type:'variables'})),
+    ...(DB.chargesLissees||[]).filter(f=>f.actif!==false).map(f=>({...f,type:'lissees'}))
   ];
  // Ajoute TVA/REDEVANCE comme options même si pas encore créées réellement
   const pm=prevMois(mois);
@@ -10222,7 +10361,7 @@ function ouvrirRapprochementCharge(banqueId){
     <div class="fr"><label>Charge correspondante</label>
       <select id="rap-charge-id">
         <option value="">— Choisir une charge —</option>
-        ${chargesDispo.map(f=>`<option value="${f.type}-${f.id}">${f.nom} (prévu: ${f.prev?fm(f.prev):'—'})</option>`).join('')}
+        ${chargesDispo.map(f=>`<option value="${f.type}-${f.id}">${f.type==='lissees'?'📆 ':''}${f.nom} (prévu: ${f.type==='lissees'?fm(-Math.abs(Number(f.montantCycle||0))):(f.prev?fm(f.prev):'—')})</option>`).join('')}
       </select>
     </div>
     ${!chargesDispo.length?`<div style="font-size:12px;color:var(--mut)">Aucune charge pour ${mf(mois)}. Crée-la d'abord dans Ch. Fixes ou Ch. Variables.</div>`:''}`;
@@ -10257,16 +10396,21 @@ async function validerRapprochementCharge(banqueId){
 
   if(!charge.banqueIds) charge.banqueIds=[];
   if(!charge.banqueIds.includes(banqueId)) charge.banqueIds.push(banqueId);
-  charge.montant=charge.banqueIds.reduce((s,bid)=>{
+  const totalRapproche=charge.banqueIds.reduce((s,bid)=>{
     const bm=DB.banque.find(x=>x.id===bid);
     return s+(bm?bm.montant:0);
   },0);
-  charge.paye=true;
+  if(type==='lissees'){
+    actualiserDernierCycleChargeLissee(charge,b.date);
+  }else{
+    charge.montant=totalRapproche;
+    charge.paye=true;
+  }
 
   await saveEntry_fb(type,charge);
   closeMo('mainModal');
   renderAll();
-  toast('✓ Charge rapprochée — montant réel mis à jour');
+  toast(type==='lissees'?'✓ Prélèvement relié à la charge lissée, sans double comptage':'✓ Charge rapprochée — montant réel mis à jour');
 }
 
 // ═══════════════════════════════════════
@@ -10625,7 +10769,7 @@ async function recalcTvaLigneBanque(banqueId){
 function ouvrirDetailRapprochement(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
-  const chargeLiee=[...DB.fixes,...DB.variables].find(f=>f.banqueIds?.includes(banqueId));
+  const chargeLiee=[...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].find(f=>f.banqueIds?.includes(banqueId));
   const facturesLiees=getFacturesLieesA(banqueId);
 
   document.getElementById('mTitle').textContent='🔗 Détail du rapprochement';
@@ -10664,15 +10808,20 @@ function ouvrirDetailRapprochement(banqueId){
 }
 
 async function delierCharge(banqueId,chargeId){
-  const table=DB.fixes.find(x=>x.id===chargeId)?'fixes':'variables';
+  const table=DB.fixes.find(x=>x.id===chargeId)?'fixes':DB.variables.find(x=>x.id===chargeId)?'variables':'chargesLissees';
   const charge=DB[table].find(x=>x.id===chargeId);
   if(charge){
     charge.banqueIds=(charge.banqueIds||[]).filter(id=>id!==banqueId);
-    charge.montant=charge.banqueIds.reduce((s,bid)=>{
+    const total=charge.banqueIds.reduce((s,bid)=>{
       const bm=DB.banque.find(x=>x.id===bid);
       return s+(bm?bm.montant:0);
     },0);
-    charge.paye=charge.banqueIds.length>0;
+    if(table==='chargesLissees'){
+      actualiserDernierCycleChargeLissee(charge);
+    }else{
+      charge.montant=total;
+      charge.paye=charge.banqueIds.length>0;
+    }
     await saveEntry_fb(table,charge);
   }
   renderAll();
@@ -11181,7 +11330,8 @@ async function saveEntry(addAnother=false){
     } else if(mCtx==='lissees'){
       const montant=Math.abs(parseFloat(g('fMnt'))||0);
       const periodiciteMois=parseInt(g('fPeriodicite'))||12;
-      const t={id,nom:g('fNom').trim(),montantCycle:montant,periodiciteMois,moisDebut:g('fMois'),actif:g('fActif')==='1'};
+      const existante=mEditId?(DB.chargesLissees||[]).find(x=>x.id===mEditId):null;
+      const t={...(existante||{}),id,nom:g('fNom').trim(),montantCycle:montant,periodiciteMois,moisDebut:g('fMois'),actif:g('fActif')==='1'};
       if(!t.nom||!t.moisDebut||!montant){toast('⚠ Remplis tous les champs');return;}
       if(mEditId){ const i=DB.chargesLissees.findIndex(x=>x.id===mEditId); DB.chargesLissees[i]=t; }
       else DB.chargesLissees.push(t);
