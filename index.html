@@ -9987,7 +9987,9 @@ function similariteLibellesBanque(a,b){
 
 function estDepotEspecesBanque(b){
   const libelle=normalizeNom(String(b?.nom||''));
-  return b?.categorie==='CA'&&(/depot.*(esp|espece)|espece.*depot/.test(libelle));
+  const mouvement=/(depot|remise|versement)/.test(libelle);
+  const especes=/(esp|espece|cash|monnaie|liquide)/.test(libelle);
+  return b?.categorie==='CA'&&mouvement&&especes;
 }
 
 function plageRechercheDepotEspeces(dateIso){
@@ -10131,18 +10133,7 @@ function ouvrirSuggestionRapprochementBanque(banqueId){
       if(select) select.value=`${suggestion.chargeType}-${suggestion.id}`;
     },0);
   }else{
-    ouvrirRapprochementCaisse(banqueId);
-    setTimeout(()=>{
-      const ids=suggestion.ids||[];
-      const ligne=DB.caisse.find(t=>t.id===ids[0]);
-      const mode=document.getElementById('rap-mode');
-      const mois=document.getElementById('rap-mois');
-      if(mode) mode.value=suggestion.mode||ligne?.reglement||'';
-      if(mois) mois.value='ALL';
-      updateRapListe(banqueId);
-      ids.forEach(id=>{const cb=document.getElementById(`rap-${id}`);if(cb) cb.checked=true;});
-      updateRapTotal();
-    },0);
+    ouvrirRapprochementCaisse(banqueId,suggestion.ids||[],suggestion.mode||'',true);
   }
 }
 
@@ -10272,9 +10263,12 @@ async function importerTousMouvements(){
 // ═══════════════════════════════════════
 // RAPPROCHEMENT MANUEL BANQUE ↔ CAISSE
 // ═══════════════════════════════════════
-function ouvrirRapprochementCaisse(banqueId){
+let suggestionRapprochementCaisseIdsEmma=[];
+
+function ouvrirRapprochementCaisse(banqueId,suggestionIds=[],modeForce='',tousLesMois=false){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return;
+  suggestionRapprochementCaisseIdsEmma=[...suggestionIds];
 
   // Si des prestations sont déjà liées, on récupère leur mode et mois directement
   const dejaLiees=(b.caisseIds||[]).map(id=>DB.caisse.find(t=>t.id===id)).filter(Boolean);
@@ -10291,6 +10285,7 @@ function ouvrirRapprochementCaisse(banqueId){
     else if(libelle.includes('cheq')||libelle.includes('chq')) modeAuto='CHQ';
     else if(libelle.includes('esp')||libelle.includes('depot')||libelle.includes('dépôt')) modeAuto='ESP';
   }
+  if(modeForce) modeAuto=modeForce;
 
   document.getElementById('mTitle').textContent='🔗 Rapprocher avec des prestations';
   document.getElementById('mBody').innerHTML=`
@@ -10310,8 +10305,8 @@ function ouvrirRapprochementCaisse(banqueId){
     </div>
     <div class="fr"><label>Mois des prestations</label>
       <select id="rap-mois" onchange="updateRapListe('${banqueId}')">
-        <option value="ALL">Tous les mois</option>
-        ${[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse().map(m=>`<option value="${m}" ${m===(moisAuto||dm(b.date))?'selected':''}>${mf(m)}</option>`).join('')}
+        <option value="ALL" ${tousLesMois?'selected':''}>Tous les mois</option>
+        ${[...new Set(DB.caisse.map(t=>dm(t.date)))].sort().reverse().map(m=>`<option value="${m}" ${!tousLesMois&&m===(moisAuto||dm(b.date))?'selected':''}>${mf(m)}</option>`).join('')}
       </select>
     </div>
     <div id="rap-liste"></div>
@@ -10329,12 +10324,22 @@ function ouvrirRapprochementCaisse(banqueId){
 
 function updateRapListe(banqueId){
   const mode=document.getElementById('rap-mode')?.value;
-  const mois=document.getElementById('rap-mois')?.value;
+  let mois=document.getElementById('rap-mois')?.value;
   const el=document.getElementById('rap-liste');
   if(!el||!mode) return;
 
   const b=DB.banque.find(x=>x.id===banqueId);
   const dejaLies=b?.caisseIds||[];
+  let selectionEspAuto=null;
+  if(mode==='ESP'&&b?.categorie==='CA'&&!dejaLies.length){
+    selectionEspAuto=selectionEspecesProbablePourDepot(b);
+    suggestionRapprochementCaisseIdsEmma=selectionEspAuto?.ids||[];
+    const selectMois=document.getElementById('rap-mois');
+    if(selectMois&&selectionEspAuto){
+      selectMois.value='ALL';
+      mois='ALL';
+    }
+  }
   // Toutes les autres lignes banque qui ont déjà lié cette prestation (pour affichage seulement)
   const liePartout=id=>DB.banque.some(bb=>bb.id!==banqueId&&bb.caisseIds?.includes(id));
 
@@ -10361,6 +10366,7 @@ function updateRapListe(banqueId){
 
   let lastGroup=null;
   el.innerHTML=`
+    ${mode==='ESP'?`<div style="font-size:11px;padding:9px 11px;margin-bottom:8px;border-radius:10px;background:${selectionEspAuto?'var(--rec2)':'var(--warn2)'};color:${selectionEspAuto?'var(--rec)':'var(--warn)'}">${selectionEspAuto?`✨ EMMA a présélectionné ${selectionEspAuto.ids.length} règlement(s) ESP pour obtenir exactement ${fa(Math.abs(Number(b.montant)))}.${selectionEspAuto.plage.inclutSemainePrecedente?' La semaine précédente a été incluse.':''}`:'Aucune combinaison exacte trouvée automatiquement : tu peux sélectionner les espèces manuellement.'}</div>`:''}
     <div style="font-size:11px;font-weight:600;color:var(--mut);margin-bottom:8px;display:flex;justify-content:space-between">
       <span>${prestations.length} prestation(s) ${mode}</span>
       <span style="cursor:pointer;color:var(--acc);font-weight:700" onclick="rapToggleAll()">Tout sélectionner</span>
@@ -10376,7 +10382,7 @@ function updateRapListe(banqueId){
           lastGroup=group;
         }
         return`${header}<div class="di" style="${ailleurs||rappr?'opacity:0.5':''}">
-          <input type="checkbox" id="rap-${t.id}" value="${t.id}" data-mnt="${t.montant}" data-mode="${t.reglement}" ${dejaLies.includes(t.id)?'checked':''} onchange="updateRapTotal()">
+          <input type="checkbox" id="rap-${t.id}" value="${t.id}" data-mnt="${t.montant}" data-mode="${t.reglement}" ${dejaLies.includes(t.id)||suggestionRapprochementCaisseIdsEmma.includes(t.id)?'checked':''} onchange="updateRapTotal()">
           <label for="rap-${t.id}" style="cursor:pointer;flex:1;font-size:12px">
             ${dlbl(t.date)} — <strong>${t.nom}</strong> — ${t.prestation||''} — <span style="font-family:'DM Mono',monospace;color:var(--rec)">${fa(t.montant)}</span>
             ${ailleurs?' <span style="color:var(--warn);font-size:11px">⚠️ déjà liée ailleurs</span>':''}
