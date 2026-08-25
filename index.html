@@ -5551,6 +5551,7 @@ let DB = {
   salaires: [],
   salairePlan: {actif:false,mensualite:0,moisDebut:''},
   conseilsFinanciersIgnores: [],
+  apprentissageRapprochements: [],
   prestations: [
     'Pose complète - Volume Russe',
     'Remplissage 4 semaines',
@@ -7439,6 +7440,7 @@ async function loadAll() {
        if(d.salaires) DB.salaires=JSON.parse(d.salaires);
       if(d.salairePlan) DB.salairePlan={...DB.salairePlan,...JSON.parse(d.salairePlan)};
       if(d.conseilsFinanciersIgnores) DB.conseilsFinanciersIgnores=JSON.parse(d.conseilsFinanciersIgnores);
+      if(d.apprentissageRapprochements) DB.apprentissageRapprochements=JSON.parse(d.apprentissageRapprochements);
       if(d.boutique){
         const b=JSON.parse(d.boutique);
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
@@ -7505,6 +7507,7 @@ async function loadAll() {
       salaires:    JSON.stringify(DB.salaires),
       salairePlan: JSON.stringify(DB.salairePlan||{actif:false,mensualite:0,moisDebut:''}),
       conseilsFinanciersIgnores: JSON.stringify(DB.conseilsFinanciersIgnores||[]),
+      apprentissageRapprochements: JSON.stringify(DB.apprentissageRapprochements||[]),
       formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
       lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
       glow: JSON.stringify(DB.glow || {}),
@@ -7880,6 +7883,53 @@ function tvaNette(mois){ return tvaCollectee(mois)-tvaDed(mois); }
 // ═══════════════════════════════════════
 // AUTO-RAPPROCHEMENT
 // ═══════════════════════════════════════
+let apprentissageAutoEnCoursEmma=false;
+
+async function appliquerRapprochementsApprisEmma(){
+  if(apprentissageAutoEnCoursEmma) return;
+  apprentissageAutoEnCoursEmma=true;
+  try{
+    for(const b of (DB.banque||[])){
+      if(estCategorieChargeBanque(b.categorie)){
+        if([...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].some(c=>(c.banqueIds||[]).includes(b.id))) continue;
+        const regle=regleApprisePourBanque(b,'charge');
+        if(!regle||regle.confirmationsExactes<3||regle.confiance<1) continue;
+        const cible=chargeCorrespondantARegleEmma(b,regle);
+        if(!cible) continue;
+        const montantAttendu=cible.type==='lissees'
+          ?Math.abs(Number(cible.charge.montantCycle||0))
+          :Math.abs(Number(cible.charge.prev||0));
+        if(!montantAttendu||Math.abs(Math.abs(Number(b.montant))-montantAttendu)>=.01) continue;
+        lierChargeImporteeAuMouvement(cible.charge,b);
+        b.rapprochementAutoEmma=true;
+        await saveEntry_fb(cible.type,cible.charge);
+        await saveEntry_fb('banque',b);
+        continue;
+      }
+
+      if(!['CA','VIR'].includes(b.categorie)||(b.caisseIds||[]).length) continue;
+      const regle=regleApprisePourBanque(b,'caisse');
+      if(!regle||regle.confirmationsExactes<3||regle.confiance<1) continue;
+      const mode=regle.cleCible;
+      const selection=mode==='ESP'?selectionEspecesProbablePourDepot(b):mode==='VIR'?selectionVirementProbable(b):null;
+      if(!selection?.ids?.length) continue;
+      const lignes=selection.ids.map(id=>DB.caisse.find(t=>t.id===id)).filter(Boolean);
+      const total=lignes.reduce((s,t)=>s+Number(t.montant||0),0);
+      if(lignes.length!==selection.ids.length||Math.abs(Math.abs(total)-Math.abs(Number(b.montant)))>=.01) continue;
+      lignes.forEach(t=>{
+        if(mode==='ESP') t.depose=true;
+        else {t.rapprocheBanque=true;t.paye=true;}
+      });
+      b.caisseIds=[...selection.ids];
+      b.rapprochementAutoEmma=true;
+      for(const t of lignes) await saveEntry_fb('caisse',t);
+      await saveEntry_fb('banque',b);
+    }
+  }finally{
+    apprentissageAutoEnCoursEmma=false;
+  }
+}
+
 async function autoRapproch(){
   let changed=false;
 // VIR Caisse ↔ Banque : désormais géré uniquement via le rapprochement manuel (rapprocheBanque)
@@ -7908,6 +7958,7 @@ async function autoRapproch(){
     const entry=synchroniserAchatVariableMois(mois);
     if(entry&&ancienEtat!==JSON.stringify({montant:entry.montant,banqueIds:entry.banqueIds,paye:entry.paye})){changed=true;await saveEntry_fb('variables',entry);}
   }
+  await appliquerRapprochementsApprisEmma();
 }
 
 // ═══════════════════════════════════════
@@ -9530,6 +9581,7 @@ async function importData(event){
         salaires: importedDB.salaires || DB.salaires || [],
         salairePlan: importedDB.salairePlan || DB.salairePlan || {actif:false,mensualite:0,moisDebut:''},
         conseilsFinanciersIgnores: importedDB.conseilsFinanciersIgnores || DB.conseilsFinanciersIgnores || [],
+        apprentissageRapprochements: importedDB.apprentissageRapprochements || DB.apprentissageRapprochements || [],
         prestations: importedDB.prestations || DB.prestations,
       };
       
@@ -9977,6 +10029,56 @@ function lierChargeImporteeAuMouvement(charge,mouvement){
   }
 }
 
+function signatureRapprochementEmma(b){
+  return cleLibelleFinancierEmma(b?.nom||'')||normalizeNom(String(b?.nom||''));
+}
+
+function apprendreRapprochementEmma(b,type,cible){
+  if(!b||!type||!cible) return;
+  if(!DB.apprentissageRapprochements) DB.apprentissageRapprochements=[];
+  const signature=signatureRapprochementEmma(b);
+  const categorie=b.categorie||'';
+  const cleCible=type==='charge'
+    ?`${cible.type}|${normalizeNom(cible.nom)}`
+    :String(cible.mode||'');
+  if(!signature||!cleCible) return;
+  let regle=DB.apprentissageRapprochements.find(r=>
+    r.signature===signature&&r.categorie===categorie&&r.type===type&&r.cleCible===cleCible
+  );
+  if(!regle){
+    regle={id:genId(),signature,categorie,type,cleCible,confirmations:0,derniereValidation:''};
+    DB.apprentissageRapprochements.push(regle);
+  }
+  regle.confirmations=Number(regle.confirmations||0)+1;
+  regle.derniereValidation=new Date().toISOString();
+}
+
+function regleApprisePourBanque(b,type){
+  const signature=signatureRapprochementEmma(b);
+  const candidates=(DB.apprentissageRapprochements||[]).filter(r=>
+    r.type===type&&r.categorie===(b?.categorie||'')&&
+    (r.signature===signature||similariteLibellesBanque(r.signature,signature)>=.8)
+  );
+  if(!candidates.length) return null;
+  const scores=new Map();
+  candidates.forEach(r=>scores.set(r.cleCible,(scores.get(r.cleCible)||0)+Number(r.confirmations||0)));
+  const [cleCible,confirmations]=[...scores.entries()].sort((a,b)=>b[1]-a[1])[0];
+  const total=[...scores.values()].reduce((s,n)=>s+n,0);
+  const confirmationsExactes=candidates
+    .filter(r=>r.signature===signature&&r.cleCible===cleCible)
+    .reduce((s,r)=>s+Number(r.confirmations||0),0);
+  return {cleCible,confirmations,confirmationsExactes,confiance:total?confirmations/total:0};
+}
+
+function chargeCorrespondantARegleEmma(b,regle){
+  if(!regle) return null;
+  const [type,...nomParts]=regle.cleCible.split('|');
+  const nom=nomParts.join('|');
+  const collection=type==='lissees'?(DB.chargesLissees||[]):type==='fixes'?(DB.fixes||[]):(DB.variables||[]);
+  const charge=collection.find(c=>normalizeNom(c.nom)===nom&&(type==='lissees'||c.mois===dm(b.date)));
+  return charge?{type,charge}:null;
+}
+
 function similariteLibellesBanque(a,b){
   const motsA=new Set(cleLibelleFinancierEmma(a).split(' ').filter(m=>m.length>=3));
   const motsB=new Set(cleLibelleFinancierEmma(b).split(' ').filter(m=>m.length>=3));
@@ -10063,6 +10165,11 @@ function trouverSuggestionRapprochementBanque(banqueId){
 
   if(estCategorieChargeBanque(b.categorie)){
     if([...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].some(c=>(c.banqueIds||[]).includes(b.id))) return null;
+    const regle=regleApprisePourBanque(b,'charge');
+    const cibleApprise=chargeCorrespondantARegleEmma(b,regle);
+    if(cibleApprise&&regle.confirmations>=1){
+      return {type:'charge',chargeType:cibleApprise.type,id:cibleApprise.charge.id,label:cibleApprise.charge.nom,score:regle.confiance,raison:`appris grâce à ${regle.confirmations} validation(s)`};
+    }
     const charges=[...(DB.fixes||[]).map(c=>({...c,type:'fixes'})),...(DB.variables||[]).map(c=>({...c,type:'variables'})),...(DB.chargesLissees||[]).map(c=>({...c,type:'lissees'}))];
     const apprentissage=new Map();
     charges.forEach(c=>(c.banqueIds||[]).forEach(id=>{
@@ -10081,13 +10188,15 @@ function trouverSuggestionRapprochementBanque(banqueId){
 
   if(['CA','VIR'].includes(b.categorie)){
     if((b.caisseIds||[]).length) return null;
-    if(estDepotEspecesBanque(b)){
+    const regle=regleApprisePourBanque(b,'caisse');
+    const modeAppris=regle?.confirmations>=1?regle.cleCible:'';
+    if(estDepotEspecesBanque(b)||modeAppris==='ESP'){
       const selection=selectionEspecesProbablePourDepot(b);
       if(selection){
-        return {type:'caisse',ids:selection.ids,mode:'ESP',label:`${selection.ids.length} règlement(s) ESP`,score:1,raison:`total exact, Emma prioritaire${selection.plage.inclutSemainePrecedente?' · semaine précédente incluse':''}`};
+        return {type:'caisse',ids:selection.ids,mode:'ESP',label:`${selection.ids.length} règlement(s) ESP`,score:1,raison:`${modeAppris==='ESP'?`mode appris après ${regle.confirmations} validation(s) · `:''}total exact, Emma prioritaire${selection.plage.inclutSemainePrecedente?' · semaine précédente incluse':''}`};
       }
     }
-    if(b.categorie==='VIR'){
+    if(b.categorie==='VIR'||modeAppris==='VIR'){
       const selection=selectionVirementProbable(b);
       if(selection){
         const lignes=selection.ids.map(id=>DB.caisse.find(t=>t.id===id)).filter(Boolean);
@@ -10445,7 +10554,10 @@ async function validerRapprochementCaisse(banqueId){
     }
   }
   b.caisseIds=ids;
+  const modeValide=checks[0]?.dataset?.mode||'';
+  apprendreRapprochementEmma(b,'caisse',{mode:modeValide});
   await saveEntry_fb('banque',b);
+  await saveAll();
   closeMo('mainModal');
   renderAll();
   toast(`✓ ${ids.length} prestation(s) rapprochée(s) !`);
@@ -10526,7 +10638,9 @@ async function validerRapprochementCharge(banqueId){
     charge.paye=true;
   }
 
+  apprendreRapprochementEmma(b,'charge',{type,nom:charge.nom});
   await saveEntry_fb(type,charge);
+  await saveAll();
   closeMo('mainModal');
   renderAll();
   toast(type==='lissees'?'✓ Prélèvement relié à la charge lissée, sans double comptage':'✓ Charge rapprochée — montant réel mis à jour');
