@@ -7818,6 +7818,7 @@ function caNet(rows){
   let ca=0;
   for(const t of rows){
     if(t.montant<=0) continue;
+    if(t.typeCaisse==='produit'||t.horsRedevance===true){ca+=t.montant;continue;}
     if(t.praticien==='MARIE'||t.praticien==='GIULIA'){
       const esp=t.reglement==='ESP'?t.montant:0;
       const planChqVir=['PLANITY','CHQ','VIR'].includes(t.reglement)?t.montant:0;
@@ -7830,21 +7831,23 @@ function caNet(rows){
 }
 
 function redevDeposee(rows){
-  const chq=rows.filter(t=>t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-  const vir=rows.filter(t=>t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-  const planity=rows.filter(t=>t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-  const espDeposees=rows.filter(t=>t.reglement==='ESP'&&t.montant>0&&t.depose===true).reduce((s,t)=>s+t.montant,0);
+  const soumises=rows.filter(t=>t.typeCaisse!=='produit'&&t.horsRedevance!==true);
+  const chq=soumises.filter(t=>t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+  const vir=soumises.filter(t=>t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+  const planity=soumises.filter(t=>t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
+  const espDeposees=soumises.filter(t=>t.reglement==='ESP'&&t.montant>0&&t.depose===true).reduce((s,t)=>s+t.montant,0);
   const net=chq+vir+planity+espDeposees;
   return net*PARAMS.redev;
 }
 
 function redevDue(rows){
   let total=0;
-  const emmaRows=rows.filter(t=>t.montant>0&&(!t.praticien||t.praticien===''));
+  const soumises=rows.filter(t=>t.typeCaisse!=='produit'&&t.horsRedevance!==true);
+  const emmaRows=soumises.filter(t=>t.montant>0&&(!t.praticien||t.praticien===''));
   total+=emmaRows.reduce((s,t)=>s+t.montant,0)*PARAMS.redev;
 
   for(const prat of ['MARIE','GIULIA']){
-    const pratRows=rows.filter(t=>t.montant>0&&t.praticien===prat);
+    const pratRows=soumises.filter(t=>t.montant>0&&t.praticien===prat);
     if(!pratRows.length) continue;
     const ca=pratRows.reduce((s,t)=>s+t.montant,0);
     const chqvirplan=pratRows.filter(t=>['CHQ','VIR','PLANITY'].includes(t.reglement)).reduce((s,t)=>s+t.montant,0);
@@ -7898,18 +7901,12 @@ async function autoRapproch(){
     }
   }
   // ACHAT ← Banque ACHATS
-  const achatMois=[...new Set(DB.banque.filter(b=>b.categorie==='ACHATS'&&b.montant<0).map(b=>dm(b.date)))];
+  const achatMois=[...new Set([...DB.banque.filter(b=>b.categorie==='ACHATS'&&b.montant!==0).map(b=>dm(b.date)),...DB.variables.filter(v=>v.nom==='ACHAT').map(v=>v.mois)])];
   for(const mois of achatMois){
-    const totAchat=DB.banque.filter(b=>dm(b.date)===mois&&b.categorie==='ACHATS'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
-    let entry=DB.variables.find(v=>v.mois===mois&&v.nom==='ACHAT');
-    if(entry){
-      if(Math.abs(totAchat-entry.montant)>0.01){ entry.montant=totAchat; changed=true; await saveEntry_fb('variables',entry); }
-    } else {
-      const newEntry={id:genId(),mois,nom:'ACHAT',montant:totAchat,prev:0};
-      DB.variables.push(newEntry);
-      changed=true;
-      await saveEntry_fb('variables',newEntry);
-    }
+    const avant=DB.variables.find(v=>v.mois===mois&&v.nom==='ACHAT');
+    const ancienEtat=avant?JSON.stringify({montant:avant.montant,banqueIds:avant.banqueIds,paye:avant.paye}):'';
+    const entry=synchroniserAchatVariableMois(mois);
+    if(entry&&ancienEtat!==JSON.stringify({montant:entry.montant,banqueIds:entry.banqueIds,paye:entry.paye})){changed=true;await saveEntry_fb('variables',entry);}
   }
 }
 
@@ -9363,6 +9360,10 @@ function showVeri(mois, el){
   const autoMarie=cM.filter(t=>t.praticien==='MARIE');
   const autoGiulia=cM.filter(t=>t.praticien==='GIULIA');
   const emmaRows=cM.filter(t=>t.praticien==='');
+  const soumisesRedevance=cM.filter(t=>t.typeCaisse!=='produit'&&t.horsRedevance!==true);
+  const autoMarieRedev=soumisesRedevance.filter(t=>t.praticien==='MARIE');
+  const autoGiuliaRedev=soumisesRedevance.filter(t=>t.praticien==='GIULIA');
+  const emmaRowsRedev=soumisesRedevance.filter(t=>t.praticien==='');
 
   document.getElementById('veriContent').innerHTML=`
     <div class="veri-card">
@@ -9383,9 +9384,11 @@ CA Net Société = <span class="green">${fa(caN)}</span>
       <div class="veri-formula">
 Taux redevance = <span class="highlight">${PARAMS.redev*100}%</span>
 
-Emma : ${fa(emmaRows.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.redev*100}% = <span class="blue">${fa(emmaRows.reduce((s,t)=>s+t.montant,0)*PARAMS.redev)}</span>
-MARIE : ${fa(autoMarie.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.tauxSoc*100}% × ${PARAMS.redev*100}% = <span class="blue">${fa(autoMarie.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc*PARAMS.redev)}</span>
-GIULIA : ${fa(autoGiulia.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.tauxSoc*100}% × ${PARAMS.redev*100}% = <span class="blue">${fa(autoGiulia.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc*PARAMS.redev)}</span>
+Emma : ${fa(emmaRowsRedev.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.redev*100}% = <span class="blue">${fa(emmaRowsRedev.reduce((s,t)=>s+t.montant,0)*PARAMS.redev)}</span>
+MARIE : ${fa(autoMarieRedev.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.tauxSoc*100}% × ${PARAMS.redev*100}% = <span class="blue">${fa(autoMarieRedev.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc*PARAMS.redev)}</span>
+GIULIA : ${fa(autoGiuliaRedev.reduce((s,t)=>s+t.montant,0))} × ${PARAMS.tauxSoc*100}% × ${PARAMS.redev*100}% = <span class="blue">${fa(autoGiuliaRedev.reduce((s,t)=>s+t.montant,0)*PARAMS.tauxSoc*PARAMS.redev)}</span>
+
+Produits hors redevance : ${fa(cM.filter(t=>t.typeCaisse==='produit'||t.horsRedevance===true).reduce((s,t)=>s+t.montant,0))}
 
 Redevance totale due = <span class="highlight">${fa(redevDueM)}</span>
 Redevance déposée = <span class="green">${fa(redevDepM)}</span>
@@ -9937,6 +9940,21 @@ function estCategorieChargeBanque(categorie){
   return CATEGORIES_CHARGES_BANQUE.includes(categorie);
 }
 
+function synchroniserAchatVariableMois(mois){
+  if(!mois) return null;
+  const lignes=(DB.banque||[]).filter(b=>dm(b.date)===mois&&b.categorie==='ACHATS'&&b.montant!==0);
+  let entry=(DB.variables||[]).find(v=>v.mois===mois&&v.nom==='ACHAT');
+  if(!entry&&lignes.length){
+    entry={id:genId(),mois,nom:'ACHAT',montant:0,prev:0,banqueIds:[],paye:false};
+    DB.variables.push(entry);
+  }
+  if(!entry) return null;
+  entry.banqueIds=lignes.map(b=>b.id);
+  entry.montant=lignes.reduce((s,b)=>s+(Number(b.montant)||0),0);
+  entry.paye=lignes.length>0;
+  return entry;
+}
+
 function calculerTvaBanque(montant,categorie){
   const valeur=Number(montant)||0;
   if(!['CA','VIR'].includes(categorie)||valeur===0) return 0;
@@ -9967,6 +9985,76 @@ function similariteLibellesBanque(a,b){
   return commun/Math.max(motsA.size,motsB.size);
 }
 
+function estDepotEspecesBanque(b){
+  const libelle=normalizeNom(String(b?.nom||''));
+  return b?.categorie==='CA'&&(/depot.*(esp|espece)|espece.*depot/.test(libelle));
+}
+
+function plageRechercheDepotEspeces(dateIso){
+  const date=new Date(`${dateIso}T12:00:00`);
+  const jour=date.getDay()||7;
+  const lundi=new Date(date);
+  lundi.setDate(date.getDate()-jour+1);
+  const debut=new Date(lundi);
+  if(jour<=2) debut.setDate(debut.getDate()-7);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return {debut:iso(debut),fin:dateIso,inclutSemainePrecedente:jour<=2};
+}
+
+function selectionEspecesProbablePourDepot(b){
+  const cible=Math.round(Math.abs(Number(b.montant)||0)*100);
+  if(!cible) return null;
+  const plage=plageRechercheDepotEspeces(b.date);
+  const priorite=t=>!t.praticien?0:t.praticien==='GIULIA'?1:t.praticien==='MARIE'?2:3;
+  const candidates=(DB.caisse||[]).filter(t=>
+    t.reglement==='ESP'&&t.montant>0&&!t.depose&&
+    t.date>=plage.debut&&t.date<=plage.fin
+  ).sort((a,b)=>priorite(a)-priorite(b)||a.date.localeCompare(b.date));
+
+  const combinaisons=new Map([[0,{ids:[],score:0}]]);
+  candidates.forEach(t=>{
+    const montant=Math.round(Number(t.montant)*100);
+    if(montant<=0||montant>cible) return;
+    const bonus=!t.praticien?montant*10000:t.praticien==='GIULIA'?montant*100:montant;
+    [...combinaisons.entries()].sort((a,b)=>b[0]-a[0]).forEach(([s,etat])=>{
+      const nouveau=s+montant;
+      if(nouveau>cible) return;
+      const proposition={ids:[...etat.ids,t.id],score:etat.score+bonus};
+      if(!combinaisons.has(nouveau)||proposition.score>combinaisons.get(nouveau).score) combinaisons.set(nouveau,proposition);
+    });
+  });
+  const exacte=combinaisons.get(cible);
+  if(!exacte) return null;
+  return {ids:exacte.ids,plage};
+}
+
+function selectionVirementProbable(b){
+  const cible=Math.round(Math.abs(Number(b.montant)||0)*100);
+  if(!cible) return null;
+  const cleBanque=cleLibelleFinancierEmma(b.nom);
+  const candidates=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&t.montant>0&&!t.rapprocheBanque).map(t=>{
+    const cleCaisse=cleLibelleFinancierEmma(t.nom);
+    const nomExact=cleBanque&&cleCaisse&&cleBanque===cleCaisse;
+    const nom=nomExact?1:similariteLibellesBanque(b.nom,t.nom);
+    const jours=Math.abs((new Date(`${b.date}T12:00:00`)-new Date(`${t.date}T12:00:00`))/86400000);
+    return {t,nom,nomExact,jours};
+  }).filter(x=>x.nom>=.55&&x.jours<=7).sort((a,b)=>Number(b.nomExact)-Number(a.nomExact)||a.jours-b.jours);
+
+  const combinaisons=new Map([[0,{ids:[],score:0}]]);
+  candidates.forEach(({t,nom,nomExact,jours})=>{
+    const montant=Math.round(Number(t.montant)*100);
+    if(montant<=0||montant>cible) return;
+    const bonus=(nomExact?1000000:Math.round(nom*100000))+Math.max(0,100-jours);
+    [...combinaisons.entries()].sort((a,b)=>b[0]-a[0]).forEach(([s,etat])=>{
+      const nouveau=s+montant;
+      if(nouveau>cible) return;
+      const proposition={ids:[...etat.ids,t.id],score:etat.score+bonus};
+      if(!combinaisons.has(nouveau)||proposition.score>combinaisons.get(nouveau).score) combinaisons.set(nouveau,proposition);
+    });
+  });
+  return combinaisons.get(cible)||null;
+}
+
 function trouverSuggestionRapprochementBanque(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
   if(!b) return null;
@@ -9991,11 +10079,33 @@ function trouverSuggestionRapprochementBanque(banqueId){
 
   if(['CA','VIR'].includes(b.categorie)){
     if((b.caisseIds||[]).length) return null;
-    const candidats=(DB.caisse||[]).filter(t=>t.montant>0&&!t.rapprocheBanque&&t.date===b.date).map(t=>{
-      const nom=similariteLibellesBanque(b.nom,t.nom);
+    if(estDepotEspecesBanque(b)){
+      const selection=selectionEspecesProbablePourDepot(b);
+      if(selection){
+        return {type:'caisse',ids:selection.ids,mode:'ESP',label:`${selection.ids.length} règlement(s) ESP`,score:1,raison:`total exact, Emma prioritaire${selection.plage.inclutSemainePrecedente?' · semaine précédente incluse':''}`};
+      }
+    }
+    if(b.categorie==='VIR'){
+      const selection=selectionVirementProbable(b);
+      if(selection){
+        const lignes=selection.ids.map(id=>DB.caisse.find(t=>t.id===id)).filter(Boolean);
+        const nom=lignes[0]?.nom||'la Caisse';
+        return {type:'caisse',ids:selection.ids,mode:'VIR',label:selection.ids.length>1?`${selection.ids.length} lignes de ${nom}`:nom,score:1,raison:'même nom et total exact à proximité de la date'};
+      }
+    }
+    const cleBanque=cleLibelleFinancierEmma(b.nom);
+    const candidats=(DB.caisse||[]).filter(t=>
+      t.montant>0&&!t.rapprocheBanque&&
+      (b.categorie!=='VIR'||t.reglement==='VIR')
+    ).map(t=>{
+      const cleCaisse=cleLibelleFinancierEmma(t.nom);
+      const nomExact=cleBanque&&cleCaisse&&cleBanque===cleCaisse;
+      const nom=nomExact?1:similariteLibellesBanque(b.nom,t.nom);
       const montant=Math.abs(Math.abs(Number(b.montant))-Math.abs(Number(t.montant)))<.01?1:0;
-      return {type:'caisse',id:t.id,label:t.nom,score:nom*.7+montant*.3,raison:montant&&nom>=.35?'même date, nom et montant':'même date et nom similaire'};
-    }).filter(c=>c.score>=.45).sort((a,b)=>b.score-a.score);
+      const jours=Math.abs((new Date(`${b.date}T12:00:00`)-new Date(`${t.date}T12:00:00`))/86400000);
+      const proximite=1/(1+jours);
+      return {type:'caisse',ids:[t.id],mode:t.reglement,label:t.nom,score:nom*.65+montant*.25+proximite*.10,raison:nomExact?'même nom dans Banque et Caisse':montant&&jours<=2?'nom proche, montant identique et date proche':'nom similaire'};
+    }).filter(c=>c.score>=.55).sort((a,b)=>b.score-a.score);
     return candidats[0]||null;
   }
   return null;
@@ -10023,14 +10133,15 @@ function ouvrirSuggestionRapprochementBanque(banqueId){
   }else{
     ouvrirRapprochementCaisse(banqueId);
     setTimeout(()=>{
-      const ligne=DB.caisse.find(t=>t.id===suggestion.id);
+      const ids=suggestion.ids||[];
+      const ligne=DB.caisse.find(t=>t.id===ids[0]);
       const mode=document.getElementById('rap-mode');
       const mois=document.getElementById('rap-mois');
-      if(mode&&ligne) mode.value=ligne.reglement;
+      if(mode) mode.value=suggestion.mode||ligne?.reglement||'';
       if(mois) mois.value='ALL';
       updateRapListe(banqueId);
-      const cb=document.getElementById(`rap-${suggestion.id}`);
-      if(cb){cb.checked=true;updateRapTotal();}
+      ids.forEach(id=>{const cb=document.getElementById(`rap-${id}`);if(cb) cb.checked=true;});
+      updateRapTotal();
     },0);
   }
 }
@@ -10097,6 +10208,7 @@ async function importerMouvement(i){
   const tva=calculerTvaBanque(montantNum,m.categorie);
   const mouvement={id:genId(),date:m.date,nom:m.libelle,montant:montantNum,categorie:m.categorie,tva};
   DB.banque.push(mouvement);
+  if(mouvement.categorie==='ACHATS') synchroniserAchatVariableMois(dm(mouvement.date));
 
   if(m.liaisonId){
     if(m.liaisonId.startsWith('prest_')){
@@ -10131,6 +10243,7 @@ async function importerTousMouvements(){
     const tva=calculerTvaBanque(montantNum,categorie);
     const mouvement={id:genId(),date:m.date,nom:m.libelle,montant:montantNum,categorie,tva};
     DB.banque.push(mouvement);
+    if(categorie==='ACHATS') synchroniserAchatVariableMois(dm(mouvement.date));
 
     if(m.liaisonId){
       if(m.liaisonId.startsWith('prest_')){
@@ -11160,9 +11273,13 @@ function buildForm(ctx, editId=null){
       </div>
       <div class="fr"><label>Nom cliente</label><input type="text" id="fNom" value="${t?t.nom:''}" placeholder="Manon Vouriot" list="cliDL" autocomplete="off"></div>
       <div class="fr"><label>Téléphone <span style="font-size:10px;color:var(--mut)">(optionnel)</span></label><input type="tel" id="fTel" value="${t?t.tel||'':''}" placeholder="+33612345678"></div>
-      <div class="fr"><label>Prestation</label>
+      <div class="fr"><label>Nature de la vente</label>
+        <select id="fTypeCaisse" onchange="changerTypeCaisse()"><option value="prestation"${!t||t.typeCaisse!=='produit'?' selected':''}>Prestation</option><option value="produit"${t?.typeCaisse==='produit'?' selected':''}>🛍️ Produit — hors redevance</option></select>
+      </div>
+      <div class="fr" id="blocPrestationCaisse" style="display:${t?.typeCaisse==='produit'?'none':'block'}"><label>Prestation</label>
         <select id="fPrest">${DB.prestations.map(p=>`<option${t&&t.prestation===p?' selected':''}>${p}</option>`).join('')}</select>
       </div>
+      <div class="fr" id="blocProduitCaisse" style="display:${t?.typeCaisse==='produit'?'block':'none'}"><label>Produit vendu</label><input type="text" id="fProduit" value="${t?.typeCaisse==='produit'?(t.produit||String(t.prestation||'').replace(/^🛍️\s*/,'')):''}" placeholder="Ex. shampoing, sérum…"></div>
       <div class="g2">
         <div class="fr"><label>Mode règlement</label>
           <select id="fMode">${['ESP','VIR','CHQ','PLANITY'].map(mo=>`<option${t&&t.reglement===mo?' selected':''}>${mo}</option>`).join('')}</select>
@@ -11278,6 +11395,15 @@ function setPrat(p){
   document.getElementById('pt2').className=p==='GIULIA'?'ptg':'';
 }
 
+function changerTypeCaisse(){
+  const produit=document.getElementById('fTypeCaisse')?.value==='produit';
+  const blocPrestation=document.getElementById('blocPrestationCaisse');
+  const blocProduit=document.getElementById('blocProduitCaisse');
+  if(blocPrestation) blocPrestation.style.display=produit?'none':'block';
+  if(blocProduit) blocProduit.style.display=produit?'block':'none';
+  if(produit) setPrat('');
+}
+
 function g(id){ const el=document.getElementById(id); return el?el.value:''; }
 
 async function saveEntry(addAnother=false){
@@ -11285,15 +11411,20 @@ async function saveEntry(addAnother=false){
   try{
     if(mCtx==='caisse'){
       const mode=g('fMode');
+      const ancienne=mEditId?DB.caisse.find(x=>x.id===mEditId):null;
+      const typeCaisse=g('fTypeCaisse')||'prestation';
+      const estProduit=typeCaisse==='produit';
+      const produit=g('fProduit').trim();
       const t={
-        id,date:g('fDate'),praticien:g('fPrat'),nom:g('fNom'),tel:g('fTel')||undefined,
-        prestation:g('fPrest'),montant:parseFloat(g('fMnt')),
+        ...(ancienne||{}),id,date:g('fDate'),praticien:estProduit?'':g('fPrat'),nom:g('fNom'),tel:g('fTel')||undefined,
+        typeCaisse,produit:estProduit?produit:undefined,horsRedevance:estProduit,
+        prestation:estProduit?`🛍️ ${produit||'Vente produit'}`:g('fPrest'),montant:parseFloat(g('fMnt')),
         reglement:mode,
         paye:['CHQ','PLANITY'].includes(mode)?true:mode==='VIR'?false:g('fPaye')==='1',
         depose:['CHQ','PLANITY','VIR'].includes(mode)?true:false,
         chqDepose:mode==='CHQ'?false:undefined
       };
-      if(!t.date||isNaN(t.montant)||!t.nom){toast('⚠ Remplis tous les champs');return;}
+      if(!t.date||isNaN(t.montant)||!t.nom||(estProduit&&!produit)){toast('⚠ Remplis tous les champs');return;}
       if(mEditId){ const i=DB.caisse.findIndex(x=>x.id===mEditId); DB.caisse[i]=t; }
       else DB.caisse.push(t);
       await saveEntry_fb('caisse',t);
@@ -11301,10 +11432,14 @@ async function saveEntry(addAnother=false){
     } else if(mCtx==='banque'){
       const montant=parseFloat(g('fMnt'));
       const categorie=g('fCat');
-      const t={id,date:g('fDate'),nom:g('fNom'),montant,categorie,tva:calculerTvaBanque(montant,categorie)};
+      const ancienneBanque=mEditId?DB.banque.find(x=>x.id===mEditId):null;
+      const ancienMoisAchat=ancienneBanque?.categorie==='ACHATS'?dm(ancienneBanque.date):'';
+      const t={...(ancienneBanque||{}),id,date:g('fDate'),nom:g('fNom'),montant,categorie,tva:calculerTvaBanque(montant,categorie)};
       if(!t.date||isNaN(t.montant)||!t.nom){toast('⚠ Remplis tous les champs');return;}
       if(mEditId){ const i=DB.banque.findIndex(x=>x.id===mEditId); DB.banque[i]=t; }
       else DB.banque.push(t);
+      if(ancienMoisAchat) synchroniserAchatVariableMois(ancienMoisAchat);
+      if(t.categorie==='ACHATS') synchroniserAchatVariableMois(dm(t.date));
       await saveEntry_fb('banque',t);
       if(addAnother){
         const lastDate=document.getElementById('fDate')?.value||'';
@@ -11353,7 +11488,9 @@ function editEntry(table, id){ openModal(table, id); }
 
 async function delEntry(table, id){
   if(!confirm('Supprimer ?')) return;
+  const ancienne=DB[table]?.find(t=>t.id===id);
   DB[table]=DB[table].filter(t=>t.id!==id);
+  if(table==='banque'&&ancienne?.categorie==='ACHATS') synchroniserAchatVariableMois(dm(ancienne.date));
   await saveAll();
   renderAll(); toast('Supprimé');
 }
