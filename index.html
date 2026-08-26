@@ -5426,6 +5426,7 @@ const db = firebase.firestore();
 let currentUser = null;
 let userRef = null;
 let chargementReussi = false;
+let chargementInitialEnCours = false;
 
    // Connexion secondaire — lecture des factures LIMAGECILS pour les notifs
 const facturationApp = firebase.initializeApp({
@@ -5518,9 +5519,12 @@ auth.onAuthStateChanged(async user => {
   if(user) {
     currentUser = user;
     userRef = db.collection('users').doc(user.uid);
+    chargementInitialEnCours = true;
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
+    chargementInitialEnCours = false;
+    if(!chargementReussi) return;
     ensureJournalData();
     appliquerRoutinesFixesEmma(new Date().toLocaleDateString('fr-CA'));
     nettoyerCopiesTachesFaitesEmma(new Date().toLocaleDateString('fr-CA'));
@@ -5531,6 +5535,7 @@ auth.onAuthStateChanged(async user => {
     goHub();
     setTimeout(initialiserAccueilConversationEmma,700);
   } else {
+    chargementInitialEnCours = false;
     currentUser = null;
     userRef = null;
     document.getElementById('loginPage').style.display = 'flex';
@@ -7465,6 +7470,7 @@ async function loadAll() {
         const s = await userRef.collection(col).get();
         DB[col] = s.docs.map(d => ({id: d.id, ...d.data()}));
       }
+      chargementReussi = true;
       await saveAll();
       toast('✓ Données migrées');
     }
@@ -7489,6 +7495,10 @@ async function loadAll() {
 
    async function saveAll(){
   if(!chargementReussi){
+    // Pendant le démarrage, plusieurs vues peuvent tenter de préparer leurs
+    // données avant la fin de Firebase. C'est normal : on ignore simplement
+    // ces sauvegardes prématurées, sans faux message d'erreur.
+    if(chargementInitialEnCours) return;
     console.error('🚫 Sauvegarde bloquée : le chargement initial n\'est pas terminé ou a échoué.');
     toast('⚠️ Sauvegarde bloquée par sécurité — recharge la page');
     return;
