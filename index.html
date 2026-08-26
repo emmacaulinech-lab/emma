@@ -7505,6 +7505,7 @@ async function loadAll() {
   }
   if(!userRef) return;
   try {
+    securiserLiensChargesParMoisEmma();
     await userRef.collection('data').doc('main').update({
       caisse:      JSON.stringify(DB.caisse),
       banque:      JSON.stringify(DB.banque),
@@ -7910,7 +7911,7 @@ async function appliquerRapprochementsApprisEmma(){
           ?Math.abs(Number(cible.charge.montantCycle||0))
           :Math.abs(Number(cible.charge.prev||0));
         if(!montantAttendu||Math.abs(Math.abs(Number(b.montant))-montantAttendu)>=.01) continue;
-        lierChargeImporteeAuMouvement(cible.charge,b);
+        if(!lierChargeImporteeAuMouvement(cible.charge,b)) continue;
         b.rapprochementAutoEmma=true;
         await saveEntry_fb(cible.type,cible.charge);
         await saveEntry_fb('banque',b);
@@ -10023,20 +10024,47 @@ function calculerTvaBanque(montant,categorie){
   return Math.round((valeur/(1+PARAMS.tva)*PARAMS.tva)*100)/100;
 }
 
+function securiserLiensChargesParMoisEmma(){
+  const banqueParId=new Map((DB.banque||[]).map(b=>[String(b.id),b]));
+  let liensRetires=0;
+  for(const collection of [DB.fixes||[],DB.variables||[]]){
+    for(const charge of collection){
+      if(!Array.isArray(charge.banqueIds)||!charge.banqueIds.length) continue;
+      const anciensIds=[...charge.banqueIds];
+      charge.banqueIds=anciensIds.filter(id=>{
+        const mouvement=banqueParId.get(String(id));
+        return mouvement&&dm(mouvement.date)===charge.mois;
+      });
+      if(charge.banqueIds.length===anciensIds.length) continue;
+      liensRetires+=anciensIds.length-charge.banqueIds.length;
+      charge.montant=charge.banqueIds.reduce((s,id)=>s+Number(banqueParId.get(String(id))?.montant||0),0);
+      charge.paye=charge.banqueIds.length>0;
+    }
+  }
+  if(liensRetires) console.warn(`Protection EMMA : ${liensRetires} lien(s) de charge hors mois retiré(s).`);
+  return liensRetires;
+}
+
 function lierChargeImporteeAuMouvement(charge,mouvement){
-  if(!charge||!mouvement) return;
+  if(!charge||!mouvement) return false;
+  const estLissee=Object.prototype.hasOwnProperty.call(charge,'montantCycle');
+  if(!estLissee&&charge.mois&&charge.mois!==dm(mouvement.date)){
+    console.warn(`Lien refusé : ${charge.nom} (${charge.mois}) ne peut pas recevoir une opération de ${dm(mouvement.date)}.`);
+    return false;
+  }
   if(!charge.banqueIds) charge.banqueIds=[];
   if(!charge.banqueIds.includes(mouvement.id)) charge.banqueIds.push(mouvement.id);
   const total=charge.banqueIds.reduce((s,bid)=>{
     const ligne=DB.banque.find(b=>b.id===bid);
     return s+(ligne?Number(ligne.montant)||0:0);
   },0);
-  if(Object.prototype.hasOwnProperty.call(charge,'montantCycle')){
+  if(estLissee){
     actualiserDernierCycleChargeLissee(charge,mouvement.date);
   }else{
     charge.montant=total;
     charge.paye=true;
   }
+  return true;
 }
 
 function signatureRapprochementEmma(b){
@@ -10634,6 +10662,11 @@ async function validerRapprochementCharge(banqueId){
     charge=DB[type].find(x=>x.id===id);
   }
   if(!charge) return;
+
+  if(type!=='lissees'&&charge.mois!==dm(b.date)){
+    toast(`⚠ Lien impossible : la charge est de ${mf(charge.mois)} et l'opération de ${mf(dm(b.date))}`);
+    return;
+  }
 
   if(!charge.banqueIds) charge.banqueIds=[];
   if(!charge.banqueIds.includes(banqueId)) charge.banqueIds.push(banqueId);
