@@ -5526,6 +5526,9 @@ auth.onAuthStateChanged(async user => {
     await loadAll();
     chargementInitialEnCours = false;
     if(!chargementReussi) return;
+    // Les champs HTML contiennent des valeurs de secours codées en dur.
+    // Après Firebase, on doit toujours les remplacer par les vrais paramètres.
+    applyParamsToUI();
     ensureJournalData();
     appliquerRoutinesFixesEmma(new Date().toLocaleDateString('fr-CA'));
     nettoyerCopiesTachesFaitesEmma(new Date().toLocaleDateString('fr-CA'));
