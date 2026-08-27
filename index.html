@@ -4970,8 +4970,9 @@ button.emma-card-row{
 </div>
       <div class="set-row">
         <label>Solde initial banque</label>
-        <input type="number" id="pSolde" value="3161.58" step="0.01" onchange="updateParam('soldeInit',parseFloat(this.value))">
+        <input type="number" id="pSolde" value="3161.58" step="0.01" onkeydown="if(event.key==='Enter'){event.preventDefault();enregistrerSoldeInitial()}">
         <span class="unit">€</span>
+        <button class="btn bd bsm" type="button" onclick="enregistrerSoldeInitial()">Enregistrer</button>
       </div>
     </div>
 
@@ -7636,7 +7637,20 @@ function applyParamsToUI() {
   if(tsIb) tsIb.textContent = (PARAMS.tauxSoc*100)+'%';
 }
 
-async function saveParams() { await saveAll(); }
+async function saveParams() {
+  return await sauvegarderChampSeul('params', JSON.stringify(PARAMS));
+}
+
+async function enregistrerSoldeInitial(){
+  const champ = document.getElementById('pSolde');
+  const valeur = Number(String(champ?.value ?? '').replace(',', '.'));
+  if(!Number.isFinite(valeur)){
+    toast('⚠️ Solde initial invalide');
+    applyParamsToUI();
+    return;
+  }
+  await updateParam('soldeInit', valeur);
+}
 
 async function updateParam(key, val) {
   if(typeof val === 'number' && !Number.isFinite(val)){
@@ -7645,7 +7659,7 @@ async function updateParam(key, val) {
     return;
   }
   PARAMS[key] = val;
-  const sauvegardeOk = await saveAll();
+  const sauvegardeOk = await saveParams();
   applyParamsToUI();
   renderAll();
   if(sauvegardeOk) toast('✓ Paramètre mis à jour');
