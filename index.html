@@ -7446,7 +7446,11 @@ async function loadAll() {
       // Les paramètres ont leur propre document : il reste prioritaire sur
       // l'ancienne copie incluse dans data/main.
       const paramsDoc = await userRef.collection('settings').doc('params').get();
-      if(paramsDoc.exists && paramsDoc.data().updatedAt){
+      if(
+        paramsDoc.exists &&
+        paramsDoc.data().updatedAt &&
+        (!d.paramsUpdatedAt || String(paramsDoc.data().updatedAt) >= String(d.paramsUpdatedAt))
+      ){
         const {updatedAt, ...paramsSauvegardes} = paramsDoc.data();
         PARAMS = { ...PARAMS, ...paramsSauvegardes };
       }
@@ -7652,21 +7656,32 @@ async function saveParams() {
   if(!userRef) return false;
   const updatedAt = new Date().toISOString();
   try{
-    // Document léger et dédié, utilisé en priorité au prochain chargement.
-    await userRef.collection('settings').doc('params').set({
-      ...PARAMS,
+    // Cet emplacement est déjà utilisé et autorisé par EMMA : il constitue
+    // la sauvegarde principale des paramètres.
+    await userRef.collection('data').doc('main').update({
+      params: JSON.stringify(PARAMS),
+      paramsUpdatedAt: updatedAt,
       updatedAt
-    }, {merge:true});
+    });
 
-    // Maintient aussi l'ancien emplacement pour compatibilité avec les
-    // exports JSON et les anciennes versions d'EMMA.
+    // Vérifie immédiatement la valeur réellement relue depuis Firebase.
+    const verification = await userRef.collection('data').doc('main').get();
+    const paramsRelus = verification.exists && verification.data().params
+      ? JSON.parse(verification.data().params)
+      : null;
+    if(!paramsRelus || Number(paramsRelus.soldeInit) !== Number(PARAMS.soldeInit)){
+      throw new Error('la valeur relue ne correspond pas au solde saisi');
+    }
+
+    // Copie secondaire facultative. Certaines anciennes règles Firebase
+    // peuvent ne pas autoriser ce document : cela ne bloque plus la sauvegarde.
     try{
-      await userRef.collection('data').doc('main').update({
-        params: JSON.stringify(PARAMS),
+      await userRef.collection('settings').doc('params').set({
+        ...PARAMS,
         updatedAt
-      });
+      }, {merge:true});
     }catch(e){
-      console.warn('Copie paramètres data/main non mise à jour :', e);
+      console.warn('Copie settings/params non mise à jour :', e);
     }
     return true;
   }catch(e){
@@ -7698,7 +7713,13 @@ async function updateParam(key, val) {
   applyParamsToUI();
   renderAll();
   renderHubOverview();
-  if(sauvegardeOk) toast('✓ Paramètre mis à jour');
+  if(sauvegardeOk){
+    const soldeActuel = (DB.banque||[]).reduce(
+      (total, mouvement) => total + Number(mouvement.montant||0),
+      Number(PARAMS.soldeInit||0)
+    );
+    toast(`✓ Solde initial enregistré · solde bancaire calculé : ${fm(soldeActuel)}`);
+  }
 }
 
 async function saveEntry_fb(col, entry) {
