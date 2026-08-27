@@ -7638,6 +7638,10 @@ function applyParamsToUI() {
 }
 
 async function saveParams() {
+  // Une sauvegarde générale démarrée avant la modification peut contenir
+  // l'ancienne valeur des paramètres. On la laisse finir, puis on écrit les
+  // paramètres en dernier afin qu'elle ne puisse pas les écraser ensuite.
+  if(sauvegardeEnCours) await sauvegardeEnCours;
   return await sauvegarderChampSeul('params', JSON.stringify(PARAMS));
 }
 
