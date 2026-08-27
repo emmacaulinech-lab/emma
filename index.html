@@ -7493,44 +7493,71 @@ async function loadAll() {
   }
 }
 
+let sauvegardeEnCours = null;
+let versionSauvegardeDemandee = 0;
+let versionSauvegardeTerminee = 0;
+
+function donneesCompletesASauvegarder(){
+  securiserLiensChargesParMoisEmma();
+  return {
+    caisse:      JSON.stringify(DB.caisse),
+    banque:      JSON.stringify(DB.banque),
+    fixes:       JSON.stringify(DB.fixes),
+    chargesLissees: JSON.stringify(DB.chargesLissees||[]),
+    semainesPerso: JSON.stringify(DB.semainesPerso),
+    variables:   JSON.stringify(DB.variables),
+    prestations: JSON.stringify(DB.prestations),
+    boutique:    JSON.stringify(DB.boutique),
+    salaires:    JSON.stringify(DB.salaires),
+    salairePlan: JSON.stringify(DB.salairePlan||{actif:false,mensualite:0,moisDebut:''}),
+    conseilsFinanciersIgnores: JSON.stringify(DB.conseilsFinanciersIgnores||[]),
+    apprentissageRapprochements: JSON.stringify(DB.apprentissageRapprochements||[]),
+    formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
+    lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
+    glow: JSON.stringify(DB.glow || {}),
+    historiqueGlow: JSON.stringify(DB.historiqueGlow || []),
+    journal: JSON.stringify(DB.journal || {}),
+    params:      JSON.stringify(PARAMS),
+    updatedAt:   new Date().toISOString()
+  };
+}
+
+async function executerFileSauvegardes(){
+  while(versionSauvegardeTerminee < versionSauvegardeDemandee){
+    const versionEnCours = versionSauvegardeDemandee;
+    await userRef.collection('data').doc('main').update(
+      donneesCompletesASauvegarder()
+    );
+    versionSauvegardeTerminee = versionEnCours;
+  }
+  return true;
+}
+
    async function saveAll(){
   if(!chargementReussi){
     // Pendant le démarrage, plusieurs vues peuvent tenter de préparer leurs
     // données avant la fin de Firebase. C'est normal : on ignore simplement
     // ces sauvegardes prématurées, sans faux message d'erreur.
-    if(chargementInitialEnCours) return;
+    if(chargementInitialEnCours) return false;
     console.error('🚫 Sauvegarde bloquée : le chargement initial n\'est pas terminé ou a échoué.');
     toast('⚠️ Sauvegarde bloquée par sécurité — recharge la page');
-    return;
+    return false;
   }
-  if(!userRef) return;
-  try {
-    securiserLiensChargesParMoisEmma();
-    await userRef.collection('data').doc('main').update({
-      caisse:      JSON.stringify(DB.caisse),
-      banque:      JSON.stringify(DB.banque),
-      fixes:       JSON.stringify(DB.fixes),
-      chargesLissees: JSON.stringify(DB.chargesLissees||[]),
-      semainesPerso: JSON.stringify(DB.semainesPerso),
-      variables:   JSON.stringify(DB.variables),
-      prestations: JSON.stringify(DB.prestations),
-      boutique:    JSON.stringify(DB.boutique),
-      salaires:    JSON.stringify(DB.salaires),
-      salairePlan: JSON.stringify(DB.salairePlan||{actif:false,mensualite:0,moisDebut:''}),
-      conseilsFinanciersIgnores: JSON.stringify(DB.conseilsFinanciersIgnores||[]),
-      apprentissageRapprochements: JSON.stringify(DB.apprentissageRapprochements||[]),
-      formations:  JSON.stringify(DB.formations||{etudiantes:[]}),
-      lecture:     JSON.stringify(DB.lecture||{livres:[],objectifAnnuel:12}),
-      glow: JSON.stringify(DB.glow || {}),
-      historiqueGlow: JSON.stringify(DB.historiqueGlow || []),
-      journal: JSON.stringify(DB.journal || {}),
-      params:      JSON.stringify(PARAMS),
-      updatedAt:   new Date().toISOString()
-    });
-  } catch(e) {
-    console.error('Save error:', e);
-    toast('⚠ Erreur sauvegarde: ' + e.message);
+  if(!userRef) return false;
+
+  versionSauvegardeDemandee++;
+  if(!sauvegardeEnCours){
+    sauvegardeEnCours = executerFileSauvegardes()
+      .catch(e => {
+        console.error('Save error:', e);
+        toast('⚠ Erreur sauvegarde: ' + e.message);
+        return false;
+      })
+      .finally(() => {
+        sauvegardeEnCours = null;
+      });
   }
+  return await sauvegardeEnCours;
 }
 
 async function sauvegarderChampSeul(nomChamp, valeur){
@@ -7612,11 +7639,16 @@ function applyParamsToUI() {
 async function saveParams() { await saveAll(); }
 
 async function updateParam(key, val) {
+  if(typeof val === 'number' && !Number.isFinite(val)){
+    toast('⚠️ Valeur invalide');
+    applyParamsToUI();
+    return;
+  }
   PARAMS[key] = val;
-  await saveAll();
+  const sauvegardeOk = await saveAll();
   applyParamsToUI();
   renderAll();
-  toast('✓ Paramètre mis à jour');
+  if(sauvegardeOk) toast('✓ Paramètre mis à jour');
 }
 
 async function saveEntry_fb(col, entry) {
