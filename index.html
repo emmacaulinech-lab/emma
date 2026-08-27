@@ -7443,6 +7443,13 @@ async function loadAll() {
 }
       if(d.prestations) DB.prestations = JSON.parse(d.prestations);
       if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
+      // Les paramètres ont leur propre document : il reste prioritaire sur
+      // l'ancienne copie incluse dans data/main.
+      const paramsDoc = await userRef.collection('settings').doc('params').get();
+      if(paramsDoc.exists && paramsDoc.data().updatedAt){
+        const {updatedAt, ...paramsSauvegardes} = paramsDoc.data();
+        PARAMS = { ...PARAMS, ...paramsSauvegardes };
+      }
        if(d.salaires) DB.salaires=JSON.parse(d.salaires);
       if(d.salairePlan) DB.salairePlan={...DB.salairePlan,...JSON.parse(d.salairePlan)};
       if(d.conseilsFinanciersIgnores) DB.conseilsFinanciersIgnores=JSON.parse(d.conseilsFinanciersIgnores);
@@ -7642,7 +7649,31 @@ async function saveParams() {
   // l'ancienne valeur des paramètres. On la laisse finir, puis on écrit les
   // paramètres en dernier afin qu'elle ne puisse pas les écraser ensuite.
   if(sauvegardeEnCours) await sauvegardeEnCours;
-  return await sauvegarderChampSeul('params', JSON.stringify(PARAMS));
+  if(!userRef) return false;
+  const updatedAt = new Date().toISOString();
+  try{
+    // Document léger et dédié, utilisé en priorité au prochain chargement.
+    await userRef.collection('settings').doc('params').set({
+      ...PARAMS,
+      updatedAt
+    }, {merge:true});
+
+    // Maintient aussi l'ancien emplacement pour compatibilité avec les
+    // exports JSON et les anciennes versions d'EMMA.
+    try{
+      await userRef.collection('data').doc('main').update({
+        params: JSON.stringify(PARAMS),
+        updatedAt
+      });
+    }catch(e){
+      console.warn('Copie paramètres data/main non mise à jour :', e);
+    }
+    return true;
+  }catch(e){
+    console.error('Erreur sauvegarde paramètres :', e);
+    toast('⚠️ Erreur de sauvegarde: '+e.message);
+    return false;
+  }
 }
 
 async function enregistrerSoldeInitial(){
@@ -7666,6 +7697,7 @@ async function updateParam(key, val) {
   const sauvegardeOk = await saveParams();
   applyParamsToUI();
   renderAll();
+  renderHubOverview();
   if(sauvegardeOk) toast('✓ Paramètre mis à jour');
 }
 
