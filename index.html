@@ -4812,6 +4812,12 @@ button.emma-card-row{
       <select class="fi" id="cpy" onchange="renderCaisse()">
         <option value="">Tous statuts</option><option value="1">✅ Payé</option><option value="0">❓ Non payé</option>
       </select>
+      <select class="fi" id="crap" onchange="renderCaisse()">
+        <option value="">Tous rapprochements</option>
+        <option value="0">⏳ Non rapprochées</option>
+        <option value="1">✅ Rapprochées</option>
+        <option value="ignore">🚫 À ne pas rapprocher</option>
+      </select>
     </div>
     <div class="tw" id="caisseTable"></div>
   </div>
@@ -4848,6 +4854,12 @@ button.emma-card-row{
       <input class="fi" id="bs" placeholder="🔍 Rechercher..." oninput="renderBanque()" style="min-width:180px">
       <select class="fi" id="bm" onchange="renderBanque()"><option value="">Tous les mois</option></select>
       <select class="fi" id="bc" onchange="renderBanque()"><option value="">Toutes catégories</option></select>
+      <select class="fi" id="brap" onchange="renderBanque()">
+        <option value="">Tous rapprochements</option>
+        <option value="0">⏳ Non rapprochées</option>
+        <option value="1">✅ Rapprochées</option>
+        <option value="ignore">🚫 À ne pas rapprocher</option>
+      </select>
     </div>
     <div class="banque-layout" style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start">
       <div class="tw" id="banqueTable"></div>
@@ -8024,7 +8036,7 @@ async function appliquerRapprochementsApprisEmma(){
         continue;
       }
 
-      if(!['CA','VIR'].includes(b.categorie)||(b.caisseIds||[]).length) continue;
+      if(b.ignorerRapprochement||!['CA','VIR'].includes(b.categorie)||(b.caisseIds||[]).length) continue;
       const regle=regleApprisePourBanque(b,'caisse');
       if(!regle||regle.confirmationsExactes<3||regle.confiance<1) continue;
       const mode=regle.cleCible;
@@ -8197,6 +8209,7 @@ function genererConseilsFinanciersEmma(){
   }
 
   const mouvementsNonLies=(DB.banque||[]).filter(b=>{
+    if(b.ignorerRapprochement) return false;
     if(['CA','VIR'].includes(b.categorie)) return !(b.caisseIds||[]).length;
     if(estCategorieChargeBanque(b.categorie)) return ![...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].some(c=>(c.banqueIds||[]).includes(b.id));
     return false;
@@ -8451,7 +8464,7 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
   }).join('');
 
   // Clientes non payées (VIR en attente)
-  const nonPayees=DB.caisse.filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0&&inM(t.date,mois));
+  const nonPayees=DB.caisse.filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&!t.ignorerRapprochement&&t.montant>0&&inM(t.date,mois));
   const npEl=document.getElementById('d-nonpayees');
   if(npEl){
     if(!nonPayees.length){
@@ -8523,12 +8536,41 @@ if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date
 // ═══════════════════════════════════════
 // CAISSE
 // ═══════════════════════════════════════
+function estLigneCaisseRapprochee(t){
+  if(t.reglement==='ESP') return t.depose===true;
+  if(t.reglement==='CHQ') return t.chqDepose===true;
+  if(['VIR','PLANITY'].includes(t.reglement)) return t.rapprocheBanque===true;
+  return false;
+}
+
+function estMouvementBanqueRapproche(b){
+  if(['CA','VIR'].includes(b.categorie)) return (b.caisseIds||[]).length>0;
+  if(estCategorieChargeBanque(b.categorie)){
+    return [...(DB.fixes||[]),...(DB.variables||[]),...(DB.chargesLissees||[])]
+      .some(charge=>(charge.banqueIds||[]).includes(b.id));
+  }
+  return false;
+}
+
+async function toggleIgnorerRapprochement(collection,id){
+  const liste=collection==='banque'?DB.banque:DB.caisse;
+  const ligne=liste.find(x=>x.id===id);
+  if(!ligne) return;
+  ligne.ignorerRapprochement=!ligne.ignorerRapprochement;
+  const ok=await saveAll();
+  renderCaisse();
+  renderBanque();
+  renderConseilsFinanciersEmma();
+  if(ok) toast(ligne.ignorerRapprochement?'🚫 Cette ligne ne sera plus proposée':'✓ Ligne réactivée pour les rapprochements');
+}
+
 function renderCaisse(){
   const s=(document.getElementById('cs')?.value||'').toLowerCase();
   const fm_=document.getElementById('cm')?.value||'';
   const fp=document.getElementById('cp')?.value;
   const fmo=document.getElementById('cmo')?.value||'';
   const fpy=document.getElementById('cpy')?.value;
+  const frap=document.getElementById('crap')?.value||'';
   let rows=[...DB.caisse].sort((a,b)=>b.date.localeCompare(a.date));
   if(s) rows=rows.filter(t=>t.nom.toLowerCase().includes(s)||(t.prestation||'').toLowerCase().includes(s));
   if(fm_) rows=rows.filter(t=>inM(t.date,fm_));
@@ -8536,6 +8578,9 @@ function renderCaisse(){
   if(fmo) rows=rows.filter(t=>t.reglement===fmo);
   if(fpy==='1') rows=rows.filter(t=>t.paye);
   if(fpy==='0') rows=rows.filter(t=>!t.paye);
+  if(frap==='0') rows=rows.filter(t=>!estLigneCaisseRapprochee(t)&&!t.ignorerRapprochement);
+  if(frap==='1') rows=rows.filter(t=>estLigneCaisseRapprochee(t));
+  if(frap==='ignore') rows=rows.filter(t=>t.ignorerRapprochement);
 
   const byM={};
   for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
@@ -8581,6 +8626,7 @@ function renderCaisse(){
   : `<span class="sno">⬜</span>`
 }</td>
         <td style="white-space:nowrap">
+          ${!estLigneCaisseRapprochee(t)||t.ignorerRapprochement?`<button class="btn ${t.ignorerRapprochement?'bd':'bg'} bsm" title="${t.ignorerRapprochement?'Réactiver les propositions':'Ne plus proposer cette ligne'}" onclick="toggleIgnorerRapprochement('caisse','${t.id}')">${t.ignorerRapprochement?'↩️':'🚫'}</button>`:''}
           <button class="btn bg bsm" onclick="editEntry('caisse','${t.id}')">✏️</button>
           <button class="btn br bsm" onclick="delEntry('caisse','${t.id}')">✕</button>
         </td>
@@ -8603,6 +8649,7 @@ function renderBanque(){
   const s=(document.getElementById('bs')?.value||'').toLowerCase();
   const fm_=document.getElementById('bm')?.value||'';
   const fc=document.getElementById('bc')?.value||'';
+  const frap=document.getElementById('brap')?.value||'';
   const si=PARAMS.soldeInit;
 
   let all=[...DB.banque].sort((a,b)=>a.date.localeCompare(b.date)||String(a.id).localeCompare(String(b.id)));
@@ -8615,6 +8662,9 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
   if(s) rows=rows.filter(t=>t.nom.toLowerCase().includes(s));
   if(fm_) rows=rows.filter(t=>inM(t.date,fm_));
   if(fc) rows=rows.filter(t=>t.categorie===fc);
+  if(frap==='0') rows=rows.filter(t=>!estMouvementBanqueRapproche(t)&&!t.ignorerRapprochement);
+  if(frap==='1') rows=rows.filter(t=>estMouvementBanqueRapproche(t));
+  if(frap==='ignore') rows=rows.filter(t=>t.ignorerRapprochement);
 
   const byM={};
   for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
@@ -8630,7 +8680,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
     html+=`<tr class="trm"><td colspan="4" style="padding:8px 11px">▾ ${mf(mois)}</td>
       <td colspan="3" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:${tot>=0?'var(--rec)':'var(--dep)'}">${fm(tot,true)}</td></tr>`;
     for(const t of mrows){
-      const suggestion=trouverSuggestionRapprochementBanque(t.id);
+      const suggestion=t.ignorerRapprochement?null:trouverSuggestionRapprochementBanque(t.id);
       html+=`<tr>
         <td class="tdt">${dlbl(t.date)}</td>
         <td style="font-weight:500">${t.nom}</td>
@@ -8639,6 +8689,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
         <td class="${t.montant>=0?'tp':'tn'}" style="text-align:right">${fm(t.montant,t.montant>0)}</td>
         <td class="tmu" style="text-align:right">${fa(sm[t.id]||0)}</td>
         <td style="white-space:nowrap">
+        ${!estMouvementBanqueRapproche(t)||t.ignorerRapprochement?`<button class="btn ${t.ignorerRapprochement?'bd':'bg'} bsm" title="${t.ignorerRapprochement?'Réactiver les propositions':'Ne plus proposer ce mouvement'}" onclick="toggleIgnorerRapprochement('banque','${t.id}')">${t.ignorerRapprochement?'↩️':'🚫'}</button> `:''}
         ${suggestion?`<button class="btn bd bsm" title="${echapperHtmlEmma(suggestion.raison)}" onclick="ouvrirSuggestionRapprochementBanque('${t.id}')">✨ ${echapperHtmlEmma(suggestion.label)}</button> `:''}
         ${['CA','VIR'].includes(t.categorie)
             ?(t.caisseIds?.length
@@ -8664,7 +8715,7 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
   document.getElementById('banqueTable').innerHTML=html;
 
   // CHQ à déposer
-  const chqLines=DB.caisse.filter(t=>t.reglement==='CHQ'&&t.montant>0&&!t.chqDepose);
+  const chqLines=DB.caisse.filter(t=>t.reglement==='CHQ'&&t.montant>0&&!t.chqDepose&&!t.ignorerRapprochement);
   let chqH=chqLines.length?'':'<div style="color:var(--mut2);font-size:12px">Aucun chèque en attente</div>';
   let chqT=0;
   for(const c of chqLines){chqT+=c.montant;chqH+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e0d0f0;font-size:12px"><span>${dlbl(c.date)} — ${c.nom}</span><span style="font-family:'DM Mono',monospace;font-weight:600;color:#6f2da8">${fa(c.montant)}</span></div>`;}
@@ -9908,8 +9959,8 @@ function openSelDepot(type, banqueId){
   currentDepotBanqueId=banqueId;
   document.getElementById('depTitle').textContent=type==='ESP'?'💵 Clientes — dépôt espèces':'📝 Clientes — dépôt chèques';
   const rows=type==='ESP'
-    ?DB.caisse.filter(t=>t.reglement==='ESP'&&t.montant>0&&!t.depose)
-    :DB.caisse.filter(t=>t.reglement==='CHQ'&&t.montant>0&&!t.chqDepose);
+    ?DB.caisse.filter(t=>t.reglement==='ESP'&&t.montant>0&&!t.depose&&!t.ignorerRapprochement)
+    :DB.caisse.filter(t=>t.reglement==='CHQ'&&t.montant>0&&!t.chqDepose&&!t.ignorerRapprochement);
   let html=rows.length
     ?`<div style="font-size:11px;color:var(--mut);margin-bottom:8px">${rows.length} cliente(s) en attente</div>`
     :'<div style="color:var(--mut2);font-size:12px;padding:10px 0">Aucune cliente en attente</div>';
@@ -10255,7 +10306,7 @@ function selectionEspecesProbablePourDepot(b){
   const plage=plageRechercheDepotEspeces(b.date);
   const priorite=t=>!t.praticien?0:t.praticien==='GIULIA'?1:t.praticien==='MARIE'?2:3;
   const candidates=(DB.caisse||[]).filter(t=>
-    t.reglement==='ESP'&&t.montant>0&&!t.depose&&
+    t.reglement==='ESP'&&t.montant>0&&!t.depose&&!t.ignorerRapprochement&&
     t.date>=plage.debut&&t.date<=plage.fin
   ).sort((a,b)=>priorite(a)-priorite(b)||a.date.localeCompare(b.date));
 
@@ -10280,7 +10331,7 @@ function selectionVirementProbable(b){
   const cible=Math.round(Math.abs(Number(b.montant)||0)*100);
   if(!cible) return null;
   const cleBanque=cleLibelleFinancierEmma(b.nom);
-  const candidates=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&t.montant>0&&!t.rapprocheBanque).map(t=>{
+  const candidates=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&t.montant>0&&!t.rapprocheBanque&&!t.ignorerRapprochement).map(t=>{
     const cleCaisse=cleLibelleFinancierEmma(t.nom);
     const nomExact=cleBanque&&cleCaisse&&cleBanque===cleCaisse;
     const nom=nomExact?1:similariteLibellesBanque(b.nom,t.nom);
@@ -10305,7 +10356,7 @@ function selectionVirementProbable(b){
 
 function trouverSuggestionRapprochementBanque(banqueId){
   const b=DB.banque.find(x=>x.id===banqueId);
-  if(!b) return null;
+  if(!b||b.ignorerRapprochement) return null;
 
   if(estCategorieChargeBanque(b.categorie)){
     if([...DB.fixes,...DB.variables,...(DB.chargesLissees||[])].some(c=>(c.banqueIds||[]).includes(b.id))) return null;
@@ -10350,7 +10401,7 @@ function trouverSuggestionRapprochementBanque(banqueId){
     }
     const cleBanque=cleLibelleFinancierEmma(b.nom);
     const candidats=(DB.caisse||[]).filter(t=>
-      t.montant>0&&!t.rapprocheBanque&&
+      t.montant>0&&!t.rapprocheBanque&&!t.ignorerRapprochement&&
       (b.categorie!=='VIR'||t.reglement==='VIR')
     ).map(t=>{
       const cleCaisse=cleLibelleFinancierEmma(t.nom);
@@ -10404,7 +10455,7 @@ function renderImportBanqueResult(){
   });
   const nouveaux=importedMouvements.filter((_,i)=>!doublons.has(i));
 
-  const prestationsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
+  const prestationsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&!t.ignorerRapprochement&&t.montant>0);
   const chargesDispo=[...(DB.fixes||[]).map(c=>({...c,type:'fixe'})),...(DB.variables||[]).map(c=>({...c,type:'variable'})),...(DB.chargesLissees||[]).filter(c=>c.actif!==false).map(c=>({...c,type:'lissee'}))];
 
   let html=`<div class="tw"><div class="card-hdr">📋 ${nouveaux.length} nouveaux mouvements <button class="btn bd bsm" onclick="importerTousMouvements()">✓ Tout importer</button></div>
@@ -10605,6 +10656,7 @@ function updateRapListe(banqueId){
   const prestations=DB.caisse.filter(t=>{
     if(t.montant<=0||t.reglement!==mode) return false;
     if(mois&&mois!=='ALL'&&!inM(t.date,mois)) return false;
+    if(t.ignorerRapprochement&&!dejaLies.includes(t.id)) return false;
     return true; // on affiche tout, on ne filtre plus sur depose/chqDepose/rapprocheBanque
   }).sort((a,b)=>{
     const ra=estRapprochee(a),rb=estRapprochee(b);
@@ -16683,7 +16735,7 @@ function getToutesNotifications(today){
     }
   });
 
-  const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&t.montant>0);
+  const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&!t.ignorerRapprochement&&t.montant>0);
   if(virementsEnAttente.length){
     const totalVir=virementsEnAttente.reduce((s,t)=>s+t.montant,0);
     notifs.push({icon:'⏳',txt:`${virementsEnAttente.length} virement(s) en attente (${fa(totalVir)})`,color:'var(--warn)',onclick:`goModule('compta')`});
