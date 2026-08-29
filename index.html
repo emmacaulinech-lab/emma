@@ -30429,6 +30429,17 @@ function ouvrirImportPlanityMatinEmma(){
     inputJournal.click();
 }
 
+function memoriserTypeJourneeEmma(type,date=dateJourEmma()){
+    ensureJournalData();
+    DB.journal.contexteJour=DB.journal.contexteJour||{};
+    DB.journal.contexteJour[date]={
+        ...(DB.journal.contexteJour[date]||{}),
+        typeJournee:type==='repos'?'repos':'travail',
+        misAJourA:new Date().toISOString()
+    };
+    sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+}
+
 function choisirTypeJourneeEmma(type){
 
     const aujourdHui =
@@ -30440,6 +30451,10 @@ function choisirTypeJourneeEmma(type){
     );
 
     fermerRoutineMatinEmma();
+
+    // Ce choix explicite prime sur les rendez-vous ou anciennes alertes
+    // encore visibles dans le planning de la journée.
+    memoriserTypeJourneeEmma(type,aujourdHui);
 
 
     if(type === "travail"){
@@ -33396,11 +33411,17 @@ function classifierEffortTacheEmma(tache){
 function contexteJourPlanningEmma(date){
     const jour=new Date(`${date}T12:00:00`).getDay();
     const weekend=jour===0||jour===6;
-    const travaille=!!estJourTravailleEmma?.(date);
+    const typeExplicite=DB.journal?.contexteJour?.[date]?.typeJournee;
+    const travaille=typeExplicite==='repos'
+        ? false
+        : typeExplicite==='travail'
+            ? true
+            : !!estJourTravailleEmma?.(date);
     return {
         weekend,
         travaille,
-        jourLibre:!travaille
+        jourLibre:!travaille,
+        typeExplicite:typeExplicite||null
     };
 }
 
@@ -33414,6 +33435,14 @@ function adapterElementsAuContexteEmma(elements,date){
             effort:element.effort||classifierEffortTacheEmma(element)
         }))
         .filter(element=>{
+            if(contexte.typeExplicite==='repos'&&(
+                element.type==='pro'||
+                element.categorie==='proAdmin'||
+                element.source==='notifications'
+            )){
+                return false;
+            }
+
             if(element.categorie!=='maison') return true;
 
             // Les jours travaillés restent consacrés aux gestes simples :
@@ -34918,7 +34947,7 @@ function appliquerRoutinesFixesEmma(date){
     DB.journal.planning[date]=DB.journal.planning[date]||[];
     const planning=DB.journal.planning[date];
     const faitMap=DB.journal.faitAujourdhui?.[date]||{};
-    const jourTravaille=estJourTravailleEmma(date);
+    const jourTravaille=contexteJourPlanningEmma(date).travaille;
 
     ROUTINES_QUOTIDIENNES_EMMA.forEach(config=>{
         const reference=trouverSousTacheParNomRoutineEmma(config.nom);
@@ -42503,6 +42532,11 @@ function preparerCandidatsPlanningConversationEmma(){
             !bloc.verrouille&&
             bloc.source!=='planity'&&
             bloc.type!=='tempsLibre'&&
+            !(contexte.typeExplicite==='repos'&&(
+                bloc.type==='pro'||
+                bloc.categorie==='proAdmin'||
+                bloc.source==='notifications'
+            ))&&
             !trouverSousTacheJournalEmma(cleElementPlanningConversationEmma(bloc))?.sousTache?.planificationFixe
         )
         .map(bloc=>({
@@ -44357,6 +44391,20 @@ function traiterCommandeAssistantEmma(
         normaliserCommandeEmma(
             texte
         );
+
+    if(/^(je suis en repos|je suis de repos|journee de repos|je ne travaille pas aujourd'hui|je ne travaille pas aujourd hui)$/.test(commande)){
+        const date=new Date().toLocaleDateString('fr-CA');
+        memoriserTypeJourneeEmma('repos',date);
+        ajouterMessageAssistantEmma(
+            'C’est noté ☁️ Aujourd’hui est une journée de repos : je ne te proposerai aucune tâche de travail. On garde du personnel, du repos et éventuellement une seule tâche maison plus importante.'
+        );
+        afficherReponsesRapidesEmma([
+            {label:'✨ Organiser ma journée de repos',action:'organiser'},
+            {label:'⏱ J’ai 20 minutes',action:'temps_20'},
+            {label:'📸 Scanner une pièce',action:'scanner_piece'}
+        ]);
+        return;
+    }
 
     if(/(je suis fatiguee|je suis fatigue|fatiguee|fatigue)/.test(commande)){
         demanderNiveauFatigueEmma();
