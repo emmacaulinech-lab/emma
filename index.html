@@ -33472,7 +33472,7 @@ function adapterElementsAuContexteEmma(elements,date){
         });
 }
 
-function getElementsJourIntelligents(date){
+function getElementsJourIntelligents(date,options={}){
 
     ensureJournalData();
 
@@ -33734,6 +33734,15 @@ if(minutesPersoLibres > 0){
             budgetMaison,
             minutesPersoLibres
         );
+
+    // Demandé explicitement depuis le récap : on ouvre davantage la
+    // réserve, tout en respectant le temps réellement libre.
+    if(options.elargir===true){
+        budgetMaison=Math.min(
+            minutesPersoLibres,
+            Math.round(budgetMaison*1.75)
+        );
+    }
 }
 
 // =========================
@@ -42097,6 +42106,7 @@ function executerReponseRapideEmma(action,valeur=''){
     if(action==='planning_jamais') return repondreCandidatPlanningEmma('jamais');
     if(action==='planning_prioritaire') return repondreCandidatPlanningEmma('prioritaire');
     if(action==='planning_creer') return creerPlanningDepuisConversationEmma();
+    if(action==='planning_ajouter_autres') return ajouterAutresCandidatsPlanningEmma();
     if(action==='planning_modifier') return recommencerChoixPlanningEmma();
     if(action==='planning_annuler') return annulerPreparationPlanningEmma();
 }
@@ -42682,9 +42692,85 @@ function afficherRecapPlanningEmma(){
     );
     afficherReponsesRapidesEmma([
         {label:'✓ Créer mon planning',action:'planning_creer'},
+        {label:'＋ Ajouter d’autres tâches',action:'planning_ajouter_autres'},
         {label:'↩ Modifier mes choix',action:'planning_modifier'},
         {label:'Annuler',action:'planning_annuler'}
     ]);
+}
+
+function ajouterAutresCandidatsPlanningEmma(){
+    const session=chargerPreparationPlanningEmma();
+    if(!session) return;
+
+    ensureJournalData();
+    const planning=DB.journal.planning?.[session.date]||[];
+    const faitMap=DB.journal.faitAujourdhui?.[session.date]||{};
+    const dejaVus=new Set((session.candidats||[]).map(item=>item.cle));
+    const dejaPlanifies=new Set(planning.map(cleElementPlanningConversationEmma));
+    const refusDuJour=new Set(DB.journal.refusPlanningJour?.[session.date]||[]);
+    const desactivees=new Set(DB.journal.tachesDesactivees||[]);
+    const energie=DB.journal.contexteJour?.[session.date]?.energie||'normale';
+    const contexte=contexteJourPlanningEmma(session.date);
+    const dureeMax=energie==='forte'?15:energie==='moyenne'?25:Infinity;
+
+    const supplementaires=getElementsJourIntelligents(session.date,{elargir:true})
+        .filter(element=>{
+            const cle=cleElementPlanningConversationEmma(element);
+            return !dejaVus.has(cle)&&
+                !dejaPlanifies.has(cle)&&
+                !refusDuJour.has(cle)&&
+                !desactivees.has(cle)&&
+                !faitMap[cle]&&
+                !estTacheOuEquivalentFaiteJourEmma(element,session.date)&&
+                (element.categorie==='detente'||Number(element.duree||0)<=dureeMax);
+        })
+        .sort((a,b)=>{
+            if(contexte.travaille){
+                const effortA=a.effort==='classique'?0:a.effort==='intermediaire'?1:2;
+                const effortB=b.effort==='classique'?0:b.effort==='intermediaire'?1:2;
+                if(effortA!==effortB) return effortA-effortB;
+            }
+            return (a.priorite||99)-(b.priorite||99);
+        })
+        .slice(0,contexte.travaille?3:4)
+        .map(element=>({
+            cle:cleElementPlanningConversationEmma(element),
+            origine:'nouvelle',
+            nom:element.nom||element.customNom||'Proposition',
+            icon:element.icon||element.iconOverride||'✨',
+            duree:Number(element.duree||5),
+            raison:element.categorie==='detente'
+                ? 'Une pause pour garder une journée équilibrée'
+                : element.prioritaireScan
+                    ? 'Repérée grâce aux photos'
+                    : element.effort==='lourde'
+                        ? 'Une tâche plus importante adaptée à ton jour libre'
+                        : 'Une possibilité supplémentaire pour compléter ta journée',
+            element
+        }));
+
+    if(!supplementaires.length){
+        ajouterMessageAssistantEmma(
+            'Je n’ai pas d’autre proposition cohérente pour aujourd’hui sans remettre une tâche refusée ou surcharger la journée ♡'
+        );
+        afficherReponsesRapidesEmma([
+            {label:'✓ Créer mon planning',action:'planning_creer'},
+            {label:'↩ Modifier mes choix',action:'planning_modifier'},
+            {label:'Annuler',action:'planning_annuler'}
+        ]);
+        return;
+    }
+
+    const ancienNombre=(session.candidats||[]).length;
+    session.candidats=[...(session.candidats||[]),...supplementaires];
+    session.index=ancienNombre;
+    session.etape='validation';
+    sauvegarderPreparationPlanningEmma();
+
+    ajouterMessageAssistantEmma(
+        `Bien sûr ♡ Je te propose ${supplementaires.length} option${supplementaires.length>1?'s':''} supplémentaire${supplementaires.length>1?'s':''}. Tes premiers choix sont conservés.`
+    );
+    afficherCandidatPlanningEmma();
 }
 
 function recommencerChoixPlanningEmma(){
