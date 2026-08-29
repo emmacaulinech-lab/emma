@@ -30004,6 +30004,14 @@ function ensureJournalData(){
         DB.journal.preparationJour = {};
     }
 
+    if(!Array.isArray(DB.journal.tachesDesactivees)){
+        DB.journal.tachesDesactivees = [];
+    }
+
+    if(!DB.journal.bilansAuto){
+        DB.journal.bilansAuto = {};
+    }
+
    if(!Array.isArray(DB.journal.habitudes)){
 
     DB.journal.habitudes = [];
@@ -33367,6 +33375,74 @@ function calculerScorePieceJournal(zone, date){
     };
 }
 
+function classifierEffortTacheEmma(tache){
+    const nom=normaliserNomRoutineEmma(tache?.nom||tache?.customNom||'');
+    const duree=Number(tache?.duree||10);
+    const motsLourds=[
+        'joint','vitre','four','hotte','frigo','refrigerateur','congelateur',
+        'placard','grand menage','nettoyage profond','detartr','trier','desencombr',
+        'rideau','matelas','canape','terrasse','garage','cave'
+    ];
+
+    if(duree>=35||motsLourds.some(mot=>nom.includes(mot))){
+        return 'lourde';
+    }
+    if(duree>=16){
+        return 'intermediaire';
+    }
+    return 'classique';
+}
+
+function contexteJourPlanningEmma(date){
+    const jour=new Date(`${date}T12:00:00`).getDay();
+    const weekend=jour===0||jour===6;
+    const travaille=!!estJourTravailleEmma?.(date);
+    return {
+        weekend,
+        travaille,
+        jourLibre:!travaille
+    };
+}
+
+function adapterElementsAuContexteEmma(elements,date){
+    const contexte=contexteJourPlanningEmma(date);
+    let lourdeGardee=false;
+
+    return elements
+        .map(element=>({
+            ...element,
+            effort:element.effort||classifierEffortTacheEmma(element)
+        }))
+        .filter(element=>{
+            if(element.categorie!=='maison') return true;
+
+            // Les jours travaillés restent consacrés aux gestes simples :
+            // aucune grosse corvée avant/après les clientes.
+            if(contexte.travaille&&element.effort==='lourde') return false;
+
+            // Un jour libre peut avancer une grosse tâche, mais une seule.
+            if(contexte.jourLibre&&element.effort==='lourde'){
+                if(lourdeGardee) return false;
+                lourdeGardee=true;
+            }
+            return true;
+        })
+        .map(element=>{
+            if(element.categorie!=='maison') return element;
+            if(contexte.travaille&&element.effort==='classique'){
+                return {...element,priorite:Math.max(0,Number(element.priorite||5)-3)};
+            }
+            if(contexte.jourLibre&&element.effort==='lourde'){
+                return {
+                    ...element,
+                    priorite:Math.max(0,Number(element.priorite||5)-2),
+                    preferenceHoraire:element.preferenceHoraire||{debut:'09:00',fin:'15:00'}
+                };
+            }
+            return element;
+        });
+}
+
 function getElementsJourIntelligents(date){
 
     ensureJournalData();
@@ -33391,6 +33467,9 @@ const idsTachesForcees =
 
 const faitMapJour =
     DB.journal.faitAujourdhui?.[date] || {};
+
+const tachesDesactivees =
+    new Set(DB.journal.tachesDesactivees || []);
    
 const tachesCandidates = [];
 
@@ -33401,6 +33480,12 @@ DB.journal.zones.forEach((zone, zoneIndex) => {
         const sousTachesCandidates =
     (action.sousTaches || [])
     .filter(st => {
+
+        // « Je ne veux plus cette tâche » est un vrai choix durable.
+        // Elle ne revient ni demain, ni à sa prochaine fréquence.
+        if(tachesDesactivees.has(st.id)){
+            return false;
+        }
 
         // Les routines à heure fixe sont placées avant le moteur flexible.
         if(st.planificationFixe){
@@ -33515,6 +33600,9 @@ sousTachesCandidates.forEach(st => {
 
                 duree:
                     Number(st.duree || 10),
+
+                effort:
+                    classifierEffortTacheEmma(st),
 
                 prioriteZone:
                     zoneIndex,
@@ -34362,7 +34450,7 @@ elements.push(
     ...tachesProNotifications
 );
 
-return elements;
+return adapterElementsAuContexteEmma(elements,date);
 }
 
 function getCreneauxLibresIntelligents(date){
@@ -34934,6 +35022,8 @@ if(
     ];
 }
 
+elements=adapterElementsAuContexteEmma(elements,date);
+
 // Une tâche terminée reste exclue même si elle provient d'un ancien
 // planning qui enregistrait seulement l'identifiant du créneau.
 elements=elements.filter(element=>{
@@ -34968,13 +35058,20 @@ const refusDuJour = new Set(
     DB.journal.refusPlanningJour?.[date] || []
 );
 
+const tachesDesactiveesPlanning = new Set(
+    DB.journal.tachesDesactivees || []
+);
+
 elements = elements.filter(element => {
     const cle =
         element.data?.sousTacheId ||
         element.sourceId ||
         element.id;
 
-    return !cle || !refusDuJour.has(cle);
+    return !cle || (
+        !refusDuJour.has(cle) &&
+        !tachesDesactiveesPlanning.has(cle)
+    );
 });
 
 // Si l'utilisatrice donne une heure
@@ -35244,9 +35341,31 @@ if(plagesTaches.length){
 
         if(element.categorie === "maison"){
 
+            const contexte=contexteJourPlanningEmma(date);
+            const effort=element.effort||classifierEffortTacheEmma(element);
+
+            if(contexte.travaille&&effort==='lourde'){
+                return -9999;
+            }
+
+            // En jour travaillé, le matin et le soir restent réservés
+            // aux gestes courts et familiers.
+            if(contexte.travaille&&effort!=='classique'&&
+                (debut<9*60||debut>=18*60)){
+                return -9999;
+            }
+
             // Évite de mettre le ménage trop tard
             if(debut < 19 * 60){
                 score += 2;
+            }
+
+            if(contexte.travaille&&effort==='classique'){
+                score += 8;
+            }
+
+            if(contexte.jourLibre&&effort==='lourde'&&debut>=9*60&&debut<15*60){
+                score += 10;
             }
 
         }
@@ -40979,6 +41098,7 @@ async function togglePlanningFait(planningId){
   repositionnerTachesFaitesAvantMaintenant(today,minuteActuelle);
 
   dedupliquerPlanningEmma(today);
+  mettreAJourBilanAutoEmma(today);
   await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
   await recalculerResteJourneeEmma(today);
   renderPlanningTimeline();
@@ -41944,6 +42064,8 @@ function executerReponseRapideEmma(action,valeur=''){
     if(action==='planning_scan_non') return choisirScanPreparationPlanningEmma(false);
     if(action==='planning_oui') return repondreCandidatPlanningEmma('oui');
     if(action==='planning_non') return repondreCandidatPlanningEmma('non');
+    if(action==='planning_plus_tard') return repondreCandidatPlanningEmma('plus_tard');
+    if(action==='planning_jamais') return repondreCandidatPlanningEmma('jamais');
     if(action==='planning_prioritaire') return repondreCandidatPlanningEmma('prioritaire');
     if(action==='planning_creer') return creerPlanningDepuisConversationEmma();
     if(action==='planning_modifier') return recommencerChoixPlanningEmma();
@@ -41953,7 +42075,7 @@ function executerReponseRapideEmma(action,valeur=''){
 function actionsAccueilAssistantEmma(){
     afficherReponsesRapidesEmma([
         {label:'🗓 Organise ma journée',action:'organiser'},
-        {label:'🫶 Je suis fatiguée',action:'fatigue'},
+        {label:'🫶 Journée difficile',action:'fatigue'},
         {label:'📸 Scanner une pièce',action:'scanner_piece'},
         {label:'⏱ J’ai 20 minutes',action:'temps_20'}
     ]);
@@ -42005,11 +42127,12 @@ function candidatsVingtMinutesEmma(){
     const faitMap=DB.journal.faitAujourdhui?.[date]||{};
     const clesPlanifiees=new Set(planning.map(cleElementPlanningConversationEmma));
     const refus=new Set(DB.journal.refusPlanningJour?.[date]||[]);
+    const desactivees=new Set(DB.journal.tachesDesactivees||[]);
     return getElementsJourIntelligents(date)
         .filter(element=>{
             const cle=cleElementPlanningConversationEmma(element);
             return Number(element.duree||0)<=20&&Number(element.duree||0)>0&&
-                !clesPlanifiees.has(cle)&&!faitMap[cle]&&!refus.has(cle)&&
+                !clesPlanifiees.has(cle)&&!faitMap[cle]&&!refus.has(cle)&&!desactivees.has(cle)&&
                 !estTacheOuEquivalentFaiteJourEmma(element,date);
         })
         .sort((a,b)=>(a.priorite||99)-(b.priorite||99))
@@ -42067,6 +42190,37 @@ function annulerTacheVingtMinutesEmma(){
     actionsAccueilAssistantEmma();
 }
 
+function mettreAJourBilanAutoEmma(date){
+    ensureJournalData();
+    const planning=DB.journal.planning?.[date]||[];
+    const faitMap=DB.journal.faitAujourdhui?.[date]||{};
+    const terminees=planning.filter(bloc=>
+        faitMap[bloc.id]||faitMap[cleTachePlanningEmma(bloc)]||bloc.realiseA
+    );
+    const reportees=planning.filter(bloc=>
+        bloc.reorganiseeRetardA||bloc.heurePrevueInitiale||bloc.reporteeDepuis
+    );
+    const refusees=DB.journal.refusPlanningJour?.[date]||[];
+
+    DB.journal.bilansAuto[date]={
+        date,
+        terminees:terminees.length,
+        reportees:reportees.length,
+        laisseesDeCote:refusees.length,
+        nomsTermines:terminees.slice(-5).map(bloc=>bloc.nom||bloc.customNom||'Tâche'),
+        misAJourA:new Date().toISOString()
+    };
+    return DB.journal.bilansAuto[date];
+}
+
+function texteBilanAutoEmma(date){
+    const bilan=mettreAJourBilanAutoEmma(date);
+    if(!bilan.terminees&&!bilan.reportees&&!bilan.laisseesDeCote){
+        return 'Je n’écris rien à ta place pour l’instant : ta journée reste simplement ouverte.';
+    }
+    return `J’ai préparé ton petit bilan automatiquement : ${bilan.terminees} tâche${bilan.terminees>1?'s':''} terminée${bilan.terminees>1?'s':''}${bilan.reportees?`, ${bilan.reportees} réorganisée${bilan.reportees>1?'s':''}`:''}${bilan.laisseesDeCote?`, ${bilan.laisseesDeCote} laissée${bilan.laisseesDeCote>1?'s':''} dans la réserve pour aujourd’hui`:''}.`;
+}
+
 function initialiserAccueilConversationEmma(){
     ouvrirAssistantEmma();
 
@@ -42122,14 +42276,12 @@ function initialiserAccueilConversationEmma(){
         .filter(piece=>piece.actives.length)
         .sort((a,b)=>(b.actives.length-a.actives.length)||(a.score-b.score))[0];
 
-    if(retard.length){
-        ajouterMessageAssistantEmma(
-            `Bonjour Emma ♡ Tu as déjà terminé ${faites} tâche${faites>1?'s':''}. Il en reste ${restantes.length}, dont ${retard.length} en retard.${prochaine?` La prochaine est « ${prochaine.nom||prochaine.customNom||'tâche prévue'} » à ${prochaine.heureDebut}.`:''}${prioriteMaison?` Côté maison, ${prioriteMaison.zone.nom} mérite le plus d’attention.`:''}`
-        );
-    }else{
-        ajouterMessageAssistantEmma(
-            `Bonjour Emma ♡ ${faites?`Tu as déjà terminé ${faites} tâche${faites>1?'s':''}. `:''}${restantes.length?`Il t’en reste ${restantes.length}.${prochaine?` La prochaine est « ${prochaine.nom||prochaine.customNom||'tâche prévue'} » à ${prochaine.heureDebut}.`:''}`:'Ton planning est libre pour le moment.'}${prioriteMaison?` Côté maison, ${prioriteMaison.zone.nom} est la priorité.`:''}`
-        );
+    ajouterMessageAssistantEmma(
+        `Bonjour Emma ♡ Comment se passe ta journée ? ${faites?`Tu as déjà avancé sur ${faites} tâche${faites>1?'s':''}. `:''}${restantes.length?`${restantes.length} élément${restantes.length>1?'s':''} reste${restantes.length>1?'nt':''} prévu${restantes.length>1?'s':''}.${prochaine?` Le prochain est « ${prochaine.nom||prochaine.customNom||'tâche prévue'} » à ${prochaine.heureDebut}.`:''}`:'Tu n’as rien d’obligatoire dans ton planning pour le moment.'}${retard.length?` Il y a aussi ${retard.length} tâche${retard.length>1?'s':''} passée${retard.length>1?'s':''} à confirmer, sans les considérer automatiquement comme non faites.`:''}`
+    );
+
+    if(maintenant.getHours()>=20){
+        ajouterMessageAssistantEmma(texteBilanAutoEmma(date));
     }
 
     actionsAccueilAssistantEmma();
@@ -42337,6 +42489,9 @@ function preparerCandidatsPlanningConversationEmma(){
     const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
     const planning=DB.journal.planning?.[session.date]||[];
     const faitMap=DB.journal.faitAujourdhui?.[session.date]||{};
+    const energie=DB.journal.contexteJour?.[session.date]?.energie||'normale';
+    const contexte=contexteJourPlanningEmma(session.date);
+    const limiteTotale=energie==='forte'?3:contexte.travaille?4:5;
 
     const existants=planning
         .filter(bloc=>
@@ -42360,20 +42515,20 @@ function preparerCandidatsPlanningConversationEmma(){
             raison:`Déjà prévue à ${bloc.heureDebut}`,
             element:bloc
         }))
-        .slice(0,12);
+        .slice(0,limiteTotale);
 
     const clesExistantes=new Set(existants.map(item=>item.cle));
     const refusDuJour=new Set(
         DB.journal.refusPlanningJour?.[session.date]||[]
     );
-    const energie=DB.journal.contexteJour?.[session.date]?.energie||'normale';
-    const limiteTotale=energie==='forte'?6:energie==='moyenne'?8:12;
+    const desactivees=new Set(DB.journal.tachesDesactivees||[]);
     const dureeMax=energie==='forte'?15:energie==='moyenne'?25:Infinity;
     const nouvelles=getElementsJourIntelligents(session.date)
         .filter(element=>{
             const cle=cleElementPlanningConversationEmma(element);
             return !clesExistantes.has(cle)&&
                 !refusDuJour.has(cle)&&
+                !desactivees.has(cle)&&
                 !estTacheOuEquivalentFaiteJourEmma(element,session.date)&&
                 (element.categorie==='detente'||Number(element.duree||0)<=dureeMax);
         })
@@ -42382,6 +42537,11 @@ function preparerCandidatsPlanningConversationEmma(){
                 const pauseA=a.categorie==='detente'?0:1;
                 const pauseB=b.categorie==='detente'?0:1;
                 if(pauseA!==pauseB) return pauseA-pauseB;
+            }
+            if(contexte.travaille){
+                const effortA=a.effort==='classique'?0:a.effort==='intermediaire'?1:2;
+                const effortB=b.effort==='classique'?0:b.effort==='intermediaire'?1:2;
+                if(effortA!==effortB) return effortA-effortB;
             }
             return (a.priorite||99)-(b.priorite||99);
         })
@@ -42397,7 +42557,11 @@ function preparerCandidatsPlanningConversationEmma(){
                     ? 'Pause proposée selon le rythme de ta journée'
                     : element.prioritaireScan
                         ? 'Repérée grâce aux photos'
-                        : 'Utile aujourd’hui selon tes priorités',
+                        : element.effort==='lourde'
+                            ? 'Une tâche plus importante, adaptée à ton jour libre'
+                            : contexte.travaille&&element.categorie==='maison'
+                                ? 'Un geste simple adapté à ta journée de travail'
+                                : 'Utile aujourd’hui selon tes priorités',
             element
         }));
 
@@ -42437,7 +42601,9 @@ function afficherCandidatPlanningEmma(){
     afficherReponsesRapidesEmma([
         {label:'✓ Oui, aujourd’hui',action:'planning_oui'},
         {label:'★ Oui, prioritaire',action:'planning_prioritaire'},
+        {label:'⏰ Plus tard aujourd’hui',action:'planning_plus_tard'},
         {label:'Non, pas aujourd’hui',action:'planning_non'},
+        {label:'🚫 Je ne veux plus cette tâche',action:'planning_jamais'},
         {label:'Annuler',action:'planning_annuler'}
     ]);
 }
@@ -42451,8 +42617,11 @@ function repondreCandidatPlanningEmma(reponse){
         cle:candidat.cle,
         origine:candidat.origine,
         planningId:candidat.planningId||null,
-        accepte:reponse!=='non',
+        accepte:!['non','jamais'].includes(reponse),
         prioritaire:reponse==='prioritaire',
+        plusTard:reponse==='plus_tard',
+        jamais:reponse==='jamais',
+        reponse,
         candidat
     });
     session.index+=1;
@@ -42467,13 +42636,15 @@ function afficherRecapPlanningEmma(){
     sauvegarderPreparationPlanningEmma();
 
     const retenues=(session.choix||[]).filter(choix=>choix.accepte);
-    const refusees=(session.choix||[]).filter(choix=>!choix.accepte);
+    const refusees=(session.choix||[]).filter(choix=>choix.reponse==='non');
+    const desactivees=(session.choix||[]).filter(choix=>choix.jamais);
+    const plusTard=(session.choix||[]).filter(choix=>choix.plusTard);
     const liste=retenues.length
         ? retenues.map(choix=>`${choix.prioritaire?'★ ':'• '}${choix.candidat.nom}`).join('\n')
         : '• Aucune nouvelle tâche';
 
     ajouterMessageAssistantEmma(
-        `Voici ton choix :\n${liste}\n\n${refusees.length} proposition${refusees.length>1?'s':''} laissée${refusees.length>1?'s':''} de côté. Les tâches déjà faites restent protégées.`
+        `Voici ton choix :\n${liste}\n\n${plusTard.length?`${plusTard.length} placée${plusTard.length>1?'s':''} plus tard aujourd’hui. `:''}${refusees.length?`${refusees.length} laissée${refusees.length>1?'s':''} de côté jusqu’à demain. `:''}${desactivees.length?`${desactivees.length} retirée${desactivees.length>1?'s':''} définitivement. `:''}Les tâches déjà faites restent protégées.`
     );
     afficherReponsesRapidesEmma([
         {label:'✓ Créer mon planning',action:'planning_creer'},
@@ -42506,10 +42677,15 @@ async function creerPlanningDepuisConversationEmma(){
         DB.journal.refusPlanningJour[session.date]||[]
     );
 
+    const desactivees=new Set(DB.journal.tachesDesactivees||[]);
+
     choix.forEach(choixItem=>{
         if(!choixItem.cle) return;
 
-        if(choixItem.accepte){
+        if(choixItem.jamais){
+            desactivees.add(choixItem.cle);
+            refusDuJour.delete(choixItem.cle);
+        }else if(choixItem.accepte){
             refusDuJour.delete(choixItem.cle);
         }else{
             refusDuJour.add(choixItem.cle);
@@ -42518,6 +42694,7 @@ async function creerPlanningDepuisConversationEmma(){
 
     DB.journal.refusPlanningJour[session.date]=
         [...refusDuJour];
+    DB.journal.tachesDesactivees=[...desactivees];
 
     if(DB.journal.propositionIntelligente?.[session.date]){
         DB.journal.propositionIntelligente[session.date]=[];
@@ -42525,7 +42702,7 @@ async function creerPlanningDepuisConversationEmma(){
 
     const idsExistantsRefuses=new Set(
         choix
-            .filter(choix=>choix.origine==='existante'&&!choix.accepte)
+            .filter(choix=>choix.origine==='existante'&&(!choix.accepte||choix.jamais))
             .map(choix=>choix.planningId)
     );
 
@@ -42539,7 +42716,13 @@ async function creerPlanningDepuisConversationEmma(){
             ...choix.candidat.element,
             priorite:choix.prioritaire
                 ? 0
-                : choix.candidat.element.priorite
+                : choix.candidat.element.priorite,
+            preferenceHoraire:choix.plusTard
+                ? {
+                    debut:minToStr(Math.min(20*60,new Date().getHours()*60+new Date().getMinutes()+90)),
+                    fin:'21:30'
+                }
+                : choix.candidat.element.preferenceHoraire
         }));
 
     const proposition=await appliquerPlanningIntelligent(
