@@ -37617,30 +37617,36 @@ renderJAujourdhui();
         `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
     );
 }
-
 async function recollerTachesMaisonJournal(){
 
     const date = getJournalJour();
 
     ensureJournalData();
 
-    const planning = DB.journal.planning?.[date] || [];
-    const faitMap = DB.journal.faitAujourdhui?.[date] || {};
+    const planning =
+        DB.journal.planning?.[date] || [];
 
-    // =========================
-    // HEURE ACTUELLE
-    // =========================
+    const faitMap =
+        DB.journal.faitAujourdhui?.[date] || {};
 
     const maintenant = new Date();
 
+    const aujourdHui =
+        maintenant.toLocaleDateString("fr-CA");
+
     const estAujourdhui =
-        date === maintenant.toLocaleDateString("fr-CA");
+        date === aujourdHui;
 
     const minuteActuelle =
         maintenant.getHours() * 60 +
         maintenant.getMinutes();
 
-    const toMin = heure => {
+
+    // =========================
+    // OUTILS HEURES
+    // =========================
+
+    const heureVersMinutes = heure => {
 
         if(!heure) return 0;
 
@@ -37650,10 +37656,15 @@ async function recollerTachesMaisonJournal(){
         return h * 60 + m;
     };
 
-    const toHeure = minutes => {
+    const minutesVersHeure = minutes => {
 
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
+        minutes = Math.max(0,minutes);
+
+        const h =
+            Math.floor(minutes / 60);
+
+        const m =
+            minutes % 60;
 
         return (
             String(h).padStart(2,"0") +
@@ -37667,59 +37678,73 @@ async function recollerTachesMaisonJournal(){
     // TÂCHES MAISON
     // =========================
 
-    const tachesMaison = planning.filter(bloc =>
-        bloc.categorie === "maison" &&
-        !bloc.routineFixe &&
-        bloc.data?.zoneId
-    );
+    const tachesMaison =
+        planning.filter(bloc =>
+            bloc.categorie === "maison" &&
+            !bloc.routineFixe &&
+            bloc.data?.zoneId
+        );
 
 
-    // =========================
-    // SÉPARER FAITES / NON FAITES
-    // =========================
+    if(!tachesMaison.length){
 
-    const tachesFaites = [];
-    const tachesARecoller = [];
-
-    tachesMaison.forEach(bloc => {
-
-        const cle =
-            bloc.data?.sousTacheId ||
-            bloc.sourceId ||
-            bloc.id;
-
-        const faite =
-            !!faitMap[bloc.id] ||
-            !!faitMap[cle] ||
-            !!bloc.realiseA ||
-            estSousTacheFaiteJourEmma(
-                cle,
-                date,
-                bloc.data
-            );
-
-        if(faite){
-
-            // Une tâche terminée ne bouge JAMAIS.
-            tachesFaites.push(bloc);
-
-        }else{
-
-            // Toutes les tâches Maison non faites,
-            // même prévues plus tôt ou plus tard,
-            // vont être recollées.
-            tachesARecoller.push(bloc);
-
-        }
-
-    });
-
-
-    if(!tachesARecoller.length){
-
-        toast("Toutes les tâches Maison sont déjà faites ✓");
+        toast("Aucune tâche Maison dans le planning");
         return;
     }
+
+
+    // =========================
+    // VRAIMENT FAITE ?
+    // =========================
+
+    const estVraimentFaite = bloc => {
+
+        const cle =
+            cleTachePlanningEmma(bloc);
+
+        return !!(
+            faitMap[bloc.id] === true ||
+            faitMap[cle] === true ||
+            bloc.realiseA ||
+            bloc.realiseTimestamp
+        );
+    };
+
+
+    // =========================
+    // SÉPARATION
+    // =========================
+
+    const tachesFaites =
+        tachesMaison.filter(
+            estVraimentFaite
+        );
+
+    const tachesRestantes =
+        tachesMaison.filter(
+            bloc => !estVraimentFaite(bloc)
+        );
+
+
+    if(!tachesRestantes.length){
+
+        toast("✓ Toutes les tâches Maison sont faites");
+        return;
+    }
+
+
+    // =========================
+    // IMPORTANT :
+    // LES TÂCHES FAITES
+    // NE BOUGENT PLUS
+    // =========================
+
+    // On ne modifie absolument rien
+    // dans tachesFaites.
+    //
+    // Leur heureDebut / heureFin
+    // reste exactement celle
+    // actuellement enregistrée.
 
 
     // =========================
@@ -37728,10 +37753,10 @@ async function recollerTachesMaisonJournal(){
 
     const ordreZones = [];
 
-    [...tachesARecoller]
+    [...tachesRestantes]
         .sort((a,b) =>
-            toMin(a.heureDebut) -
-            toMin(b.heureDebut)
+            heureVersMinutes(a.heureDebut) -
+            heureVersMinutes(b.heureDebut)
         )
         .forEach(tache => {
 
@@ -37752,13 +37777,14 @@ async function recollerTachesMaisonJournal(){
     // GROUPER PAR PIÈCE
     // =========================
 
-    const groupes = new Map();
+    const groupes =
+        new Map();
 
     ordreZones.forEach(zoneId =>
         groupes.set(zoneId,[])
     );
 
-    tachesARecoller.forEach(tache => {
+    tachesRestantes.forEach(tache => {
 
         const zoneId =
             tache.data?.zoneId;
@@ -37770,64 +37796,82 @@ async function recollerTachesMaisonJournal(){
         groupes
             .get(zoneId)
             .push(tache);
-
     });
 
 
-    // On conserve l'ordre des tâches
-    // dans chaque pièce.
+    // Ordre actuel conservé
+    // à l'intérieur de chaque pièce.
+
     groupes.forEach(taches => {
 
         taches.sort((a,b) =>
-            toMin(a.heureDebut) -
-            toMin(b.heureDebut)
+            heureVersMinutes(a.heureDebut) -
+            heureVersMinutes(b.heureDebut)
         );
 
     });
 
 
     // =========================
-    // RETIRER UNIQUEMENT
+    // RETIRER SEULEMENT
     // LES TÂCHES NON FAITES
     // =========================
 
     DB.journal.planning[date] =
         planning.filter(bloc =>
-            !tachesARecoller.includes(bloc)
+            !tachesRestantes.includes(bloc)
         );
 
 
-    // Les tâches FAITES restent donc
-    // dans le planning à leur heure originale.
+    // À ce stade :
+    //
+    // ✓ tâches faites toujours présentes
+    // ✓ Perso toujours présent
+    // ✓ Travail toujours présent
+    // ✓ routines toujours présentes
+    //
+    // seules les tâches Maison
+    // NON FAITES ont été retirées.
 
 
     // =========================
-    // DÉPART = MAINTENANT
+    // NOUVEAU POINT DE DÉPART
     // =========================
 
     let curseur;
 
     if(estAujourdhui){
 
-        curseur = toHeure(
-            Math.ceil(minuteActuelle / 5) * 5
-        );
+        // On arrondit à la prochaine
+        // tranche de 5 minutes.
+
+        const depart =
+            Math.ceil(
+                minuteActuelle / 5
+            ) * 5;
+
+        curseur =
+            minutesVersHeure(depart);
 
     }else{
 
-        // Sécurité si on utilise le bouton
-        // sur une autre journée.
-        curseur =
-            tachesARecoller
+        // Pour une autre journée,
+        // on conserve le comportement
+        // basé sur le planning.
+
+        const premiereHeure =
+            tachesRestantes
                 .map(t => t.heureDebut)
                 .filter(Boolean)
-                .sort()[0] || "08:00";
+                .sort()[0];
 
+        curseur =
+            premiereHeure || "08:00";
     }
 
 
     // =========================
-    // RECOLLER PAR PIÈCE
+    // RECOLLER
     // =========================
 
     ordreZones.forEach(zoneId => {
@@ -37838,7 +37882,24 @@ async function recollerTachesMaisonJournal(){
         taches.forEach(tache => {
 
             const duree =
-                Number(tache.duree || 5);
+                Math.max(
+                    1,
+                    Number(tache.duree || 5)
+                );
+
+
+            // On cherche une place à partir
+            // de maintenant.
+            //
+            // placerSansChevauchement()
+            // contourne les éléments qui sont
+            // encore dans le planning :
+            //
+            // - tâches faites
+            // - Perso
+            // - Travail
+            // - routines
+            // etc.
 
             const place =
                 placerSansChevauchement(
@@ -37847,17 +37908,22 @@ async function recollerTachesMaisonJournal(){
                     duree
                 );
 
+
             tache.heureDebut =
                 place.heureDebut;
 
             tache.heureFin =
                 place.heureFin;
 
+
             DB.journal.planning[date]
                 .push(tache);
 
-            // La suivante essaie de commencer
-            // exactement à la fin de celle-ci.
+
+            // La prochaine tâche essaiera
+            // de commencer immédiatement
+            // après celle-ci.
+
             curseur =
                 place.heureFin;
 
@@ -37872,10 +37938,14 @@ async function recollerTachesMaisonJournal(){
 
     DB.journal.planning[date].sort(
         (a,b) =>
-            toMin(a.heureDebut) -
-            toMin(b.heureDebut)
+            heureVersMinutes(a.heureDebut) -
+            heureVersMinutes(b.heureDebut)
     );
 
+
+    // =========================
+    // SAUVEGARDE
+    // =========================
 
     await saveAll();
 
@@ -37885,7 +37955,9 @@ async function recollerTachesMaisonJournal(){
 
     renderJAujourdhui();
 
-    toast("🧩 Tâches restantes recollées à partir de maintenant");
+    toast(
+        "🧩 Tâches restantes recollées à partir de maintenant"
+    );
 }
 
 function creerElementMaisonDepuisSelection(tache,date){
