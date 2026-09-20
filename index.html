@@ -18559,10 +18559,11 @@ async function ajouterPrioriteMaisonAuPlanning(zoneId){
         .filter(Boolean);
     if(elementsChoisis.length){
         await appliquerPlanningIntelligent(date,{
-            mode:"ajouter",
-            selectionManuelle:true,
-            elementsSupplementaires:elementsChoisis
-        });
+    mode:"ajouter",
+    selectionManuelle:true,
+    grouperMaison:true,
+    elementsSupplementaires:elementsChoisis
+});
     }
     renderMaisonModule();
 }
@@ -31616,8 +31617,16 @@ ${
                <div id="journal-edit-actions" style="
     display:flex;
     justify-content:flex-end;
+    gap:8px;
     margin-bottom:10px;
 ">
+    <button
+        class="btn bd"
+        onclick="recollerTachesMaisonJournal()"
+    >
+        🧩 Recoller les tâches
+    </button>
+
     <button
         class="btn bg"
         onclick="activerModeEditionPlanningJournal()"
@@ -35951,6 +35960,45 @@ sequence.push(
 const elementsTries =
     sequence;
 
+   // =====================================================
+// 🏠 MAISON MANUELLE : GROUPER PAR PIÈCE ET À LA SUITE
+// =====================================================
+
+if(options.grouperMaison === true){
+
+    const maisonManuelle = elementsTries.filter(
+        element => element.categorie === "maison"
+    );
+
+    const autresElements = elementsTries.filter(
+        element => element.categorie !== "maison"
+    );
+
+    const groupesMaison = new Map();
+
+    maisonManuelle.forEach(element => {
+
+        const zoneId =
+            element.data?.zoneId || "autre";
+
+        if(!groupesMaison.has(zoneId)){
+            groupesMaison.set(zoneId,[]);
+        }
+
+        groupesMaison.get(zoneId).push(element);
+    });
+
+
+    // On reconstruit la séquence :
+    // toutes les tâches d'une même pièce restent ensemble.
+    elementsTries.length = 0;
+
+    groupesMaison.forEach(taches => {
+        elementsTries.push(...taches);
+    });
+
+    elementsTries.push(...autresElements);
+}
 
     // =========================
     // PLACEMENT
@@ -35960,6 +36008,32 @@ const elementsTries =
 
         let meilleurIndex = -1;
         let meilleurScore = -9999;
+
+       // Pour les tâches Maison choisies manuellement,
+// on prend le PREMIER créneau libre compatible.
+// Cela permet de les enchaîner naturellement
+// avant/après les rendez-vous déjà présents.
+
+if(
+    options.grouperMaison === true &&
+    element.categorie === "maison"
+){
+
+    for(let index = 0; index < creneaux.length; index++){
+
+        const creneau = creneaux[index];
+
+        if(
+            creneau.duree >= element.duree &&
+            noterCreneau(element,creneau) > -9999
+        ){
+            meilleurIndex = index;
+            meilleurScore = 0;
+            break;
+        }
+    }
+
+}else{
 
         creneaux.forEach((creneau,index) => {
 
@@ -35977,6 +36051,8 @@ const elementsTries =
             }
 
         });
+
+   }
 
 
         if(
@@ -37540,6 +37616,177 @@ renderJAujourdhui();
     toast(
         `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
     );
+}
+
+async function recollerTachesMaisonJournal(){
+
+    const date = getJournalJour();
+
+    ensureJournalData();
+
+    const planning = DB.journal.planning?.[date] || [];
+
+    // Seulement les tâches Maison flexibles.
+    // Les routines fixes et les blocs Perso/Travail restent intouchables.
+    const tachesMaison = planning.filter(bloc =>
+        bloc.categorie === "maison" &&
+        !bloc.routineFixe &&
+        bloc.data?.zoneId
+    );
+
+    if(tachesMaison.length < 2){
+        toast("Pas assez de tâches Maison à réorganiser");
+        return;
+    }
+
+
+    // =========================
+    // ORDRE ACTUEL DES PIÈCES
+    // =========================
+
+    const ordreZones = [];
+
+    [...tachesMaison]
+        .sort((a,b) =>
+            (a.heureDebut || "")
+                .localeCompare(b.heureDebut || "")
+        )
+        .forEach(tache => {
+
+            const zoneId = tache.data?.zoneId;
+
+            if(
+                zoneId &&
+                !ordreZones.includes(zoneId)
+            ){
+                ordreZones.push(zoneId);
+            }
+
+        });
+
+
+    // =========================
+    // GROUPER PAR PIÈCE
+    // =========================
+
+    const groupes = new Map();
+
+    ordreZones.forEach(zoneId =>
+        groupes.set(zoneId,[])
+    );
+
+    tachesMaison.forEach(tache => {
+
+        const zoneId = tache.data?.zoneId;
+
+        if(!groupes.has(zoneId)){
+            groupes.set(zoneId,[]);
+        }
+
+        groupes.get(zoneId).push(tache);
+
+    });
+
+
+    // On garde l'ordre actuel des tâches
+    // à l'intérieur de chaque pièce.
+    groupes.forEach(taches => {
+
+        taches.sort((a,b) =>
+            (a.heureDebut || "")
+                .localeCompare(b.heureDebut || "")
+        );
+
+    });
+
+
+    // =========================
+    // POINT DE DÉPART
+    // =========================
+
+    const anciennesHeures =
+        tachesMaison
+            .map(t => t.heureDebut)
+            .filter(Boolean)
+            .sort();
+
+    let curseur =
+        anciennesHeures[0] || "08:00";
+
+
+    // =========================
+    // RETIRER TEMPORAIREMENT
+    // LES TÂCHES MAISON
+    // =========================
+
+    DB.journal.planning[date] =
+        planning.filter(bloc =>
+            !tachesMaison.includes(bloc)
+        );
+
+
+    // =========================
+    // REPLACEMENT
+    // =========================
+
+    ordreZones.forEach(zoneId => {
+
+        const taches =
+            groupes.get(zoneId) || [];
+
+        taches.forEach(tache => {
+
+            const duree =
+                Number(tache.duree || 5);
+
+            const place =
+                placerSansChevauchement(
+                    date,
+                    curseur,
+                    duree
+                );
+
+            tache.heureDebut =
+                place.heureDebut;
+
+            tache.heureFin =
+                place.heureFin;
+
+            DB.journal.planning[date]
+                .push(tache);
+
+            // La tâche suivante commence
+            // exactement après celle-ci.
+            curseur =
+                place.heureFin;
+
+        });
+
+    });
+
+
+    // =========================
+    // TRI FINAL
+    // =========================
+
+    DB.journal.planning[date].sort(
+        (a,b) =>
+            (a.heureDebut || "")
+                .localeCompare(
+                    b.heureDebut || ""
+                )
+    );
+
+
+    await saveAll();
+
+    await synchroniserNotificationsPlanningEmma?.(
+        date
+    );
+
+    renderJAujourdhui();
+
+    toast("🧩 Tâches Maison recollées");
 }
 
 function creerElementMaisonDepuisSelection(tache,date){
