@@ -36967,147 +36967,36 @@ function ouvrirDetailPieceJournal(zoneId){
 
 function ouvrirSelecteurTachesPieceJournal(zoneId){
 
-    const zone =
-        DB.journal.zones.find(
-            z => z.id === zoneId
-        );
-
+    const zone = DB.journal.zones.find(z => z.id === zoneId);
     if(!zone) return;
 
-    const date =
-        getJournalJour();
+    const date = getJournalJour();
 
-    const planningJour =
-        DB.journal.planning?.[date] || [];
+    const planningJour = DB.journal.planning?.[date] || [];
 
-    const dejaPlanifies =
-        new Set(
-            planningJour
-            .map(p =>
-                p.stId ||
-                p.data?.sousTacheId ||
-                p.sourceId
-            )
+    const dejaPlanifies = new Set(
+        planningJour
+            .map(p => p.stId || p.data?.sousTacheId || p.sourceId)
             .filter(Boolean)
-        );
+    );
 
-    const dejaForcees =
-        new Set(
-            (DB.journal.tachesForcees?.[date] || [])
+    const dejaForcees = new Set(
+        (DB.journal.tachesForcees?.[date] || [])
             .map(t => t.sousTacheId)
-        );
+    );
 
+    // ─────────────────────────────
+    // CALCUL DES PRIORITÉS
+    // ─────────────────────────────
 
-    // =========================
-    // CONTEXTE ACTUEL
-    // =========================
-
-    const maintenant =
-        new Date();
-
-    const minuteActuelle =
-        maintenant.getHours() * 60 +
-        maintenant.getMinutes();
-
-    const toMin = heure => {
-
-        if(!heure) return 0;
-
-        const [h,m] =
-            heure.split(":").map(Number);
-
-        return h * 60 + m;
-    };
-
-
-    const prochainBloc =
-        planningJour
-        .filter(p =>
-            p.heureDebut &&
-            toMin(p.heureDebut) > minuteActuelle
-        )
-        .sort(
-            (a,b) =>
-                toMin(a.heureDebut) -
-                toMin(b.heureDebut)
-        )[0];
-
-
-    let tempsDisponible = 60;
-
-    if(prochainBloc){
-
-        tempsDisponible =
-            Math.max(
-                0,
-                toMin(prochainBloc.heureDebut) -
-                minuteActuelle
-            );
-    }
-
-
-    // =========================
-    // TYPE DE CONTEXTE
-    // =========================
-
-    const rdvPlanity =
-        planningJour
-        .filter(p =>
-            (
-                p.source === "planity" ||
-                p.typeElement === "planity"
-            ) &&
-            p.heureDebut &&
-            p.heureFin
-        );
-
-    let contexte = "perso";
-
-    if(rdvPlanity.length){
-
-        const premier =
-            rdvPlanity
-            .slice()
-            .sort(
-                (a,b) =>
-                    toMin(a.heureDebut) -
-                    toMin(b.heureDebut)
-            )[0];
-
-        const dernier =
-            rdvPlanity
-            .slice()
-            .sort(
-                (a,b) =>
-                    toMin(b.heureFin) -
-                    toMin(a.heureFin)
-            )[0];
-
-        const debutTravail =
-            toMin(premier.heureDebut) - 30;
-
-        const finTravail =
-            toMin(dernier.heureFin) + 30;
-
-        if(
-            minuteActuelle >= debutTravail &&
-            minuteActuelle <= finTravail
-        ){
-            contexte = "pro";
-        }
-    }
-
-
-    // =========================
-    // TÂCHES DE LA PIÈCE
-    // =========================
-
+    const aujourdHui = new Date(date + "T12:00:00");
     const taches = [];
 
     (zone.actions || []).forEach(action => {
 
         (action.sousTaches || []).forEach(st => {
 
+            // Déjà ajoutée à la journée = on ne la repropose pas
             if(
                 dejaPlanifies.has(st.id) ||
                 dejaForcees.has(st.id)
@@ -37115,61 +37004,110 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                 return;
             }
 
-            const score =
-                calculerScoreTacheJournal(
+            const duree = Number(st.duree || 10);
+            const freq = Number(st.freq || 1);
+            const dernierFait = st.dernierFait || null;
+
+            let prochaineDate = null;
+            let joursEcart = null;
+            let priorite = 4;
+            let statut = "À venir";
+            let couleur = "#8b91a0";
+            let fond = "rgba(245,247,250,.85)";
+
+            // ── JAMAIS FAITE ──
+            if(!dernierFait){
+
+                const score = calculerScoreTacheJournal(
                     zone,
                     action,
                     st,
                     date
                 );
 
-            const duree =
-                Number(st.duree || 10);
+                // Jamais faite et considérée comme due
+                if(score >= 60){
 
-            let categorie = "optionnel";
+                    priorite = 1;
+                    statut = "Jamais faite · en retard";
+                    couleur = "#c85f63";
+                    fond = "rgba(255,235,235,.88)";
 
-            if(score >= 55){
-                categorie = "essentiel";
-            }
-            else if(duree <= 10){
-                categorie = "rapide";
-            }
-            else if(
-                duree >= 15 &&
-                duree <= 30
-            ){
-                categorie = "moyenne";
-            }
-            else if(score >= 30){
-                categorie = "rattraper";
+                } else {
+
+                    priorite = 4;
+                    statut = "Jamais faite";
+                    couleur = "#8b91a0";
+                }
+
+            } else {
+
+                const derniere = new Date(dernierFait + "T12:00:00");
+
+                prochaineDate = new Date(derniere);
+                prochaineDate.setDate(
+                    prochaineDate.getDate() + freq
+                );
+
+                joursEcart = Math.floor(
+                    (prochaineDate - aujourdHui) /
+                    (1000 * 60 * 60 * 24)
+                );
+
+                // EN RETARD
+                if(joursEcart < 0){
+
+                    priorite = 2;
+
+                    const retard = Math.abs(joursEcart);
+
+                    statut =
+                        `En retard de ${retard} jour${retard > 1 ? "s" : ""}`;
+
+                    couleur = "#d47b52";
+                    fond = "rgba(255,241,228,.90)";
+                }
+
+                // À FAIRE AUJOURD'HUI
+                else if(joursEcart === 0){
+
+                    priorite = 3;
+                    statut = "À faire aujourd’hui";
+                    couleur = "#c69a3c";
+                    fond = "rgba(255,248,221,.90)";
+                }
+
+                // À VENIR
+                else {
+
+                    priorite = 4;
+
+                    statut =
+                        `Dans ${joursEcart} jour${joursEcart > 1 ? "s" : ""}`;
+
+                    couleur = "#818899";
+                    fond = "rgba(245,247,250,.85)";
+                }
             }
 
             taches.push({
+                zoneId: zone.id,
+                actionId: action.id,
+                sousTacheId: st.id,
 
-                zoneId:
-                    zone.id,
-
-                actionId:
-                    action.id,
-
-                sousTacheId:
-                    st.id,
-
-                nom:
-                    st.nom,
+                nom: st.nom,
+                actionNom: action.nom,
 
                 duree,
+                freq,
+                dernierFait,
+                prochaineDate,
+                joursEcart,
 
-                score,
-
-                categorie,
-
-                type:
-                    zone.typeDefaut || "perso",
-
-                faisableMaintenant:
-                    duree <= tempsDisponible
-
+                priorite,
+                statut,
+                couleur,
+                fond
             });
 
         });
@@ -37177,47 +37115,51 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
     });
 
 
-    // =========================
-    // CLASSEMENT INTELLIGENT
-    // =========================
+    // ─────────────────────────────
+    // TRI AUTOMATIQUE
+    //
+    // 1. Jamais faite + retard
+    // 2. En retard
+    // 3. Aujourd'hui
+    // 4. À venir
+    // ─────────────────────────────
 
     taches.sort((a,b) => {
 
+        if(a.priorite !== b.priorite){
+            return a.priorite - b.priorite;
+        }
+
+        // Pour les tâches en retard :
+        // la plus en retard en premier
         if(
-            a.faisableMaintenant !==
-            b.faisableMaintenant
+            a.priorite === 2 &&
+            a.joursEcart !== b.joursEcart
         ){
-            return a.faisableMaintenant
-                ? -1
-                : 1;
+            return a.joursEcart - b.joursEcart;
         }
 
-        if(b.score !== a.score){
-            return b.score - a.score;
+        // Pour les tâches à venir :
+        // la plus proche en premier
+        if(
+            a.priorite === 4 &&
+            a.joursEcart !== null &&
+            b.joursEcart !== null
+        ){
+            return a.joursEcart - b.joursEcart;
         }
 
-        return a.duree - b.duree;
-
+        return a.nom.localeCompare(b.nom, "fr");
     });
 
 
-    const meilleurChoix =
-        taches.find(t =>
-            t.faisableMaintenant
-        ) || null;
-
-
-    const modal =
-        document.getElementById(
-            "journal-modal-piece"
-        );
+    const modal = document.getElementById(
+        "journal-modal-piece"
+    );
 
     if(!modal) return;
 
-    const contenu =
-        modal.querySelector(
-            "div"
-        );
+    const contenu = modal.querySelector("div");
 
 
     contenu.innerHTML = `
@@ -37249,7 +37191,7 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                     color:var(--acc);
                     font-weight:800;
                 ">
-                    CHOISIR UNE TÂCHE
+                    TÂCHES DE LA PIÈCE
                 </div>
 
                 <div style="
@@ -37264,11 +37206,7 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                     color:var(--mut);
                     margin-top:3px;
                 ">
-                    ${contexte === "pro"
-                        ? "💼 Tu es en temps de travail"
-                        : "🏠 Temps personnel"
-                    }
-                    · ${tempsDisponible} min disponibles
+                    Sélectionne ce que tu veux faire aujourd’hui
                 </div>
 
             </div>
@@ -37276,108 +37214,16 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
         </div>
 
 
-        ${
-            meilleurChoix
-            ? `
-
-                <div
-                    onclick="forcerTacheJournal(
-                        '${meilleurChoix.zoneId}',
-                        '${meilleurChoix.actionId}',
-                        '${meilleurChoix.sousTacheId}'
-                    )"
-
-                    style="
-                        background:
-                            linear-gradient(
-                                135deg,
-                                rgba(255,245,249,.95),
-                                rgba(245,248,255,.95)
-                            );
-                        border:1.5px solid var(--acc);
-                        border-radius:20px;
-                        padding:15px;
-                        margin-bottom:16px;
-                        cursor:pointer;
-                    "
-                >
-
-                    <div style="
-                        font-size:10px;
-                        font-weight:800;
-                        color:var(--acc);
-                        letter-spacing:.08em;
-                        margin-bottom:5px;
-                    ">
-                        ⭐ MEILLEUR CHOIX MAINTENANT
-                    </div>
-
-                    <div style="
-                        font-size:14px;
-                        font-weight:800;
-                    ">
-                        ${meilleurChoix.nom}
-                    </div>
-
-                    <div style="
-                        font-size:10px;
-                        color:var(--mut);
-                        margin-top:4px;
-                    ">
-                        ${meilleurChoix.duree} min
-                        · score ${meilleurChoix.score}
-                    </div>
-
-                </div>
-
-            `
-            : ""
-        }
-
-
         <div style="
-            display:flex;
-            gap:6px;
-            overflow:auto;
-            margin-bottom:16px;
-            padding-bottom:3px;
+            font-size:10px;
+            color:var(--mut);
+            margin-bottom:14px;
+            padding:10px 12px;
+            background:rgba(255,255,255,.55);
+            border-radius:14px;
         ">
-
-            <button
-                class="btn bd bsm"
-                onclick="filtrerTachesSessionJournal('toutes')"
-            >
-                ✨ Toutes
-            </button>
-
-            <button
-                class="btn bg bsm"
-                onclick="filtrerTachesSessionJournal('rapide')"
-            >
-                ⚡ 5–10 min
-            </button>
-
-            <button
-                class="btn bg bsm"
-                onclick="filtrerTachesSessionJournal('moyenne')"
-            >
-                ⏱️ 15–30 min
-            </button>
-
-            <button
-                class="btn bg bsm"
-                onclick="filtrerTachesSessionJournal('essentiel')"
-            >
-                ⭐ Prioritaires
-            </button>
-
-            <button
-                class="btn bg bsm"
-                onclick="filtrerTachesSessionJournal('rattraper')"
-            >
-                🔥 À rattraper
-            </button>
-
+            Les tâches sont classées automatiquement
+            de la plus urgente à la moins urgente.
         </div>
 
 
@@ -37389,14 +37235,8 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
 
                     <div
                         class="journal-session-tache"
-                        data-categorie="${t.categorie}"
 
-                        onclick="
-                            ${t.faisableMaintenant
-                                ? "toggleTacheSessionJournal(this)"
-                                : ""
-                            }
-                        "
+                        onclick="toggleTacheSessionJournal(this)"
 
                         data-zone="${t.zoneId}"
                         data-action="${t.actionId}"
@@ -37407,21 +37247,12 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                             display:flex;
                             align-items:center;
                             gap:12px;
-                            background:white;
+                            background:${t.fond};
                             border:1.5px solid var(--brd);
                             border-radius:16px;
                             padding:12px;
                             margin-bottom:8px;
-                            cursor:${
-                                t.faisableMaintenant
-                                    ? "pointer"
-                                    : "not-allowed"
-                            };
-                            opacity:${
-                                t.faisableMaintenant
-                                    ? "1"
-                                    : ".45"
-                            };
+                            cursor:pointer;
                         "
                     >
 
@@ -37442,24 +37273,51 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                         <div style="flex:1">
 
                             <div style="
-                                font-size:12px;
-                                font-weight:800;
+                                display:flex;
+                                justify-content:space-between;
+                                gap:10px;
+                                align-items:flex-start;
                             ">
-                                ${t.nom}
+
+                                <div style="
+                                    font-size:12px;
+                                    font-weight:800;
+                                ">
+                                    ${t.nom}
+                                </div>
+
+                                <div style="
+                                    font-size:9px;
+                                    font-weight:800;
+                                    color:${t.couleur};
+                                    text-align:right;
+                                    white-space:nowrap;
+                                ">
+                                    ${t.statut}
+                                </div>
+
                             </div>
 
                             <div style="
                                 font-size:10px;
                                 color:var(--mut);
-                                margin-top:2px;
+                                margin-top:4px;
                             ">
                                 ${t.duree} min
-                                · score ${t.score}
+                                · tous les ${t.freq} jour${t.freq > 1 ? "s" : ""}
 
                                 ${
-                                    !t.faisableMaintenant
-                                    ? " · pas assez de temps"
-                                    : ""
+                                    t.dernierFait
+                                    ? ` · dernière fois ${new Date(
+                                        t.dernierFait + "T12:00:00"
+                                      ).toLocaleDateString(
+                                        "fr-FR",
+                                        {
+                                            day:"numeric",
+                                            month:"short"
+                                        }
+                                      )}`
+                                    : " · jamais faite"
                                 }
                             </div>
 
@@ -37468,14 +37326,17 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
                     </div>
 
                 `).join("")
+
                 : `
+
                     <div style="
                         text-align:center;
-                        padding:20px;
+                        padding:24px;
                         color:var(--mut);
                     ">
-                        Rien de pertinent à proposer ici.
+                        Aucune tâche disponible dans cette pièce.
                     </div>
+
                 `
             }
 
@@ -37501,11 +37362,12 @@ function ouvrirSelecteurTachesPieceJournal(zoneId){
 
                 onclick="validerSessionMaisonJournal()"
             >
-                ✨ Ajouter à ma journée
+                ＋ Ajouter à ma journée
 
                 <span id="session-maison-duree">
                     · 0 min
                 </span>
+
             </button>
 
         </div>
