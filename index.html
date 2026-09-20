@@ -37625,35 +37625,118 @@ async function recollerTachesMaisonJournal(){
     ensureJournalData();
 
     const planning = DB.journal.planning?.[date] || [];
+    const faitMap = DB.journal.faitAujourdhui?.[date] || {};
 
-    // Seulement les tâches Maison flexibles.
-    // Les routines fixes et les blocs Perso/Travail restent intouchables.
+    // =========================
+    // HEURE ACTUELLE
+    // =========================
+
+    const maintenant = new Date();
+
+    const estAujourdhui =
+        date === maintenant.toLocaleDateString("fr-CA");
+
+    const minuteActuelle =
+        maintenant.getHours() * 60 +
+        maintenant.getMinutes();
+
+    const toMin = heure => {
+
+        if(!heure) return 0;
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+    };
+
+    const toHeure = minutes => {
+
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+
+        return (
+            String(h).padStart(2,"0") +
+            ":" +
+            String(m).padStart(2,"0")
+        );
+    };
+
+
+    // =========================
+    // TÂCHES MAISON
+    // =========================
+
     const tachesMaison = planning.filter(bloc =>
         bloc.categorie === "maison" &&
         !bloc.routineFixe &&
         bloc.data?.zoneId
     );
 
-    if(tachesMaison.length < 2){
-        toast("Pas assez de tâches Maison à réorganiser");
+
+    // =========================
+    // SÉPARER FAITES / NON FAITES
+    // =========================
+
+    const tachesFaites = [];
+    const tachesARecoller = [];
+
+    tachesMaison.forEach(bloc => {
+
+        const cle =
+            bloc.data?.sousTacheId ||
+            bloc.sourceId ||
+            bloc.id;
+
+        const faite =
+            !!faitMap[bloc.id] ||
+            !!faitMap[cle] ||
+            !!bloc.realiseA ||
+            estSousTacheFaiteJourEmma(
+                cle,
+                date,
+                bloc.data
+            );
+
+        if(faite){
+
+            // Une tâche terminée ne bouge JAMAIS.
+            tachesFaites.push(bloc);
+
+        }else{
+
+            // Toutes les tâches Maison non faites,
+            // même prévues plus tôt ou plus tard,
+            // vont être recollées.
+            tachesARecoller.push(bloc);
+
+        }
+
+    });
+
+
+    if(!tachesARecoller.length){
+
+        toast("Toutes les tâches Maison sont déjà faites ✓");
         return;
     }
 
 
     // =========================
-    // ORDRE ACTUEL DES PIÈCES
+    // ORDRE DES PIÈCES
     // =========================
 
     const ordreZones = [];
 
-    [...tachesMaison]
+    [...tachesARecoller]
         .sort((a,b) =>
-            (a.heureDebut || "")
-                .localeCompare(b.heureDebut || "")
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
         )
         .forEach(tache => {
 
-            const zoneId = tache.data?.zoneId;
+            const zoneId =
+                tache.data?.zoneId;
 
             if(
                 zoneId &&
@@ -37675,58 +37758,76 @@ async function recollerTachesMaisonJournal(){
         groupes.set(zoneId,[])
     );
 
-    tachesMaison.forEach(tache => {
+    tachesARecoller.forEach(tache => {
 
-        const zoneId = tache.data?.zoneId;
+        const zoneId =
+            tache.data?.zoneId;
 
         if(!groupes.has(zoneId)){
             groupes.set(zoneId,[]);
         }
 
-        groupes.get(zoneId).push(tache);
+        groupes
+            .get(zoneId)
+            .push(tache);
 
     });
 
 
-    // On garde l'ordre actuel des tâches
-    // à l'intérieur de chaque pièce.
+    // On conserve l'ordre des tâches
+    // dans chaque pièce.
     groupes.forEach(taches => {
 
         taches.sort((a,b) =>
-            (a.heureDebut || "")
-                .localeCompare(b.heureDebut || "")
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
         );
 
     });
 
 
     // =========================
-    // POINT DE DÉPART
-    // =========================
-
-    const anciennesHeures =
-        tachesMaison
-            .map(t => t.heureDebut)
-            .filter(Boolean)
-            .sort();
-
-    let curseur =
-        anciennesHeures[0] || "08:00";
-
-
-    // =========================
-    // RETIRER TEMPORAIREMENT
-    // LES TÂCHES MAISON
+    // RETIRER UNIQUEMENT
+    // LES TÂCHES NON FAITES
     // =========================
 
     DB.journal.planning[date] =
         planning.filter(bloc =>
-            !tachesMaison.includes(bloc)
+            !tachesARecoller.includes(bloc)
         );
 
 
+    // Les tâches FAITES restent donc
+    // dans le planning à leur heure originale.
+
+
     // =========================
-    // REPLACEMENT
+    // DÉPART = MAINTENANT
+    // =========================
+
+    let curseur;
+
+    if(estAujourdhui){
+
+        curseur = toHeure(
+            Math.ceil(minuteActuelle / 5) * 5
+        );
+
+    }else{
+
+        // Sécurité si on utilise le bouton
+        // sur une autre journée.
+        curseur =
+            tachesARecoller
+                .map(t => t.heureDebut)
+                .filter(Boolean)
+                .sort()[0] || "08:00";
+
+    }
+
+
+    // =========================
+    // RECOLLER PAR PIÈCE
     // =========================
 
     ordreZones.forEach(zoneId => {
@@ -37755,8 +37856,8 @@ async function recollerTachesMaisonJournal(){
             DB.journal.planning[date]
                 .push(tache);
 
-            // La tâche suivante commence
-            // exactement après celle-ci.
+            // La suivante essaie de commencer
+            // exactement à la fin de celle-ci.
             curseur =
                 place.heureFin;
 
@@ -37771,10 +37872,8 @@ async function recollerTachesMaisonJournal(){
 
     DB.journal.planning[date].sort(
         (a,b) =>
-            (a.heureDebut || "")
-                .localeCompare(
-                    b.heureDebut || ""
-                )
+            toMin(a.heureDebut) -
+            toMin(b.heureDebut)
     );
 
 
@@ -37786,7 +37885,7 @@ async function recollerTachesMaisonJournal(){
 
     renderJAujourdhui();
 
-    toast("🧩 Tâches Maison recollées");
+    toast("🧩 Tâches restantes recollées à partir de maintenant");
 }
 
 function creerElementMaisonDepuisSelection(tache,date){
