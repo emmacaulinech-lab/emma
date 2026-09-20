@@ -37641,6 +37641,20 @@ async function recollerTachesMaisonJournal(){
         maintenant.getHours() * 60 +
         maintenant.getMinutes();
 
+   // =========================
+// REPLACER LES TÂCHES FAITES
+// COMME LORSQU'ON LES VALIDE
+// =========================
+
+if(estAujourdhui){
+
+    repositionnerTachesFaitesAvantMaintenant(
+        date,
+        minuteActuelle
+    );
+
+}
+
 
     // =========================
     // OUTILS HEURES
