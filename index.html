@@ -30061,7 +30061,7 @@ function ensureJournalData(){
             tachesForcees: {},
             preparationJour: {},
             habitudes: [],
-            versionMaison: 2
+            versionMaison: 3
         };
     }
 
@@ -30172,6 +30172,709 @@ function ensureJournalData(){
 
     }
 
+// ==========================================
+// MIGRATION MAISON V3
+// Fréquences + fusions + tâches répétables
+// ==========================================
+
+if(
+    !DB.journal.versionMaison ||
+    DB.journal.versionMaison < 3
+){
+
+    console.log("🏠 Migration Maison V3...");
+
+    // ------------------------------------------
+// OUTILS MIGRATION V3
+// ------------------------------------------
+
+const normaliserNomMaisonV3 = valeur =>
+    String(valeur || "")
+        .trim()
+        .toLowerCase();
+
+const trouverZoneMaisonV3 = nom =>
+    (DB.journal.zones || []).find(
+        zone =>
+            normaliserNomMaisonV3(zone.nom) ===
+            normaliserNomMaisonV3(nom)
+    );
+
+const trouverTacheMaisonV3 = (zone, nom) => {
+
+    if(!zone) return null;
+
+    for(const action of (zone.actions || [])){
+
+        const tache =
+            (action.sousTaches || []).find(
+                st =>
+                    normaliserNomMaisonV3(st.nom) ===
+                    normaliserNomMaisonV3(nom)
+            );
+
+        if(tache){
+            return {
+                action,
+                tache
+            };
+        }
+    }
+
+    return null;
+};
+
+
+// Conserve l'historique le plus récent
+// lorsqu'on fusionne plusieurs tâches.
+const fusionnerHistoriqueMaisonV3 = taches => {
+
+    const dates =
+        taches
+            .map(st => st?.dernierFait)
+            .filter(Boolean)
+            .sort();
+
+    return dates.length
+        ? dates[dates.length - 1]
+        : null;
+};
+
+
+// Fusionne plusieurs tâches dans la première.
+// Son ID est conservé pour éviter de casser
+// l'historique et les références existantes.
+const fusionnerTachesMaisonV3 = (
+    zone,
+    noms,
+    configuration
+) => {
+
+    const trouvees =
+        noms
+            .map(nom => trouverTacheMaisonV3(zone, nom))
+            .filter(Boolean);
+
+    if(!trouvees.length){
+        console.warn(
+            "Migration V3 : tâches introuvables",
+            zone?.nom,
+            noms
+        );
+        return null;
+    }
+
+    const principale =
+        trouvees[0].tache;
+
+    const historique =
+        fusionnerHistoriqueMaisonV3(
+            trouvees.map(item => item.tache)
+        );
+
+   const compteurFait =
+    Math.max(
+        0,
+        ...trouvees.map(
+            item =>
+                Number(
+                    item.tache?.compteurFait || 0
+                )
+        )
+    );
+
+    const motsDetection =
+        [
+            ...new Set(
+                trouvees.flatMap(
+                    item =>
+                        Array.isArray(item.tache.motsDetection)
+                            ? item.tache.motsDetection
+                            : []
+                )
+            )
+        ];
+
+    const objetsAutorises =
+        [
+            ...new Set(
+                trouvees.flatMap(
+                    item =>
+                        Array.isArray(item.tache.objetsAutorises)
+                            ? item.tache.objetsAutorises
+                            : []
+                )
+            )
+        ];
+
+    Object.assign(
+        principale,
+        configuration,
+        {
+            dernierFait:
+                historique ||
+                principale.dernierFait ||
+                null,
+
+           compteurFait:
+            compteurFait,
+
+            motsDetection:
+                configuration.motsDetection ||
+                motsDetection,
+
+            objetsAutorises:
+                configuration.objetsAutorises ||
+                objetsAutorises
+        }
+    );
+
+
+    // Supprime uniquement les doublons.
+    // La première tâche reste en place avec son ID.
+    trouvees.slice(1).forEach(item => {
+
+        item.action.sousTaches =
+            (item.action.sousTaches || [])
+                .filter(
+                    st => st.id !== item.tache.id
+                );
+
+    });
+
+    return principale;
+};
+
+
+// Modification simple d'une tâche existante.
+const modifierTacheMaisonV3 = (
+    zone,
+    nom,
+    configuration
+) => {
+
+    const resultat =
+        trouverTacheMaisonV3(zone, nom);
+
+    if(!resultat){
+        console.warn(
+            "Migration V3 : tâche introuvable",
+            zone?.nom,
+            nom
+        );
+        return null;
+    }
+
+    Object.assign(
+        resultat.tache,
+        configuration
+    );
+
+    return resultat.tache;
+};
+
+// ==========================================
+// 🍳 CUISINE
+// ==========================================
+
+const cuisineV3 =
+    trouverZoneMaisonV3("Cuisine");
+
+if(cuisineV3){
+
+    // Fusion des 4 micro-tâches de rangement de l'îlot.
+    fusionnerTachesMaisonV3(
+        cuisineV3,
+        [
+            "Ranger les objets qui traînent sur l’îlot",
+            "Ranger la vaisselle visible",
+            "Ranger la planche à découper",
+            "Ranger les appareils ou accessoires sortis"
+        ],
+        {
+            nom:"Ranger l’îlot / plan de travail",
+            duree:10,
+            freq:1,
+            declenchement:"mixte",
+            sousZone:"ilot",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:5,
+            importanceHygiene:3
+        }
+    );
+
+    modifierTacheMaisonV3(
+        cuisineV3,
+        "Remettre en ordre le plateau huiles / farines / épices",
+        {
+            freq:7,
+            declenchement:"mixte"
+        }
+    );
+
+    modifierTacheMaisonV3(
+        cuisineV3,
+        "Ranger les paniers de linge propre",
+        {
+            freq:2,
+            declenchement:"mixte"
+        }
+    );
+
+    modifierTacheMaisonV3(
+        cuisineV3,
+        "Ranger le linge sec de l’étendage",
+        {
+            freq:2,
+            declenchement:"mixte"
+        }
+    );
+
+    modifierTacheMaisonV3(
+        cuisineV3,
+        "Dégager la zone autour de la poubelle",
+        {
+            freq:7,
+            declenchement:"mixte"
+        }
+    );
+
+    modifierTacheMaisonV3(
+        cuisineV3,
+        "Dégager la zone autour de la station Roborock",
+        {
+            freq:7,
+            declenchement:"mixte"
+        }
+    );
+
+    modifierTacheMaisonV3(
+        cuisineV3,
+        "Vider le lave-vaisselle",
+        {
+            freq:1,
+            declenchement:"mixte"
+        }
+    );
+}
+
+
+// ==========================================
+// 🚪 ENTRÉE
+// ==========================================
+
+const entreeV3 =
+    trouverZoneMaisonV3("Entrée");
+
+if(entreeV3){
+
+    const frequencesEntreeV3 = [
+
+        ["Ranger les objets visibles sur l’îlot", 1],
+        ["Ranger les papiers / stylos / livres visibles", 2],
+        ["Ranger les jouets des chiens visibles", 1],
+        ["Ranger les outils visibles", 7],
+        ["Replacer correctement les 6 chaises", 1],
+        ["Dégager le passage de l’entrée", 1],
+        ["Ranger autour des gamelles", 1],
+        ["Dégager la zone devant la baie vitrée", 2],
+
+        ["Nettoyer les traces sur le mur miroir", 7],
+        ["Nettoyer les traces sur la baie vitrée", 14],
+        ["Essuyer l’îlot / plan de travail", 2],
+        ["Nettoyer les chaises si traces visibles", 7],
+        ["Nettoyer autour des gamelles", 2],
+        ["Ramasser les poils / poussières visibles", 1],
+        ["Dépoussiérer la sculpture en métal", 14],
+        ["Dépoussiérer les cadres", 14]
+    ];
+
+    frequencesEntreeV3.forEach(
+        ([nom,freq]) => {
+
+            const resultat =
+                trouverTacheMaisonV3(
+                    entreeV3,
+                    nom
+                );
+
+            if(!resultat){
+                console.warn(
+                    "Migration V3 Entrée : tâche introuvable",
+                    nom
+                );
+                return;
+            }
+
+            resultat.tache.freq = freq;
+
+            // Les tâches visibles de cette liste
+            // peuvent être proposées par fréquence
+            // OU plus tôt si le scan détecte le besoin.
+            if(resultat.tache.detectablePhoto){
+                resultat.tache.declenchement =
+                    "mixte";
+            }else{
+                resultat.tache.declenchement =
+                    "frequence";
+            }
+        }
+    );
+}
+
+// ==========================================
+// 🛋️ SALON
+// ==========================================
+
+const salonV3 =
+    trouverZoneMaisonV3("Salon");
+
+if(salonV3){
+
+    const frequencesSalonV3 = [
+
+        ["Ranger les sacs accrochés à la statue", 7],
+        ["Ranger les ceintures accrochées à la statue", 7],
+
+        ["Ranger les objets sur la table basse", 1],
+        ["Ranger les objets visibles sur le meuble TV", 7],
+
+        ["Ranger les objets qui traînent sur le canapé", 1],
+        ["Remettre les coussins / plaid du canapé en place", 1],
+
+        ["Dégager la zone autour de l’elliptique", 2],
+        ["Ranger / dégager l’œuf suspendu", 2],
+
+        ["Dégager le passage autour du canapé et de la table basse", 1],
+        ["Dégager le pied des escaliers", 2],
+
+        ["Nettoyer l’œuf suspendu si traces visibles", 7],
+        ["Nettoyer l’elliptique si traces / poussière visibles", 7]
+    ];
+
+    frequencesSalonV3.forEach(
+        ([nom,freq]) => {
+
+            const resultat =
+                trouverTacheMaisonV3(
+                    salonV3,
+                    nom
+                );
+
+            if(!resultat){
+                console.warn(
+                    "Migration V3 Salon : tâche introuvable",
+                    nom
+                );
+                return;
+            }
+
+            resultat.tache.freq = freq;
+
+            resultat.tache.declenchement =
+                resultat.tache.detectablePhoto
+                    ? "mixte"
+                    : "frequence";
+        }
+    );
+}
+
+// ==========================================
+// 🛏️ SUITE CHAMBRE + SALLE DE BAIN
+// ==========================================
+
+const suiteV3 =
+    trouverZoneMaisonV3("Suite chambre");
+
+if(suiteV3){
+
+    // --------------------------------------
+    // 🛏️ LIT
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        suiteV3,
+        [
+            "Faire le lit",
+            "Replacer oreillers / coussins du lit"
+        ],
+        {
+            nom:"Faire le lit / remettre oreillers et coussins",
+            duree:5,
+            freq:5,
+            declenchement:"mixte",
+            sousZone:"lit",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:5
+        }
+    );
+
+
+    // --------------------------------------
+    // 🚿 DOUCHE
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        suiteV3,
+        [
+            "Ranger les produits déplacés dans la douche",
+            "Remettre en ordre la petite table de douche"
+        ],
+        {
+            nom:"Ranger les produits / remettre la douche en ordre",
+            duree:5,
+            freq:7,
+            declenchement:"mixte",
+            sousZone:"douche",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:4
+        }
+    );
+
+
+    // --------------------------------------
+    // 🧴 VASQUE
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        suiteV3,
+        [
+            "Ranger les produits qui traînent sur la vasque",
+            "Remettre en ordre le plateau de produits quotidiens"
+        ],
+        {
+            nom:"Ranger la vasque et le plateau de produits",
+            duree:5,
+            freq:5,
+            declenchement:"mixte",
+            sousZone:"vasque",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:5
+        }
+    );
+
+
+    // --------------------------------------
+    // AUTRES TÂCHES VISUELLES DE LA SUITE
+    // --------------------------------------
+
+    const frequencesSuiteV3 = [
+
+        ["Ranger les produits déplacés sur les étagères SDB", 7],
+        ["Ranger les objets autour de la baignoire", 7],
+
+        ["Ranger les vêtements sur le lit", 5],
+        ["Ranger les vêtements au sol", 5],
+        ["Ranger les objets qui traînent autour du lit", 7],
+        ["Ranger les objets visibles sur les étagères murales", 7],
+
+        ["Essuyer les projections autour de la vasque", 5],
+        ["Ramasser les poils / poussières visibles au sol", 5]
+    ];
+
+    frequencesSuiteV3.forEach(
+        ([nom,freq]) => {
+
+            const resultat =
+                trouverTacheMaisonV3(
+                    suiteV3,
+                    nom
+                );
+
+            if(!resultat){
+                console.warn(
+                    "Migration V3 Suite : tâche introuvable",
+                    nom
+                );
+                return;
+            }
+
+            resultat.tache.freq = freq;
+
+            resultat.tache.declenchement =
+                resultat.tache.detectablePhoto
+                    ? "mixte"
+                    : "frequence";
+        }
+    );
+}
+
+// ==========================================
+// 👗 DRESSING + SALLE DE SPORT
+// ==========================================
+
+const dressingV3 =
+    trouverZoneMaisonV3("Dressing / salle de sport") ||
+    trouverZoneMaisonV3("Dressing");
+
+if(dressingV3){
+
+    // --------------------------------------
+    // 🏋️ MATÉRIEL DE SPORT
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        dressingV3,
+        [
+            "Ranger les poids / haltères",
+            "Ranger les élastiques",
+            "Ranger le petit matériel de sport",
+            "Dégager la zone d’entraînement"
+        ],
+        {
+            nom:"Ranger le matériel / dégager la zone de sport",
+            duree:10,
+            freq:7,
+            declenchement:"mixte",
+            sousZone:"salle_sport",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:5
+        }
+    );
+
+
+    // --------------------------------------
+    // 👟 CHAUSSURES
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        dressingV3,
+        [
+            "Ranger les chaussures déplacées",
+            "Remettre les paires de chaussures ensemble"
+        ],
+        {
+            nom:"Ranger les chaussures / remettre les paires ensemble",
+            duree:7,
+            freq:7,
+            declenchement:"mixte",
+            sousZone:"chaussures",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:4
+        }
+    );
+
+
+    // --------------------------------------
+    // 📦 CARTONS
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        dressingV3,
+        [
+            "Remettre la zone cartons en ordre",
+            "Dégager le passage autour des cartons"
+        ],
+        {
+            nom:"Ranger la zone cartons / dégager le passage",
+            duree:7,
+            freq:14,
+            declenchement:"mixte",
+            sousZone:"stockage_cartons",
+            typeEntretien:"visuel",
+            detectablePhoto:true,
+            impactVisuel:4
+        }
+    );
+
+
+    // --------------------------------------
+    // 👟 ÉTAGÈRES À CHAUSSURES
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        dressingV3,
+        [
+            "Nettoyer les étagères à chaussures",
+            "Nettoyer les étagères à chaussures si poussiéreuses"
+        ],
+        {
+            nom:"Nettoyer les étagères à chaussures",
+            duree:10,
+            freq:14,
+            declenchement:"mixte",
+            sousZone:"chaussures",
+            typeEntretien:"entretien",
+            detectablePhoto:true,
+            importanceHygiene:3
+        }
+    );
+
+
+    // --------------------------------------
+    // 🏃 TAPIS DE COURSE
+    // --------------------------------------
+
+    fusionnerTachesMaisonV3(
+        dressingV3,
+        [
+            "Nettoyer le tapis de course",
+            "Nettoyer le tapis de course si poussiéreux"
+        ],
+        {
+            nom:"Nettoyer le tapis de course",
+            duree:10,
+            freq:14,
+            declenchement:"mixte",
+            sousZone:"tapis_course",
+            typeEntretien:"entretien",
+            detectablePhoto:true,
+            importanceHygiene:4
+        }
+    );
+
+
+    // --------------------------------------
+    // 🧹 POILS / POUSSIÈRE
+    // --------------------------------------
+
+    modifierTacheMaisonV3(
+        dressingV3,
+        "Ramasser poils / poussières visibles au sol",
+        {
+            freq:5,
+            declenchement:"mixte"
+        }
+    );
+
+
+    // --------------------------------------
+    // AUTRES TÂCHES VISUELLES SANS FRÉQUENCE
+    // --------------------------------------
+    // Les autres tâches détectables par photo
+    // qui n'ont encore aucune fréquence passent
+    // sur le rythme validé de 7 jours.
+
+    (dressingV3.actions || []).forEach(action => {
+
+        (action.sousTaches || []).forEach(st => {
+
+            if(
+                st.detectablePhoto === true &&
+                !st.freq &&
+                !st.repetable
+            ){
+                st.freq = 7;
+                st.declenchement = "mixte";
+            }
+
+        });
+
+    });
+}
+   
+    DB.journal.versionMaison = 3;
+
+    saveAll();
+
+    console.log("✅ Migration Maison V3 terminée");
+}
 
     // ==========================================
     // SÉCURITÉ : ZONES ABSENTES
