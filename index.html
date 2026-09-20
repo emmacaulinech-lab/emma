@@ -31654,29 +31654,58 @@ ${
 
 
     if(window.journalVue !== "semaine"){
-        renderPreviewPlanningIntelligent(
-            proposition
+
+    // On garde le moteur de planning disponible en arrière-plan,
+    // mais on n'affiche plus :
+    // - "Organiser le reste de ma journée"
+    // - "Proposition intelligente"
+    // - le résumé "Journée normale"
+
+    document
+        .getElementById("journal-organiser-card")
+        ?.remove();
+
+    document
+        .getElementById("planning-intelligent-preview")
+        ?.remove();
+
+    document
+        .getElementById("estimation-temps")
+        ?.remove();
+
+
+    // =========================
+    // PLANNING RÉEL
+    // =========================
+
+    renderPlanningTimeline();
+
+
+    // =========================
+    // ORDRE VISUEL
+    // =========================
+
+    const journalRoot =
+        document.getElementById(
+            "jview-aujourdhui"
         );
 
-        renderPlanningTimeline();
+    [
+        "journal-edit-actions",
+        "planning-timeline",
+        "journal-demain-card"
+    ].forEach(id => {
 
-        renderEstimationTemps();
+        const bloc =
+            document.getElementById(id);
 
-        // Le Journal raconte désormais la journée dans son ordre naturel :
-        // organiser, choisir les propositions, voir la timeline, puis demain.
-        const journalRoot = document.getElementById("jview-aujourdhui");
-        [
-            "journal-organiser-card",
-            "planning-intelligent-preview",
-            "estimation-temps",
-            "journal-edit-actions",
-            "planning-timeline",
-            "journal-demain-card"
-        ].forEach(id => {
-            const bloc = document.getElementById(id);
-            if(bloc) journalRoot.appendChild(bloc);
-        });
-    }
+        if(bloc && journalRoot){
+            journalRoot.appendChild(bloc);
+        }
+
+    });
+
+}
 }
 
 function organiserAujourdhuiJournal(){
