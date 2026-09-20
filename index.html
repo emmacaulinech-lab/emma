@@ -41380,6 +41380,973 @@ function openAjoutTacheHeure(heureStr){
         .getElementById('mainModal')
         .classList.add('open');
 }
+
+function ouvrirChoixTacheProEmma(module){
+
+    const date = getJournalJour();
+
+    const toutesLesTaches =
+        getTachesProDepuisNotifications(date);
+
+    const taches =
+        toutesLesTaches.filter(
+            t => t.module === module
+        );
+
+
+    window._tachesProAjoutEmma = taches;
+
+
+    const config =
+        module === "formations"
+        ? {
+            icon:"🎓",
+            titre:"Formation",
+            vide:"Aucune tâche Formation à traiter"
+        }
+        : {
+            icon:"🧾",
+            titre:"Facturation",
+            vide:"Aucune tâche Facturation à traiter"
+        };
+
+
+    document.getElementById("mTitle").textContent =
+        config.icon + " " + config.titre;
+
+
+    // =========================
+    // AUCUNE TÂCHE DÉTECTÉE
+    // =========================
+
+    if(!taches.length){
+
+        document.getElementById("mBody").innerHTML = `
+
+            <div style="
+                padding:24px 15px;
+                text-align:center;
+            ">
+
+                <div style="
+                    font-size:30px;
+                    margin-bottom:10px;
+                ">
+                    ${config.icon}
+                </div>
+
+                <div style="
+                    font-size:13px;
+                    font-weight:750;
+                    margin-bottom:5px;
+                ">
+                    ${config.vide}
+                </div>
+
+                <div style="
+                    font-size:10px;
+                    color:var(--mut);
+                ">
+                    Rien ne demande ton attention pour le moment.
+                </div>
+
+            </div>
+
+        `;
+
+
+        document.querySelector(
+            "#mainModal .ma"
+        ).innerHTML = `
+
+            <button
+                class="btn bg"
+                onclick="openAjoutTacheHeure('${window._heureAjoutTacheEmma}')"
+            >
+                ← Retour
+            </button>
+
+        `;
+
+        return;
+    }
+
+
+    // =========================
+    // LISTE DES VRAIES TÂCHES
+    // =========================
+
+    document.getElementById("mBody").innerHTML = `
+
+        <div style="
+            font-size:11px;
+            color:var(--mut);
+            margin-bottom:14px;
+        ">
+            Choisis la tâche que tu veux ajouter à ta journée.
+        </div>
+
+
+        <div style="
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+        ">
+
+            ${taches.map((t,index)=>`
+
+                <button
+                    type="button"
+                    onclick="selectionnerTacheProEmma(${index})"
+                    style="
+                        width:100%;
+                        display:flex;
+                        align-items:center;
+                        gap:12px;
+
+                        padding:13px 14px;
+
+                        border:1px solid var(--brd);
+                        border-radius:15px;
+
+                        background:white;
+
+                        text-align:left;
+                        cursor:pointer;
+                    "
+                >
+
+                    <div style="
+                        font-size:21px;
+                        flex:0 0 auto;
+                    ">
+                        ${t.icon || config.icon}
+                    </div>
+
+
+                    <div style="
+                        flex:1;
+                        min-width:0;
+                    ">
+
+                        <div style="
+                            font-size:11px;
+                            font-weight:750;
+                            color:var(--txt);
+                        ">
+                            ${t.nom}
+                        </div>
+
+                        <div style="
+                            font-size:9px;
+                            color:var(--mut);
+                            margin-top:3px;
+                        ">
+                            ${t.duree} min
+                            ${t.priorite === 1 ? " · Prioritaire" : ""}
+                        </div>
+
+                    </div>
+
+
+                    <div style="
+                        color:var(--mut);
+                        font-size:18px;
+                    ">
+                        ›
+                    </div>
+
+                </button>
+
+            `).join("")}
+
+        </div>
+
+    `;
+
+
+    document.querySelector(
+        "#mainModal .ma"
+    ).innerHTML = `
+
+        <button
+            class="btn bg"
+            onclick="openAjoutTacheHeure('${window._heureAjoutTacheEmma}')"
+        >
+            ← Retour
+        </button>
+
+    `;
+}
+
+function selectionnerTacheProEmma(index){
+
+    const tache =
+        window._tachesProAjoutEmma?.[index];
+
+    if(!tache){
+        toast("⚠ Tâche introuvable");
+        return;
+    }
+
+
+    window._typeAjoutTacheEmma = {
+
+        cle:"tacheProExistante",
+
+        tacheOriginale:tache,
+
+        icon:tache.icon || "💼",
+
+        titre:
+            tache.module === "formations"
+                ? "Formation"
+                : "Facturation",
+
+        nom:tache.nom,
+
+        duree:Number(tache.duree || 15),
+
+        typePlanning:"pro",
+
+        categorie:"proAdmin"
+
+    };
+
+
+    const heure =
+        window._heureAjoutTacheEmma || "12:00";
+
+
+    document.getElementById("mTitle").textContent =
+        `${tache.icon || "💼"} ${tache.nom}`;
+
+
+    document.getElementById("mBody").innerHTML = `
+
+        <div style="
+            padding:13px 14px;
+            border-radius:15px;
+            background:rgba(255,255,255,.65);
+            margin-bottom:16px;
+        ">
+
+            <div style="
+                font-size:12px;
+                font-weight:750;
+            ">
+                ${tache.icon || "💼"} ${tache.nom}
+            </div>
+
+            <div style="
+                font-size:9px;
+                color:var(--mut);
+                margin-top:4px;
+            ">
+                Durée estimée : ${tache.duree} min
+            </div>
+
+        </div>
+
+
+        <div class="fr">
+
+            <label>Durée</label>
+
+            <input
+                type="number"
+                id="emma-ajout-duree"
+                value="${tache.duree}"
+                min="5"
+                step="5"
+            >
+
+        </div>
+
+
+        <div style="
+            margin-top:18px;
+            font-size:10px;
+            font-weight:800;
+            letter-spacing:.10em;
+            color:var(--mut);
+            margin-bottom:9px;
+        ">
+            PLACEMENT
+        </div>
+
+
+        <label style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+            padding:13px;
+            border:1px solid var(--brd);
+            border-radius:14px;
+            margin-bottom:8px;
+            cursor:pointer;
+        ">
+
+            <input
+                type="radio"
+                name="emma-placement"
+                value="auto"
+                checked
+                onchange="changerPlacementTacheEmma()"
+            >
+
+            <div>
+                <strong style="font-size:12px">
+                    ✨ Placer automatiquement
+                </strong>
+
+                <div style="
+                    font-size:9px;
+                    color:var(--mut);
+                    margin-top:2px;
+                ">
+                    EMMA trouve une place libre
+                </div>
+            </div>
+
+        </label>
+
+
+        <label style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+            padding:13px;
+            border:1px solid var(--brd);
+            border-radius:14px;
+            cursor:pointer;
+        ">
+
+            <input
+                type="radio"
+                name="emma-placement"
+                value="fixe"
+                onchange="changerPlacementTacheEmma()"
+            >
+
+            <div>
+                <strong style="font-size:12px">
+                    🕐 À une heure précise
+                </strong>
+
+                <div style="
+                    font-size:9px;
+                    color:var(--mut);
+                    margin-top:2px;
+                ">
+                    Cette tâche ne bougera pas
+                </div>
+            </div>
+
+        </label>
+
+
+        <div
+            id="emma-placement-heure"
+            style="display:none;margin-top:12px"
+        >
+
+            <div class="fr">
+
+                <label>Heure</label>
+
+                <input
+                    type="time"
+                    id="emma-ajout-heure"
+                    value="${heure}"
+                >
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    document.querySelector(
+        "#mainModal .ma"
+    ).innerHTML = `
+
+        <button
+            class="btn bg"
+            onclick="ouvrirChoixTacheProEmma('${tache.module}')"
+        >
+            ← Retour
+        </button>
+
+        <button
+            class="btn bd"
+            onclick="validerNouvelleTacheEmma()"
+        >
+            ✓ Ajouter
+        </button>
+
+    `;
+}
+
+function choisirTypeTacheEmma(type){
+
+    const heure =
+        window._heureAjoutTacheEmma || "12:00";
+
+    const configs = {
+
+        sport:{
+            icon:"🏋️",
+            titre:"Sport",
+            nom:"Séance GLOW",
+            duree:25,
+            typePlanning:"perso",
+            categorie:"sport"
+        },
+
+        lecture:{
+            icon:"📚",
+            titre:"Lecture",
+            nom:"Lecture",
+            duree:20,
+            typePlanning:"perso",
+            categorie:"lecture"
+        },
+
+        detente:{
+            icon:"☕",
+            titre:"Moment détente",
+            nom:"Moment détente",
+            duree:20,
+            typePlanning:"perso",
+            categorie:"detente"
+        },
+
+        perso:{
+            icon:"✏️",
+            titre:"Tâche personnelle",
+            nom:"",
+            duree:15,
+            typePlanning:"perso",
+            categorie:"perso"
+        },
+
+        travail:{
+            icon:"💻",
+            titre:"Tâche professionnelle",
+            nom:"",
+            duree:15,
+            typePlanning:"travail",
+            categorie:"travail"
+        }
+
+    };
+
+
+    // Formation et facturation :
+    // on les branche juste après sur leurs vraies données.
+    if(
+        type === "formation" ||
+        type === "facturation"
+    ){
+        ouvrirChoixTacheProEmma(type);
+        return;
+    }
+
+
+    const config = configs[type];
+
+    if(!config){
+        return;
+    }
+
+
+    window._typeAjoutTacheEmma = {
+        ...config,
+        cle:type
+    };
+
+
+    document.getElementById('mTitle').textContent =
+        config.icon + " " + config.titre;
+
+
+    document.getElementById('mBody').innerHTML = `
+
+        ${
+            config.nom
+            ? `
+                <div style="
+                    font-size:16px;
+                    font-weight:750;
+                    margin-bottom:18px;
+                ">
+                    ${config.icon} ${config.nom}
+                </div>
+            `
+            : `
+                <div class="fr">
+                    <label>Nom de la tâche</label>
+
+                    <input
+                        type="text"
+                        id="emma-ajout-nom"
+                        placeholder="${
+                            type === "travail"
+                            ? "Ex : Préparer les commandes"
+                            : "Ex : Appeler le médecin"
+                        }"
+                    >
+                </div>
+            `
+        }
+
+
+        <div class="fr">
+
+            <label>Durée</label>
+
+            <select id="emma-ajout-duree">
+
+                <option value="10">
+                    10 minutes
+                </option>
+
+                <option value="15"
+                    ${config.duree===15 ? "selected" : ""}
+                >
+                    15 minutes
+                </option>
+
+                <option value="20"
+                    ${config.duree===20 ? "selected" : ""}
+                >
+                    20 minutes
+                </option>
+
+                <option value="25"
+                    ${config.duree===25 ? "selected" : ""}
+                >
+                    25 minutes
+                </option>
+
+                <option value="30">
+                    30 minutes
+                </option>
+
+                <option value="45">
+                    45 minutes
+                </option>
+
+                <option value="60">
+                    1 heure
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div style="
+            margin-top:18px;
+            font-size:10px;
+            font-weight:800;
+            letter-spacing:.10em;
+            color:var(--mut);
+            margin-bottom:9px;
+        ">
+            PLACEMENT
+        </div>
+
+
+        <label style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+
+            padding:13px;
+
+            border:1px solid var(--brd);
+            border-radius:14px;
+
+            margin-bottom:8px;
+
+            cursor:pointer;
+        ">
+
+            <input
+                type="radio"
+                name="emma-placement"
+                value="auto"
+                checked
+                onchange="changerPlacementTacheEmma()"
+            >
+
+            <div>
+                <strong style="font-size:12px;">
+                    ✨ Placer automatiquement
+                </strong>
+
+                <div style="
+                    font-size:9px;
+                    color:var(--mut);
+                    margin-top:2px;
+                ">
+                    EMMA trouve une place libre dans ma journée
+                </div>
+            </div>
+
+        </label>
+
+
+        <label style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+
+            padding:13px;
+
+            border:1px solid var(--brd);
+            border-radius:14px;
+
+            cursor:pointer;
+        ">
+
+            <input
+                type="radio"
+                name="emma-placement"
+                value="fixe"
+                onchange="changerPlacementTacheEmma()"
+            >
+
+            <div>
+                <strong style="font-size:12px;">
+                    🕐 À une heure précise
+                </strong>
+
+                <div style="
+                    font-size:9px;
+                    color:var(--mut);
+                    margin-top:2px;
+                ">
+                    Cette tâche ne bougera pas
+                </div>
+            </div>
+
+        </label>
+
+
+        <div
+            id="emma-placement-heure"
+            style="
+                display:none;
+                margin-top:12px;
+            "
+        >
+
+            <div class="fr">
+
+                <label>Heure</label>
+
+                <input
+                    type="time"
+                    id="emma-ajout-heure"
+                    value="${heure}"
+                >
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    document.querySelector(
+        '#mainModal .ma'
+    ).innerHTML = `
+
+        <button
+            class="btn bg"
+            onclick="openAjoutTacheHeure('${heure}')"
+        >
+            ← Retour
+        </button>
+
+        <button
+            class="btn bd"
+            onclick="validerNouvelleTacheEmma()"
+        >
+            ✓ Ajouter
+        </button>
+
+    `;
+}
+
+
+
+function changerPlacementTacheEmma(){
+
+    const choix =
+        document.querySelector(
+            'input[name="emma-placement"]:checked'
+        )?.value;
+
+    const bloc =
+        document.getElementById(
+            "emma-placement-heure"
+        );
+
+    if(!bloc){
+        return;
+    }
+
+    bloc.style.display =
+        choix === "fixe"
+            ? "block"
+            : "none";
+}
+
+async function validerNouvelleTacheEmma(){
+
+    ensureJournalData();
+
+    const date = getJournalJour();
+    const config = window._typeAjoutTacheEmma;
+
+    if(!config){
+        toast("⚠ Type de tâche introuvable");
+        return;
+    }
+
+
+    // =========================
+    // NOM
+    // =========================
+
+    let nom = config.nom;
+
+    if(!nom){
+
+        nom =
+            document
+                .getElementById("emma-ajout-nom")
+                ?.value
+                ?.trim();
+
+        if(!nom){
+            toast("⚠ Donne un nom à la tâche");
+            return;
+        }
+    }
+
+
+    // =========================
+    // DURÉE
+    // =========================
+
+    const duree =
+        Math.max(
+            5,
+            Number(
+                document
+                    .getElementById("emma-ajout-duree")
+                    ?.value || config.duree || 15
+            )
+        );
+
+
+    // =========================
+    // PLACEMENT
+    // =========================
+
+    const placement =
+        document.querySelector(
+            'input[name="emma-placement"]:checked'
+        )?.value || "auto";
+
+
+    const estFixe =
+        placement === "fixe";
+
+
+    let heureDebut = null;
+    let heureFin = null;
+
+
+    // =========================
+    // HEURE IMPOSÉE
+    // =========================
+
+    if(estFixe){
+
+        const heureChoisie =
+            document
+                .getElementById("emma-ajout-heure")
+                ?.value;
+
+        if(!heureChoisie){
+            toast("⚠ Choisis une heure");
+            return;
+        }
+
+
+        const place =
+            placerSansChevauchement(
+                date,
+                heureChoisie,
+                duree
+            );
+
+        heureDebut = place.heureDebut;
+        heureFin = place.heureFin;
+    }
+
+
+    // =========================
+    // CRÉATION DE LA TÂCHE
+    // =========================
+
+    const item = {
+
+        id: genId(),
+
+        source:
+            config.cle === "sport"
+                ? "glow"
+                : "journal",
+
+        type: config.typePlanning,
+
+        categorie: config.categorie,
+
+        nom: nom,
+
+        customNom: nom,
+
+        iconOverride: config.icon,
+
+        duree: duree,
+
+        flexible: !estFixe,
+
+        verrouille: estFixe,
+
+        ajouteManuellement: true,
+
+        placementManuel:
+            estFixe
+                ? "fixe"
+                : "automatique",
+
+        valide: true
+
+    };
+
+   // Si la tâche vient réellement de Formation / Facturation,
+// on conserve les informations de la notification d'origine.
+if(
+    config.cle === "tacheProExistante" &&
+    config.tacheOriginale
+){
+
+    item.source =
+        config.tacheOriginale.source;
+
+    item.module =
+        config.tacheOriginale.module;
+
+    item.onclick =
+        config.tacheOriginale.onclick;
+
+    item.priorite =
+        config.tacheOriginale.priorite;
+
+    item.sourceId =
+        config.tacheOriginale.id;
+
+    item.typesAutorises = ["pro"];
+}
+
+    // =========================
+    // TÂCHE FIXE
+    // =========================
+
+    if(estFixe){
+
+        item.heureDebut = heureDebut;
+        item.heureFin = heureFin;
+
+        item.heureImposee = true;
+    }
+
+
+    if(!DB.journal.planning[date]){
+        DB.journal.planning[date] = [];
+    }
+
+
+    // =========================
+    // PLACEMENT AUTOMATIQUE
+    // =========================
+
+    if(!estFixe){
+
+        /*
+           On utilise le moteur intelligent existant
+           uniquement pour trouver une place libre.
+
+           L'utilisateur a déjà choisi la tâche :
+           aucune proposition supplémentaire.
+        */
+
+        await appliquerPlanningIntelligent(
+            date,
+            {
+                mode:"ajouter",
+                selectionManuelle:true,
+                elementsSupplementaires:[
+                    item
+                ]
+            }
+        );
+
+    }else{
+
+        DB.journal.planning[date].push(item);
+
+        DB.journal.planning[date].sort(
+            (a,b) =>
+                (a.heureDebut || "")
+                    .localeCompare(
+                        b.heureDebut || ""
+                    )
+        );
+
+        await sauvegarderChampSeul(
+            "journal",
+            JSON.stringify(DB.journal)
+        );
+    }
+
+
+    // =========================
+    // FIN
+    // =========================
+
+    closeMo("mainModal");
+
+    renderPlanningTimeline();
+
+    renderJAujourdhui?.();
+
+    toast(
+        estFixe
+            ? "✓ Tâche ajoutée à " + heureDebut
+            : "✓ Tâche ajoutée au planning"
+    );
+}
+   
 async function validerAjoutTacheHeure(){
   ensureJournalData();
   const today=getJournalJour();
