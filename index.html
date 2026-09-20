@@ -34274,11 +34274,7 @@ if(
 
 // Aucun déjeuner choisi
 if(
-    !repasPrevus.dejeuner &&
-    (
-        !estAujourdhuiReel ||
-        minutesMaintenant < 12 * 60 + 30
-    )
+    !repasPrevus.dejeuner
 ){
 
     elements.push({
@@ -34287,6 +34283,7 @@ if(
         type: "perso",
         categorie: "repas",
         nom: "Décider du déjeuner",
+        actionRepas: "dejeuner",
         icon: "💭",
         duree: 10,
         priorite: 2,
@@ -34344,11 +34341,7 @@ if(
 
 // Aucun dîner choisi
 if(
-    !nutrition.dinerPrevu &&
-    (
-        !estAujourdhuiReel ||
-        minutesMaintenant < 19 * 60 + 30
-    )
+    !nutrition.dinerPrevu
 ){
   
 
@@ -34358,6 +34351,7 @@ if(
         type: "perso",
         categorie: "repas",
         nom: "Décider du dîner",
+        actionRepas: "diner",
         icon: "💭",
         duree: 10,
         priorite: 2,
@@ -34380,23 +34374,40 @@ if(
 ){
 
             elements.push({
-                id: "glow_dejeuner_" + date,
-                source: "glow",
-                type: "perso",
-                typesAutorises: ["perso", "pro"],
-                categorie: "repas",
-                nom: "Déjeuner",
-                icon: "🥗",
-                duree: 30,
-                priorite: 1,
-                heurePreferee: "12:30",
-                flexible: false,
-                plageHoraire: {
-                    debut: "11:30",
-                    fin: "14:30"
-                },
-                repas: repasPrevus.dejeuner
-            });
+    id: "glow_dejeuner_" + date,
+    source: "glow",
+    type: "perso",
+    typesAutorises: ["perso", "pro"],
+    categorie: "repas",
+    nom: "Déjeuner",
+    icon: "🥗",
+
+    duree:
+        Number(
+            repasPrevus.dejeuner?.dureeRepas || 30
+        ),
+
+    priorite: 1,
+
+    heurePreferee:
+        repasPrevus.dejeuner?.heureRepas || "12:30",
+
+    heureImposee:
+        !!repasPrevus.dejeuner?.heureRepas,
+
+    flexible:
+        !repasPrevus.dejeuner?.heureRepas,
+
+    verrouille:
+        !!repasPrevus.dejeuner?.heureRepas,
+
+    plageHoraire: {
+        debut: "11:30",
+        fin: "14:30"
+    },
+
+    repas: repasPrevus.dejeuner
+});
 
         }
 
@@ -34410,22 +34421,39 @@ if(
 ){
 
             elements.push({
-                id: "glow_diner_" + date,
-                source: "glow",
-                type: "perso",
-                categorie: "repas",
-                nom: "Dîner",
-                icon: "🌙",
-                duree: 45,
-                priorite: 1,
-                heurePreferee: "20:30",
-                flexible: false,
-                plageHoraire: {
-                    debut: "18:30",
-                    fin: "21:30"
-                },
-                repas: nutrition.dinerPrevu
-            });
+    id: "glow_diner_" + date,
+    source: "glow",
+    type: "perso",
+    categorie: "repas",
+    nom: "Dîner",
+    icon: "🌙",
+
+    duree:
+        Number(
+            nutrition.dinerPrevu?.dureeRepas || 45
+        ),
+
+    priorite: 1,
+
+    heurePreferee:
+        nutrition.dinerPrevu?.heureRepas || "20:30",
+
+    heureImposee:
+        !!nutrition.dinerPrevu?.heureRepas,
+
+    flexible:
+        !nutrition.dinerPrevu?.heureRepas,
+
+    verrouille:
+        !!nutrition.dinerPrevu?.heureRepas,
+
+    plageHoraire: {
+        debut: "18:30",
+        fin: "21:30"
+    },
+
+    repas: nutrition.dinerPrevu
+});
 
         }
 
@@ -37721,8 +37749,7 @@ renderJAujourdhui();
     toast(
         `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
     );
-}
-async function recollerTachesMaisonJournal(){
+}async function recollerTachesMaisonJournal(){
 
     const date = getJournalJour();
 
@@ -37746,23 +37773,9 @@ async function recollerTachesMaisonJournal(){
         maintenant.getHours() * 60 +
         maintenant.getMinutes();
 
-   // =========================
-// REPLACER LES TÂCHES FAITES
-// COMME LORSQU'ON LES VALIDE
-// =========================
-
-if(estAujourdhui){
-
-    repositionnerTachesFaitesAvantMaintenant(
-        date,
-        minuteActuelle
-    );
-
-}
-
 
     // =========================
-    // OUTILS HEURES
+    // OUTILS
     // =========================
 
     const heureVersMinutes = heure => {
@@ -37775,9 +37788,11 @@ if(estAujourdhui){
         return h * 60 + m;
     };
 
+
     const minutesVersHeure = minutes => {
 
-        minutes = Math.max(0,minutes);
+        minutes =
+            Math.max(0,Math.min(1439,minutes));
 
         const h =
             Math.floor(minutes / 60);
@@ -37794,27 +37809,18 @@ if(estAujourdhui){
 
 
     // =========================
-    // TÂCHES MAISON
+    // 1. TÂCHES DÉJÀ FAITES
     // =========================
 
-    const tachesMaison =
-        planning.filter(bloc =>
-            bloc.categorie === "maison" &&
-            !bloc.routineFixe &&
-            bloc.data?.zoneId
+    if(estAujourdhui){
+
+        repositionnerTachesFaitesAvantMaintenant(
+            date,
+            minuteActuelle
         );
 
-
-    if(!tachesMaison.length){
-
-        toast("Aucune tâche Maison dans le planning");
-        return;
     }
 
-
-    // =========================
-    // VRAIMENT FAITE ?
-    // =========================
 
     const estVraimentFaite = bloc => {
 
@@ -37831,138 +37837,248 @@ if(estAujourdhui){
 
 
     // =========================
-    // SÉPARATION
+    // 2. BLOCS QUI NE BOUGENT JAMAIS
     // =========================
 
-    const tachesFaites =
-        tachesMaison.filter(
-            estVraimentFaite
+    const estBlocFixe = bloc => {
+
+        return !!(
+
+            bloc.routineFixe ||
+
+            bloc.rappelRepas ||
+
+            bloc.repasFixe ||
+
+            bloc.heureImposee ||
+
+            bloc.placementManuel === "fixe" ||
+
+            bloc.flexible === false ||
+
+            (
+                bloc.verrouille &&
+                !bloc.flexible
+            )
         );
-
-    const tachesRestantes =
-        tachesMaison.filter(
-            bloc => !estVraimentFaite(bloc)
-        );
+    };
 
 
-    if(!tachesRestantes.length){
+    // =========================
+    // 3. TÂCHES FLEXIBLES
+    // NON FAITES
+    // =========================
 
-        toast("✓ Toutes les tâches Maison sont faites");
+    const tachesFlexibles =
+        planning.filter(bloc => {
+
+            if(estVraimentFaite(bloc)){
+                return false;
+            }
+
+            if(estBlocFixe(bloc)){
+                return false;
+            }
+
+            // On ne touche pas aux
+            // éventuels blocs techniques.
+
+            if(bloc.type === "tempsLibre"){
+                return false;
+            }
+
+            return bloc.flexible !== false;
+        });
+
+
+    if(!tachesFlexibles.length){
+
+        toast("✓ Aucune tâche flexible à recoller");
         return;
     }
 
 
     // =========================
-    // IMPORTANT :
-    // LES TÂCHES FAITES
-    // NE BOUGENT PLUS
+    // 4. SÉPARER MAISON / AUTRES
     // =========================
 
-    // On ne modifie absolument rien
-    // dans tachesFaites.
-    //
-    // Leur heureDebut / heureFin
-    // reste exactement celle
-    // actuellement enregistrée.
+    const maison =
+        tachesFlexibles.filter(bloc =>
+            bloc.categorie === "maison" &&
+            bloc.data?.zoneId
+        );
+
+
+    const autres =
+        tachesFlexibles.filter(bloc =>
+            !maison.includes(bloc)
+        );
 
 
     // =========================
-    // ORDRE DES PIÈCES
+    // 5. ORDRE DES TÂCHES
+    // =========================
+
+    const ordreOriginal =
+        [...tachesFlexibles]
+        .sort(
+            (a,b) =>
+                heureVersMinutes(a.heureDebut) -
+                heureVersMinutes(b.heureDebut)
+        );
+
+
+    // =========================
+    // 6. GROUPER MAISON
+    // PAR PIÈCE
     // =========================
 
     const ordreZones = [];
 
-    [...tachesRestantes]
-        .sort((a,b) =>
-            heureVersMinutes(a.heureDebut) -
-            heureVersMinutes(b.heureDebut)
-        )
-        .forEach(tache => {
+    ordreOriginal.forEach(bloc => {
 
-            const zoneId =
-                tache.data?.zoneId;
-
-            if(
-                zoneId &&
-                !ordreZones.includes(zoneId)
-            ){
-                ordreZones.push(zoneId);
-            }
-
-        });
-
-
-    // =========================
-    // GROUPER PAR PIÈCE
-    // =========================
-
-    const groupes =
-        new Map();
-
-    ordreZones.forEach(zoneId =>
-        groupes.set(zoneId,[])
-    );
-
-    tachesRestantes.forEach(tache => {
-
-        const zoneId =
-            tache.data?.zoneId;
-
-        if(!groupes.has(zoneId)){
-            groupes.set(zoneId,[]);
+        if(
+            bloc.categorie !== "maison" ||
+            !bloc.data?.zoneId
+        ){
+            return;
         }
 
-        groupes
-            .get(zoneId)
-            .push(tache);
+        if(
+            !ordreZones.includes(
+                bloc.data.zoneId
+            )
+        ){
+            ordreZones.push(
+                bloc.data.zoneId
+            );
+        }
     });
 
 
-    // Ordre actuel conservé
-    // à l'intérieur de chaque pièce.
+    const groupesMaison =
+        new Map();
 
-    groupes.forEach(taches => {
 
-        taches.sort((a,b) =>
-            heureVersMinutes(a.heureDebut) -
-            heureVersMinutes(b.heureDebut)
+    ordreZones.forEach(zoneId =>
+        groupesMaison.set(
+            zoneId,
+            []
+        )
+    );
+
+
+    maison.forEach(bloc => {
+
+        const zoneId =
+            bloc.data.zoneId;
+
+        if(!groupesMaison.has(zoneId)){
+            groupesMaison.set(
+                zoneId,
+                []
+            );
+        }
+
+        groupesMaison
+            .get(zoneId)
+            .push(bloc);
+    });
+
+
+    groupesMaison.forEach(taches => {
+
+        taches.sort(
+            (a,b) =>
+                heureVersMinutes(a.heureDebut) -
+                heureVersMinutes(b.heureDebut)
         );
 
     });
 
 
     // =========================
-    // RETIRER SEULEMENT
-    // LES TÂCHES NON FAITES
+    // 7. CONSTRUIRE LA FILE
     // =========================
+
+    const fileRecollee = [];
+
+    const zonesAjoutees =
+        new Set();
+
+
+    ordreOriginal.forEach(bloc => {
+
+        if(
+            bloc.categorie === "maison" &&
+            bloc.data?.zoneId
+        ){
+
+            const zoneId =
+                bloc.data.zoneId;
+
+            if(zonesAjoutees.has(zoneId)){
+                return;
+            }
+
+            zonesAjoutees.add(zoneId);
+
+            fileRecollee.push(
+                ...(
+                    groupesMaison.get(zoneId) ||
+                    []
+                )
+            );
+
+            return;
+        }
+
+
+        if(autres.includes(bloc)){
+            fileRecollee.push(bloc);
+        }
+
+    });
+
+
+    // =========================
+    // 8. RETIRER TEMPORAIREMENT
+    // TOUTES LES FLEXIBLES
+    // =========================
+
+    const idsAReplacer =
+        new Set(
+            fileRecollee.map(
+                bloc => bloc.id
+            )
+        );
+
 
     DB.journal.planning[date] =
-        planning.filter(bloc =>
-            !tachesRestantes.includes(bloc)
+        planning.filter(
+            bloc =>
+                !idsAReplacer.has(bloc.id)
         );
 
 
-    // À ce stade :
+    // Il ne reste maintenant que :
     //
-    // ✓ tâches faites toujours présentes
-    // ✓ Perso toujours présent
-    // ✓ Travail toujours présent
-    // ✓ routines toujours présentes
-    //
-    // seules les tâches Maison
-    // NON FAITES ont été retirées.
+    // ✓ tâches faites
+    // ✓ rendez-vous
+    // ✓ routines fixes
+    // ✓ rappels repas
+    // ✓ repas décidés
+    // ✓ tâches avec heure imposée
 
 
     // =========================
-    // NOUVEAU POINT DE DÉPART
+    // 9. POINT DE DÉPART
     // =========================
 
     let curseur;
 
-    if(estAujourdhui){
 
-        // On arrondit à la prochaine
-        // tranche de 5 minutes.
+    if(estAujourdhui){
 
         const depart =
             Math.ceil(
@@ -37974,13 +38090,9 @@ if(estAujourdhui){
 
     }else{
 
-        // Pour une autre journée,
-        // on conserve le comportement
-        // basé sur le planning.
-
         const premiereHeure =
-            tachesRestantes
-                .map(t => t.heureDebut)
+            fileRecollee
+                .map(bloc => bloc.heureDebut)
                 .filter(Boolean)
                 .sort()[0];
 
@@ -37990,69 +38102,50 @@ if(estAujourdhui){
 
 
     // =========================
-    // RECOLLER
+    // 10. RECOLLER
     // =========================
 
-    ordreZones.forEach(zoneId => {
+    fileRecollee.forEach(bloc => {
 
-        const taches =
-            groupes.get(zoneId) || [];
-
-        taches.forEach(tache => {
-
-            const duree =
-                Math.max(
-                    1,
-                    Number(tache.duree || 5)
-                );
+        const duree =
+            Math.max(
+                1,
+                Number(bloc.duree || 5)
+            );
 
 
-            // On cherche une place à partir
-            // de maintenant.
-            //
-            // placerSansChevauchement()
-            // contourne les éléments qui sont
-            // encore dans le planning :
-            //
-            // - tâches faites
-            // - Perso
-            // - Travail
-            // - routines
-            // etc.
-
-            const place =
-                placerSansChevauchement(
-                    date,
-                    curseur,
-                    duree
-                );
+        const place =
+            placerSansChevauchement(
+                date,
+                curseur,
+                duree
+            );
 
 
-            tache.heureDebut =
-                place.heureDebut;
-
-            tache.heureFin =
-                place.heureFin;
+        if(!place){
+            return;
+        }
 
 
-            DB.journal.planning[date]
-                .push(tache);
+        bloc.heureDebut =
+            place.heureDebut;
+
+        bloc.heureFin =
+            place.heureFin;
 
 
-            // La prochaine tâche essaiera
-            // de commencer immédiatement
-            // après celle-ci.
+        DB.journal.planning[date]
+            .push(bloc);
 
-            curseur =
-                place.heureFin;
 
-        });
+        curseur =
+            place.heureFin;
 
     });
 
 
     // =========================
-    // TRI FINAL
+    // 11. TRI FINAL
     // =========================
 
     DB.journal.planning[date].sort(
@@ -38063,7 +38156,7 @@ if(estAujourdhui){
 
 
     // =========================
-    // SAUVEGARDE
+    // 12. SAUVEGARDE
     // =========================
 
     await saveAll();
@@ -38075,7 +38168,7 @@ if(estAujourdhui){
     renderJAujourdhui();
 
     toast(
-        "🧩 Tâches restantes recollées à partir de maintenant"
+        "🧩 Tâches flexibles recollées"
     );
 }
 
@@ -39863,8 +39956,25 @@ const bg =
     const faitBloc=!!faitMap[p.id];
     const largeurPct=100/p._maxCols;
     const leftPct=p._col*largeurPct;
-    const clickHandlers=clickable?`onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')"`:`onclick="goModule('journal')"`;
-    const checkHandler=clickable?`onclick="event.stopPropagation();togglePlanningFait('${p.id}')"`:'';
+    const estDecisionRepas =
+    p.actionRepas === "dejeuner" ||
+    p.actionRepas === "diner";
+
+
+const clickHandlers =
+    clickable
+        ? estDecisionRepas
+            ? `onclick="event.stopPropagation();ouvrirDecisionRepasEmma('${p.actionRepas}')"`
+            : `onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')"`
+        : `onclick="goModule('journal')"`;
+
+        
+const checkHandler =
+    clickable
+        ? estDecisionRepas
+            ? `onclick="event.stopPropagation();ouvrirDecisionRepasEmma('${p.actionRepas}')"`
+            : `onclick="event.stopPropagation();togglePlanningFait('${p.id}')"`
+        : '';
 
 return`<div ${clickHandlers} style="
     position:absolute;
@@ -39962,6 +40072,20 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         ${nomBloc}
     </div>
 
+    ${p.repasFixe && p.repas?.nom ? `
+    <div style="
+        margin-top:2px;
+        font-size:10px;
+        font-weight:600;
+        color:#6e6e73;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    ">
+        ${p.repas.nom}
+    </div>
+` : ''}
+
     <div style="
         margin-top:2px;
         font-size:9.5px;
@@ -39979,8 +40103,12 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
 </div>
 ${clickable?`
 <span
-    onclick="event.stopPropagation();ouvrirBlocPlanning('${p.id}')"
-    style="
+onclick="event.stopPropagation();${
+    estDecisionRepas
+        ? `ouvrirDecisionRepasEmma('${p.actionRepas}')`
+        : `ouvrirBlocPlanning('${p.id}')`
+}"
+style="
         width:22px;
         height:22px;
         border-radius:50%;
@@ -40013,8 +40141,33 @@ onclick="event.stopPropagation()"
 >
 
     ${
-        p.verrouille
-        ? `
+    p.repasFixe
+    ? `
+        <button
+            onclick="
+                event.stopPropagation();
+                ouvrirDecisionRepasEmma(
+                    '${p.id.includes("dejeuner") ? "dejeuner" : "diner"}'
+                );
+            "
+            style="
+                width:100%;
+                border:0;
+                background:rgba(196,162,78,.13);
+                color:#8A702E;
+                border-radius:9px;
+                padding:7px 10px;
+                font-size:10px;
+                font-weight:800;
+                cursor:pointer;
+            "
+        >
+            ✏️ Modifier le repas
+        </button>
+    `
+
+    : p.verrouille && !p.rappelRepas
+    ? `
             <div style="
                 width:100%;
                 font-size:10px;
@@ -40027,7 +40180,29 @@ onclick="event.stopPropagation()"
                 🔒 Rendez-vous synchronisé
             </div>
         `
-        : `
+: p.rappelRepas
+? `
+    <button
+        onclick="
+            event.stopPropagation();
+            ouvrirDecisionRepasEmma('${p.actionRepas}');
+        "
+        style="
+            width:100%;
+            border:0;
+            background:rgba(196,162,78,.13);
+            color:#8A702E;
+            border-radius:9px;
+            padding:7px 10px;
+            font-size:10px;
+            font-weight:800;
+            cursor:pointer;
+        "
+    >
+        🍽️ Choisir mon repas
+    </button>
+`
+: `
             ${aUneFicheTache ? `
 <button
 onclick="ouvrirDetailSousTache('${zoneId}','${actionId}','${sousTacheId}')"
@@ -40939,10 +41114,163 @@ async function decalerBlocsJournalVersDemain(){
     );
 }
 
+function assurerRappelsRepasJournal(date){
+
+    ensureJournalData();
+    initialiserGlowDuJour();
+
+    if(!DB.journal.planning){
+        DB.journal.planning = {};
+    }
+
+    if(!DB.journal.planning[date]){
+        DB.journal.planning[date] = [];
+    }
+
+
+    const planning =
+        DB.journal.planning[date];
+
+    const nutrition =
+        DB.glow?.nutrition || {};
+
+    const repasPrevus =
+        nutrition.repasPrevus || {};
+
+
+    // =========================
+    // OUTIL : SAVOIR SI PRÉSENT
+    // =========================
+
+    const existeDeja = id =>
+        planning.some(bloc =>
+            bloc.id === id ||
+            bloc.sourceId === id
+        );
+
+
+    // =========================
+    // 💭 DÉJEUNER
+    // =========================
+
+    const idDejeuner =
+        "glow_decider_dejeuner_" + date;
+
+
+    if(
+        !repasPrevus.dejeuner &&
+        !existeDeja(idDejeuner)
+    ){
+
+        planning.push({
+
+            id:idDejeuner,
+
+            source:"glow",
+
+            sourceId:idDejeuner,
+
+            type:"perso",
+
+            categorie:"repas",
+
+            nom:"Décider du déjeuner",
+
+            icon:"💭",
+
+            iconOverride:"💭",
+
+            actionRepas:"dejeuner",
+
+            duree:10,
+
+            priorite:1,
+
+            heureDebut:"11:30",
+heureFin:"11:40",
+
+heurePreferee:"11:30",
+heureImposee:true,
+
+flexible:false,
+verrouille:true,
+
+            rappelRepas:true,
+
+            plageHoraire:{
+                debut:"10:30",
+                fin:"12:30"
+            }
+
+        });
+
+    }
+
+
+    // =========================
+    // 💭 DÎNER
+    // =========================
+
+    const idDiner =
+        "glow_decider_diner_" + date;
+
+
+    if(
+        !nutrition.dinerPrevu &&
+        !existeDeja(idDiner)
+    ){
+
+        planning.push({
+
+            id:idDiner,
+
+            source:"glow",
+
+            sourceId:idDiner,
+
+            type:"perso",
+
+            categorie:"repas",
+
+            nom:"Décider du dîner",
+
+            icon:"💭",
+
+            iconOverride:"💭",
+
+            actionRepas:"diner",
+
+            duree:10,
+
+            priorite:1,
+
+            heureDebut:"18:30",
+heureFin:"18:40",
+
+heurePreferee:"18:30",
+heureImposee:true,
+
+flexible:false,
+verrouille:true,
+
+            rappelRepas:true,
+
+            plageHoraire:{
+                debut:"17:00",
+                fin:"19:30"
+            }
+
+        });
+
+    }
+
+}
+
 function renderPlanningTimeline(){
   const el=document.getElementById('planning-timeline');
   if(!el) return;
   const today=getJournalJour();
+  assurerRappelsRepasJournal(today);
   const nombreAvant=(DB.journal.planning[today]||[]).length;
   dedupliquerPlanningEmma(today);
   const planning=DB.journal.planning[today]||[];
@@ -41787,6 +42115,551 @@ function selectionnerTacheProEmma(index){
         </button>
 
     `;
+}
+
+function ouvrirDecisionRepasEmma(type){
+
+    const estDejeuner = type === "dejeuner";
+const titre = estDejeuner ? "Déjeuner" : "Dîner";
+const icon = estDejeuner ? "🥗" : "🌙";
+
+const nutrition =
+    DB.glow?.nutrition || {};
+
+const repasExistant =
+    estDejeuner
+        ? nutrition.repasPrevus?.dejeuner
+        : nutrition.dinerPrevu;
+
+const nomExistant =
+    repasExistant?.nom ||
+    repasExistant?.aliments?.join(", ") ||
+    "";
+
+const heureDefaut =
+    repasExistant?.heureRepas ||
+    (estDejeuner ? "13:00" : "20:30");
+
+const dureeDefaut =
+    Number(
+        repasExistant?.dureeRepas ||
+        (estDejeuner ? 30 : 45)
+    );
+
+
+    window._repasDecisionEmma = type;
+
+
+    document.getElementById("mTitle").textContent =
+        `${icon} ${titre}`;
+
+
+    document.getElementById("mBody").innerHTML = `
+
+        <div style="
+            font-size:11px;
+            color:var(--mut);
+            margin-bottom:18px;
+        ">
+            Prévois ton repas et son heure dans ta journée.
+        </div>
+
+
+        <div class="fr">
+
+            <label>
+                Qu'est-ce que je mange ?
+            </label>
+
+            <input
+                type="text"
+                id="emma-repas-nom"
+                value="${nomExistant}"
+                placeholder="${
+                    estDejeuner
+                        ? "Ex : Poulet pané + courgettes"
+                        : "Ex : Pâtes + poulet"
+                }"
+                autocomplete="off"
+            >
+
+        </div>
+
+
+        <div class="g2">
+
+            <div class="fr">
+
+                <label>
+                    Heure
+                </label>
+
+                <input
+                    type="time"
+                    id="emma-repas-heure"
+                    value="${heureDefaut}"
+                >
+
+            </div>
+
+
+            <div class="fr">
+
+                <label>
+                    Durée
+                </label>
+
+                <select id="emma-repas-duree">
+
+                    <option value="20" ${dureeDefaut === 20 ? "selected" : ""}>20 min</option>
+<option value="30" ${dureeDefaut === 30 ? "selected" : ""}>30 min</option>
+<option value="45" ${dureeDefaut === 45 ? "selected" : ""}>45 min</option>
+<option value="60" ${dureeDefaut === 60 ? "selected" : ""}>1 h</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    document.querySelector(
+        "#mainModal .ma"
+    ).style.display = "flex";
+
+
+    document.querySelector(
+        "#mainModal .ma"
+    ).innerHTML = `
+
+        <button
+            class="btn bg"
+            onclick="closeMo('mainModal')"
+        >
+            Annuler
+        </button>
+
+        <button
+            class="btn bd"
+            onclick="validerDecisionRepasEmma()"
+        >
+            ✓ Valider
+        </button>
+
+    `;
+
+
+    document
+        .getElementById("mainModal")
+        .classList.add("open");
+}
+
+function replacerTachesFlexiblesAutourBlocEmma(
+    date,
+    blocFixeId
+){
+
+    const planning =
+        DB.journal.planning?.[date];
+
+    if(!planning) return;
+
+
+    const blocFixe =
+        planning.find(
+            bloc => bloc.id === blocFixeId
+        );
+
+    if(
+        !blocFixe?.heureDebut ||
+        !blocFixe?.heureFin
+    ){
+        return;
+    }
+
+
+    const toMinutes = heure => {
+
+        const [h,m] =
+            heure.split(":").map(Number);
+
+        return h * 60 + m;
+
+    };
+
+
+    const debutFixe =
+        toMinutes(blocFixe.heureDebut);
+
+    const finFixe =
+        toMinutes(blocFixe.heureFin);
+
+
+    // =========================
+    // TÂCHES EN CONFLIT
+    // =========================
+
+    const conflits =
+        planning
+        .filter(bloc => {
+
+            if(bloc.id === blocFixeId){
+                return false;
+            }
+
+            if(
+                !bloc.heureDebut ||
+                !bloc.heureFin
+            ){
+                return false;
+            }
+
+            // Un bloc fixe ne bouge jamais
+            if(
+                bloc.verrouille ||
+                bloc.heureImposee ||
+                bloc.repasFixe ||
+                bloc.rappelRepas
+            ){
+                return false;
+            }
+
+            // Seulement les tâches flexibles
+            if(bloc.flexible === false){
+                return false;
+            }
+
+            const debut =
+                toMinutes(bloc.heureDebut);
+
+            const fin =
+                toMinutes(bloc.heureFin);
+
+            return (
+                debut < finFixe &&
+                fin > debutFixe
+            );
+
+        })
+        .sort(
+            (a,b) =>
+                toMinutes(a.heureDebut) -
+                toMinutes(b.heureDebut)
+        );
+
+
+    if(!conflits.length){
+        return;
+    }
+
+
+    // =========================
+    // ON LES RETIRE TEMPORAIREMENT
+    // =========================
+
+    const idsConflits =
+        new Set(
+            conflits.map(bloc => bloc.id)
+        );
+
+
+    DB.journal.planning[date] =
+        planning.filter(
+            bloc =>
+                !idsConflits.has(bloc.id)
+        );
+
+
+    // =========================
+    // ON LES REPLACE
+    // =========================
+
+    conflits.forEach(bloc => {
+
+        const duree =
+            Number(bloc.duree || 5);
+
+        const placement =
+            placerSansChevauchement(
+                date,
+                bloc.heureDebut,
+                duree
+            );
+
+
+        if(placement){
+
+            bloc.heureDebut =
+                placement.heureDebut;
+
+            bloc.heureFin =
+                placement.heureFin;
+
+        }
+
+
+        DB.journal.planning[date]
+            .push(bloc);
+
+    });
+
+}
+
+async function validerDecisionRepasEmma(){
+
+    const type =
+        window._repasDecisionEmma;
+
+    if(
+        type !== "dejeuner" &&
+        type !== "diner"
+    ){
+        return;
+    }
+
+
+    const nom =
+        document
+            .getElementById("emma-repas-nom")
+            ?.value
+            ?.trim();
+
+
+    const heure =
+        document
+            .getElementById("emma-repas-heure")
+            ?.value;
+
+
+    const duree =
+        Number(
+            document
+                .getElementById("emma-repas-duree")
+                ?.value || 30
+        );
+
+
+    if(!nom){
+        toast("⚠ Indique ce que tu vas manger");
+        return;
+    }
+
+
+    if(!heure){
+        toast("⚠ Choisis une heure");
+        return;
+    }
+
+
+    initialiserGlowDuJour();
+
+    DB.glow.nutrition =
+        DB.glow.nutrition || {
+            repas:[],
+            objectif:"equilibre"
+        };
+
+
+    // =========================
+    // DÉJEUNER
+    // =========================
+
+    if(type === "dejeuner"){
+
+        DB.glow.nutrition.repasPrevus =
+            DB.glow.nutrition.repasPrevus || {};
+
+
+        DB.glow.nutrition.repasPrevus.dejeuner = {
+
+            nom,
+
+            aliments:[nom],
+
+            heureRepas:heure,
+
+            dureeRepas:duree,
+
+            date:
+                new Date().toISOString()
+
+        };
+
+    }
+
+
+    // =========================
+    // DÎNER
+    // =========================
+
+    else{
+
+        DB.glow.nutrition.dinerPrevu = {
+
+            nom,
+
+            aliments:[nom],
+
+            courses:[
+                {
+                    nom,
+                    deja:true
+                }
+            ],
+
+            heureRepas:heure,
+
+            dureeRepas:duree,
+
+            date:
+                new Date().toISOString()
+
+        };
+
+    }
+
+
+    await saveAll();
+
+
+    closeMo("mainModal");
+
+
+    /*
+       On retire l'ancien rappel
+       "Décider du repas" s'il est déjà
+       présent dans le planning.
+    */
+
+    const date =
+        getJournalJour();
+
+    const idRappel =
+        type === "dejeuner"
+            ? "glow_decider_dejeuner_" + date
+            : "glow_decider_diner_" + date;
+
+
+    if(DB.journal.planning?.[date]){
+
+        DB.journal.planning[date] =
+            DB.journal.planning[date]
+            .filter(
+                bloc =>
+                    bloc.id !== idRappel &&
+                    bloc.sourceId !== idRappel
+            );
+
+    }
+
+
+    await sauvegarderChampSeul(
+        "journal",
+        JSON.stringify(DB.journal)
+    );
+
+
+    /*
+       On laisse maintenant le moteur
+       reconstruire le vrai bloc repas.
+    */
+
+    const planning =
+    DB.journal.planning[date] || [];
+
+const heureDebut = heure;
+
+const [h, m] =
+    heureDebut.split(":").map(Number);
+
+const debutMinutes =
+    h * 60 + m;
+
+const heureFin =
+    minToStr(debutMinutes + duree);
+
+
+const idRepas =
+    type === "dejeuner"
+        ? "glow_dejeuner_" + date
+        : "glow_diner_" + date;
+
+
+// Sécurité : on retire un ancien bloc du même repas
+DB.journal.planning[date] =
+    planning.filter(bloc =>
+        bloc.id !== idRepas &&
+        bloc.sourceId !== idRepas
+    );
+
+
+// Création du vrai repas fixe
+DB.journal.planning[date].push({
+
+    id:idRepas,
+
+    source:"glow",
+
+    sourceId:idRepas,
+
+    type:"perso",
+
+    categorie:"repas",
+
+    nom:
+        type === "dejeuner"
+            ? "Déjeuner"
+            : "Dîner",
+
+    customNom:nom,
+
+    iconOverride:
+        type === "dejeuner"
+            ? "🥗"
+            : "🌙",
+
+    heureDebut,
+    heureFin,
+
+    duree,
+
+    heurePreferee:heureDebut,
+    heureImposee:true,
+
+    flexible:false,
+    verrouille:true,
+
+    repasFixe:true,
+
+    repas:{
+        nom,
+        aliments:[nom],
+        heureRepas:heure,
+        dureeRepas:duree
+    }
+
+});
+
+replacerTachesFlexiblesAutourBlocEmma(
+    date,
+    idRepas
+);
+
+await sauvegarderChampSeul(
+    "journal",
+    JSON.stringify(DB.journal)
+);
+
+
+    renderJAujourdhui();
+
+    toast(
+        type === "dejeuner"
+            ? "✓ Déjeuner prévu"
+            : "✓ Dîner prévu"
+    );
 }
 
 function choisirTypeTacheEmma(type){
