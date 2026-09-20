@@ -4078,6 +4078,82 @@ button.emma-card-row{
 #view-banque .banque-chq-panel{
   display:none !important;
 }
+
+/* ==============================
+   AJOUT TÂCHE — MENU VISUEL
+============================== */
+
+.emma-ajout-type{
+    min-height:96px;
+
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:center;
+
+    gap:4px;
+
+    padding:14px 15px;
+
+    border:1px solid rgba(150,160,185,.14);
+    border-radius:18px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,.95),
+            rgba(247,249,255,.78)
+        );
+
+    box-shadow:
+        0 8px 24px rgba(70,80,120,.06);
+
+    text-align:left;
+
+    cursor:pointer;
+
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease;
+}
+
+
+.emma-ajout-type:hover{
+    transform:translateY(-2px);
+
+    box-shadow:
+        0 12px 28px rgba(70,80,120,.10);
+}
+
+
+.emma-ajout-type > span{
+    font-size:22px;
+    margin-bottom:3px;
+}
+
+
+.emma-ajout-type strong{
+    font-size:12px;
+    color:var(--txt);
+}
+
+
+.emma-ajout-type small{
+    font-size:9px;
+    color:var(--mut);
+    font-weight:600;
+}
+
+
+@media(max-width:600px){
+
+    .emma-ajout-type{
+        min-height:88px;
+        padding:12px;
+    }
+
+}
+   
 </style>
 </head>
 <body>
@@ -41120,50 +41196,189 @@ function handleTimelineClick(event){
   if(minutes===null) return;
   openAjoutTacheHeure(minutesToHeureStr(minutes));
 }
-
 function openAjoutTacheHeure(heureStr){
-  const sousTachesToutes=[];
-  DB.journal.zones.forEach(zone=>{
-    zone.actions.forEach(action=>{
-      getSousTachesDues(action).forEach(st=>{
-        sousTachesToutes.push({zoneId:zone.id,actionId:action.id,stId:st.id,stNom:st.nom,label:`${zone.icon} ${st.nom} (${zone.nom})`,duree:st.duree});
-      });
-    });
-  });
-  const notifsOrganisables=getNotificationsOrganisables();
 
-  document.getElementById('mTitle').textContent='+ Ajouter une tâche à '+heureStr;
-  document.getElementById('mBody').innerHTML=`
-    ${notifsOrganisables.length?`
-    <div class="fr"><label>📌 À traiter (depuis tes notifications)</label>
-      <select id="ajout-notif-existante" onchange="if(this.value!=='')document.getElementById('ajout-sous-tache-existante').value=''">
-        <option value="">— Aucune —</option>
-        ${notifsOrganisables.map((n,i)=>`<option value="${i}">${n.icon} ${n.txt}</option>`).join('')}
-      </select>
-    </div>
-    <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>`:''}
-    <div class="fr"><label>Choisir une sous-tâche due</label>
-      <select id="ajout-sous-tache-existante" onchange="if(this.value!=='')document.getElementById('ajout-notif-existante').value=''">
-        <option value="">— Ou créer une nouvelle tâche ci-dessous —</option>
-        ${sousTachesToutes.map((s,i)=>`<option value="${i}">${s.label}</option>`).join('')}
-      </select>
-    </div>
-    <div style="text-align:center;font-size:11px;color:var(--mut);margin:10px 0">— ou —</div>
-    <div class="fr"><label>Nouvelle tâche (à classer plus tard)</label>
-      <input type="text" id="ajout-nouvelle-nom" placeholder="ex: Appeler le médecin">
-    </div>
-    <div class="g2">
-      <div class="fr"><label>Heure début</label><input type="time" id="ajout-heure-debut" value="${heureStr}"></div>
-      <div class="fr"><label>Durée (min)</label><input type="number" id="ajout-duree" value="15"></div>
-    </div>
-  `;
-  window._notifsOrganisablesTemp=notifsOrganisables;
-  window._sousTachesToutesTemp=sousTachesToutes;
-  document.querySelector('#mainModal .ma').style.display='flex';
-  document.querySelector('#mainModal .ma').innerHTML=`
-    <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
-    <button class="btn bd" onclick="validerAjoutTacheHeure()">✓ Ajouter</button>`;
-  document.getElementById('mainModal').classList.add('open');
+    window._heureAjoutTacheEmma = heureStr;
+
+    document.getElementById('mTitle').textContent =
+        '+ Ajouter à ma journée';
+
+    document.getElementById('mBody').innerHTML = `
+
+        <div style="
+            font-size:12px;
+            color:var(--mut);
+            margin-bottom:18px;
+        ">
+            Que veux-tu ajouter ?
+        </div>
+
+
+        <!-- =========================
+             TRAVAIL
+        ========================== -->
+
+        <div style="
+            font-size:10px;
+            font-weight:800;
+            letter-spacing:.12em;
+            color:var(--mut);
+            margin-bottom:9px;
+        ">
+            💼 TRAVAIL
+        </div>
+
+        <div style="
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:9px;
+            margin-bottom:22px;
+        ">
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('formation')"
+            >
+                <span>🎓</span>
+                <strong>Formation</strong>
+                <small>Élèves & sessions</small>
+            </button>
+
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('facturation')"
+            >
+                <span>🧾</span>
+                <strong>Facturation</strong>
+                <small>À traiter</small>
+            </button>
+
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('travail')"
+            >
+                <span>💻</span>
+                <strong>Autre pro</strong>
+                <small>Tâche libre</small>
+            </button>
+
+        </div>
+
+
+        <!-- =========================
+             PERSONNEL
+        ========================== -->
+
+        <div style="
+            font-size:10px;
+            font-weight:800;
+            letter-spacing:.12em;
+            color:var(--mut);
+            margin-bottom:9px;
+        ">
+            🌷 PERSONNEL
+        </div>
+
+
+        <div style="
+            display:grid;
+            grid-template-columns:repeat(2,1fr);
+            gap:9px;
+        ">
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('sport')"
+            >
+                <span>🏋️</span>
+                <strong>Sport</strong>
+                <small>Ajouter une séance</small>
+            </button>
+
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('lecture')"
+            >
+                <span>📚</span>
+                <strong>Lecture</strong>
+                <small>Moment lecture</small>
+            </button>
+
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('detente')"
+            >
+                <span>☕</span>
+                <strong>Détente</strong>
+                <small>Pause & temps pour moi</small>
+            </button>
+
+
+            <button
+                type="button"
+                class="emma-ajout-type"
+                onclick="choisirTypeTacheEmma('perso')"
+            >
+                <span>✏️</span>
+                <strong>Autre</strong>
+                <small>Tâche personnelle</small>
+            </button>
+
+        </div>
+
+
+        <div style="
+            margin-top:18px;
+            padding:11px 13px;
+            border-radius:14px;
+            background:rgba(245,247,252,.72);
+            font-size:10px;
+            color:var(--mut);
+            text-align:center;
+        ">
+            🏠 Les tâches Maison s'ajoutent depuis
+            <strong>Ma Maison</strong>
+        </div>
+
+    `;
+
+
+    // =========================
+    // BOUTON BAS
+    // =========================
+
+    document.querySelector(
+        '#mainModal .ma'
+    ).style.display = 'flex';
+
+
+    document.querySelector(
+        '#mainModal .ma'
+    ).innerHTML = `
+
+        <button
+            class="btn bg"
+            onclick="closeMo('mainModal')"
+        >
+            Fermer
+        </button>
+
+    `;
+
+
+    document
+        .getElementById('mainModal')
+        .classList.add('open');
 }
 async function validerAjoutTacheHeure(){
   ensureJournalData();
