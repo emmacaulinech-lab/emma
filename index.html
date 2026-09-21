@@ -7607,6 +7607,118 @@ let sauvegardeEnCours = null;
 let versionSauvegardeDemandee = 0;
 let versionSauvegardeTerminee = 0;
 
+async function migrerEmmaVersDocumentsSepares(){
+  if(!userRef){
+    toast('⚠️ Firebase non connecté');
+    return;
+  }
+
+  const maintenant = new Date().toISOString();
+
+  const documents = {
+    comptabilite: {
+      caisse: JSON.stringify(DB.caisse || []),
+      banque: JSON.stringify(DB.banque || []),
+      fixes: JSON.stringify(DB.fixes || []),
+      chargesLissees: JSON.stringify(DB.chargesLissees || []),
+      semainesPerso: JSON.stringify(DB.semainesPerso || []),
+      variables: JSON.stringify(DB.variables || []),
+      prestations: JSON.stringify(DB.prestations || []),
+      salaires: JSON.stringify(DB.salaires || []),
+      salairePlan: JSON.stringify(DB.salairePlan || {}),
+      conseilsFinanciersIgnores: JSON.stringify(DB.conseilsFinanciersIgnores || []),
+      apprentissageRapprochements: JSON.stringify(DB.apprentissageRapprochements || []),
+      updatedAt: maintenant
+    },
+
+    boutique: {
+      data: JSON.stringify(DB.boutique || {}),
+      updatedAt: maintenant
+    },
+
+    formations: {
+      data: JSON.stringify(DB.formations || {etudiantes:[]}),
+      updatedAt: maintenant
+    },
+
+    lecture: {
+      data: JSON.stringify(DB.lecture || {}),
+      updatedAt: maintenant
+    },
+
+    glow: {
+      data: JSON.stringify(DB.glow || {}),
+      historique: JSON.stringify(DB.historiqueGlow || []),
+      updatedAt: maintenant
+    },
+
+    journal: {
+      data: JSON.stringify(DB.journal || {}),
+      updatedAt: maintenant
+    }
+  };
+
+  try{
+    for(const [nom, donnees] of Object.entries(documents)){
+      await userRef
+        .collection('modules')
+        .doc(nom)
+        .set(donnees);
+
+      console.log('✓ Copie créée : modules/' + nom);
+    }
+
+    toast('✓ Copie Firebase créée — ancien main conservé');
+    console.log('✅ MIGRATION COPIE TERMINÉE — data/main n’a pas été modifié');
+
+  }catch(e){
+    console.error('Erreur migration Firebase :', e);
+    toast('⚠️ Migration interrompue : ' + e.message);
+  }
+}
+
+function verifierTaillesMigrationEmma(){
+  const groupes = {
+    comptabilite: {
+      caisse: DB.caisse || [],
+      banque: DB.banque || [],
+      fixes: DB.fixes || [],
+      chargesLissees: DB.chargesLissees || [],
+      semainesPerso: DB.semainesPerso || [],
+      variables: DB.variables || [],
+      prestations: DB.prestations || [],
+      salaires: DB.salaires || [],
+      salairePlan: DB.salairePlan || {},
+      conseilsFinanciersIgnores: DB.conseilsFinanciersIgnores || [],
+      apprentissageRapprochements: DB.apprentissageRapprochements || []
+    },
+
+    boutique: DB.boutique || {},
+    formations: DB.formations || {},
+    lecture: DB.lecture || {},
+    glow: {
+      glow: DB.glow || {},
+      historiqueGlow: DB.historiqueGlow || []
+    },
+    journal: DB.journal || {}
+  };
+
+  console.log('=== TAILLES MIGRATION EMMA ===');
+
+  Object.entries(groupes).forEach(([nom, contenu])=>{
+    const octets = new Blob([
+      JSON.stringify(contenu)
+    ]).size;
+
+    console.log(
+      nom,
+      '→',
+      Math.round(octets / 1024),
+      'Ko'
+    );
+  });
+}
+
 function exporterSauvegardeEmma(){
   const sauvegarde = {
     dateExport: new Date().toISOString(),
