@@ -7553,7 +7553,12 @@ async function loadAll() {
         const b=JSON.parse(d.boutique);
         DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
       }
-      if(d.formations) DB.formations=JSON.parse(d.formations);
+     if(d.formations){
+  DB.formations =
+    typeof d.formations === 'string'
+      ? JSON.parse(d.formations)
+      : d.formations;
+}
       if(d.lecture) DB.lecture=JSON.parse(d.lecture);
       if(d.glow) DB.glow = JSON.parse(d.glow);
       if(d.historiqueGlow){
@@ -18210,10 +18215,10 @@ async function toggleSuiviFormation(
 
   // Sauvegarde ciblée directement dans Firebase
   const sauvegardeOK=
-    await sauvegarderChampSeul(
-      'formations',
-      DB.formations
-    );
+  await sauvegarderChampSeul(
+    'formations',
+    JSON.stringify(DB.formations)
+  );
 
   if(!sauvegardeOK){
     toast('⚠️ La modification n’a pas pu être enregistrée');
