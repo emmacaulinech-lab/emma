@@ -18817,14 +18817,45 @@ async function genererBulletinFormation(etudianteId){
     return;
   }
 
+  try {
+
+  const urlModele = './documents/bulletin-candidature.pdf';
+
+  const response = await fetch(urlModele);
+
+  if(!response.ok){
+    throw new Error('PDF modèle introuvable');
+  }
+
+  const pdfBytes = await response.arrayBuffer();
+
+  const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+
   console.log(
-    'DOCUMENT BULLETIN',
-    donnees
+    'BULLETIN CHARGÉ',
+    {
+      eleve: donnees.nomComplet,
+      numeroCPF: donnees.numeroCPF,
+      dateDebut: donnees.dateDebut,
+      heures: donnees.heures,
+      pages: pdfDoc.getPageCount()
+    }
+  );
+
+  toast('✓ Modèle du bulletin chargé');
+
+} catch(e){
+
+  console.error(
+    'Erreur génération bulletin :',
+    e
   );
 
   toast(
-    `✓ Bulletin prêt : ${donnees.prenom} — ${donnees.heures}h`
+    '⚠ Impossible de charger le bulletin'
   );
+
+}
 
 }
 
