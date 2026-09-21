@@ -19531,77 +19531,499 @@ function getDonneesDocumentsFormation(etudiante){
 
 }
 
+// ═══════════════════════════════════════
+// REMPLISSAGE CONVOCATION — DÉBUTANTE 5J CPF
+// Modèle mesuré : 595 × 842 pt, 2 pages
+// ═══════════════════════════════════════
+
+async function remplirConvocation5jCpf(pdfBytes, donnees){
+
+  const {
+    PDFDocument,
+    StandardFonts,
+    rgb
+  } = PDFLib;
+
+  if(
+    donnees.modeleConvocation !==
+    'convocation-debutante-5j-cpf'
+  ){
+    throw new Error(
+      'Le remplissage est actuellement disponible pour Débutante 5J CPF uniquement.'
+    );
+  }
+
+  const prenom =
+    String(donnees.prenom || '').trim();
+
+  if(!prenom || /[\r\n]/.test(prenom)){
+    throw new Error(
+      'Prénom manquant ou invalide.'
+    );
+  }
+
+
+  // ─────────────────────────────────────
+  // Vérification des dates
+  // ─────────────────────────────────────
+
+  const verifierDate = (valeur) => {
+
+    const m =
+      /^(\d{2})\/(\d{2})\/(\d{4})$/
+        .exec(String(valeur || ''));
+
+    if(!m){
+      throw new Error(
+        'Les dates doivent être renseignées au format JJ/MM/AAAA.'
+      );
+    }
+
+    const d = new Date(
+      Number(m[3]),
+      Number(m[2]) - 1,
+      Number(m[1]),
+      12
+    );
+
+    if(
+      d.getFullYear() !== Number(m[3]) ||
+      d.getMonth() !== Number(m[2]) - 1 ||
+      d.getDate() !== Number(m[1])
+    ){
+      throw new Error(
+        'Date de convocation invalide.'
+      );
+    }
+
+    return d;
+  };
+
+
+  const debut =
+    verifierDate(donnees.dateDebut);
+
+  verifierDate(donnees.dateDocument);
+
+
+  // Ce modèle prévoit un démarrage le lundi
+  if(debut.getDay() !== 1){
+    throw new Error(
+      'Ce modèle prévoit un démarrage le lundi : vérifiez la date de formation.'
+    );
+  }
+
+
+  // ─────────────────────────────────────
+  // Vérification du modèle PDF
+  // ─────────────────────────────────────
+
+  const empreinte =
+    Array.from(
+      new Uint8Array(
+        await crypto.subtle.digest(
+          'SHA-256',
+          pdfBytes
+        )
+      )
+    )
+    .map(
+      b => b.toString(16).padStart(2, '0')
+    )
+    .join('');
+
+
+  if(
+    empreinte !==
+    '3d74b3b3bd18996ec3c30b1d4be9171c9e6a11c6c87f2626acbfb4f161c8be0b'
+  ){
+    throw new Error(
+      'Le modèle 5J CPF a changé : ses emplacements doivent être vérifiés.'
+    );
+  }
+
+
+  // ─────────────────────────────────────
+  // Chargement du PDF
+  // ─────────────────────────────────────
+
+  const pdfDoc =
+    await PDFDocument.load(pdfBytes);
+
+  const page =
+    pdfDoc.getPage(0);
+
+
+  if(
+    pdfDoc.getPageCount() !== 2 ||
+    page.getWidth() !== 595 ||
+    page.getHeight() !== 842
+  ){
+    throw new Error(
+      'Dimensions du modèle de convocation inattendues.'
+    );
+  }
+
+
+  const font =
+    await pdfDoc.embedFont(
+      StandardFonts.TimesRomanBold
+    );
+
+
+  const blanc =
+    rgb(1, 1, 1);
+
+  const rose =
+    rgb(
+      0.972549,
+      0.5176471,
+      0.7372549
+    );
+
+  const bleu =
+    rgb(
+      0,
+      0.4666667,
+      0.7843137
+    );
+
+
+  // Masque les anciens X du modèle
+  const masquer = (
+    x0,
+    y0,
+    x1,
+    y1
+  ) => {
+
+    page.drawRectangle({
+
+      x: x0 - 0.25,
+      y: y0 - 0.25,
+
+      width:
+        x1 - x0 + 0.5,
+
+      height:
+        y1 - y0 + 0.5,
+
+      color: blanc
+
+    });
+
+  };
+
+
+  // ─────────────────────────────────────
+  // 1. BIENVENUE + PRÉNOM
+  // ─────────────────────────────────────
+
+  const bienvenue =
+    `Bienvenue ${prenom} !`;
+
+  const largeur =
+    font.widthOfTextAtSize(
+      bienvenue,
+      10.5
+    );
+
+
+  if(largeur > 480){
+    throw new Error(
+      'Le prénom est trop long pour cette convocation.'
+    );
+  }
+
+
+  // BBox mesurée :
+  // 266,610.3642 → 328.99992,620.8642
+
+  masquer(
+    266,
+    610.3642,
+    328.99992,
+    620.8642
+  );
+
+
+  page.drawText(
+    bienvenue,
+    {
+
+      x:
+        (
+          266 +
+          328.99992 -
+          largeur
+        ) / 2,
+
+      y: 612.9892,
+
+      size: 10.5,
+
+      font,
+
+      color: rose
+
+    }
+  );
+
+
+  // ─────────────────────────────────────
+  // 2. DATE DE DÉBUT
+  // ─────────────────────────────────────
+
+  // X mesuré :
+  // (159.10679, 594.7392)
+  // Taille 9.5 pt
+
+  masquer(
+    159.10679,
+    592.3642,
+    199.75128,
+    601.8642
+  );
+
+
+  page.drawText(
+    `${donnees.dateDebut} à 9 h 30`,
+    {
+
+      x: 159.10679,
+      y: 594.7392,
+
+      size: 9.5,
+
+      font,
+
+      color: bleu
+
+    }
+  );
+
+
+  // ─────────────────────────────────────
+  // 3. DATE DU DOCUMENT
+  // ─────────────────────────────────────
+
+  // X après « Le : »
+  // (429.4268,735.25)
+  // Taille 10 pt
+
+  masquer(
+    429.4268,
+    732.75,
+    436.6468,
+    742.75
+  );
+
+
+  page.drawText(
+    donnees.dateDocument,
+    {
+
+      x: 429.4268,
+      y: 735.25,
+
+      size: 10,
+
+      font,
+
+      color: rgb(0, 0, 0)
+
+    }
+  );
+
+
+  // Génération du nouveau PDF
+  return pdfDoc.save();
+
+}
+
+
+
+// ═══════════════════════════════════════
+// GÉNÉRATION DE LA CONVOCATION
+// ═══════════════════════════════════════
+
 async function genererConvocationFormation(etudianteId){
 
   ensureFormationsData();
+
 
   const etudiante =
     DB.formations.etudiantes.find(
       e => e.id === etudianteId
     );
 
+
   if(!etudiante){
-    toast('⚠ Étudiante introuvable');
+
+    toast(
+      '⚠ Étudiante introuvable'
+    );
+
     return;
+
   }
+
 
   const donnees =
-    getDonneesDocumentsFormation(etudiante);
+    getDonneesDocumentsFormation(
+      etudiante
+    );
+
 
   if(!donnees){
-    toast('⚠ Configuration de formation introuvable');
+
+    toast(
+      '⚠ Configuration de formation introuvable'
+    );
+
     return;
+
   }
+
 
   if(!donnees.modeleConvocation){
-    toast('⚠ Aucune convocation disponible pour cette formation');
-    return;
-  }
 
- const urlModele =
-  `./documents/${donnees.modeleConvocation}.pdf`;
-
-try {
-
-  const response = await fetch(urlModele);
-
-  if(!response.ok){
-    throw new Error(
-      `PDF introuvable : ${urlModele}`
+    toast(
+      '⚠ Aucune convocation disponible pour cette formation'
     );
+
+    return;
+
   }
 
-  const pdfBytes =
-    await response.arrayBuffer();
 
-  const pdfDoc =
-    await PDFLib.PDFDocument.load(pdfBytes);
+  try {
 
-  console.log('✓ Convocation chargée :', {
-    modele: donnees.modeleConvocation,
-    fichier: urlModele,
-    pages: pdfDoc.getPageCount(),
-    prenom: donnees.prenom,
-    dateDebut: donnees.dateDebut,
-    dateDocument: donnees.dateDocument
-  });
 
-  toast(
-    '✓ Convocation chargée : ' +
-    donnees.modeleConvocation
-  );
+    // Pour l'instant :
+    // seul le modèle 5J CPF est calibré.
 
-} catch(error){
+    if(
+      donnees.modeleConvocation !==
+      'convocation-debutante-5j-cpf'
+    ){
+      throw new Error(
+        'Le remplissage est actuellement disponible pour Débutante 5J CPF uniquement.'
+      );
+    }
 
-  console.error(
-    'Erreur génération convocation :',
-    error
-  );
 
-  toast(
-    '⚠ Impossible de charger la convocation'
-  );
-}
+    // ───────────────────────────────────
+    // Chargement du modèle
+    // ───────────────────────────────────
+
+    const urlModele =
+      `./documents/${donnees.modeleConvocation}.pdf`;
+
+
+    const response =
+      await fetch(urlModele);
+
+
+    if(!response.ok){
+
+      throw new Error(
+        `PDF introuvable : ${urlModele}`
+      );
+
+    }
+
+
+    const pdfBytes =
+      await response.arrayBuffer();
+
+
+    // ───────────────────────────────────
+    // Remplissage
+    // ───────────────────────────────────
+
+    const resultat =
+      await remplirConvocation5jCpf(
+        pdfBytes,
+        donnees
+      );
+
+
+    // ───────────────────────────────────
+    // Création du téléchargement
+    // ───────────────────────────────────
+
+    const url =
+      URL.createObjectURL(
+        new Blob(
+          [resultat],
+          {
+            type: 'application/pdf'
+          }
+        )
+      );
+
+
+    const lien =
+      document.createElement('a');
+
+
+    lien.href = url;
+
+
+    const nom =
+      String(
+        donnees.nomComplet ||
+        donnees.prenom
+      )
+      .replace(
+        /[\\/:*?"<>|\x00-\x1F]/g,
+        '-'
+      );
+
+
+    lien.download =
+      `Convocation-${nom}-5J-CPF.pdf`;
+
+
+    document.body.appendChild(lien);
+
+    lien.click();
+
+    lien.remove();
+
+
+    setTimeout(
+      () => URL.revokeObjectURL(url),
+      60000
+    );
+
+
+    toast(
+      '✓ Convocation générée : ' +
+      donnees.prenom
+    );
+
+
+  } catch(error){
+
+
+    console.error(
+      'Erreur génération convocation :',
+      error
+    );
+
+
+    toast(
+      '⚠ ' +
+      (
+        error.message ||
+        'Impossible de générer la convocation'
+      )
+    );
+
+  }
+
 }
 
 async function genererBulletinFormation(etudianteId){
