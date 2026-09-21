@@ -19570,19 +19570,65 @@ async function genererBulletinFormation(etudianteId){
   const pdfBytes = await response.arrayBuffer();
 
   const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+const page = pdfDoc.getPages()[0];
+const { StandardFonts, rgb } = PDFLib;
 
-  console.log(
-    'BULLETIN CHARGÉ',
-    {
-      eleve: donnees.nomComplet,
-      numeroCPF: donnees.numeroCPF,
-      dateDebut: donnees.dateDebut,
-      heures: donnees.heures,
-      pages: pdfDoc.getPageCount()
-    }
-  );
+const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+const couleur = rgb(0, 0, 0);
 
-  toast('✓ Modèle du bulletin chargé');
+// 1. Numéro de dossier CPF
+if(donnees.numeroCPF){
+  page.drawText(String(donnees.numeroCPF), {
+    x: 365,
+    y: 298,
+    size: 9,
+    font,
+    color: couleur
+  });
+}
+
+// 2. Date de début de formation
+if(donnees.dateDebut){
+  page.drawText(String(donnees.dateDebut), {
+    x: 442,
+    y: 174,
+    size: 9,
+    font,
+    color: couleur
+  });
+}
+
+// 3. Nombre d'heures
+if(donnees.heures){
+  page.drawText(String(donnees.heures), {
+    x: 442,
+    y: 155,
+    size: 9,
+    font,
+    color: couleur
+  });
+}
+
+const pdfFinal = await pdfDoc.save();
+
+const blob = new Blob([pdfFinal], {
+  type: 'application/pdf'
+});
+
+const url = URL.createObjectURL(blob);
+
+const lien = document.createElement('a');
+lien.href = url;
+lien.download =
+  `Bulletin-candidature-${donnees.nomComplet || 'eleve'}.pdf`;
+
+document.body.appendChild(lien);
+lien.click();
+lien.remove();
+
+setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+toast('✓ Bulletin de candidature généré');
 
 } catch(e){
 
@@ -20651,8 +20697,8 @@ nom,
     email:document.getElementById('fe-email')?.value?.trim()||'',
     tel:document.getElementById('fe-tel')?.value?.trim()||'',
     statut:document.getElementById('fe-statut')?.value||'Inscrite',
-    formation:document.getElementById('fe-formation')?.value||'gestion-finance',
-    dateFormation:document.getElementById('fe-date-formation')?.value||'',
+    formation:document.getElementById('fe-type-formation')?.value||'',
+     dateFormation:document.getElementById('fe-date-formation')?.value||'',
     dateFinFormation:document.getElementById('fe-date-fin-formation')?.value||'',
     lieu:document.getElementById('fe-lieu')?.value?.trim()||'',
     formationTypeNormalise:document.getElementById('fe-type-formation')?.value||'',
