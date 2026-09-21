@@ -16989,6 +16989,171 @@ function renderNotificationsHubParModule(notifs){
 
 }
 
+function getTachesWorkflowFormations(date){
+
+  ensureFormationsData();
+
+  const today=
+    new Date(date+'T12:00:00');
+
+  return (DB.formations.etudiantes||[])
+    .map(e=>{
+
+      const prochaine=
+        getProchaineActionFormation(e);
+
+      // Les attentes élève et dossiers terminés
+      // ne deviennent jamais des tâches.
+      if(
+        !prochaine ||
+        prochaine.type!=='action' ||
+        !prochaine.id
+      ){
+        return null;
+      }
+
+
+      // =========================
+      // DURÉE
+      // =========================
+
+      const durees={
+
+        appel_effectue:15,
+
+        mail_candidature_envoye:10,
+
+        convocation_creee:15,
+
+        contrat_cree:20,
+
+        dossier_contractuel_envoye:10,
+
+        kit_prepare:30,
+
+        documents_entree_prepares:20,
+
+        qcm_prepare:20,
+
+        documents_sortie_prepares:20,
+
+        dossier_verifie:15,
+
+        documents_importes:20,
+
+        dossier_cloture:10
+
+      };
+
+      const duree=
+        durees[prochaine.id]||15;
+
+
+      // =========================
+      // URGENCE
+      // =========================
+
+      let joursAvantFormation=null;
+
+      if(e.dateFormation){
+
+        joursAvantFormation=
+          Math.floor(
+            (
+              new Date(
+                e.dateFormation+'T12:00:00'
+              )-
+              today
+            ) / 86400000
+          );
+
+      }
+
+      let priorite=3;
+
+      if(
+        joursAvantFormation!==null &&
+        joursAvantFormation>=0 &&
+        joursAvantFormation<=7
+      ){
+        priorite=1;
+      }
+
+      else if(
+        joursAvantFormation!==null &&
+        joursAvantFormation>=0 &&
+        joursAvantFormation<=14
+      ){
+        priorite=2;
+      }
+
+
+      // =========================
+      // NOM DE LA TÂCHE
+      // =========================
+
+      const nomEleve=
+        e.nom ||
+        [e.prenom,e.nomFamille]
+          .filter(Boolean)
+          .join(' ') ||
+        'Élève';
+
+
+      return {
+
+        id:
+          'formation-'+
+          e.id+'-'+
+          prochaine.id,
+
+        sourceId:
+          'formation-'+
+          e.id+'-'+
+          prochaine.id,
+
+        module:'formations',
+
+        nom:
+          prochaine.label+
+          ' — '+
+          nomEleve,
+
+        txt:
+          prochaine.label+
+          ' — '+
+          nomEleve,
+
+        duree,
+
+        priorite,
+
+        categorie:'travail',
+
+        source:'formations',
+
+        icon:'🎓',
+
+        etudianteId:e.id,
+
+        actionId:prochaine.id,
+
+        dateFormation:
+          e.dateFormation||'',
+
+        data:{
+          etudianteId:e.id,
+          actionId:prochaine.id,
+          module:'formations'
+        }
+
+      };
+
+    })
+
+    .filter(Boolean);
+}
+
 function getTachesProDepuisNotifications(date){
 
     const jour =
@@ -16997,7 +17162,15 @@ function getTachesProDepuisNotifications(date){
     const notifs =
         getToutesNotifications(jour);
 
-    return notifs
+
+    // Nouvelles tâches provenant directement
+    // des dossiers Formation
+    const tachesWorkflowFormation =
+        getTachesWorkflowFormations(date);
+
+
+    const tachesNotifications =
+        notifs
         .filter(n => {
 
             const action =
@@ -17143,6 +17316,16 @@ function getTachesProDepuisNotifications(date){
             };
 
         });
+       return [
+        ...tachesWorkflowFormation,
+        ...tachesNotifications.filter(t=>{
+
+            // On retire les anciennes notifications Formation
+            // pour éviter les doublons avec le nouveau workflow.
+            return t.module !== 'formations';
+
+        })
+    ];
 }
 
 function getNotificationsOrganisables(){
@@ -18004,47 +18187,95 @@ function renderFEtudiantes(){
           </div>
 
 
-          <!-- PROCHAINE ACTION -->
+          <!-- ÉTAT ACTUEL DU DOSSIER -->
 
-          <div
-            style="
-              padding:9px 11px;
-              border-radius:11px;
-              background:var(--bg2);
-              margin-bottom:11px;
-              font-size:11px;
-            "
-          >
+<div
+  style="
+    padding:10px 12px;
+    border-radius:11px;
+    background:${
+      prochaine.type==='attente'
+        ? '#fff8eb'
+        : prochaine.type==='termine'
+          ? '#eef8f1'
+          : 'var(--bg2)'
+    };
+    border:1px solid ${
+      prochaine.type==='attente'
+        ? '#ead8b5'
+        : prochaine.type==='termine'
+          ? '#cfe5d5'
+          : 'var(--brd)'
+    };
+    margin-bottom:11px;
+    font-size:11px;
+  "
+>
 
-            ${
-              prochaine.id
+  ${
+    prochaine.type==='attente'
 
-              ? `
-                <div
-                  style="
-                    color:var(--mut);
-                    font-size:9px;
-                    text-transform:uppercase;
-                    letter-spacing:.5px;
-                    margin-bottom:2px;
-                  "
-                >
-                  Prochaine action · ${prochaine.etape}
-                </div>
+    ? `
+      <div
+        style="
+          color:#a87928;
+          font-size:9px;
+          font-weight:700;
+          text-transform:uppercase;
+          letter-spacing:.5px;
+          margin-bottom:3px;
+        "
+      >
+        ⏳ En attente de l'élève · ${prochaine.etape}
+      </div>
 
-                <strong>
-                  → ${prochaine.label}
-                </strong>
-              `
+      <strong>
+        ${prochaine.label.replace('En attente : ','')}
+      </strong>
+    `
 
-              : `
-                <strong>
-                  ✅ Dossier terminé
-                </strong>
-              `
-            }
+    : prochaine.type==='termine'
 
-          </div>
+      ? `
+        <div
+          style="
+            color:#568563;
+            font-size:9px;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:.5px;
+            margin-bottom:3px;
+          "
+        >
+          ✓ Dossier terminé
+        </div>
+
+        <strong>
+          Toutes les étapes sont terminées
+        </strong>
+      `
+
+      : `
+        <div
+          style="
+            color:var(--acc);
+            font-size:9px;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:.5px;
+            margin-bottom:3px;
+          "
+        >
+          À faire · ${prochaine.etape}
+        </div>
+
+        <strong>
+          → ${prochaine.label}
+        </strong>
+      `
+  }
+
+</div>
 
 
           <!-- FINANCEMENT / KIT -->
@@ -18676,119 +18907,519 @@ function suggererKitsFormation(){
     toast('✓ Kit(s) suggéré(s) coché(s)');
   }
 }
-
 const ETAPES_DOSSIER_FORMATION = [
+
   {
     id:'fiche',
     titre:'Inscription',
     items:[
-      {id:'fiche_creee', label:'Fiche élève créée'}
+      {
+        id:'fiche_creee',
+        label:'Fiche élève créée',
+        type:'action'
+      }
     ]
   },
+
   {
     id:'contact',
     titre:'Premier contact',
     items:[
-      {id:'appel_effectue', label:'Appel de premier contact effectué'}
+      {
+        id:'appel_effectue',
+        label:'Appel de premier contact effectué',
+        action:'Appeler l’élève',
+        type:'action'
+      }
     ]
   },
+
   {
     id:'candidature',
     titre:'Candidature',
     items:[
-      {id:'mail_candidature_envoye', label:'Mail candidature envoyé'},
-      {id:'bulletin_recu', label:'Bulletin de candidature reçu'},
-      {id:'grille_besoins_recue', label:"Grille d'analyse des besoins reçue"},
-      {id:'piece_identite_recue', label:"Pièce d'identité recto / verso reçue"}
+
+      {
+        id:'mail_candidature_envoye',
+        label:'Mail candidature envoyé',
+        action:'Envoyer le mail de candidature',
+        type:'action'
+      },
+
+      {
+        id:'bulletin_recu',
+        label:'Bulletin de candidature reçu',
+        type:'attente'
+      },
+
+      {
+        id:'grille_besoins_recue',
+        label:"Grille d'analyse des besoins reçue",
+        type:'attente'
+      },
+
+      {
+        id:'piece_identite_recue',
+        label:"Pièce d'identité recto / verso reçue",
+        type:'attente'
+      }
+
     ]
   },
+
   {
     id:'contrat',
     titre:'Dossier contractuel',
     items:[
-      {id:'convocation_creee', label:'Convocation créée'},
-      {id:'contrat_cree', label:'Contrat de formation créé'},
-      {id:'dossier_contractuel_envoye', label:'Dossier contractuel envoyé'},
-      {id:'kit_demande', label:'Choix du kit demandé'},
-      {id:'rib_envoye', label:'RIB envoyé'}
+
+      {
+        id:'convocation_creee',
+        label:'Convocation créée',
+        action:'Créer la convocation',
+        type:'action'
+      },
+
+      {
+        id:'contrat_cree',
+        label:'Contrat de formation créé',
+        action:'Créer le contrat de formation',
+        type:'action'
+      },
+
+      {
+        id:'dossier_contractuel_envoye',
+        label:'Dossier contractuel envoyé',
+        action:'Envoyer le dossier contractuel',
+        type:'action'
+      },
+
+      {
+        id:'kit_demande',
+        label:'Choix du kit demandé',
+        type:'action'
+      },
+
+      {
+        id:'rib_envoye',
+        label:'RIB envoyé',
+        type:'action'
+      }
+
     ]
   },
+
   {
     id:'validation',
     titre:'Validation avant formation',
     items:[
-      {id:'contrat_signe', label:'Contrat signé reçu'},
-      {id:'kit_choisi', label:'Kit choisi'},
-      {id:'kit_paye', label:'Kit payé'},
-      {id:'kit_prepare', label:'Kit préparé'}
+
+      {
+        id:'contrat_signe',
+        label:'Contrat signé reçu',
+        type:'attente'
+      },
+
+      {
+        id:'kit_choisi',
+        label:'Kit choisi',
+        type:'attente'
+      },
+
+      {
+        id:'kit_paye',
+        label:'Kit payé',
+        type:'attente'
+      },
+
+      {
+        id:'kit_prepare',
+        label:'Kit préparé',
+        action:'Préparer le kit',
+        type:'action'
+      }
+
     ]
   },
+
   {
     id:'formation',
     titre:'Documents de formation',
     items:[
-      {id:'documents_entree_prepares', label:"Documents d'entrée préparés"},
-      {id:'qcm_prepare', label:'QCM formation préparé'},
-      {id:'documents_sortie_prepares', label:'Documents de sortie préparés'}
+
+      {
+        id:'documents_entree_prepares',
+        label:"Documents d'entrée préparés",
+        action:"Préparer les documents d'entrée",
+        type:'action'
+      },
+
+      {
+        id:'qcm_prepare',
+        label:'QCM formation préparé',
+        action:'Préparer le QCM',
+        type:'action'
+      },
+
+      {
+        id:'documents_sortie_prepares',
+        label:'Documents de sortie préparés',
+        action:'Préparer les documents de sortie',
+        type:'action'
+      }
+
     ]
   },
+
   {
     id:'cloture',
     titre:'Clôture',
     items:[
-      {id:'dossier_verifie', label:'Dossier complet vérifié'},
-      {id:'documents_importes', label:"Documents importés sur l'autre site"},
-      {id:'dossier_cloture', label:'Dossier élève clôturé'}
+
+      {
+        id:'dossier_verifie',
+        label:'Dossier complet vérifié',
+        action:'Vérifier le dossier complet',
+        type:'action'
+      },
+
+      {
+        id:'documents_importes',
+        label:"Documents importés sur l'autre site",
+        action:'Importer les documents',
+        type:'action'
+      },
+
+      {
+        id:'dossier_cloture',
+        label:'Dossier élève clôturé',
+        action:'Clôturer le dossier',
+        type:'action'
+      }
+
     ]
   }
+
 ];
 
+
 function creerSuiviFormationExistant(suivi={}){
+
   const resultat={};
 
   ETAPES_DOSSIER_FORMATION.forEach(etape=>{
+
     etape.items.forEach(item=>{
-      resultat[item.id]=suivi[item.id]===true;
+
+      resultat[item.id]=
+        suivi[item.id]===true;
+
     });
+
   });
 
   return resultat;
 }
 
+
 function getProgressionFormation(e){
-  const suivi=creerSuiviFormationExistant(e?.suiviFormation);
 
-  const items=ETAPES_DOSSIER_FORMATION.flatMap(
-    etape=>etape.items
-  );
+  const suivi=
+    creerSuiviFormationExistant(
+      e?.suiviFormation
+    );
 
-  const faits=items.filter(
-    item=>suivi[item.id]
-  ).length;
+  const items=
+    ETAPES_DOSSIER_FORMATION.flatMap(
+      etape=>etape.items
+    );
+
+  const faits=
+    items.filter(
+      item=>suivi[item.id]
+    ).length;
 
   return {
+
     faits,
+
     total:items.length,
+
     pct:items.length
-      ? Math.round((faits/items.length)*100)
+      ? Math.round(
+          (faits/items.length)*100
+        )
       : 0
+
   };
 }
 
-function getProchaineActionFormation(e){
-  const suivi=creerSuiviFormationExistant(e?.suiviFormation);
 
-  for(const etape of ETAPES_DOSSIER_FORMATION){
-    for(const item of etape.items){
-      if(!suivi[item.id]){
-        return {
-          etape:etape.titre,
-          id:item.id,
-          label:item.label
-        };
-      }
-    }
+/*
+  Retourne ce qu'Emma doit faire
+  OU ce qu'elle attend de l'élève.
+*/
+function getProchaineActionFormation(e){
+
+  const suivi=
+    creerSuiviFormationExistant(
+      e?.suiviFormation
+    );
+
+
+  // ============================
+  // 1. PREMIER CONTACT
+  // ============================
+
+  if(!suivi.appel_effectue){
+
+    return {
+      etape:'Premier contact',
+      id:'appel_effectue',
+      type:'action',
+      label:'Appeler l’élève'
+    };
+
   }
+
+
+  // ============================
+  // 2. ENVOI CANDIDATURE
+  // ============================
+
+  if(!suivi.mail_candidature_envoye){
+
+    return {
+      etape:'Candidature',
+      id:'mail_candidature_envoye',
+      type:'action',
+      label:'Envoyer le mail de candidature'
+    };
+
+  }
+
+
+  // ============================
+  // 3. ATTENTE DOCUMENTS
+  // ============================
+
+  const documentsCandidature=[];
+
+  if(!suivi.bulletin_recu){
+    documentsCandidature.push(
+      'bulletin de candidature'
+    );
+  }
+
+  if(!suivi.grille_besoins_recue){
+    documentsCandidature.push(
+      "grille d'analyse des besoins"
+    );
+  }
+
+  if(!suivi.piece_identite_recue){
+    documentsCandidature.push(
+      "pièce d'identité"
+    );
+  }
+
+  if(documentsCandidature.length){
+
+    return {
+      etape:'Candidature',
+      id:null,
+      type:'attente',
+      label:
+        'En attente : ' +
+        documentsCandidature.join(' · ')
+    };
+
+  }
+
+
+  // ============================
+  // 4. CRÉATION DOCUMENTS
+  // ============================
+
+  if(!suivi.convocation_creee){
+
+    return {
+      etape:'Dossier contractuel',
+      id:'convocation_creee',
+      type:'action',
+      label:'Créer la convocation'
+    };
+
+  }
+
+  if(!suivi.contrat_cree){
+
+    return {
+      etape:'Dossier contractuel',
+      id:'contrat_cree',
+      type:'action',
+      label:'Créer le contrat de formation'
+    };
+
+  }
+
+
+  // ============================
+  // 5. ENVOI DOSSIER
+  // ============================
+
+  if(
+    !suivi.dossier_contractuel_envoye ||
+    !suivi.kit_demande ||
+    !suivi.rib_envoye
+  ){
+
+    return {
+      etape:'Dossier contractuel',
+      id:'dossier_contractuel_envoye',
+      type:'action',
+      label:
+        'Envoyer contrat + convocation + documents + choix du kit + RIB'
+    };
+
+  }
+
+
+  // ============================
+  // 6. ATTENTE VALIDATION
+  // ============================
+
+  const validations=[];
+
+  if(!suivi.contrat_signe){
+    validations.push('contrat signé');
+  }
+
+  if(!suivi.kit_choisi){
+    validations.push('choix du kit');
+  }
+
+  if(!suivi.kit_paye){
+    validations.push('paiement du kit');
+  }
+
+  if(validations.length){
+
+    return {
+      etape:'Validation avant formation',
+      id:null,
+      type:'attente',
+      label:
+        'En attente : ' +
+        validations.join(' · ')
+    };
+
+  }
+
+
+  // ============================
+  // 7. PRÉPARATION KIT
+  // ============================
+
+  if(!suivi.kit_prepare){
+
+    return {
+      etape:'Validation avant formation',
+      id:'kit_prepare',
+      type:'action',
+      label:'Préparer le kit'
+    };
+
+  }
+
+
+  // ============================
+  // 8. DOCUMENTS FORMATION
+  // ============================
+
+  if(!suivi.documents_entree_prepares){
+
+    return {
+      etape:'Documents de formation',
+      id:'documents_entree_prepares',
+      type:'action',
+      label:"Préparer les documents d'entrée"
+    };
+
+  }
+
+  if(!suivi.qcm_prepare){
+
+    return {
+      etape:'Documents de formation',
+      id:'qcm_prepare',
+      type:'action',
+      label:'Préparer le QCM'
+    };
+
+  }
+
+  if(!suivi.documents_sortie_prepares){
+
+    return {
+      etape:'Documents de formation',
+      id:'documents_sortie_prepares',
+      type:'action',
+      label:'Préparer les documents de sortie'
+    };
+
+  }
+
+
+  // ============================
+  // 9. CLÔTURE
+  // ============================
+
+  if(!suivi.dossier_verifie){
+
+    return {
+      etape:'Clôture',
+      id:'dossier_verifie',
+      type:'action',
+      label:'Vérifier le dossier complet'
+    };
+
+  }
+
+  if(!suivi.documents_importes){
+
+    return {
+      etape:'Clôture',
+      id:'documents_importes',
+      type:'action',
+      label:"Importer les documents sur l'autre site"
+    };
+
+  }
+
+  if(!suivi.dossier_cloture){
+
+    return {
+      etape:'Clôture',
+      id:'dossier_cloture',
+      type:'action',
+      label:'Clôturer le dossier élève'
+    };
+
+  }
+
+
+  // ============================
+  // TERMINÉ
+  // ============================
+
+  return {
+    etape:'Terminé',
+    id:null,
+    type:'termine',
+    label:'Dossier terminé'
+  };
+
+}
 
   return {
     etape:'Terminé',
