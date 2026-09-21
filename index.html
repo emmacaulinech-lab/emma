@@ -19578,17 +19578,19 @@ const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 const couleur = rgb(0.85, 0.20, 0.50);
    
 // 1. Numéro de dossier CPF
-if(donnees.numeroCPF){
-page.drawText(
-  String(donnees.numeroCPF).split('').join('  '),
-  {
-    x: 462 + (i * 14.1),
-    y: 255,
-    size: 16,
-    font,
-    color: couleur
-    }
-);
+if (donnees.numeroCPF) {
+  const cpf = String(donnees.numeroCPF).replace(/\D/g, '');
+  const chiffresCPF = [...cpf];
+
+  chiffresCPF.forEach((chiffre, index) => {
+    page.drawText(chiffre, {
+      x: 462 + (index * 14.1),
+      y: 255,
+      size: 16,
+      font,
+      color: couleur
+    });
+  });
 }
 
 // 2. Date de début de formation
