@@ -18474,6 +18474,79 @@ async function changeStatutEtudiante(id,statut){
   toast('✓ Statut mis à jour');
 }
 
+const FORMATIONS_PAR_FINANCEMENT = {
+
+  cpf:[
+    {
+      id:'debutante-express-3j',
+      label:'Débutante Express 3j'
+    },
+    {
+      id:'coaching-prive-3j',
+      label:'Coaching privé 3j'
+    },
+    {
+      id:'debutante-4j',
+      label:'Débutante 4j'
+    },
+    {
+      id:'debutante-5j',
+      label:'Débutante 5j'
+    }
+  ],
+
+  perso:[
+    {
+      id:'debutante-express-3j',
+      label:'Débutante Express 3j'
+    },
+    {
+      id:'coaching-prive-2j',
+      label:'Coaching privé 2j'
+    },
+    {
+      id:'debutante-4j',
+      label:'Débutante 4j'
+    },
+    {
+      id:'debutante-5j',
+      label:'Débutante 5j'
+    },
+    {
+      id:'coaching-prive-1j',
+      label:'Coaching privé 1j'
+    },
+    {
+      id:'lashlift-coreen',
+      label:'Lashlift coréen'
+    },
+    {
+      id:'browlift',
+      label:'Browlift'
+    }
+  ]
+
+};
+
+
+function getFormationsSelonFinancement(type){
+
+  return FORMATIONS_PAR_FINANCEMENT[type] || [];
+
+}
+
+
+function getLabelFormation(id){
+
+  const toutes=[
+    ...FORMATIONS_PAR_FINANCEMENT.cpf,
+    ...FORMATIONS_PAR_FINANCEMENT.perso
+  ];
+
+  return toutes.find(f=>f.id===id)?.label || id || '';
+
+}
+
 function openEtudianteModal(id=null){
 
   const e=id
@@ -18570,25 +18643,11 @@ function openEtudianteModal(id=null){
     <div class="fr">
       <label>Type de formation</label>
 
-      <select id="fe-type-formation">
-
-        <option value="">
-          — Choisir la formation —
-        </option>
-
-        ${Object.entries(LABELS_TYPE_FORMATION)
-          .map(([k,label])=>`
-            <option
-              value="${k}"
-              ${e?.formationTypeNormalise===k?'selected':''}
-            >
-              ${label}
-            </option>
-          `)
-          .join('')
-        }
-
-      </select>
+      <select
+  id="fe-type-formation"
+  class="inp"
+>
+</select>
     </div>
 
     <div class="g2">
@@ -18644,9 +18703,13 @@ function openEtudianteModal(id=null){
         <label>Mode de financement</label>
 
         <select
-          id="fe-fin-type"
-          onchange="afficherChampCPFFormation()"
-        >
+  id="fe-fin-type"
+  class="inp"
+  onchange="
+    afficherChampCPFFormation();
+    mettreAJourFormationsDisponibles(this.value);
+  "
+>
 
           <option
             value="perso"
@@ -18814,6 +18877,17 @@ function openEtudianteModal(id=null){
               </label>
             `;
 
+   const financementActuel =
+  e?.financement?.type || 'perso';
+
+const formationActuelle =
+  e?.formationTypeNormalise || '';
+
+mettreAJourFormationsDisponibles(
+  financementActuel,
+  formationActuelle
+);
+
           })
           .join('')
         }
@@ -18887,6 +18961,40 @@ function afficherChampCPFFormation(){
     type==='cpf'
       ? 'block'
       : 'none';
+}
+
+function mettreAJourFormationsDisponibles(
+  financement,
+  valeurActuelle=''
+){
+
+  const select =
+    document.getElementById(
+      'fe-type-formation'
+    );
+
+  if(!select) return;
+
+  const formations =
+    getFormationsSelonFinancement(
+      financement
+    );
+
+  select.innerHTML = `
+    <option value="">
+      Choisir une formation
+    </option>
+
+    ${formations.map(f=>`
+      <option
+        value="${f.id}"
+        ${f.id===valeurActuelle ? 'selected' : ''}
+      >
+        ${f.label}
+      </option>
+    `).join('')}
+  `;
+
 }
 
 function suggererKitsFormation(){
