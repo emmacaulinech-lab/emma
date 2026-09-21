@@ -18343,6 +18343,67 @@ function renderFEtudiantes(){
 
           </div>
 
+          <!-- DOCUMENTS AUTOMATIQUES -->
+
+          <div
+            style="
+              border:1px solid var(--brd);
+              border-radius:12px;
+              padding:11px 12px;
+              margin-bottom:12px;
+              background:var(--bg2);
+            "
+          >
+
+            <div
+              style="
+                font-size:11px;
+                font-weight:700;
+                color:var(--acc);
+                margin-bottom:8px;
+              "
+            >
+              📄 Documents automatiques
+            </div>
+
+            <div
+              style="
+                display:flex;
+                gap:7px;
+                flex-wrap:wrap;
+              "
+            >
+
+              ${
+                e.financement?.type==='cpf'
+                  ? `
+                    <button
+                      class="btn bg bsm"
+                      onclick="genererBulletinFormation('${e.id}')"
+                    >
+                      Bulletin de candidature
+                    </button>
+                  `
+                  : ''
+              }
+
+              <button
+                class="btn bg bsm"
+                onclick="genererConvocationFormation('${e.id}')"
+              >
+                Convocation
+              </button>
+
+              <button
+                class="btn bg bsm"
+                onclick="genererContratFormation('${e.id}')"
+              >
+                Contrat
+              </button>
+
+            </div>
+
+          </div>
 
           <!-- WORKFLOW -->
 
@@ -18527,6 +18588,205 @@ const FORMATIONS_PAR_FINANCEMENT = {
   ]
 
 };
+
+const DOCUMENTS_FORMATION = {
+
+  // =========================
+  // CPF
+  // =========================
+
+  cpf: {
+
+    'debutante-express-3j': {
+      jours: 3,
+      heures: 21,
+      bulletin: true,
+      convocation: 'convocation-debutante-express-3j-cpf',
+      contrat: 'contrat-debutante-express-3j'
+    },
+
+    'coaching-prive-3j': {
+      jours: 3,
+      heures: 21,
+      bulletin: true,
+      convocation: 'convocation-coaching-prive-3j-cpf',
+      contrat: 'contrat-coaching-prive-3j'
+    },
+
+    'debutante-4j': {
+      jours: 4,
+      heures: 28,
+      bulletin: true,
+      convocation: 'convocation-debutante-4j-cpf',
+      contrat: 'contrat-debutante-4j'
+    },
+
+    'debutante-5j': {
+      jours: 5,
+      heures: 35,
+      bulletin: true,
+      convocation: 'convocation-debutante-5j-cpf',
+      contrat: 'contrat-debutante-5j'
+    }
+
+  },
+
+
+  // =========================
+  // FINANCEMENT PERSONNEL
+  // =========================
+
+  perso: {
+
+    'debutante-express-3j': {
+      jours: 3,
+      heures: 21,
+      bulletin: true,
+      convocation: 'convocation-debutante-express-3j-perso',
+      contrat: 'contrat-debutante-express-3j'
+    },
+
+    'coaching-prive-2j': {
+      jours: 2,
+      heures: 14,
+      bulletin: true,
+      convocation: 'convocation-coaching-prive-2j-perso',
+      contrat: null
+    },
+
+    'debutante-4j': {
+      jours: 4,
+      heures: 28,
+      bulletin: true,
+      convocation: 'convocation-debutante-4j-perso',
+      contrat: 'contrat-debutante-4j'
+    },
+
+    'debutante-5j': {
+      jours: 5,
+      heures: 35,
+      bulletin: true,
+      convocation: 'convocation-debutante-5j-perso',
+      contrat: 'contrat-debutante-5j'
+    },
+
+    'coaching-prive-1j': {
+      jours: 1,
+      heures: 7,
+      bulletin: true,
+      convocation: null,
+      contrat: null
+    },
+
+    'lashlift-coreen': {
+      jours: 1,
+      heures: 7,
+      bulletin: true,
+      convocation: null,
+      contrat: null
+    },
+
+    'browlift': {
+      jours: 1,
+      heures: 7,
+      bulletin: true,
+      convocation: null,
+      contrat: null
+    }
+
+  }
+
+};
+
+
+function getDocumentsFormation(etudiante){
+
+  const financement =
+    etudiante?.financement?.type;
+
+  const formation =
+    etudiante?.formationTypeNormalise;
+
+  return (
+    DOCUMENTS_FORMATION?.[financement]?.[formation]
+    || null
+  );
+
+}
+
+function getDonneesDocumentsFormation(etudiante){
+
+  const config = getDocumentsFormation(etudiante);
+
+  if(!config) return null;
+
+  const financement = etudiante?.financement?.type || '';
+  const prenom = etudiante?.prenom || '';
+  const nomFamille = etudiante?.nomFamille || '';
+  const nomComplet = `${prenom} ${nomFamille}`.trim();
+
+  const formatDate = (date)=>{
+    if(!date) return '';
+
+    const d = new Date(date + 'T12:00:00');
+
+    if(isNaN(d.getTime())) return date;
+
+    return d.toLocaleDateString('fr-FR');
+  };
+
+  const aujourdHui = new Date().toLocaleDateString('fr-FR');
+
+  return {
+
+    // Élève
+    prenom,
+    nomFamille,
+    nomComplet,
+
+    email: etudiante?.email || '',
+    telephone: etudiante?.tel || '',
+
+    // Formation
+    formationId: etudiante?.formationTypeNormalise || '',
+    formationLabel: getLabelFormation(
+      etudiante?.formationTypeNormalise
+    ),
+
+    financement,
+
+    dateDebut: formatDate(
+      etudiante?.dateFormation
+    ),
+
+    dateFin: formatDate(
+      etudiante?.dateFinFormation
+    ),
+
+    jours: config.jours,
+    heures: config.heures,
+
+    // CPF
+    numeroCPF:
+      financement === 'cpf'
+        ? etudiante?.numeroCPF || ''
+        : '',
+
+    // Documents
+    dateDocument: aujourdHui,
+
+    bulletinDisponible:
+      config.bulletin === true,
+
+    modeleConvocation:
+      config.convocation,
+
+    modeleContrat:
+      config.contrat
+
+  };
+
+}
 
 
 function getFormationsSelonFinancement(type){
