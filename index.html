@@ -19363,17 +19363,6 @@ function openEtudianteModal(id=null){
               </label>
             `;
 
-   const financementActuel =
-  e?.financement?.type || 'perso';
-
-const formationActuelle =
-  e?.formationTypeNormalise || '';
-
-mettreAJourFormationsDisponibles(
-  financementActuel,
-  formationActuelle
-);
-
           })
           .join('')
         }
@@ -19427,7 +19416,19 @@ mettreAJourFormationsDisponibles(
   document
     .getElementById('formationModal')
     .classList.add('open');
+   
+const financementActuel =
+  e?.financement?.type || 'perso';
 
+const formationActuelle =
+  e?.formationTypeNormalise || '';
+
+mettreAJourFormationsDisponibles(
+  financementActuel,
+  formationActuelle
+);
+
+afficherChampCPFFormation();
   document
     .getElementById('saveEtudianteBtn')
     .disabled=false;
