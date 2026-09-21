@@ -18229,72 +18229,418 @@ async function changeStatutEtudiante(id,statut){
 }
 
 function openEtudianteModal(id=null){
-  const e=id?DB.formations.etudiantes.find(x=>x.id===id):null;
-  document.getElementById('fModalTitle').textContent=e?'Modifier étudiante':'Nouvelle étudiante';
+
+  const e=id
+    ? DB.formations.etudiantes.find(x=>x.id===id)
+    : null;
+
+  // Compatibilité avec les anciennes fiches qui n'avaient qu'un champ "nom"
+  let prenomExistant=e?.prenom||'';
+  let nomExistant=e?.nomFamille||'';
+
+  if(e && !prenomExistant && !nomExistant && e.nom){
+    const parties=e.nom.trim().split(/\s+/);
+    prenomExistant=parties.shift()||'';
+    nomExistant=parties.join(' ');
+  }
+
+  document.getElementById('fModalTitle').textContent=
+    e ? 'Modifier étudiante' : 'Nouvelle étudiante';
+
   document.getElementById('fModalBody').innerHTML=`
+
+    <div style="
+      font-size:11px;
+      font-weight:700;
+      color:var(--mut);
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      margin-bottom:8px
+    ">
+      👤 Informations élève
+    </div>
+
     <div class="g2">
-      <div class="fr"><label>Nom</label><input type="text" id="fe-nom" value="${e?.nom||''}"></div>
-      <div class="fr"><label>Statut</label>
-        <select id="fe-statut">${STATUTS_FORMATION.map(s=>`<option ${e?.statut===s?'selected':''}>${s}</option>`).join('')}</select>
+
+      <div class="fr">
+        <label>Prénom</label>
+        <input
+          type="text"
+          id="fe-prenom"
+          value="${prenomExistant}"
+          placeholder="Prénom"
+        >
       </div>
+
+      <div class="fr">
+        <label>Nom</label>
+        <input
+          type="text"
+          id="fe-nom-famille"
+          value="${nomExistant}"
+          placeholder="Nom"
+        >
+      </div>
+
     </div>
+
     <div class="g2">
-      <div class="fr"><label>Email</label><input type="email" id="fe-email" value="${e?.email||''}"></div>
-      <div class="fr"><label>Téléphone</label><input type="tel" id="fe-tel" value="${e?.tel||''}"></div>
+
+      <div class="fr">
+        <label>Téléphone</label>
+        <input
+          type="tel"
+          id="fe-tel"
+          value="${e?.tel||''}"
+        >
+      </div>
+
+      <div class="fr">
+        <label>Email</label>
+        <input
+          type="email"
+          id="fe-email"
+          value="${e?.email||''}"
+        >
+      </div>
+
     </div>
-    <div class="fr"><label>Formation suivie</label>
-      <select id="fe-formation">
-        <option value="gestion-finance" ${e?.formation==='gestion-finance'?'selected':''}>Gestion Finance</option>
-        <option value="kit-cils" ${e?.formation==='kit-cils'?'selected':''}>Extension de cils</option>
-        <option value="les-deux" ${e?.formation==='les-deux'?'selected':''}>Les deux</option>
+
+
+    <div class="divider"></div>
+
+
+    <div style="
+      font-size:11px;
+      font-weight:700;
+      color:var(--mut);
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      margin-bottom:8px
+    ">
+      🎓 Formation
+    </div>
+
+    <div class="fr">
+      <label>Type de formation</label>
+
+      <select id="fe-type-formation">
+
+        <option value="">
+          — Choisir la formation —
+        </option>
+
+        ${Object.entries(LABELS_TYPE_FORMATION)
+          .map(([k,label])=>`
+            <option
+              value="${k}"
+              ${e?.formationTypeNormalise===k?'selected':''}
+            >
+              ${label}
+            </option>
+          `)
+          .join('')
+        }
+
       </select>
     </div>
+
     <div class="g2">
-  <div class="fr"><label>Date début formation</label><input type="date" id="fe-date-formation" value="${e?.dateFormation||''}"></div>
-  <div class="fr"><label>Date fin formation</label><input type="date" id="fe-date-fin-formation" value="${e?.dateFinFormation||e?.dateFormation||''}"></div>
-</div>
-<div class="g2">
-  <div class="fr"><label>Lieu</label><input type="text" id="fe-lieu" value="${e?.lieu||''}"></div>
-  <div class="fr"><label>Type de formation</label>
-    <select id="fe-type-formation">
-      <option value="">— Non défini —</option>
-      ${Object.entries(LABELS_TYPE_FORMATION).map(([k,label])=>`<option value="${k}" ${e?.formationTypeNormalise===k?'selected':''}>${label}</option>`).join('')}
-    </select>
-  </div>
-</div>
-<div style="text-align:right;margin-bottom:10px">
-  <button type="button" class="btn bg bsm" onclick="suggererKitsFormation()">✨ Suggérer les kits selon le type</button>
-</div>
-<div class="fr"><label>Kit(s) choisi(s) <span style="font-size:10px;color:var(--mut)">(sélection multiple possible)</span></label>
-  <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1.5px solid var(--brd2);border-radius:10px;padding:8px">
-    ${Object.entries(KITS_CONTENU).map(([k,v])=>{
-      const dejaChoisi=(e?.kits||[]).some(kt=>kt.type===k);
-      return`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-        <input type="checkbox" class="fe-kit-check" value="${k}" ${dejaChoisi?'checked':''} style="width:16px;height:16px;accent-color:var(--acc)">
-        ${v.label}
-      </label>`;
-    }).join('')}
-  </div>
-</div>
-    <div class="divider"></div>
-    <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💶 Financement</div>
-    <div class="g2">
-      <div class="fr"><label>Type</label>
-        <select id="fe-fin-type">
-          <option value="cpf" ${e?.financement?.type==='cpf'?'selected':''}>CPF</option>
-          <option value="perso" ${e?.financement?.type==='perso'?'selected':''}>Personnel</option>
-        </select>
+
+      <div class="fr">
+        <label>Date début formation</label>
+        <input
+          type="date"
+          id="fe-date-formation"
+          value="${e?.dateFormation||''}"
+        >
       </div>
-      <div class="fr"><label>Montant (€)</label><input type="number" id="fe-fin-montant" value="${e?.financement?.montant||''}" step="0.01"></div>
+
+      <div class="fr">
+        <label>Date fin formation</label>
+        <input
+          type="date"
+          id="fe-date-fin-formation"
+          value="${e?.dateFinFormation||e?.dateFormation||''}"
+        >
+      </div>
+
     </div>
-    <div class="fr"><label>Payé ?</label>
-      <select id="fe-fin-paye"><option value="1" ${e?.financement?.paye?'selected':''}>✅ Oui</option><option value="0" ${!e?.financement?.paye?'selected':''}>⏳ Non</option></select>
+
+    <div class="fr">
+      <label>Lieu</label>
+      <input
+        type="text"
+        id="fe-lieu"
+        value="${e?.lieu||''}"
+      >
     </div>
-    <div class="fr"><label>Notes</label><textarea id="fe-notes" rows="2">${e?.notes||''}</textarea></div>
+
+
+    <div class="divider"></div>
+
+
+    <div style="
+      font-size:11px;
+      font-weight:700;
+      color:var(--mut);
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      margin-bottom:8px
+    ">
+      💶 Financement
+    </div>
+
+    <div class="g2">
+
+      <div class="fr">
+
+        <label>Mode de financement</label>
+
+        <select
+          id="fe-fin-type"
+          onchange="afficherChampCPFFormation()"
+        >
+
+          <option
+            value="perso"
+            ${e?.financement?.type==='perso'?'selected':''}
+          >
+            Personnel
+          </option>
+
+          <option
+            value="cpf"
+            ${e?.financement?.type==='cpf'?'selected':''}
+          >
+            CPF
+          </option>
+
+          <option
+            value="autre"
+            ${e?.financement?.type==='autre'?'selected':''}
+          >
+            Autre
+          </option>
+
+        </select>
+
+      </div>
+
+      <div class="fr">
+
+        <label>Montant (€)</label>
+
+        <input
+          type="number"
+          id="fe-fin-montant"
+          value="${e?.financement?.montant||''}"
+          step="0.01"
+        >
+
+      </div>
+
+    </div>
+
+
+    <div
+      class="fr"
+      id="fe-cpf-zone"
+      style="
+        display:${e?.financement?.type==='cpf'?'block':'none'};
+      "
+    >
+
+      <label>N° CPF</label>
+
+      <input
+        type="text"
+        id="fe-num-cpf"
+        value="${e?.numeroCPF||''}"
+        placeholder="Numéro de dossier CPF"
+      >
+
+    </div>
+
+
+    <div class="fr">
+
+      <label>Formation réglée ?</label>
+
+      <select id="fe-fin-paye">
+
+        <option
+          value="0"
+          ${!e?.financement?.paye?'selected':''}
+        >
+          ⏳ Non
+        </option>
+
+        <option
+          value="1"
+          ${e?.financement?.paye?'selected':''}
+        >
+          ✅ Oui
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="divider"></div>
+
+
+    <div style="
+      font-size:11px;
+      font-weight:700;
+      color:var(--mut);
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      margin-bottom:8px
+    ">
+      📦 Kit pédagogique
+    </div>
+
+    <div style="text-align:right;margin-bottom:10px">
+
+      <button
+        type="button"
+        class="btn bg bsm"
+        onclick="suggererKitsFormation()"
+      >
+        ✨ Suggérer selon la formation
+      </button>
+
+    </div>
+
+    <div class="fr">
+
+      <label>
+        Kit(s) choisi(s)
+        <span style="font-size:10px;color:var(--mut)">
+          (sélection multiple possible)
+        </span>
+      </label>
+
+      <div style="
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        max-height:200px;
+        overflow-y:auto;
+        border:1.5px solid var(--brd2);
+        border-radius:10px;
+        padding:8px;
+      ">
+
+        ${Object.entries(KITS_CONTENU)
+          .map(([k,v])=>{
+
+            const dejaChoisi=
+              (e?.kits||[]).some(
+                kt=>kt.type===k
+              );
+
+            return `
+              <label style="
+                display:flex;
+                align-items:center;
+                gap:8px;
+                cursor:pointer;
+                font-size:13px;
+              ">
+
+                <input
+                  type="checkbox"
+                  class="fe-kit-check"
+                  value="${k}"
+                  ${dejaChoisi?'checked':''}
+                  style="
+                    width:16px;
+                    height:16px;
+                    accent-color:var(--acc);
+                  "
+                >
+
+                ${v.label}
+
+              </label>
+            `;
+
+          })
+          .join('')
+        }
+
+      </div>
+
+    </div>
+
+
+    <div class="divider"></div>
+
+
+    <div class="fr">
+
+      <label>Statut général</label>
+
+      <select id="fe-statut">
+
+        ${STATUTS_FORMATION
+          .map(s=>`
+            <option
+              ${e?.statut===s?'selected':''}
+            >
+              ${s}
+            </option>
+          `)
+          .join('')
+        }
+
+      </select>
+
+    </div>
+
+
+    <div class="fr">
+
+      <label>Notes</label>
+
+      <textarea
+        id="fe-notes"
+        rows="3"
+      >${e?.notes||''}</textarea>
+
+    </div>
   `;
-  document.getElementById('formationModal').dataset.editId=id||'';
-  document.getElementById('formationModal').classList.add('open');
-  document.getElementById('saveEtudianteBtn').disabled=false;
+
+  document
+    .getElementById('formationModal')
+    .dataset.editId=id||'';
+
+  document
+    .getElementById('formationModal')
+    .classList.add('open');
+
+  document
+    .getElementById('saveEtudianteBtn')
+    .disabled=false;
+}
+
+function afficherChampCPFFormation(){
+
+  const type=
+    document.getElementById('fe-fin-type')?.value;
+
+  const zone=
+    document.getElementById('fe-cpf-zone');
+
+  if(!zone) return;
+
+  zone.style.display=
+    type==='cpf'
+      ? 'block'
+      : 'none';
 }
 
 function suggererKitsFormation(){
@@ -18456,13 +18802,34 @@ async function saveEtudiante(){
   btn.disabled=true;
 
   const editId=document.getElementById('formationModal').dataset.editId;
-  const nom=document.getElementById('fe-nom')?.value?.trim();
-  if(!nom){toast('⚠ Le nom est requis');btn.disabled=false;return;}
+  const prenom=
+  document.getElementById('fe-prenom')
+    ?.value
+    ?.trim()||'';
+
+const nomFamille=
+  document.getElementById('fe-nom-famille')
+    ?.value
+    ?.trim()||'';
+
+if(!prenom || !nomFamille){
+
+  toast('⚠ Prénom et nom requis');
+
+  btn.disabled=false;
+
+  return;
+}
+
+const nom=
+  `${prenom} ${nomFamille}`.trim();
 
   const existing=editId?DB.formations.etudiantes.find(x=>x.id===editId):null;
   const etu={
     id:existing?.id||genId(),
-    nom,
+    prenom,
+nomFamille,
+nom,
     email:document.getElementById('fe-email')?.value?.trim()||'',
     tel:document.getElementById('fe-tel')?.value?.trim()||'',
     statut:document.getElementById('fe-statut')?.value||'Inscrite',
@@ -18471,7 +18838,11 @@ async function saveEtudiante(){
     dateFinFormation:document.getElementById('fe-date-fin-formation')?.value||'',
     lieu:document.getElementById('fe-lieu')?.value?.trim()||'',
     formationTypeNormalise:document.getElementById('fe-type-formation')?.value||'',
-    financement:{
+    numeroCPF:
+  document.getElementById('fe-fin-type')?.value==='cpf'
+    ? document.getElementById('fe-num-cpf')?.value?.trim()||''
+    : '',
+     financement:{
       type:document.getElementById('fe-fin-type')?.value||'perso',
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
       paye:document.getElementById('fe-fin-paye')?.value==='1'
@@ -18481,9 +18852,13 @@ async function saveEtudiante(){
   existing?.kits
 ),
 
-suiviFormation:creerSuiviFormationExistant(
-  existing?.suiviFormation
-),
+suiviFormation:{
+  ...creerSuiviFormationExistant(
+    existing?.suiviFormation
+  ),
+
+  fiche_creee:true
+},
 
 notes:document.getElementById('fe-notes')?.value||''
   };
