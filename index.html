@@ -17606,16 +17606,52 @@ const LABELS_TYPE_FORMATION={
 };
 
 function normaliserTypeFormation(formationRaw, dateDebut, dateFin){
-  const txt=(formationRaw||'').toLowerCase();
-  const nbJours=dateDebut&&dateFin
-    ?Math.round((new Date(dateFin)-new Date(dateDebut))/86400000)+1
-    :1;
+  const txt = (formationRaw || '').toLowerCase().trim();
 
-  if(txt.includes('perfectionnement')) return 'perfectionnement-1j';
-  if(txt.includes('lash lift')) return 'lashlift';
-  if(txt.includes('express')) return 'debutant-express-3j';
-  if(txt.includes('debutant')||txt.includes('débutant')) return 'debutant-5j';
-  if(txt.includes('coaching')) return nbJours>=2?'coaching-2j':'coaching-1j';
+  const nbJours = dateDebut && dateFin
+    ? Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000) + 1
+    : 1;
+
+  // Formations clairement identifiées par le texte
+  if(txt.includes('lashlift') || txt.includes('lash lift')) {
+    return 'lashlift-coreen';
+  }
+
+  if(txt.includes('browlift') || txt.includes('brow lift')) {
+    return 'browlift';
+  }
+
+  // Durées qui permettent d'identifier la formation automatiquement
+  if(nbJours === 2) {
+    return 'coaching-prive-2j';
+  }
+
+  if(nbJours === 4) {
+    return 'debutante-4j';
+  }
+
+  if(nbJours === 5) {
+    return 'debutante-5j';
+  }
+
+  // 3 jours = ambigu : Express OU Coaching privé
+  if(nbJours === 3) {
+    if(txt.includes('express')) {
+      return 'debutante-express-3j';
+    }
+
+    if(txt.includes('coaching')) {
+      return 'coaching-prive-3j';
+    }
+
+    return null;
+  }
+
+  // Formation d'une journée
+  if(nbJours === 1 && txt.includes('coaching')) {
+    return 'coaching-prive-1j';
+  }
+
   return null;
 }
 
@@ -17703,11 +17739,29 @@ async function importPlanningFormations(event){
       body:JSON.stringify({
         model:'claude-sonnet-4-6',max_tokens:4000,
         messages:[{role:'user',content:`Voici un planning de formations avec les étudiantes inscrites. Extrais toutes les étudiantes.
-Pour chaque étudiante donne : nom (Prénom Nom), tel, email, financement ("cpf" ou "perso"), dateDebut (YYYY-MM-DD, année 2026 si non précisée), dateFin (YYYY-MM-DD, même jour que dateDebut si une seule journée), lieu, formation (nom exact du type de formation tel qu'écrit, ex: "Coaching Privé", "DEBUTANT", "DEBUTANT EXPRESS", "Lash Lift Coréen", "Perfectionnement 1 Jour").
+Pour chaque étudiante donne :
+- nom : nom et prénom exactement comme indiqués dans le tableau
+- tel : numéro de téléphone, sans les éventuelles mentions ou informations employeur
+- email : adresse mail
+- financement : "cpf" si le tableau indique CPF, sinon "perso" si le tableau indique PERSO
+- numeroCPF : numéro indiqué dans la colonne "N° CPF", uniquement les chiffres, ou "" si la case est vide
+- dateDebut : date de début au format YYYY-MM-DD
+- dateFin : date de fin au format YYYY-MM-DD
+- lieu : lieu de formation s'il est indiqué, sinon ""
+- formation : détermine la formation à partir des dates uniquement si c'est certain : 2 jours = "coaching-prive-2j", 4 jours = "debutante-4j", 5 jours = "debutante-5j". Pour une formation de 3 jours ou si le type ne peut pas être déterminé avec certitude, retourne ""
 Ignore les lignes d'absence de l'équipe (Isabelle, Giulia, Danielle absentes).
 Réponds UNIQUEMENT en JSON valide sans backticks :
-[{"nom":"SESTINI Samantha","tel":"06.45.18.17.20","email":"samanthasestini@icloud.com","financement":"cpf","dateDebut":"2026-06-23","dateFin":"2026-06-23","lieu":"Porto-Vecchio","formation":"Coaching Privé"}]
-Texte du planning :
+[{
+  "nom":"SESTINI Samantha",
+  "tel":"06.45.18.17.20",
+  "email":"samanthasestini@icloud.com",
+  "financement":"cpf",
+  "numeroCPF":"391678648633",
+  "dateDebut":"2026-06-23",
+  "dateFin":"2026-06-23",
+  "lieu":"Porto-Vecchio",
+  "formation":""
+}]Texte du planning :
 ${fullText.slice(0,10000)}`}]
       })
     });
@@ -17760,84 +17814,161 @@ function renderImportFormationsResult(){
   el.innerHTML=html;
 }
 
-async function importerEtudianteFormation(i){
-  ensureFormationsData();
-  const e=importedEtudiantes[i];
-  const typeNormalise=normaliserTypeFormation(e.formation,e.dateDebut,e.dateFin);
-  const etu={
-    id:genId(),
-    nom:e.nom,
-    email:e.email||'',
-    tel:e.tel||'',
-    statut:'Inscrite',
-    formation:'kit-cils',
-    formationType:e.formation||'',
-    formationTypeNormalise:typeNormalise,
-    dateFormation:e.dateDebut||'',
-    dateFinFormation:e.dateFin||e.dateDebut||'',
-    lieu:e.lieu||'',
-    financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-    kits:construireKitsSelonFormation(typeNormalise),
-    notes:''
+function creerEtudianteDepuisImportFormation(e){
+
+  const financement =
+    e.financement === 'cpf'
+      ? 'cpf'
+      : 'perso';
+
+  const typeNormalise =
+    normaliserTypeFormation(
+      e.formation,
+      e.dateDebut,
+      e.dateFin
+    );
+
+  // Séparation prénom / nom
+  const morceauxNom =
+    (e.nom || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  const prenom =
+    morceauxNom.shift() || '';
+
+  const nomFamille =
+    morceauxNom.join(' ');
+
+  return {
+
+    id: genId(),
+
+    // IDENTITÉ
+    prenom,
+    nomFamille,
+    nom: `${prenom} ${nomFamille}`.trim(),
+
+    email: e.email || '',
+    tel: e.tel || '',
+
+    statut: 'Inscrite',
+
+    // Ancien champ conservé pour compatibilité
+    formation: 'kit-cils',
+
+    // FORMATION
+    formationType: e.formation || '',
+    formationTypeNormalise: typeNormalise,
+
+    dateFormation: e.dateDebut || '',
+    dateFinFormation:
+      e.dateFin || e.dateDebut || '',
+
+    lieu: e.lieu || '',
+
+    // FINANCEMENT
+    financement: {
+      type: financement,
+      montant: 0,
+      paye: false
+    },
+
+    // Numéro de dossier CPF récupéré depuis le planning
+numeroCPF: (e.numeroCPF || '').toString().trim(),
+
+    // KITS
+    kits:
+      construireKitsSelonFormation(
+        typeNormalise
+      ),
+
+    // WORKFLOW
+    suiviFormation: {
+      ...creerSuiviFormationExistant(),
+      fiche_creee: true
+    },
+
+    notes: ''
   };
+}
+
+
+async function importerEtudianteFormation(i){
+
+  ensureFormationsData();
+
+  const e =
+    importedEtudiantes[i];
+
+  if(!e) return;
+
+  const exists =
+    DB.formations.etudiantes.some(x =>
+      (x.nom || '').toLowerCase().trim() ===
+        (e.nom || '').toLowerCase().trim()
+      &&
+      x.dateFormation === e.dateDebut
+    );
+
+  if(exists){
+    toast('⚠ Cette étudiante est déjà importée');
+    return;
+  }
+
+  const etu =
+    creerEtudianteDepuisImportFormation(e);
+
   DB.formations.etudiantes.push(etu);
+
   await saveAll();
+
   importedEtudiantes.splice(i,1);
+
   renderImportFormationsResult();
   renderFEtudiantes();
+
   toast('✓ Étudiante importée !');
 }
 
+
 async function importerToutesEtudiantesFormation(){
+
   ensureFormationsData();
-  let count=0;
+
+  let count = 0;
+
   for(const e of importedEtudiantes){
-    const exists=DB.formations.etudiantes.some(x=>
-      x.nom.toLowerCase().trim()===e.nom.toLowerCase().trim()&&x.dateFormation===e.dateDebut
-    );
+
+    const exists =
+      DB.formations.etudiantes.some(x =>
+        (x.nom || '').toLowerCase().trim() ===
+          (e.nom || '').toLowerCase().trim()
+        &&
+        x.dateFormation === e.dateDebut
+      );
+
     if(exists) continue;
-    const typeNormalise=normaliserTypeFormation(e.formation,e.dateDebut,e.dateFin);
-    DB.formations.etudiantes.push({
-      id:genId(),
-      nom:e.nom,
-      email:e.email||'',
-      tel:e.tel||'',
-      statut:'Inscrite',
-      formation:'kit-cils',
-      formationType:e.formation||'',
-      formationTypeNormalise:typeNormalise,
-      dateFormation:e.dateDebut||'',
-      dateFinFormation:e.dateFin||e.dateDebut||'',
-      lieu:e.lieu||'',
-      financement:{type:e.financement==='cpf'?'cpf':'perso',montant:0,paye:false},
-      kits:construireKitsSelonFormation(typeNormalise),
-      notes:''
-    });
+
+    const etu =
+      creerEtudianteDepuisImportFormation(e);
+
+    DB.formations.etudiantes.push(etu);
+
     count++;
   }
+
   await saveAll();
-  importedEtudiantes=[];
+
+  importedEtudiantes = [];
+
   renderImportFormationsResult();
   renderFEtudiantes();
-  toast(`✓ ${count} étudiante(s) importée(s) !`);
-}
-   
-let fTabActive=0;
-function goFTab(i){
-  fTabActive=i;
-  ['etudiantes','kits','emails','planning'].forEach((n,j)=>{
-    document.getElementById('fview-'+n).style.display=j===i?'block':'none';
-    const btn=document.getElementById('ftab'+j);
-    if(btn){
-      btn.style.background=j===i?'white':'transparent';
-      btn.style.color=j===i?'var(--acc)':'var(--mut)';
-      btn.style.boxShadow=j===i?'var(--shadow)':'none';
-    }
-  });
-  if(i===0) renderFEtudiantes();
-  if(i===1) renderFKits();
-  if(i===2) renderFEmails();
-  if(i===3) renderFPlanning();
+
+  toast(
+    `✓ ${count} étudiante(s) importée(s) !`
+  );
 }
 
 function renderFormationsModule(){
