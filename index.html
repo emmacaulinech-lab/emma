@@ -17971,6 +17971,29 @@ async function importerToutesEtudiantesFormation(){
   );
 }
 
+function goFTab(tab){
+  fTabActive = tab || 'etudiantes';
+
+  // Active le bon onglet
+  document.querySelectorAll('[data-ftab]').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.ftab === fTabActive);
+  });
+
+  // Affiche la bonne vue
+  document.querySelectorAll('[id^="fview-"]').forEach(view=>{
+    view.style.display = 'none';
+  });
+
+  const view = document.getElementById('fview-' + fTabActive);
+  if(view) view.style.display = '';
+
+  // Charge le contenu de l'onglet
+  if(fTabActive === 'etudiantes') renderFEtudiantes();
+  if(fTabActive === 'kits') renderFKits();
+  if(fTabActive === 'emails') renderFEmails();
+  if(fTabActive === 'planning') renderFPlanning();
+}
+
 function renderFormationsModule(){
   ensureFormationsData();
   goFTab(fTabActive);
