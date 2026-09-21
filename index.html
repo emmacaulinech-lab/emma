@@ -18208,7 +18208,17 @@ async function toggleSuiviFormation(
 
   e.suiviFormation[itemId]=checked;
 
-  await saveAll();
+  // Sauvegarde ciblée directement dans Firebase
+  const sauvegardeOK=
+    await sauvegarderChampSeul(
+      'formations',
+      DB.formations
+    );
+
+  if(!sauvegardeOK){
+    toast('⚠️ La modification n’a pas pu être enregistrée');
+    return;
+  }
 
   renderFEtudiantes();
 
