@@ -7522,83 +7522,291 @@ let PARAMS = {
 
 async function loadAll() {
   if(!userRef) return;
+
   try {
+    // =====================================================
+    // 1. ANCIEN DATA/MAIN = FILET DE SÉCURITÉ
+    // =====================================================
     const snap = await userRef.collection('data').doc('main').get();
-    if(snap.exists) {
-      const d = snap.data();
-      if(d.caisse)      DB.caisse      = JSON.parse(d.caisse);
-      if(d.banque)      DB.banque      = JSON.parse(d.banque);
-      if(d.fixes)       DB.fixes       = JSON.parse(d.fixes);
-      if(d.chargesLissees) DB.chargesLissees = JSON.parse(d.chargesLissees);
-      if(d.variables)   DB.variables   = JSON.parse(d.variables);
-      if(d.semainesPerso){
-    DB.semainesPerso = JSON.parse(d.semainesPerso);
-}
-      if(d.prestations) DB.prestations = JSON.parse(d.prestations);
-      if(d.params)      PARAMS = { ...PARAMS, ...JSON.parse(d.params) };
-      // Les paramètres ont leur propre document : il reste prioritaire sur
-      // l'ancienne copie incluse dans data/main.
-      const paramsDoc = await userRef.collection('settings').doc('params').get();
-      if(
-        paramsDoc.exists &&
-        paramsDoc.data().updatedAt &&
-        (!d.paramsUpdatedAt || String(paramsDoc.data().updatedAt) >= String(d.paramsUpdatedAt))
-      ){
-        const {updatedAt, ...paramsSauvegardes} = paramsDoc.data();
-        PARAMS = { ...PARAMS, ...paramsSauvegardes };
-      }
-       if(d.salaires) DB.salaires=JSON.parse(d.salaires);
-      if(d.salairePlan) DB.salairePlan={...DB.salairePlan,...JSON.parse(d.salairePlan)};
-      if(d.conseilsFinanciersIgnores) DB.conseilsFinanciersIgnores=JSON.parse(d.conseilsFinanciersIgnores);
-      if(d.apprentissageRapprochements) DB.apprentissageRapprochements=JSON.parse(d.apprentissageRapprochements);
-      if(d.boutique){
-        const b=JSON.parse(d.boutique);
-        DB.boutique={produits:[],lots:[],ventes:[],cadeaux:[],...b};
-      }
-     if(d.formations){
-  DB.formations =
-    typeof d.formations === 'string'
-      ? JSON.parse(d.formations)
-      : d.formations;
-}
-      if(d.lecture) DB.lecture=JSON.parse(d.lecture);
-      if(d.glow) DB.glow = JSON.parse(d.glow);
-      if(d.historiqueGlow){
-    DB.historiqueGlow = JSON.parse(d.historiqueGlow);
-}
-      if(d.humeurs) DB.humeurs=JSON.parse(d.humeurs);
-      if(d.journal) DB.journal=JSON.parse(d.journal);
-      // photosJour chargé séparément maintenant (voir chargerPhotosJour)
-      if(d.todos) DB.todos=JSON.parse(d.todos);
-      await chargerAgendaImporte();
-    } else {
-      const paramsDoc = await userRef.collection('settings').doc('params').get();
-      if(paramsDoc.exists) PARAMS = { ...PARAMS, ...paramsDoc.data() };
-      const prestDoc = await userRef.collection('settings').doc('prestations').get();
-      if(prestDoc.exists && prestDoc.data().list) DB.prestations = prestDoc.data().list;
-      for(const col of ['caisse','banque','fixes','variables']) {
-        const s = await userRef.collection(col).get();
-        DB[col] = s.docs.map(d => ({id: d.id, ...d.data()}));
-      }
-      chargementReussi = true;
-      await saveAll();
-      toast('✓ Données migrées');
+    const d = snap.exists ? snap.data() : {};
+
+    if(d.caisse) DB.caisse = JSON.parse(d.caisse);
+    if(d.banque) DB.banque = JSON.parse(d.banque);
+    if(d.fixes) DB.fixes = JSON.parse(d.fixes);
+    if(d.chargesLissees) DB.chargesLissees = JSON.parse(d.chargesLissees);
+    if(d.semainesPerso) DB.semainesPerso = JSON.parse(d.semainesPerso);
+    if(d.variables) DB.variables = JSON.parse(d.variables);
+    if(d.prestations) DB.prestations = JSON.parse(d.prestations);
+
+    if(d.salaires) DB.salaires = JSON.parse(d.salaires);
+
+    if(d.salairePlan){
+      DB.salairePlan = {
+        ...DB.salairePlan,
+        ...JSON.parse(d.salairePlan)
+      };
     }
-     await loadCV();
-     await loadFactures();
-    // Recharger l'agenda si données du jour disponibles
+
+    if(d.conseilsFinanciersIgnores){
+      DB.conseilsFinanciersIgnores =
+        JSON.parse(d.conseilsFinanciersIgnores);
+    }
+
+    if(d.apprentissageRapprochements){
+      DB.apprentissageRapprochements =
+        JSON.parse(d.apprentissageRapprochements);
+    }
+
+    if(d.boutique){
+      const b = JSON.parse(d.boutique);
+
+      DB.boutique = {
+        produits: [],
+        lots: [],
+        ventes: [],
+        cadeaux: [],
+        ...b
+      };
+    }
+
+    if(d.formations){
+      DB.formations =
+        typeof d.formations === 'string'
+          ? JSON.parse(d.formations)
+          : d.formations;
+    }
+
+    if(d.lecture) DB.lecture = JSON.parse(d.lecture);
+    if(d.glow) DB.glow = JSON.parse(d.glow);
+
+    if(d.historiqueGlow){
+      DB.historiqueGlow = JSON.parse(d.historiqueGlow);
+    }
+
+    if(d.humeurs) DB.humeurs = JSON.parse(d.humeurs);
+    if(d.journal) DB.journal = JSON.parse(d.journal);
+    if(d.todos) DB.todos = JSON.parse(d.todos);
+
+    // Ancienne copie des paramètres = secours uniquement
+    if(d.params){
+      PARAMS = {
+        ...PARAMS,
+        ...JSON.parse(d.params)
+      };
+    }
+
+
+    // =====================================================
+    // 2. NOUVEAUX MODULES = PRIORITAIRES
+    // =====================================================
+
+    const comptaDoc = await userRef
+      .collection('modules')
+      .doc('comptabilite')
+      .get();
+
+    if(comptaDoc.exists){
+      const c = comptaDoc.data();
+
+      if(c.caisse) DB.caisse = JSON.parse(c.caisse);
+      if(c.banque) DB.banque = JSON.parse(c.banque);
+      if(c.fixes) DB.fixes = JSON.parse(c.fixes);
+
+      if(c.chargesLissees){
+        DB.chargesLissees = JSON.parse(c.chargesLissees);
+      }
+
+      if(c.semainesPerso){
+        DB.semainesPerso = JSON.parse(c.semainesPerso);
+      }
+
+      if(c.variables) DB.variables = JSON.parse(c.variables);
+      if(c.prestations) DB.prestations = JSON.parse(c.prestations);
+      if(c.salaires) DB.salaires = JSON.parse(c.salaires);
+
+      if(c.salairePlan){
+        DB.salairePlan = {
+          ...DB.salairePlan,
+          ...JSON.parse(c.salairePlan)
+        };
+      }
+
+      if(c.conseilsFinanciersIgnores){
+        DB.conseilsFinanciersIgnores =
+          JSON.parse(c.conseilsFinanciersIgnores);
+      }
+
+      if(c.apprentissageRapprochements){
+        DB.apprentissageRapprochements =
+          JSON.parse(c.apprentissageRapprochements);
+      }
+    }
+
+
+    const boutiqueDoc = await userRef
+      .collection('modules')
+      .doc('boutique')
+      .get();
+
+    if(boutiqueDoc.exists && boutiqueDoc.data().data){
+      const b = JSON.parse(boutiqueDoc.data().data);
+
+      DB.boutique = {
+        produits: [],
+        lots: [],
+        ventes: [],
+        cadeaux: [],
+        ...b
+      };
+    }
+
+
+    const formationsDoc = await userRef
+      .collection('modules')
+      .doc('formations')
+      .get();
+
+    if(formationsDoc.exists && formationsDoc.data().data){
+      DB.formations = JSON.parse(
+        formationsDoc.data().data
+      );
+    }
+
+
+    const lectureDoc = await userRef
+      .collection('modules')
+      .doc('lecture')
+      .get();
+
+    if(lectureDoc.exists && lectureDoc.data().data){
+      DB.lecture = JSON.parse(
+        lectureDoc.data().data
+      );
+    }
+
+
+    const glowDoc = await userRef
+      .collection('modules')
+      .doc('glow')
+      .get();
+
+    if(glowDoc.exists){
+      const g = glowDoc.data();
+
+      if(g.data){
+        DB.glow = JSON.parse(g.data);
+      }
+
+      if(g.historique){
+        DB.historiqueGlow = JSON.parse(g.historique);
+      }
+    }
+
+
+    const journalDoc = await userRef
+      .collection('modules')
+      .doc('journal')
+      .get();
+
+    if(journalDoc.exists && journalDoc.data().data){
+      DB.journal = JSON.parse(
+        journalDoc.data().data
+      );
+    }
+
+
+    const humeursDoc = await userRef
+      .collection('modules')
+      .doc('humeurs')
+      .get();
+
+    if(humeursDoc.exists && humeursDoc.data().data){
+      DB.humeurs = JSON.parse(
+        humeursDoc.data().data
+      );
+    }
+
+
+    const todosDoc = await userRef
+      .collection('modules')
+      .doc('todos')
+      .get();
+
+    if(todosDoc.exists && todosDoc.data().data){
+      DB.todos = JSON.parse(
+        todosDoc.data().data
+      );
+    }
+
+
+    // =====================================================
+    // 3. PARAMÈTRES SÉPARÉS = PRIORITAIRES
+    // =====================================================
+
+    const paramsDoc = await userRef
+      .collection('settings')
+      .doc('params')
+      .get();
+
+    if(paramsDoc.exists){
+      const {
+        updatedAt,
+        ...paramsSauvegardes
+      } = paramsDoc.data();
+
+      PARAMS = {
+        ...PARAMS,
+        ...paramsSauvegardes
+      };
+    }
+
+
+    // =====================================================
+    // 4. AGENDA
+    // Nouveau document prioritaire + fallback ancien main
+    // géré directement par chargerAgendaImporte()
+    // =====================================================
+
+    await chargerAgendaImporte();
+
+
+    // =====================================================
+    // 5. AUTRES DONNÉES DÉJÀ STOCKÉES SÉPARÉMENT
+    // =====================================================
+
+    await loadCV();
+    await loadFactures();
+
     if(agendaData){
       setTimeout(()=>{
-        const dateInput=document.getElementById('agenda-date');
-        if(dateInput&&window._agendaDateChargee) dateInput.value=window._agendaDateChargee;
+        const dateInput =
+          document.getElementById('agenda-date');
+
+        if(dateInput && window._agendaDateChargee){
+          dateInput.value =
+            window._agendaDateChargee;
+        }
+
         renderAgenda();
       },300);
     }
+
     chargementReussi = true;
+
     await chargerPhotosJour();
+
+    console.log(
+      '✅ EMMA chargée avec les nouveaux modules Firebase'
+    );
+
   } catch(e) {
     console.error('Load error:', e);
-    toast('⚠️ Erreur de chargement, sauvegarde bloquée par sécurité: ' + e.message);
+
+    toast(
+      '⚠️ Erreur de chargement, sauvegarde bloquée par sécurité: ' +
+      e.message
+    );
+
     chargementReussi = false;
   }
 }
@@ -7776,12 +7984,82 @@ function donneesCompletesASauvegarder(){
 
 async function executerFileSauvegardes(){
   while(versionSauvegardeTerminee < versionSauvegardeDemandee){
+
     const versionEnCours = versionSauvegardeDemandee;
-    await userRef.collection('data').doc('main').update(
-      donneesCompletesASauvegarder()
-    );
+    const updatedAt = new Date().toISOString();
+
+    securiserLiensChargesParMoisEmma();
+
+    await userRef.collection('modules').doc('comptabilite').set({
+      caisse: JSON.stringify(DB.caisse || []),
+      banque: JSON.stringify(DB.banque || []),
+      fixes: JSON.stringify(DB.fixes || []),
+      chargesLissees: JSON.stringify(DB.chargesLissees || []),
+      semainesPerso: JSON.stringify(DB.semainesPerso || []),
+      variables: JSON.stringify(DB.variables || []),
+      prestations: JSON.stringify(DB.prestations || []),
+      salaires: JSON.stringify(DB.salaires || []),
+      salairePlan: JSON.stringify(DB.salairePlan || {}),
+      conseilsFinanciersIgnores: JSON.stringify(DB.conseilsFinanciersIgnores || []),
+      apprentissageRapprochements: JSON.stringify(DB.apprentissageRapprochements || []),
+      updatedAt
+    }, {merge:true});
+
+    await userRef.collection('modules').doc('boutique').set({
+      data: JSON.stringify(DB.boutique || {}),
+      updatedAt
+    }, {merge:true});
+
+    await userRef.collection('modules').doc('formations').set({
+      data: JSON.stringify(DB.formations || {etudiantes:[]}),
+      updatedAt
+    }, {merge:true});
+
+    await userRef.collection('modules').doc('lecture').set({
+      data: JSON.stringify(DB.lecture || {}),
+      updatedAt
+    }, {merge:true});
+
+    await userRef.collection('modules').doc('glow').set({
+      data: JSON.stringify(DB.glow || {}),
+      historique: JSON.stringify(DB.historiqueGlow || []),
+      updatedAt
+    }, {merge:true});
+
+    await userRef.collection('modules').doc('journal').set({
+      data: JSON.stringify(DB.journal || {}),
+      updatedAt
+    }, {merge:true});
+
+     await userRef.collection('modules').doc('humeurs').set({
+  data: JSON.stringify(DB.humeurs || {}),
+  updatedAt
+}, {merge:true});
+
+await userRef.collection('modules').doc('todos').set({
+  data: JSON.stringify(DB.todos || []),
+  updatedAt
+}, {merge:true});
+
+await userRef.collection('modules').doc('agenda').set({
+  data: JSON.stringify({
+    date:
+      document.getElementById('agenda-date')?.value ||
+      window._agendaDateChargee ||
+      new Date().toISOString().split('T')[0],
+    data: agendaData || null
+  }),
+  updatedAt
+}, {merge:true});
+
+    await userRef.collection('settings').doc('params').set({
+      ...PARAMS,
+      updatedAt
+    }, {merge:true});
+
     versionSauvegardeTerminee = versionEnCours;
   }
+
   return true;
 }
 
@@ -7814,15 +8092,146 @@ async function executerFileSauvegardes(){
 
 async function sauvegarderChampSeul(nomChamp, valeur){
   if(!userRef) return false;
+
   try {
-    await userRef.collection('data').doc('main').update({
-      [nomChamp]: valeur,
-      updatedAt: new Date().toISOString()
-    });
-    return true;
+    const updatedAt = new Date().toISOString();
+
+    // COMPTABILITÉ
+    const champsCompta = [
+      'caisse',
+      'banque',
+      'fixes',
+      'chargesLissees',
+      'semainesPerso',
+      'variables',
+      'prestations',
+      'salaires',
+      'salairePlan',
+      'conseilsFinanciersIgnores',
+      'apprentissageRapprochements'
+    ];
+
+    if(champsCompta.includes(nomChamp)){
+      await userRef.collection('modules').doc('comptabilite').set({
+        [nomChamp]: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+    // FORMATIONS
+    if(nomChamp === 'formations'){
+      await userRef.collection('modules').doc('formations').set({
+        data: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+    // BOUTIQUE
+    if(nomChamp === 'boutique'){
+      await userRef.collection('modules').doc('boutique').set({
+        data: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+    // LECTURE
+    if(nomChamp === 'lecture'){
+      await userRef.collection('modules').doc('lecture').set({
+        data: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+    // GLOW
+    if(nomChamp === 'glow'){
+      await userRef.collection('modules').doc('glow').set({
+        data: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+    if(nomChamp === 'historiqueGlow'){
+      await userRef.collection('modules').doc('glow').set({
+        historique: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+   // HUMEURS
+if(nomChamp === 'humeurs'){
+  await userRef.collection('modules').doc('humeurs').set({
+    data: valeur,
+    updatedAt
+  }, {merge:true});
+
+  return true;
+}
+
+   // TODOS
+if(nomChamp === 'todos'){
+  await userRef.collection('modules').doc('todos').set({
+    data: valeur,
+    updatedAt
+  }, {merge:true});
+
+  return true;
+}
+
+     // AGENDA IMPORTÉ
+if(nomChamp === 'agendaImporte'){
+  await userRef.collection('modules').doc('agenda').set({
+    data: valeur,
+    updatedAt
+  }, {merge:true});
+
+  return true;
+}
+
+    // JOURNAL / MAISON
+    if(nomChamp === 'journal'){
+      await userRef.collection('modules').doc('journal').set({
+        data: valeur,
+        updatedAt
+      }, {merge:true});
+
+      return true;
+    }
+
+    // Sécurité :
+    // on refuse d'écrire un champ inconnu dans l'ancien data/main.
+    console.error(
+      '🚫 Champ sans destination Firebase séparée :',
+      nomChamp
+    );
+
+    toast(
+      '⚠️ Sauvegarde non configurée pour : ' + nomChamp
+    );
+
+    return false;
+
   } catch(e) {
-    console.error('Erreur sauvegarde ciblée ('+nomChamp+'):', e);
-    toast('⚠️ Erreur de sauvegarde: '+e.message);
+    console.error(
+      'Erreur sauvegarde ciblée ('+nomChamp+'):',
+      e
+    );
+
+    toast(
+      '⚠️ Erreur de sauvegarde: '+e.message
+    );
+
     return false;
   }
 }
@@ -7863,16 +8272,48 @@ async function sauvegarderAgendaImporte(){
 
 async function chargerAgendaImporte(){
   if(!userRef) return;
+
   try{
-    const snap=await userRef.collection('data').doc('main').get();
-    const d=snap.data();
-    if(d&&d.agendaImporte){
-      const obj=JSON.parse(d.agendaImporte);
-      agendaData=obj.data||null;
-      window._agendaDateChargee=obj.date||null;
+    // Nouveau stockage
+    const snap = await userRef
+      .collection('modules')
+      .doc('agenda')
+      .get();
+
+    if(snap.exists && snap.data().data){
+      const obj = JSON.parse(snap.data().data);
+
+      agendaData = obj.data || null;
+      window._agendaDateChargee = obj.date || null;
+      return;
     }
+
+    // Sécurité : fallback vers l'ancien data/main
+    const ancienSnap = await userRef
+      .collection('data')
+      .doc('main')
+      .get();
+
+    const ancien = ancienSnap.exists
+      ? ancienSnap.data()
+      : null;
+
+    if(ancien && ancien.agendaImporte){
+      const obj = JSON.parse(ancien.agendaImporte);
+
+      agendaData = obj.data || null;
+      window._agendaDateChargee = obj.date || null;
+
+      console.warn(
+        '⚠️ Agenda chargé depuis l’ancien data/main'
+      );
+    }
+
   }catch(e){
-    console.error('Erreur chargement agenda importé:',e);
+    console.error(
+      'Erreur chargement agenda importé:',
+      e
+    );
   }
 }
 
@@ -7888,45 +8329,46 @@ function applyParamsToUI() {
   if(tsIb) tsIb.textContent = (PARAMS.tauxSoc*100)+'%';
 }
 
-async function saveParams() {
-  // Une sauvegarde générale démarrée avant la modification peut contenir
-  // l'ancienne valeur des paramètres. On la laisse finir, puis on écrit les
-  // paramètres en dernier afin qu'elle ne puisse pas les écraser ensuite.
+async function saveParams(){
+  // Si une sauvegarde générale est déjà en cours,
+  // on la laisse terminer avant d'enregistrer les paramètres.
   if(sauvegardeEnCours) await sauvegardeEnCours;
   if(!userRef) return false;
+
   const updatedAt = new Date().toISOString();
+
   try{
-    // Cet emplacement est déjà utilisé et autorisé par EMMA : il constitue
-    // la sauvegarde principale des paramètres.
-    await userRef.collection('data').doc('main').update({
-      params: JSON.stringify(PARAMS),
-      paramsUpdatedAt: updatedAt,
+    // Les paramètres sont désormais stockés uniquement ici.
+    // data/main reste intact et n'est plus écrit.
+    await userRef.collection('settings').doc('params').set({
+      ...PARAMS,
       updatedAt
-    });
+    }, {merge:true});
 
-    // Vérifie immédiatement la valeur réellement relue depuis Firebase.
-    const verification = await userRef.collection('data').doc('main').get();
-    const paramsRelus = verification.exists && verification.data().params
-      ? JSON.parse(verification.data().params)
+    // Vérification immédiate de la valeur réellement enregistrée.
+    const verification = await userRef
+      .collection('settings')
+      .doc('params')
+      .get();
+
+    const paramsRelus = verification.exists
+      ? verification.data()
       : null;
-    if(!paramsRelus || Number(paramsRelus.soldeInit) !== Number(PARAMS.soldeInit)){
-      throw new Error('la valeur relue ne correspond pas au solde saisi');
+
+    if(
+      !paramsRelus ||
+      Number(paramsRelus.soldeInit) !== Number(PARAMS.soldeInit)
+    ){
+      throw new Error(
+        'la valeur relue ne correspond pas au solde saisi'
+      );
     }
 
-    // Copie secondaire facultative. Certaines anciennes règles Firebase
-    // peuvent ne pas autoriser ce document : cela ne bloque plus la sauvegarde.
-    try{
-      await userRef.collection('settings').doc('params').set({
-        ...PARAMS,
-        updatedAt
-      }, {merge:true});
-    }catch(e){
-      console.warn('Copie settings/params non mise à jour :', e);
-    }
     return true;
+
   }catch(e){
     console.error('Erreur sauvegarde paramètres :', e);
-    toast('⚠️ Erreur de sauvegarde: '+e.message);
+    toast('⚠️ Erreur de sauvegarde: ' + e.message);
     return false;
   }
 }
