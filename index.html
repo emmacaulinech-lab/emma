@@ -19580,12 +19580,11 @@ const couleur = rgb(0.85, 0.20, 0.50);
 // 1. Numéro de dossier CPF
 if (donnees.numeroCPF) {
   const cpf = String(donnees.numeroCPF).replace(/\D/g, '');
-  const chiffresCPF = [...cpf];
 
-  chiffresCPF.forEach((chiffre, index) => {
+  [...cpf].forEach((chiffre, index) => {
     page.drawText(chiffre, {
-      x: 462 + (index * 14.1),
-      y: 257,
+      x: 401 + (index * 12.2),
+      y: 256,
       size: 11,
       font,
       color: couleur
@@ -19594,25 +19593,26 @@ if (donnees.numeroCPF) {
 }
 
 // 2. Date de début de formation
-if(donnees.dateDebut){
-  page.drawText(
-  String(donnees.dateDebut).replace(/\//g, '').split('').join('  '),
-  {
-    x: 449,
-    y: 171,
-    size: 9,
-    font,
-    color: couleur
-    }
-);
+if (donnees.dateDebut) {
+  const date = String(donnees.dateDebut).replace(/\D/g, '');
+
+  [...date].forEach((chiffre, index) => {
+    page.drawText(chiffre, {
+      x: 450 + (index * 12.1),
+      y: 171,
+      size: 11,
+      font,
+      color: couleur
+    });
+  });
 }
 
 // 3. Nombre d'heures
-if(donnees.heures){
+if (donnees.heures) {
   page.drawText(String(donnees.heures), {
-    x: 449,
+    x: 463,
     y: 152,
-    size: 9,
+    size: 11,
     font,
     color: couleur
   });
