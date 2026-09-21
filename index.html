@@ -17657,60 +17657,566 @@ function renderFormationsModule(){
 // Étudiantes
 function renderFEtudiantes(){
   ensureFormationsData();
+
   const today=new Date();
+
   const list=[...DB.formations.etudiantes].sort((a,b)=>{
-    const ja=a.dateFormation?Math.floor((new Date(a.dateFormation+'T12:00:00')-today)/86400000):9999;
-    const jb=b.dateFormation?Math.floor((new Date(b.dateFormation+'T12:00:00')-today)/86400000):9999;
+    const ja=a.dateFormation
+      ? Math.floor((new Date(a.dateFormation+'T12:00:00')-today)/86400000)
+      : 9999;
+
+    const jb=b.dateFormation
+      ? Math.floor((new Date(b.dateFormation+'T12:00:00')-today)/86400000)
+      : 9999;
+
     return ja-jb;
   });
+
   let html=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--acc)">${list.length} étudiante${list.length>1?'s':''} — triées par urgence</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--acc)">
+        ${list.length} étudiante${list.length>1?'s':''} — triées par urgence
+      </div>
+
       <div style="display:flex;gap:8px">
         <label class="btn bg" style="cursor:pointer">
           📥 Importer planning
-          <input type="file" accept=".pdf" onchange="importPlanningFormations(event)" style="display:none">
+          <input
+            type="file"
+            accept=".pdf"
+            onchange="importPlanningFormations(event)"
+            style="display:none"
+          >
         </label>
-        <button class="btn bd" onclick="openEtudianteModal()">+ Ajouter</button>
+
+        <button class="btn bd" onclick="openEtudianteModal()">
+          + Ajouter
+        </button>
       </div>
     </div>
-    <div id="import-formations-result"></div>`;
+
+    <div id="import-formations-result"></div>
+  `;
+
   if(!list.length){
-    html+=`<div class="empty">Aucune étudiante — clique sur "+ Ajouter"</div>`;
-  } else {
+
+    html+=`
+      <div class="empty">
+        Aucune étudiante — clique sur "+ Ajouter"
+      </div>
+    `;
+
+  }else{
+
     html+=list.map(e=>{
+
+      // =========================
+      // INFORMATIONS GÉNÉRALES
+      // =========================
+
       const col=STATUT_COLORS[e.statut]||'var(--mut)';
-      const kitDone=(e.kits||[]).length>0&&(e.kits||[]).every(kit=>(kit.contenu||[]).every(k=>k.coche));
-      const idxStatut=STATUTS_FORMATION.indexOf(e.statut);
-      const pct=Math.round((idxStatut/(STATUTS_FORMATION.length-1))*100);
-      const j=e.dateFormation?Math.floor((new Date(e.dateFormation+'T12:00:00')-today)/86400000):null;
-      const urgent=j!==null&&j<14&&j>=0;
-      return`<div style="background:white;border:1.5px solid ${urgent?'var(--dep)':'var(--brd)'};border-radius:16px;padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow)">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-          <div>
-            <div style="font-weight:700;font-size:14px">${e.nom} ${urgent?'<span style="color:var(--dep);font-size:11px">🔴 URGENT</span>':''}</div>
-            <div style="font-size:11px;color:var(--mut)">${e.email||''} ${e.tel?'· '+e.tel:''} ${e.dateFormation?'· 📅 '+dlbl(e.dateFormation)+(j!==null?' (J'+(j>=0?'-'+j:'+'+Math.abs(j))+')':''):''}</div>
+
+      const kitDone=
+        (e.kits||[]).length>0 &&
+        (e.kits||[]).every(
+          kit=>(kit.contenu||[]).every(k=>k.coche)
+        );
+
+      const j=e.dateFormation
+        ? Math.floor(
+            (new Date(e.dateFormation+'T12:00:00')-today)/86400000
+          )
+        : null;
+
+      const urgent=
+        j!==null &&
+        j<14 &&
+        j>=0;
+
+
+      // =========================
+      // WORKFLOW FORMATION
+      // =========================
+
+      const suivi=
+        creerSuiviFormationExistant(
+          e.suiviFormation
+        );
+
+      const progression=
+        getProgressionFormation(e);
+
+      const prochaine=
+        getProchaineActionFormation(e);
+
+
+      // =========================
+      // ÉTAPES
+      // =========================
+
+      const workflowHtml=
+        ETAPES_DOSSIER_FORMATION.map(etape=>{
+
+          const nbFaits=
+            etape.items.filter(
+              item=>suivi[item.id]
+            ).length;
+
+          const complete=
+            nbFaits===etape.items.length;
+
+          const itemsHtml=
+            etape.items.map(item=>{
+
+              const coche=
+                suivi[item.id];
+
+              return `
+                <label
+                  style="
+                    display:flex;
+                    align-items:center;
+                    gap:8px;
+                    padding:5px 0;
+                    cursor:pointer;
+                    font-size:12px;
+                  "
+                >
+
+                  <input
+                    type="checkbox"
+                    ${coche?'checked':''}
+                    onchange="
+                      toggleSuiviFormation(
+                        '${e.id}',
+                        '${item.id}',
+                        this.checked
+                      )
+                    "
+                    style="
+                      width:16px;
+                      height:16px;
+                      accent-color:var(--acc);
+                    "
+                  >
+
+                  <span style="
+                    ${coche
+                      ? 'text-decoration:line-through;color:var(--mut)'
+                      : ''
+                    }
+                  ">
+                    ${item.label}
+                  </span>
+
+                </label>
+              `;
+
+            }).join('');
+
+
+          return `
+            <details
+              style="
+                border-top:1px solid var(--brd);
+                padding:9px 0;
+              "
+              ${!complete && prochaine.etape===etape.titre ? 'open' : ''}
+            >
+
+              <summary
+                style="
+                  cursor:pointer;
+                  font-size:12px;
+                  font-weight:700;
+                  list-style:none;
+                  display:flex;
+                  justify-content:space-between;
+                  align-items:center;
+                "
+              >
+
+                <span>
+                  ${complete?'✅':'○'}
+                  ${etape.titre}
+                </span>
+
+                <span
+                  style="
+                    font-size:10px;
+                    color:var(--mut);
+                    font-weight:600;
+                  "
+                >
+                  ${nbFaits}/${etape.items.length}
+                </span>
+
+              </summary>
+
+              <div style="padding:5px 4px 2px 4px">
+                ${itemsHtml}
+              </div>
+
+            </details>
+          `;
+
+        }).join('');
+
+
+      // =========================
+      // CARTE ÉLÈVE
+      // =========================
+
+      return `
+        <div
+          style="
+            background:white;
+            border:1.5px solid ${urgent?'var(--dep)':'var(--brd)'};
+            border-radius:16px;
+            padding:16px 18px;
+            margin-bottom:12px;
+            box-shadow:var(--shadow);
+          "
+        >
+
+          <!-- EN-TÊTE -->
+
+          <div
+            style="
+              display:flex;
+              justify-content:space-between;
+              align-items:flex-start;
+              gap:12px;
+              margin-bottom:10px;
+            "
+          >
+
+            <div>
+
+              <div
+                style="
+                  font-weight:700;
+                  font-size:14px;
+                  margin-bottom:3px;
+                "
+              >
+                ${e.nom}
+
+                ${urgent
+                  ? '<span style="color:var(--dep);font-size:11px;margin-left:5px">🔴 URGENT</span>'
+                  : ''
+                }
+              </div>
+
+              <div
+                style="
+                  font-size:11px;
+                  color:var(--mut);
+                "
+              >
+
+                ${e.email||''}
+
+                ${e.tel
+                  ? ' · '+e.tel
+                  : ''
+                }
+
+                ${e.dateFormation
+                  ? ' · 📅 '+dlbl(e.dateFormation)
+                    +(j!==null
+                      ? ' (J'+(j>=0?'-'+j:'+'+Math.abs(j))+')'
+                      : ''
+                    )
+                  : ''
+                }
+
+              </div>
+
+            </div>
+
+            <span
+              style="
+                background:${col}20;
+                color:${col};
+                font-size:11px;
+                font-weight:700;
+                padding:4px 10px;
+                border-radius:20px;
+                white-space:nowrap;
+              "
+            >
+              ${e.statut}
+            </span>
+
           </div>
-          <span style="background:${col}20;color:${col};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${e.statut}</span>
+
+
+          <!-- PROGRESSION -->
+
+          <div
+            style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              margin-bottom:5px;
+              font-size:11px;
+            "
+          >
+
+            <strong>
+              Dossier formation
+            </strong>
+
+            <span style="color:var(--mut)">
+              ${progression.faits}/${progression.total}
+              ·
+              ${progression.pct} %
+            </span>
+
+          </div>
+
+          <div
+            style="
+              height:7px;
+              background:var(--bg2);
+              border-radius:99px;
+              overflow:hidden;
+              margin-bottom:10px;
+            "
+          >
+
+            <div
+              style="
+                height:100%;
+                width:${progression.pct}%;
+                background:var(--acc);
+                border-radius:99px;
+                transition:width .3s;
+              "
+            ></div>
+
+          </div>
+
+
+          <!-- PROCHAINE ACTION -->
+
+          <div
+            style="
+              padding:9px 11px;
+              border-radius:11px;
+              background:var(--bg2);
+              margin-bottom:11px;
+              font-size:11px;
+            "
+          >
+
+            ${
+              prochaine.id
+
+              ? `
+                <div
+                  style="
+                    color:var(--mut);
+                    font-size:9px;
+                    text-transform:uppercase;
+                    letter-spacing:.5px;
+                    margin-bottom:2px;
+                  "
+                >
+                  Prochaine action · ${prochaine.etape}
+                </div>
+
+                <strong>
+                  → ${prochaine.label}
+                </strong>
+              `
+
+              : `
+                <strong>
+                  ✅ Dossier terminé
+                </strong>
+              `
+            }
+
+          </div>
+
+
+          <!-- FINANCEMENT / KIT -->
+
+          <div
+            style="
+              display:flex;
+              flex-wrap:wrap;
+              gap:10px 16px;
+              font-size:12px;
+              color:var(--mut);
+              margin-bottom:11px;
+            "
+          >
+
+            <span>
+              💶
+              ${e.financement?.type==='cpf'?'CPF':'Perso'}
+              —
+              ${e.financement?.montant
+                ? fa(e.financement.montant)
+                : '—'
+              }
+              ${e.financement?.paye?'✅':'⏳'}
+            </span>
+
+            <span>
+
+              📦 Kit${(e.kits||[]).length>1?'s':''} :
+
+              ${
+                kitDone
+                  ? '✅ Complet'
+                  : (e.kits||[])
+                      .map(
+                        k=>
+                          KITS_CONTENU[k.type]
+                            ?.label
+                            ?.split(' ')[1]
+                          || k.type
+                      )
+                      .join(' + ')
+                    || 'aucun'
+              }
+
+              ${
+                e.financement?.type==='cpf' &&
+                (e.kits||[]).length
+
+                  ? ' — <strong>'+
+                    fa(
+                      (e.kits||[]).reduce(
+                        (s,k)=>
+                          s+
+                          (KITS_CONTENU[k.type]?.prix||0),
+                        0
+                      )
+                    )+
+                    '</strong>'
+
+                  : ''
+              }
+
+            </span>
+
+          </div>
+
+
+          <!-- WORKFLOW -->
+
+          <div
+            style="
+              border:1px solid var(--brd);
+              border-radius:12px;
+              padding:0 11px;
+              margin-bottom:12px;
+            "
+          >
+            ${workflowHtml}
+          </div>
+
+
+          <!-- ACTIONS -->
+
+          <div
+            style="
+              display:flex;
+              gap:8px;
+              flex-wrap:wrap;
+            "
+          >
+
+            <select
+              onchange="
+                changeStatutEtudiante(
+                  '${e.id}',
+                  this.value
+                )
+              "
+              style="
+                font-size:11px;
+                padding:5px 8px;
+                border:1.5px solid var(--brd2);
+                border-radius:8px;
+              "
+            >
+
+              ${STATUTS_FORMATION.map(
+                s=>`
+                  <option
+                    ${e.statut===s?'selected':''}
+                  >
+                    ${s}
+                  </option>
+                `
+              ).join('')}
+
+            </select>
+
+            <button
+              class="btn bg bsm"
+              onclick="openEtudianteModal('${e.id}')"
+            >
+              ✏️ Modifier
+            </button>
+
+            <button
+              class="btn br bsm"
+              onclick="delEtudiante('${e.id}')"
+            >
+              ✕
+            </button>
+
+          </div>
+
         </div>
-        <div style="height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;margin-bottom:8px">
-          <div style="height:100%;width:${pct}%;background:${col};border-radius:99px;transition:width .4s"></div>
-        </div>
-        <div style="display:flex;gap:16px;font-size:12px;color:var(--mut);margin-bottom:10px">
-          <span>💶 ${e.financement?.type==='cpf'?'CPF':'Perso'} — ${e.financement?.montant?fa(e.financement.montant):'—'} ${e.financement?.paye?'✅':'⏳'}</span>
-          <span>📦 Kit${(e.kits||[]).length>1?'s':''} : ${kitDone?'✅ Complet':(e.kits||[]).map(k=>KITS_CONTENU[k.type]?.label?.split(' ')[1]||k.type).join(' + ')||'aucun'}${e.financement?.type==='cpf'&&(e.kits||[]).length?' — <strong>'+fa((e.kits||[]).reduce((s,k)=>s+(KITS_CONTENU[k.type]?.prix||0),0))+'</strong>':''}</span>
-        </div>
-        <div style="display:flex;gap:8px">
-          <select onchange="changeStatutEtudiante('${e.id}',this.value)" style="font-size:11px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:8px">
-            ${STATUTS_FORMATION.map(s=>`<option ${e.statut===s?'selected':''}>${s}</option>`).join('')}
-          </select>
-          <button class="btn bg bsm" onclick="openEtudianteModal('${e.id}')">✏️ Modifier</button>
-          <button class="btn br bsm" onclick="delEtudiante('${e.id}')">✕</button>
-        </div>
-      </div>`;
+      `;
+
     }).join('');
   }
-  document.getElementById('fview-etudiantes').innerHTML=html;
+
+  document
+    .getElementById('fview-etudiantes')
+    .innerHTML=html;
+}
+
+async function toggleSuiviFormation(
+  etudianteId,
+  itemId,
+  checked
+){
+
+  ensureFormationsData();
+
+  const e=
+    DB.formations.etudiantes.find(
+      x=>x.id===etudianteId
+    );
+
+  if(!e) return;
+
+  e.suiviFormation=
+    creerSuiviFormationExistant(
+      e.suiviFormation
+    );
+
+  e.suiviFormation[itemId]=checked;
+
+  await saveAll();
+
+  renderFEtudiantes();
+
+  toast(
+    checked
+      ? '✓ Étape validée'
+      : 'Étape réouverte'
+  );
 }
 
 async function changeStatutEtudiante(id,statut){
@@ -17810,6 +18316,126 @@ function suggererKitsFormation(){
   }
 }
 
+const ETAPES_DOSSIER_FORMATION = [
+  {
+    id:'fiche',
+    titre:'Inscription',
+    items:[
+      {id:'fiche_creee', label:'Fiche élève créée'}
+    ]
+  },
+  {
+    id:'contact',
+    titre:'Premier contact',
+    items:[
+      {id:'appel_effectue', label:'Appel de premier contact effectué'}
+    ]
+  },
+  {
+    id:'candidature',
+    titre:'Candidature',
+    items:[
+      {id:'mail_candidature_envoye', label:'Mail candidature envoyé'},
+      {id:'bulletin_recu', label:'Bulletin de candidature reçu'},
+      {id:'grille_besoins_recue', label:"Grille d'analyse des besoins reçue"},
+      {id:'piece_identite_recue', label:"Pièce d'identité recto / verso reçue"}
+    ]
+  },
+  {
+    id:'contrat',
+    titre:'Dossier contractuel',
+    items:[
+      {id:'convocation_creee', label:'Convocation créée'},
+      {id:'contrat_cree', label:'Contrat de formation créé'},
+      {id:'dossier_contractuel_envoye', label:'Dossier contractuel envoyé'},
+      {id:'kit_demande', label:'Choix du kit demandé'},
+      {id:'rib_envoye', label:'RIB envoyé'}
+    ]
+  },
+  {
+    id:'validation',
+    titre:'Validation avant formation',
+    items:[
+      {id:'contrat_signe', label:'Contrat signé reçu'},
+      {id:'kit_choisi', label:'Kit choisi'},
+      {id:'kit_paye', label:'Kit payé'},
+      {id:'kit_prepare', label:'Kit préparé'}
+    ]
+  },
+  {
+    id:'formation',
+    titre:'Documents de formation',
+    items:[
+      {id:'documents_entree_prepares', label:"Documents d'entrée préparés"},
+      {id:'qcm_prepare', label:'QCM formation préparé'},
+      {id:'documents_sortie_prepares', label:'Documents de sortie préparés'}
+    ]
+  },
+  {
+    id:'cloture',
+    titre:'Clôture',
+    items:[
+      {id:'dossier_verifie', label:'Dossier complet vérifié'},
+      {id:'documents_importes', label:"Documents importés sur l'autre site"},
+      {id:'dossier_cloture', label:'Dossier élève clôturé'}
+    ]
+  }
+];
+
+function creerSuiviFormationExistant(suivi={}){
+  const resultat={};
+
+  ETAPES_DOSSIER_FORMATION.forEach(etape=>{
+    etape.items.forEach(item=>{
+      resultat[item.id]=suivi[item.id]===true;
+    });
+  });
+
+  return resultat;
+}
+
+function getProgressionFormation(e){
+  const suivi=creerSuiviFormationExistant(e?.suiviFormation);
+
+  const items=ETAPES_DOSSIER_FORMATION.flatMap(
+    etape=>etape.items
+  );
+
+  const faits=items.filter(
+    item=>suivi[item.id]
+  ).length;
+
+  return {
+    faits,
+    total:items.length,
+    pct:items.length
+      ? Math.round((faits/items.length)*100)
+      : 0
+  };
+}
+
+function getProchaineActionFormation(e){
+  const suivi=creerSuiviFormationExistant(e?.suiviFormation);
+
+  for(const etape of ETAPES_DOSSIER_FORMATION){
+    for(const item of etape.items){
+      if(!suivi[item.id]){
+        return {
+          etape:etape.titre,
+          id:item.id,
+          label:item.label
+        };
+      }
+    }
+  }
+
+  return {
+    etape:'Terminé',
+    id:null,
+    label:'Dossier terminé'
+  };
+}
+
 function construireKits(typesChoisis,kitsExistants){
   return typesChoisis.map(typeKit=>{
     const template=KITS_CONTENU[typeKit]||KITS_CONTENU.starter;
@@ -17850,8 +18476,16 @@ async function saveEtudiante(){
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
       paye:document.getElementById('fe-fin-paye')?.value==='1'
     },
-    kits:construireKits([...document.querySelectorAll('.fe-kit-check:checked')].map(c=>c.value),existing?.kits),
-    notes:document.getElementById('fe-notes')?.value||''
+    kits:construireKits(
+  [...document.querySelectorAll('.fe-kit-check:checked')].map(c=>c.value),
+  existing?.kits
+),
+
+suiviFormation:creerSuiviFormationExistant(
+  existing?.suiviFormation
+),
+
+notes:document.getElementById('fe-notes')?.value||''
   };
 
   if(existing){
