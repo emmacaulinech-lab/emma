@@ -4153,6 +4153,8 @@ button.emma-card-row{
     }
 
 }
+
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
    
 </style>
 </head>
@@ -18788,6 +18790,43 @@ function getDonneesDocumentsFormation(etudiante){
 
 }
 
+async function genererBulletinFormation(etudianteId){
+
+  ensureFormationsData();
+
+  const etudiante =
+    DB.formations.etudiantes.find(
+      e => e.id === etudianteId
+    );
+
+  if(!etudiante){
+    toast('⚠ Étudiante introuvable');
+    return;
+  }
+
+  const donnees =
+    getDonneesDocumentsFormation(etudiante);
+
+  if(!donnees){
+    toast('⚠ Formation ou financement non configuré');
+    return;
+  }
+
+  if(!donnees.bulletinDisponible){
+    toast('⚠ Aucun bulletin configuré pour cette formation');
+    return;
+  }
+
+  console.log(
+    'DOCUMENT BULLETIN',
+    donnees
+  );
+
+  toast(
+    `✓ Bulletin prêt : ${donnees.prenom} — ${donnees.heures}h`
+  );
+
+}
 
 function getFormationsSelonFinancement(type){
 
