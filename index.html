@@ -7607,6 +7607,36 @@ let sauvegardeEnCours = null;
 let versionSauvegardeDemandee = 0;
 let versionSauvegardeTerminee = 0;
 
+function exporterSauvegardeEmma(){
+  const sauvegarde = {
+    dateExport: new Date().toISOString(),
+    DB: DB,
+    PARAMS: PARAMS
+  };
+
+  const blob = new Blob(
+    [JSON.stringify(sauvegarde, null, 2)],
+    { type: 'application/json' }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download =
+    'EMMA_OS_SAUVEGARDE_' +
+    new Date().toISOString().slice(0,10) +
+    '.json';
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+
+  toast('✓ Sauvegarde de sécurité téléchargée');
+}
+
 function donneesCompletesASauvegarder(){
   securiserLiensChargesParMoisEmma();
   return {
