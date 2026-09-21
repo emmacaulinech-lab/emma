@@ -19575,35 +19575,41 @@ const page = pdfDoc.getPages()[0];
 const { StandardFonts, rgb } = PDFLib;
 
 const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-const couleur = rgb(0, 0, 0);
-
+const couleur = rgb(0.85, 0.20, 0.50);
+   
 // 1. Numéro de dossier CPF
 if(donnees.numeroCPF){
-  page.drawText(String(donnees.numeroCPF), {
-    x: 365,
-    y: 298,
+page.drawText(
+  String(donnees.numeroCPF).split('').join('  '),
+  {
+     x: 365,
+    y: 257,
     size: 9,
     font,
     color: couleur
-  });
+    }
+);
 }
 
 // 2. Date de début de formation
 if(donnees.dateDebut){
-  page.drawText(String(donnees.dateDebut), {
-    x: 442,
-    y: 174,
+  page.drawText(
+  String(donnees.dateDebut).replace(/\//g, '').split('').join('  '),
+  {
+    x: 449,
+    y: 171,
     size: 9,
     font,
     color: couleur
-  });
+    }
+);
 }
 
 // 3. Nombre d'heures
 if(donnees.heures){
   page.drawText(String(donnees.heures), {
-    x: 442,
-    y: 155,
+    x: 449,
+    y: 152,
     size: 9,
     font,
     color: couleur
