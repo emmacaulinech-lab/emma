@@ -19531,6 +19531,79 @@ function getDonneesDocumentsFormation(etudiante){
 
 }
 
+async function genererConvocationFormation(etudianteId){
+
+  ensureFormationsData();
+
+  const etudiante =
+    DB.formations.etudiantes.find(
+      e => e.id === etudianteId
+    );
+
+  if(!etudiante){
+    toast('⚠ Étudiante introuvable');
+    return;
+  }
+
+  const donnees =
+    getDonneesDocumentsFormation(etudiante);
+
+  if(!donnees){
+    toast('⚠ Configuration de formation introuvable');
+    return;
+  }
+
+  if(!donnees.modeleConvocation){
+    toast('⚠ Aucune convocation disponible pour cette formation');
+    return;
+  }
+
+ const urlModele =
+  `./documents/${donnees.modeleConvocation}.pdf`;
+
+try {
+
+  const response = await fetch(urlModele);
+
+  if(!response.ok){
+    throw new Error(
+      `PDF introuvable : ${urlModele}`
+    );
+  }
+
+  const pdfBytes =
+    await response.arrayBuffer();
+
+  const pdfDoc =
+    await PDFLib.PDFDocument.load(pdfBytes);
+
+  console.log('✓ Convocation chargée :', {
+    modele: donnees.modeleConvocation,
+    fichier: urlModele,
+    pages: pdfDoc.getPageCount(),
+    prenom: donnees.prenom,
+    dateDebut: donnees.dateDebut,
+    dateDocument: donnees.dateDocument
+  });
+
+  toast(
+    '✓ Convocation chargée : ' +
+    donnees.modeleConvocation
+  );
+
+} catch(error){
+
+  console.error(
+    'Erreur génération convocation :',
+    error
+  );
+
+  toast(
+    '⚠ Impossible de charger la convocation'
+  );
+}
+}
+
 async function genererBulletinFormation(etudianteId){
 
   ensureFormationsData();
