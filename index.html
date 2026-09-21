@@ -19789,13 +19789,6 @@ function getProchaineActionFormation(e){
 
 }
 
-  return {
-    etape:'Terminé',
-    id:null,
-    label:'Dossier terminé'
-  };
-}
-
 function construireKits(typesChoisis,kitsExistants){
   return typesChoisis.map(typeKit=>{
     const template=KITS_CONTENU[typeKit]||KITS_CONTENU.starter;
