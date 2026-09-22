@@ -4209,6 +4209,24 @@ button.emma-card-row{
  #module-formations .f-full-student{padding:14px!important}
 }
 
+
+/* Mails du module Formations */
+#module-formations .f-mail-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+#mailFormationModal{margin:auto;width:min(760px,94vw);max-height:90dvh;box-sizing:border-box;overflow-y:auto;border:1px solid var(--brd);border-radius:22px;background:var(--bg,#fff);color:var(--txt);padding:24px;box-shadow:0 24px 80px #0003}
+#mailFormationModal::backdrop{background:#18203066;backdrop-filter:blur(5px)}
+#mailFormationModal .f-mail-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#mailFormationModal h2{margin:0;font-size:21px}#mailFormationModal h3{font-size:15px;margin:20px 0 8px}
+#mailFormationModal .f-mail-help{font-size:12px;color:var(--mut);line-height:1.5}
+#mailFormationModal .f-mail-documents{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#mailFormationModal .f-mail-document{border:1px solid var(--brd);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;overflow-wrap:anywhere}
+#mailFormationModal .f-mail-document label{display:flex;gap:8px;align-items:center;font-size:13px;min-height:32px}
+#mailFormationModal .f-mail-document input{width:18px;height:18px;flex:none}
+#mailFormationModal .f-mail-warning{color:var(--dep,#a33);font-size:12px}
+#mailFormationModal .f-mail-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+#mailFormationModal textarea{min-height:300px;resize:vertical;line-height:1.6}
+#mailFormationModal input:not([type=checkbox]),#mailFormationModal textarea{width:100%;box-sizing:border-box;font-size:16px}
+@media(max-width:600px){#mailFormationModal{padding:16px;max-height:94dvh}#mailFormationModal .f-mail-documents{grid-template-columns:1fr}#mailFormationModal .f-mail-actions .btn{flex:1 1 100%;min-height:44px}}
+
 </style>
    
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -18232,8 +18250,16 @@ const CORRESPONDANCE_FORMATION_KIT={
   'coaching-2j':{kits:['coaching2j'],auto:true},
   'lashlift':{kits:['lashlift'],auto:true},
   'perfectionnement-1j':{kits:['coaching1j'],auto:true},
-  'debutant-5j':{choix:[['starter'],['extra','lashup']],auto:false},
-  'debutant-express-3j':{kits:['starter'],auto:true}
+  'debutant-5j':{choix:[['starter','lashup'],['extra','lashup']],auto:false},
+  'debutant-express-3j':{kits:['starter'],auto:true},
+  'debutante-express-3j':{kits:['starter'],auto:true},
+  'debutante-4j':{choix:[['starter'],['extra']],auto:false},
+  'debutante-5j':{choix:[['starter','lashup'],['extra','lashup']],auto:false},
+  'coaching-prive-1j':{kits:['coaching1j'],auto:true},
+  'coaching-prive-2j':{kits:['coaching2j'],auto:true},
+  'coaching-prive-3j':{kits:['starter'],auto:true},
+  'lashlift-coreen':{kits:['lashlift'],auto:true},
+  'browlift':{kits:['browlift'],auto:true}
 };
 
 const LABELS_TYPE_FORMATION={
@@ -19336,6 +19362,8 @@ function renderFicheEtudianteFormation(e,today){
             </div>
 
           </div>
+
+          ${boutonsMailsFormation(e)}
 
           <!-- WORKFLOW -->
 
@@ -22325,6 +22353,76 @@ async function changeKitStatut(idx,ki,statut){
 
 // ── Emails (kits uniquement) ──
 const EMAIL_TEMPLATES={
+  contrat:{
+    workflow:true,
+    label:'Mail contrat / dossier contractuel',
+    etape:'dossier_contractuel_envoye',
+    sujet:'Votre dossier de formation LIMAGECILS – Contrat et informations',
+    corps:(e,d,kit)=>`Bonjour ${d.prenom},
+
+Votre dossier de candidature étant complet, nous pouvons maintenant finaliser votre inscription à la formation ${d.formation}, prévue du ${d.debut} au ${d.fin}.
+
+Vous trouverez en pièces jointes :
+- votre contrat de formation, à nous retourner complété et signé ;
+- le règlement intérieur ;
+- les conditions générales de vente ;
+- le programme pédagogique de votre formation ;
+- une liste d’hôtels situés à proximité du centre de formation.
+${kit.texte?'\n'+kit.texte+'\n':''}${kit.choix?'\nMerci de nous indiquer le kit que vous souhaitez choisir afin que nous puissions le préparer avant votre arrivée.\n':''}${kit.payant?'\nVous trouverez également notre RIB en pièce jointe afin de procéder au règlement du kit. Merci d’indiquer votre nom et prénom dans le libellé du virement afin que nous puissions facilement identifier votre règlement.\n':''}
+Votre inscription sera définitivement finalisée dès réception de votre contrat signé${kit.choix?' et après validation de votre choix de kit':''}${kit.payant?(kit.choix?' et de son règlement':' et après règlement de votre kit'):''}.
+
+Votre convocation, ainsi que les dernières informations pratiques concernant votre formation et l’organisation des modèles, vous seront ensuite transmises.
+
+Je reste à votre disposition pour toute question.
+
+Bien cordialement,
+LIMAGECILS`
+  },
+  convocation:{
+    workflow:true,
+    label:'Mail convocation',
+    sujet:'Votre convocation – Formation LIMAGECILS',
+    corps:(e,d,kit)=>`Bonjour ${d.prenom},
+
+Votre formation ${d.formation} approche !
+
+Vous trouverez en pièce jointe votre convocation, reprenant toutes les informations nécessaires concernant votre formation prévue du ${d.debut} au ${d.fin}.
+
+Nous vous invitons à la lire attentivement avant votre venue, notamment concernant les horaires, l’organisation de la formation et les modèles nécessaires à votre pratique.
+${kit.paragrapheConvocation?'\n'+kit.paragrapheConvocation+'\n':''}
+Pour toute question avant votre arrivée, nous restons bien entendu disponibles.
+
+Au plaisir de vous accueillir prochainement pour votre formation,
+
+Bien cordialement,
+LIMAGECILS`
+  },
+
+  candidature:{
+    workflow:true,
+    label:'Mail candidature',
+    etape:'mail_candidature_envoye',
+    sujet:'Documents à compléter – Votre formation LIMAGECILS',
+    corps:(e,d)=>`Bonjour ${d.prenom},
+
+À la suite de notre échange, vous trouverez en pièces jointes les documents nécessaires à la constitution de votre dossier de formation :
+- le bulletin de candidature ;
+- la grille d’analyse de vos besoins en formation.
+
+Merci de nous retourner ces deux documents complétés et signés, accompagnés d’une copie nette et lisible du recto et du verso de votre pièce d’identité.
+
+Dès réception de l’ensemble de ces éléments, nous pourrons finaliser votre dossier et vous transmettre les documents relatifs à votre formation.
+${e.financement?.type==='cpf'?`
+Dans le cadre d’une formation financée par le CPF, un kit de formation est obligatoire et reste à votre charge. Les différentes options disponibles, ainsi que les modalités de règlement, vous seront communiquées lors de la prochaine étape de votre inscription.
+`:''}
+Des modèles seront également nécessaires afin de vous exercer durant la formation. Giulia est en charge de l’organisation du planning des modèles ; toutes les informations nécessaires vous seront communiquées avant votre formation.
+
+Je reste à votre disposition si vous avez la moindre question.
+
+Bien cordialement,
+LIMAGECILS`
+  },
+
   'kit-cpf':{
     label:'📦 Kit obligatoire (CPF)',
     sujet:'Votre formation approche – informations importantes 🎓',
@@ -22402,6 +22500,156 @@ Merci de nous confirmer, dans les plus brefs délais, la bonne prise en compte d
 Emma – Limagecils Team`
   }
 };
+
+// Les brouillons restent dans la fenêtre ; seul l'envoi explicitement confirmé modifie le suivi.
+function donneesMailFormation(e){
+  const prenom=String(e.prenom||extrairePrenom(e.nom||'')).trim();
+  const type=e.formationTypeNormalise||e.formation||'';
+  const debut=dateSessionFormation(e.dateFormation), fin=dateSessionFormation(e.dateFinFormation);
+  if(!prenom) throw new Error('Complète le prénom dans la fiche élève.');
+  return {prenom,type,formation:getLabelFormation(type),debut:debut?debut.split('-').reverse().join('/'):'',fin:fin?fin.split('-').reverse().join('/'):'',email:String(e.email||'').trim()};
+}
+
+function documentsMailFormation(e,type){
+  const formation=e.formationTypeNormalise||e.formation||'';
+  const config=getDocumentsFormation({...e,formationTypeNormalise:formation});
+  const absent=nom=>({nom});
+  if(type==='candidature') return [
+    {nom:'Bulletin de candidature',fichier:'bulletin-candidature.pdf',modele:true},
+    absent('Grille d’analyse des besoins')
+  ];
+  const genere=(nom,modele,calibrages,action)=>modele&&calibrages[modele]
+    ? {nom,fichier:modele+'.pdf',genere:true,action}
+    : absent(nom);
+  if(type==='convocation') return [genere('Convocation générée',config?.convocation,CALIBRAGE_CONVOCATIONS_EMMA,'convocation')];
+  return [genere('Contrat généré',config?.contrat,CALIBRAGE_CONTRATS_EMMA,'contrat'),
+    absent('Règlement intérieur'),absent('CGV'),absent('Liste des hôtels'),
+    absent('Programme pédagogique — '+getLabelFormation(formation))];
+}
+
+function construireMailFormation(e,type){
+  const d=donneesMailFormation(e);
+  const modele=EMAIL_TEMPLATES[type];
+  if(!modele?.workflow) throw new Error('Ce modèle de mail est indisponible.');
+  if(type!=='candidature'&&(!d.type||!d.debut||!d.fin)) throw new Error('Complète la formation et ses dates dans la fiche élève.');
+  const kit=type==='candidature'?null:regleKitsMailFormation(e);
+  const documents=documentsMailFormation(e,type);
+  if(type==='contrat'&&kit.payant) documents.push({nom:'RIB'});
+  return {sujet:modele.sujet,corps:modele.corps(e,d,kit),adresse:d.email,documents,
+    recuperer:type==='candidature'?['Bulletin complété et signé','Grille des besoins complétée et signée','Pièce d’identité recto','Pièce d’identité verso']:
+      type==='contrat'?['Contrat complété et signé',...(kit.choix?['Confirmation du choix du kit']:[])]:[],
+    etape:modele.etape||null};
+}
+
+function boutonsMailsFormation(e){
+  return `<div class="f-mail-buttons" aria-label="Mails de l’élève">${['candidature','contrat','convocation'].map(type=>`<button type="button" class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="ouvrirMailFormation(decodeURIComponent(this.dataset.eleve),'${type}')">Préparer mail ${type}</button>`).join('')}</div>`;
+}
+
+function ouvrirMailFormation(etudianteId,type){
+  if(document.getElementById('mailFormationModal')) return;
+  const e=DB.formations?.etudiantes?.find(x=>x.id===etudianteId);
+  if(!e){toast('⚠ Élève introuvable');return;}
+  let mail;
+  try{mail=construireMailFormation(e,type);}catch(erreur){toast('⚠ '+erreur.message);return;}
+  const esc=echapperFormation;
+  const retour=document.activeElement;
+  const fenetre=document.createElement('dialog');
+  fenetre.id='mailFormationModal';
+  fenetre.setAttribute('aria-labelledby','mailFormationTitre');
+  fenetre.innerHTML=`<div class="f-mail-header"><h2 id="mailFormationTitre">Préparer mail ${esc(type)}</h2><button type="button" class="btn bg bsm" data-fermer aria-label="Fermer le mail">✕</button></div>
+    <p>${esc(nomEtudianteFormation(e))}</p>
+    <div class="fr"><label for="mailFormationAdresse">À</label><input id="mailFormationAdresse" type="email" value="${esc(mail.adresse)}" placeholder="Adresse email de l’élève" autocomplete="off"></div>
+    ${!mail.adresse?'<p class="f-mail-warning">Email manquant : tu peux le saisir ici pour ce brouillon, ou compléter la fiche élève.</p>':''}
+    <div class="fr"><label for="mailFormationObjet">Objet</label><input id="mailFormationObjet" value="${esc(mail.sujet)}"></div>
+    <h3>Pièces jointes à ajouter</h3><p class="f-mail-help">La messagerie s’ouvre avec le texte uniquement. Ajoute toi-même les fichiers avant l’envoi.</p>
+    <div class="f-mail-documents">${mail.documents.map(doc=>`<div class="f-mail-document"><label><input type="checkbox"> <span>${esc(doc.nom)}</span></label>${doc.fichier?
+      doc.genere?`<small>Joindre le PDF personnalisé téléchargé pour cette élève.</small><button type="button" class="btn bg bsm" data-generer="${doc.action}">Générer le PDF</button>`:
+      `<a href="./documents/${encodeURIComponent(doc.fichier)}" target="_blank" rel="noopener">Ouvrir le bulletin à compléter</a>`:
+      `<small class="f-mail-warning">Document à ajouter : ${esc(doc.nom)}</small>`}</div>`).join('')}</div>
+    ${mail.recuperer.length?`<h3>À récupérer auprès de l’élève</h3><ul>${mail.recuperer.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
+    <div class="fr"><label for="mailFormationMessage">Message modifiable</label><textarea id="mailFormationMessage" rows="17">${esc(mail.corps)}</textarea></div>
+    <p class="f-mail-help">Tes modifications concernent uniquement ce brouillon. Le modèle reste inchangé.</p>
+    <p data-message role="status" aria-live="polite"></p>
+    <div class="f-mail-actions"><button type="button" class="btn bg" data-copier>Copier le message</button><button type="button" class="btn bd" data-ouvrir>Ouvrir dans ma messagerie</button>${mail.etape?`<button type="button" class="btn bd" data-envoye>${e.suiviFormation?.[mail.etape]===true?'Déjà marqué comme envoyé':'Marquer comme envoyé'}</button>`:''}<button type="button" class="btn bg" data-fermer>Fermer</button></div>`;
+  document.body.appendChild(fenetre);
+  const statut=fenetre.querySelector('[data-message]');
+  const champ=nom=>fenetre.querySelector('#mailFormation'+nom);
+  let sauvegarde=false;
+  const fermer=()=>{if(sauvegarde)return;fenetre.close();fenetre.remove();if(retour?.isConnected)retour.focus();};
+  fenetre.querySelectorAll('[data-fermer]').forEach(b=>b.onclick=fermer);
+  fenetre.addEventListener('cancel',ev=>{ev.preventDefault();fermer();});
+  fenetre.querySelector('[data-copier]').onclick=async()=>{
+    try{await navigator.clipboard.writeText(champ('Message').value);statut.textContent='Message copié. Ajoute les pièces jointes avant l’envoi.';}
+    catch(erreur){champ('Message').focus();champ('Message').select();statut.textContent='Copie automatique indisponible : le message est sélectionné, utilise Copier.';}
+  };
+  fenetre.querySelector('[data-ouvrir]').onclick=()=>{
+    const adresse=champ('Adresse');
+    adresse.value=adresse.value.trim();
+    if(!adresse.value||!adresse.checkValidity()||/[\r\n,;]/.test(adresse.value)){statut.textContent='Renseigne une adresse email valide avant d’ouvrir la messagerie.';adresse.focus();return;}
+    const lien=document.createElement('a');
+    lien.href='mailto:'+encodeURIComponent(adresse.value)+'?subject='+encodeURIComponent(champ('Objet').value)+'&body='+encodeURIComponent(champ('Message').value);
+    lien.click();
+    statut.textContent='Ouverture demandée. Ajoute les pièces jointes ; aucune étape n’a été cochée.';
+  };
+  fenetre.querySelectorAll('[data-generer]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    try{await (b.dataset.generer==='contrat'?genererContratFormation:genererConvocationFormation)(etudianteId);}
+    finally{b.disabled=false;}
+  });
+  const envoye=fenetre.querySelector('[data-envoye]');
+  if(envoye){
+    envoye.disabled=e.suiviFormation?.[mail.etape]===true;
+    envoye.onclick=async()=>{
+      sauvegarde=true;envoye.disabled=true;
+      try{
+        const ok=await enregistrerSuiviFormation(etudianteId,mail.etape,true);
+        statut.textContent=ok?'Envoi marqué et enregistré.':'Échec de sauvegarde : l’envoi n’a pas été marqué. Réessaie.';
+        if(ok)envoye.textContent='Déjà marqué comme envoyé';else envoye.disabled=false;
+      }catch(erreur){envoye.disabled=false;statut.textContent='Échec de sauvegarde. Réessaie.';}
+      finally{sauvegarde=false;}
+    };
+  }
+  fenetre.showModal();
+}
+
+function regleKitsMailFormation(e){
+  const type=e.formationTypeNormalise||e.formation||'';
+  const regle=CORRESPONDANCE_FORMATION_KIT[type];
+  const financement=e.financement?.type;
+  if(!regle) throw new Error('Association du kit à confirmer pour cette formation.');
+  if(!['cpf','perso'].includes(financement)) throw new Error('Règle de paiement à confirmer pour ce financement.');
+  if(type==='browlift'&&financement==='cpf')throw new Error('La formation Browlift n’est pas financée par le CPF. Vérifie la fiche.');
+  const payant=financement==='cpf';
+  const options=regle.auto?[regle.kits]:regle.choix;
+  const choix=payant&&options.length>1;
+  const necessaires=choix?options:options.slice(0,1);
+  const kit=id=>{
+    const k=KITS_CONTENU[id];
+    if(!k||!Number.isFinite(k.prix))throw new Error('Nom ou prix du kit à compléter dans EMMA.');
+    return {...k,nom:k.label.replace(/\s*\([^)]*€[^)]*\)\s*$/,'').trim()};
+  };
+  const decrire=id=>{const k=kit(id);return `${k.nom} — ${fa(k.prix)}\nContenu : ${k.items.join(' ; ')}.`;};
+  const communs=necessaires[0].filter(id=>necessaires.every(option=>option.includes(id)));
+  let texte;
+  if(choix){
+    texte='Choix obligatoire du kit Extensions :\n'+necessaires.map((option,i)=>`Choix ${i+1} : ${option.filter(id=>!communs.includes(id)).map(decrire).join('\n')}`).join('\n\nOU\n\n');
+    if(communs.length)texte+='\n\nEn complément obligatoire du kit Extensions choisi :\n'+communs.map(decrire).join('\n');
+    texte+='\n\nMontant à régler :\n'+necessaires.map((option,i)=>`Choix ${i+1}${communs.length?' avec complément':''} : ${fa(option.reduce((total,id)=>total+kit(id).prix,0))}`).join('\n');
+  }else{
+    texte=(payant?'Votre kit de formation obligatoire :\n':'Votre kit de formation est offert dans le cadre de votre financement personnel :\n')+necessaires[0].map(id=>payant?decrire(id):`${kit(id).nom} — offert\nContenu : ${kit(id).items.join(' ; ')}.`).join('\n\n');
+    if(payant)texte+='\n\nMontant à régler : '+fa(necessaires[0].reduce((total,id)=>total+kit(id).prix,0));
+  }
+  if(e.suiviFormation?.kit_choisi===true){
+    const enregistres=(e.kits||[]).map(k=>k.type);
+    const correspond=necessaires.find(option=>option.length===enregistres.length&&option.every(id=>enregistres.includes(id)));
+    if(!correspond)throw new Error('Le choix de kit enregistré ne correspond pas à la formation et au financement. Vérifie les kits dans la fiche élève.');
+    texte+='\n\nChoix enregistré : '+correspond.map(id=>kit(id).nom).join(' + ')+'.';
+  }
+  return {necessaire:true,payant,choix:choix&&e.suiviFormation?.kit_choisi!==true,texte,
+    paragrapheConvocation:!payant?'Votre kit de formation est offert. Il sera préparé pour votre formation.':
+      e.suiviFormation?.kit_paye===true?'Votre kit est bien réglé. Il sera préparé pour votre formation.':
+      'À ce jour, le règlement de votre kit de formation ne nous est pas encore parvenu. Afin que celui-ci puisse être préparé et disponible pour le début de votre formation, merci d’effectuer le règlement dès que possible à l’aide du RIB qui vous a été transmis précédemment.'};
+}
 
 function renderFEmails(){
   ensureFormationsData();
@@ -22493,39 +22741,10 @@ function extrairePrenom(nomComplet){
 function renderEmailPreview(){
   const idx=document.getElementById('femail-etudiante')?.value;
   const el=document.getElementById('femail-preview');
-  if(idx===''){el.innerHTML='';return;}
-
-  const e=DB.formations.etudiantes[idx];
-  const tplKey=e.financement?.type==='cpf'?'kit-cpf':'kit-perso';
-  const tpl=EMAIL_TEMPLATES[tplKey];
-
-  const sujet=tpl.sujet;
-  let corps=tpl.corps.replace(/{NOM}/g,extrairePrenom(e.nom));
-
-  // Détermine les images à insérer
-// Détermine les images à insérer (selon formation + financement)
-  const{images,manquants}=getImagesEmail(e);
-
-  const imagesHtml=images.map(img=>`<img src="${BASE_IMG_URL}${img}" style="max-width:100%;border-radius:8px;margin:10px 0" alt="Visuel kit">`).join('');
-
-  el.innerHTML=`
-    <div class="fb" style="margin-top:14px">
-      <div class="fh"><span>${tpl.label} — auto-détecté selon le financement</span>
-        <button class="btn bd bsm" onclick="copyEmailToClipboard()">📋 Copier (avec images)</button>
-      </div>
-      <div style="padding:16px">
-        <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Destinataire :</div>
-        <div id="femail-adresse-txt" style="font-weight:700;margin-bottom:14px;color:var(--pla)">${e.email||'— pas d\'email renseigné —'}</div>
-        <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Sujet :</div>
-        <div id="femail-sujet-txt" style="font-weight:700;margin-bottom:14px">${sujet}</div>
-        <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Corps :</div>
-        <div id="femail-corps-txt" style="white-space:pre-wrap;font-size:13px;line-height:1.6;background:var(--bg2);border-radius:10px;padding:14px">${corps}</div>
-        ${images.length?`<div style="margin-top:10px">${imagesHtml}</div>`:''}
-        ${manquants.length?`<div style="font-size:11px;color:var(--warn);margin-top:8px">⚠️ Pas encore d'image pour : ${manquants.join(', ')}</div>`:''}
-      </div>
-    </div>`;
-
-  window._currentEmailData={sujet,corps,images,adresse:e.email||''};
+  if(!el)return;
+  const e=idx!==''?DB.formations.etudiantes[idx]:null;
+  if(!e){el.innerHTML='';return;}
+  el.innerHTML=`<p style="font-size:13px;color:var(--mut);margin:14px 0">Choisis le mail à préparer pour ${echapperFormation(nomEtudianteFormation(e))}. Le message et les pièces jointes s’ouvrent dans une fenêtre modifiable.</p>${boutonsMailsFormation(e)}`;
 }
 
 async function copyEmailToClipboard(){
