@@ -20026,314 +20026,773 @@ function getDonneesDocumentsFormation(etudiante){
 
 }
 
-// ═══════════════════════════════════════
-// REMPLISSAGE CONVOCATION — DÉBUTANTE 5J CPF
-// Modèle mesuré : 595 × 842 pt, 2 pages
-// ═══════════════════════════════════════
+// Coordonnées en points PDF, origine en bas à gauche.
+// Chaque zone : [x0, y0, x1, y1, ligneDeBase, taille].
+// Toutes les zones de convocation sont sur la première page.
 
-async function remplirConvocation5jCpf(pdfBytes, donnees){
+const CALIBRAGE_CONVOCATIONS_EMMA = {
+  'convocation-debutante-express-3j-cpf': {
+    sha:'48e200a35e27365c9632472ab39270640a67ea466fc6c72510f5312e739975c4',
+    bienvenue:[261.75,594.0931,333.24991,605.0931,596.8431,11],
+    debut:[119.04517,559.1931,158.99943,569.6931,561.8181,10.5],
+    date:[381.96922,725.05,389.91122,736.05,727.8,11],
+    lundi:false
+  },
+  'convocation-coaching-prive-3j-cpf': {
+    sha:'fc01f9455fa4f2adad08e195f42b9ce15ddc1c3abf956b77ccc6dfe6db7ff73c',
+    bienvenue:[264.5,595.5638,330.49991,606.5638,597.9398,11],
+    debut:[116.42017,562.8625,153.74943,573.3625,565.1305,10.5],
+    date:[376.46922,727.7217,384.41122,738.7217,730.0977,11],
+    lundi:false
+  },
+  'convocation-debutante-4j-cpf': {
+    sha:'43b6eece016b6d33ac9186b96e67885db89f4d6a6c2dde349f42cb12649b8e1e',
+    bienvenue:[264.6875,610.3642,330.31242,620.8642,612.9892,10.5],
+    debut:[159.10679,592.3642,199.75128,601.8642,594.7392,9.5],
+    date:[429.4268,732.75,436.6468,742.75,735.25,10],
+    lundi:true
+  },
+  'convocation-debutante-5j-cpf': {
+    sha:'3d74b3b3bd18996ec3c30b1d4be9171c9e6a11c6c87f2626acbfb4f161c8be0b',
+    bienvenue:[266,610.3642,328.99992,620.8642,612.9892,10.5],
+    debut:[159.10679,592.3642,199.75128,601.8642,594.7392,9.5],
+    date:[429.4268,732.75,436.6468,742.75,735.25,10],
+    lundi:true
+  },
+  'convocation-debutante-express-3j-perso': {
+    sha:'660cea946dc6b7abdd5344c3ae6ca85f4dc282dab8f7842dadb47a1afcdba11a',
+    bienvenue:[261.75,594.0931,333.24991,605.0931,596.8431,11],
+    debut:[119.04517,559.1931,161.62443,569.6931,561.8181,10.5],
+    date:[381.96922,725.05,389.91122,736.05,727.8,11],
+    lundi:false
+  },
+  'convocation-coaching-prive-2j-perso': {
+    sha:'12dcf4c721792df5c259aa37b88ab5a4b396281e26b36b72728120a95ec5b407',
+    bienvenue:[264.5,595.5638,330.49991,606.5638,597.9398,11],
+    debut:[116.42017,562.8625,153.74943,573.3625,565.1305,10.5],
+    date:[376.46922,727.7217,384.41122,738.7217,730.0977,11],
+    lundi:false
+  },
+  'convocation-debutante-4j-perso': {
+    sha:'b0ffc38d8ed16170b14869754b9c4a8d94e6a54710fa0ead9663e92859250ec0',
+    bienvenue:[264.6875,610.3642,330.31242,620.8642,612.9892,10.5],
+    debut:[159.10679,592.3642,199.75128,601.8642,594.7392,9.5],
+    date:[429.4268,732.75,436.6468,742.75,735.25,10],
+    lundi:true
+  },
+  'convocation-debutante-5j-perso': {
+    sha:'dac50c16fd54604268dee804cbc9d0e0e636ab521ddc0f249fa68a7f95e2a975',
+    bienvenue:[264.6875,610.3642,330.31242,620.8642,612.9892,10.5],
+    debut:[159.10679,592.3642,199.75128,601.8642,594.7392,9.5],
+    date:[429.4268,732.75,436.6468,742.75,735.25,10],
+    lundi:true
+  }
+};
 
-  const {
-    PDFDocument,
-    StandardFonts,
-    rgb
-  } = PDFLib;
+function texteDocumentEmma(valeur){
+  return String(valeur ?? '')
+    .normalize('NFC')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function dateDocumentEmma(valeur, libelle){
+  const s = texteDocumentEmma(valeur);
+  let m, j, mois, an;
+
+  if((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s))){
+    [, an, mois, j] = m;
+  }else if((m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s))){
+    [, j, mois, an] = m;
+  }else{
+    throw new Error(libelle + ' manquante ou invalide.');
+  }
+
+  const d = new Date(
+    Number(an), Number(mois)-1, Number(j), 12
+  );
 
   if(
-    donnees.modeleConvocation !==
-    'convocation-debutante-5j-cpf'
+    d.getFullYear() !== Number(an) ||
+    d.getMonth() !== Number(mois)-1 ||
+    d.getDate() !== Number(j)
   ){
-    throw new Error(
-      'Le remplissage est actuellement disponible pour Débutante 5J CPF uniquement.'
-    );
+    throw new Error(libelle + ' invalide.');
   }
 
-  const prenom =
-    String(donnees.prenom || '').trim();
-
-  if(!prenom || /[\r\n]/.test(prenom)){
-    throw new Error(
-      'Prénom manquant ou invalide.'
-    );
-  }
-
-
-  // ─────────────────────────────────────
-  // Vérification des dates
-  // ─────────────────────────────────────
-
-  const verifierDate = (valeur) => {
-
-    const m =
-      /^(\d{2})\/(\d{2})\/(\d{4})$/
-        .exec(String(valeur || ''));
-
-    if(!m){
-      throw new Error(
-        'Les dates doivent être renseignées au format JJ/MM/AAAA.'
-      );
-    }
-
-    const d = new Date(
-      Number(m[3]),
-      Number(m[2]) - 1,
-      Number(m[1]),
-      12
-    );
-
-    if(
-      d.getFullYear() !== Number(m[3]) ||
-      d.getMonth() !== Number(m[2]) - 1 ||
-      d.getDate() !== Number(m[1])
-    ){
-      throw new Error(
-        'Date de convocation invalide.'
-      );
-    }
-
-    return d;
+  return {
+    date:d,
+    texte:[j,mois,an].join('/')
   };
+}
 
+function donneesDocumentEmma(id){
+  const e = DB.formations?.etudiantes?.find(x => x.id === id);
 
-  const debut =
-    verifierDate(donnees.dateDebut);
+  if(!e) throw new Error('Étudiante introuvable.');
 
-  verifierDate(donnees.dateDocument);
+  // Copie : aucune mutation de la fiche par les générateurs.
+  const copie = JSON.parse(JSON.stringify(e));
 
+  return {
+    eleve:copie,
+    donnees:getDonneesDocumentsFormation(copie)
+  };
+}
 
-  // Ce modèle prévoit un démarrage le lundi
-  if(debut.getDay() !== 1){
+async function verifierModeleEmma(bytes, sha){
+  if(!globalThis.crypto?.subtle){
     throw new Error(
-      'Ce modèle prévoit un démarrage le lundi : vérifiez la date de formation.'
+      'Ouvre EMMA en HTTPS pour vérifier les modèles PDF.'
     );
   }
 
-
-  // ─────────────────────────────────────
-  // Vérification du modèle PDF
-  // ─────────────────────────────────────
-
-  const empreinte =
-    Array.from(
-      new Uint8Array(
-        await crypto.subtle.digest(
-          'SHA-256',
-          pdfBytes
-        )
-      )
+  const hash = Array.from(
+    new Uint8Array(
+      await crypto.subtle.digest('SHA-256', bytes)
     )
-    .map(
-      b => b.toString(16).padStart(2, '0')
-    )
-    .join('');
+  ).map(b => b.toString(16).padStart(2,'0')).join('');
 
+  if(hash !== sha){
+    throw new Error(
+      'Ce modèle PDF a changé : son calibrage doit être revérifié.'
+    );
+  }
+}
+
+async function chargerModeleEmma(nom, sha, pages, extension){
+  if(!window.PDFLib){
+    throw new Error('PDF-Lib n’est pas chargé.');
+  }
+
+  const reponse = await fetch(
+    './documents/' + nom + extension,
+    {cache:'no-store'}
+  );
+
+  if(!reponse.ok){
+    throw new Error(
+      'Modèle introuvable : ' + nom + extension
+    );
+  }
+
+  const bytes = await reponse.arrayBuffer();
+
+  await verifierModeleEmma(bytes, sha);
+
+  const pdf = await PDFLib.PDFDocument.load(bytes);
 
   if(
-    empreinte !==
-    '3d74b3b3bd18996ec3c30b1d4be9171c9e6a11c6c87f2626acbfb4f161c8be0b'
+    pdf.getPageCount() !== pages ||
+    pdf.getPages().some(p =>
+      p.getWidth() !== 595 ||
+      p.getHeight() !== 842 ||
+      p.getRotation().angle !== 0
+    )
   ){
+    throw new Error('Dimensions inattendues : ' + nom);
+  }
+
+  return {bytes,pdf};
+}
+
+function masquerDocumentEmma(page, box){
+  const [x0,y0,x1,y1] = box;
+
+  page.drawRectangle({
+    x:x0-0.25,
+    y:y0-0.25,
+    width:x1-x0+0.5,
+    height:y1-y0+0.5,
+    color:PDFLib.rgb(1,1,1)
+  });
+}
+
+function telechargerDocumentEmma(bytes, nom){
+  const url = URL.createObjectURL(
+    new Blob([bytes], {type:'application/pdf'})
+  );
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nom.replace(
+    /[\\/:*?"<>|\x00-\x1F]/g,
+    '-'
+  );
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function remplirConvocationEmma(pdfBytes, donnees){
+  const c =
+    CALIBRAGE_CONVOCATIONS_EMMA[donnees.modeleConvocation];
+
+  if(!c){
+    throw new Error('Aucun modèle de convocation disponible.');
+  }
+
+  const prenom = texteDocumentEmma(donnees.prenom);
+  if(!prenom) throw new Error('Prénom manquant.');
+
+  const debut = dateDocumentEmma(
+    donnees.dateDebut,
+    'Date de début'
+  );
+
+  const documentDate = dateDocumentEmma(
+    donnees.dateDocument,
+    'Date du document'
+  );
+
+  if(c.lundi && debut.date.getDay() !== 1){
     throw new Error(
-      'Le modèle 5J CPF a changé : ses emplacements doivent être vérifiés.'
+      'Ce modèle prévoit un démarrage le lundi. '
+      + 'Vérifie la date de début.'
     );
   }
 
+  await verifierModeleEmma(pdfBytes, c.sha);
 
-  // ─────────────────────────────────────
-  // Chargement du PDF
-  // ─────────────────────────────────────
-
-  const pdfDoc =
-    await PDFDocument.load(pdfBytes);
-
-  const page =
-    pdfDoc.getPage(0);
-
+  const pdf = await PDFLib.PDFDocument.load(pdfBytes);
 
   if(
-    pdfDoc.getPageCount() !== 2 ||
-    page.getWidth() !== 595 ||
-    page.getHeight() !== 842
+    pdf.getPageCount() !== 2 ||
+    pdf.getPages().some(p =>
+      p.getWidth() !== 595 ||
+      p.getHeight() !== 842 ||
+      p.getRotation().angle !== 0
+    )
   ){
     throw new Error(
       'Dimensions du modèle de convocation inattendues.'
     );
   }
 
+  const page = pdf.getPage(0);
 
-  const font =
-    await pdfDoc.embedFont(
-      StandardFonts.TimesRomanBold
-    );
+  const font = await pdf.embedFont(
+    PDFLib.StandardFonts.TimesRomanBold
+  );
 
+  const rose = c.lundi
+    ? PDFLib.rgb(0.972549,0.5176471,0.7372549)
+    : PDFLib.rgb(1,0.4588235,0.7294118);
 
-  const blanc =
-    rgb(1, 1, 1);
+  const couleurDebut = c.lundi
+    ? PDFLib.rgb(0,0.4666667,0.7843137)
+    : rose;
 
-  const rose =
-    rgb(
-      0.972549,
-      0.5176471,
-      0.7372549
-    );
+  const bienvenue = 'Bienvenue ' + prenom + ' !';
 
-  const bleu =
-    rgb(
-      0,
-      0.4666667,
-      0.7843137
-    );
+  let largeur;
 
-
-  // Masque les anciens X du modèle
-  const masquer = (
-    x0,
-    y0,
-    x1,
-    y1
-  ) => {
-
-    page.drawRectangle({
-
-      x: x0 - 0.25,
-      y: y0 - 0.25,
-
-      width:
-        x1 - x0 + 0.5,
-
-      height:
-        y1 - y0 + 0.5,
-
-      color: blanc
-
-    });
-
-  };
-
-
-  // ─────────────────────────────────────
-  // 1. BIENVENUE + PRÉNOM
-  // ─────────────────────────────────────
-
-  const bienvenue =
-    `Bienvenue ${prenom} !`;
-
-  const largeur =
-    font.widthOfTextAtSize(
+  try{
+    largeur = font.widthOfTextAtSize(
       bienvenue,
-      10.5
+      c.bienvenue[5]
     );
-
-
-  if(largeur > 480){
+  }catch{
     throw new Error(
-      'Le prénom est trop long pour cette convocation.'
+      'Le prénom contient un caractère non pris en charge '
+      + 'par la police du PDF.'
     );
   }
 
+  if(largeur > 480){
+    throw new Error('Prénom trop long pour ce modèle.');
+  }
 
-  // BBox mesurée :
-  // 266,610.3642 → 328.99992,620.8642
+  // Prénom : phrase centrée sur son centre original.
+  masquerDocumentEmma(page,c.bienvenue);
 
-  masquer(
-    266,
-    610.3642,
-    328.99992,
-    620.8642
-  );
+  page.drawText(bienvenue,{
+    x:(c.bienvenue[0]+c.bienvenue[2]-largeur)/2,
+    y:c.bienvenue[4],
+    size:c.bienvenue[5],
+    font,
+    color:rose
+  });
 
+  // Réécriture du suffixe pour éviter les chevauchements.
+  masquerDocumentEmma(page,c.debut);
 
-  page.drawText(
-    bienvenue,
-    {
+  page.drawText(debut.texte + ' à 9 h 30',{
+    x:c.debut[0],
+    y:c.debut[4],
+    size:c.debut[5],
+    font,
+    color:couleurDebut
+  });
 
-      x:
-        (
-          266 +
-          328.99992 -
-          largeur
-        ) / 2,
+  masquerDocumentEmma(page,c.date);
 
-      y: 612.9892,
+  page.drawText(documentDate.texte,{
+    x:c.date[0],
+    y:c.date[4],
+    size:c.date[5],
+    font,
+    color:PDFLib.rgb(0,0,0)
+  });
 
-      size: 10.5,
+  return pdf.save();
+}
 
-      font,
+// Compatibilité avec le nom de la fonction existante.
+async function remplirConvocation5jCpf(pdfBytes, donnees){
+  if(
+    donnees.modeleConvocation !==
+    'convocation-debutante-5j-cpf'
+  ){
+    throw new Error(
+      'Cette fonction correspond au modèle Débutante 5J CPF.'
+    );
+  }
 
-      color: rose
+  return remplirConvocationEmma(pdfBytes, donnees);
+}
 
+async function genererConvocationFormation(etudianteId){
+  try{
+    const {donnees} = donneesDocumentEmma(etudianteId);
+
+    const nom = donnees?.modeleConvocation;
+    const c = CALIBRAGE_CONVOCATIONS_EMMA[nom];
+
+    if(!c){
+      toast(
+        '⚠ Aucune convocation disponible pour cette '
+        + 'formation et ce financement.'
+      );
+      return;
     }
-  );
 
+    const {bytes} = await chargerModeleEmma(
+      nom,c.sha,2,'.pdf'
+    );
 
-  // ─────────────────────────────────────
-  // 2. DATE DE DÉBUT
-  // ─────────────────────────────────────
+    const resultat = await remplirConvocationEmma(
+      bytes,donnees
+    );
 
-  // X mesuré :
-  // (159.10679, 594.7392)
-  // Taille 9.5 pt
+    telechargerDocumentEmma(
+      resultat,
+      'Convocation-'
+      + (donnees.nomComplet || donnees.prenom)
+      + '-'
+      + nom.replace('convocation-','')
+      + '.pdf'
+    );
 
-  masquer(
-    159.10679,
-    592.3642,
-    199.75128,
-    601.8642
-  );
+    toast('✓ Convocation générée : ' + donnees.prenom);
+  }catch(erreur){
+    console.error('Erreur convocation :',erreur);
+    toast('⚠ ' + erreur.message);
+  }
+}
 
+const CALIBRAGE_CONTRATS_EMMA = {
+  'contrat-debutante-express-3j': {
+    sha:'4444ddffe5b7dc4dbd27921d2fc7d17ee43de88e2bb4046be7607928b2932aab',
+    prix:1800,
+    identiteX:78.89355,
+    naissanceX:84.55469,
+    naissanceFinX:113.83012,
+    periode:[97.75,694.7256,292.7723,713.2256,706.5616],
+    documentX:99.17773,
+    signature:[101.78711,538.7856],
+    cp:false
+  },
+  'contrat-coaching-prive-3j': {
+    sha:'8106b5e15b60e620555f6e29f74e3a14ca58c0c2a020987dfed40d5c00723a35',
+    prix:1500,
+    identiteX:76.76855,
+    naissanceX:82.42969,
+    naissanceFinX:88.56669,
+    periode:[97.75,721.6176,276.3667,730.6176,723.5616],
+    documentX:99.15283,
+    signature:[101.78711,538.7856],
+    cp:true
+  },
+  'contrat-debutante-4j': {
+    sha:'c0cc4bfce2da502c5f831b0aaeb9f7603f6c784dd625e5183fefa18e56d42107',
+    prix:2000,
+    identiteX:78.89355,
+    naissanceX:84.55469,
+    naissanceFinX:135.08012,
+    periode:[97.75,711.7256,292.7723,730.2256,723.5616],
+    documentX:97.26855,
+    signature:[51.75,527.3398],
+    cp:false
+  },
+  'contrat-debutante-5j': {
+    sha:'0a8301a72d796072286c6a0644bab61cebd9beb591069a347363b0dcacd8054a',
+    prix:2500,
+    identiteX:78.89355,
+    naissanceX:84.55469,
+    naissanceFinX:135.08012,
+    periode:[97.75,711.7256,292.7723,730.2256,723.5616],
+    documentX:97.26855,
+    signature:[51.75,527.3398],
+    cp:false
+  }
+};
 
-  page.drawText(
-    `${donnees.dateDebut} à 9 h 30`,
-    {
+// Ajuste le texte à l'espace disponible.
+// Deux lignes uniquement aux endroits disposant d'une ligne libre.
+// Aucune troncature : un débordement bloque le téléchargement.
+function ecrireChampContratEmma(
+  page,font,valeur,x,y,largeur,lignes,libelle
+){
+  const texte = texteDocumentEmma(valeur);
 
-      x: 159.10679,
-      y: 594.7392,
+  if(!texte){
+    throw new Error(libelle + ' manquant.');
+  }
 
-      size: 9.5,
+  try{
+    font.encodeText(texte);
+  }catch{
+    throw new Error(
+      libelle
+      + ' contient un caractère non pris en charge '
+      + 'par la police du PDF.'
+    );
+  }
 
-      font,
+  for(let taille=8.5;taille>=7.5;taille-=0.25){
+    const decoupe = [];
+    let ligne = '';
+    let tropLong = false;
 
-      color: bleu
+    for(const mot of texte.split(' ')){
+      if(font.widthOfTextAtSize(mot,taille)>largeur){
+        tropLong = true;
+        break;
+      }
 
+      const proposition = ligne ? ligne+' '+mot : mot;
+
+      if(
+        font.widthOfTextAtSize(proposition,taille)<=largeur
+      ){
+        ligne = proposition;
+      }else{
+        decoupe.push(ligne);
+        ligne = mot;
+      }
     }
+
+    if(tropLong) continue;
+    if(ligne) decoupe.push(ligne);
+    if(decoupe.length>lignes) continue;
+
+    decoupe.forEach((t,i)=>{
+      page.drawText(t,{
+        x,
+        y:y-i*10,
+        size:taille,
+        font,
+        color:PDFLib.rgb(0,0,0)
+      });
+    });
+
+    return;
+  }
+
+  throw new Error(
+    libelle
+    + ' trop long pour l’espace disponible dans ce contrat.'
+  );
+}
+
+function preparerDonneesContratEmma(e,d,c){
+  if(e.suiviFormation?.bulletin_recu !== true){
+    throw new Error(
+      'Importe le bulletin rempli puis clique sur Valider '
+      + 'avant de générer le contrat.'
+    );
+  }
+
+  const obligatoires = {
+    prenom:'Prénom',
+    nomFamille:'Nom',
+    adresseComplete:'Adresse complète',
+    dateNaissance:'Date de naissance',
+    lieuNaissance:'Lieu de naissance',
+    professionSituation:'Profession / situation actuelle',
+    tel:'Téléphone',
+    email:'Adresse mail'
+  };
+
+  const manquants = Object.entries(obligatoires)
+    .filter(([cle])=>!texteDocumentEmma(e[cle]))
+    .map(([,nom])=>nom);
+
+  if(manquants.length){
+    throw new Error(
+      'Informations manquantes : '+manquants.join(', ')
+    );
+  }
+
+  if(
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      texteDocumentEmma(e.email)
+    )
+  ){
+    throw new Error(
+      'Vérifie l’adresse mail de l’étudiante.'
+    );
+  }
+
+  if(
+    texteDocumentEmma(e.tel)
+      .replace(/\D/g,'').length<6
+  ){
+    throw new Error(
+      'Vérifie le téléphone de l’étudiante.'
+    );
+  }
+
+  const naissance = dateDocumentEmma(
+    e.dateNaissance,'Date de naissance'
   );
 
-
-  // ─────────────────────────────────────
-  // 3. DATE DU DOCUMENT
-  // ─────────────────────────────────────
-
-  // X après « Le : »
-  // (429.4268,735.25)
-  // Taille 10 pt
-
-  masquer(
-    429.4268,
-    732.75,
-    436.6468,
-    742.75
+  const debut = dateDocumentEmma(
+    d.dateDebut,'Date de début'
   );
 
+  const fin = dateDocumentEmma(
+    d.dateFin,'Date de fin'
+  );
 
-  page.drawText(
-    donnees.dateDocument,
-    {
+  const documentDate = dateDocumentEmma(
+    d.dateDocument,'Date du document'
+  );
 
-      x: 429.4268,
-      y: 735.25,
+  if(naissance.date>=documentDate.date){
+    throw new Error(
+      'La date de naissance doit précéder la date du document.'
+    );
+  }
 
-      size: 10,
+  if(fin.date<debut.date){
+    throw new Error(
+      'La date de fin précède la date de début.'
+    );
+  }
 
-      font,
+  const montant = Number(e.financement?.montant);
 
-      color: rgb(0, 0, 0)
+  if(
+    Number.isFinite(montant) &&
+    montant>0 &&
+    Math.abs(montant-c.prix)>0.005
+  ){
+    throw new Error(
+      'Le tarif de la fiche ('+montant+' €) '
+      + 'diffère du contrat ('+c.prix+' €). '
+      + 'Vérifie le tarif ou le modèle avant génération.'
+    );
+  }
 
+  return {
+    nom:
+      texteDocumentEmma(e.prenom)
+      +' '+texteDocumentEmma(e.nomFamille),
+
+    adresse:
+      texteDocumentEmma(e.adresseComplete),
+
+    naissance:
+      naissance.texte
+      +'   À : '+texteDocumentEmma(e.lieuNaissance),
+
+    profession:
+      texteDocumentEmma(e.professionSituation),
+
+    telephone:
+      texteDocumentEmma(e.tel),
+
+    email:
+      texteDocumentEmma(e.email),
+
+    debut:debut.texte,
+    fin:fin.texte,
+    dateDocument:documentDate.texte
+  };
+}
+
+async function remplirContratEmma(pdf,c,v){
+  // Sources : Times New Roman Bold, 8.5 pt.
+  // Remplissage : Times-Bold standard de PDF-Lib.
+  const font = await pdf.embedFont(
+    PDFLib.StandardFonts.TimesRomanBold
+  );
+
+  const p1 = pdf.getPage(0);
+  const p2 = pdf.getPage(1);
+  const p4 = pdf.getPage(3);
+
+  // Boîte mesurée des X :
+  // x → x+6.137 ; y-1.836 → y+6.664.
+  const remplacer = (
+    page,texte,x,y,finX,largeur,lignes,libelle
+  ) => {
+    masquerDocumentEmma(
+      page,
+      [x,y-1.836,finX,y+6.664]
+    );
+
+    ecrireChampContratEmma(
+      page,font,texte,x,y,largeur,lignes,libelle
+    );
+  };
+
+  // La colonne organisme commence à x=302.
+  // Limite de la colonne stagiaire : x=297.5.
+
+  remplacer(
+    p1,v.nom,
+    c.identiteX,712.1356,c.identiteX+6.137,
+    297.5-c.identiteX,2,
+    'Identité'
+  );
+
+  remplacer(
+    p1,v.adresse,
+    100.37183,690.6898,106.50883,
+    197.12817,2,
+    'Adresse complète'
+  );
+
+  // Date + lieu sont recomposés ensemble.
+  // Coaching : le libellé « À : » est absent du modèle.
+  remplacer(
+    p1,v.naissance,
+    c.naissanceX,667.7981,c.naissanceFinX,
+    297.5-c.naissanceX,2,
+    'Naissance et lieu'
+  );
+
+  remplacer(
+    p1,v.profession,
+    164.8274,644.9064,170.9644,
+    132.6726,2,
+    'Profession / situation actuelle'
+  );
+
+  remplacer(
+    p1,v.telephone,
+    86.68799,622.0147,92.82499,
+    210.81201,1,
+    'Téléphone'
+  );
+
+  remplacer(
+    p1,v.email,
+    102.97412,599.1231,109.11112,
+    194.52588,1,
+    'Adresse mail'
+  );
+
+  if(c.cp){
+    // « C.P. » :
+    // x=51.75..65.45455 ; ligne de base y=576.2314.
+    // Valeur après un espace de 2.125 pt.
+    const codes = [
+      ...new Set(v.adresse.match(/\b\d{5}\b/g) || [])
+    ];
+
+    const cp = codes.length===1
+      ? codes[0]
+      : 'Voir adresse ci-dessus';
+
+    ecrireChampContratEmma(
+      p1,font,cp,
+      67.57955,576.2314,
+      229.92045,1,
+      'Code postal'
+    );
+  }
+
+  // L'espace entre les X ne suffit pas pour deux dates.
+  // Recomposition du bloc dates + horaires mesuré.
+  masquerDocumentEmma(p2,c.periode);
+
+  ecrireChampContratEmma(
+    p2,font,
+    '- du : '+v.debut
+    +' au : '+v.fin
+    +'   De : 9 h 30 à 12 h 30 / 13 h 30 à 17 h 30',
+    97.75,c.periode[4],
+    450,1,
+    'Dates de formation'
+  );
+
+  remplacer(
+    p4,v.dateDocument,
+    c.documentX,593.3608,c.documentX+6.137,
+    297.5-c.documentX,1,
+    'Date du document'
+  );
+
+  remplacer(
+    p4,v.nom,
+    c.signature[0],c.signature[1],
+    c.signature[0]+6.137,
+    297.5-c.signature[0],2,
+    'Nom de la stagiaire'
+  );
+
+  // Le nom est prérempli ; l'élève doit encore signer.
+  return pdf.save();
+}
+
+async function genererContratFormation(etudianteId){
+  try{
+    const {eleve,donnees} =
+      donneesDocumentEmma(etudianteId);
+
+    const nom = donnees?.modeleContrat;
+    const c = CALIBRAGE_CONTRATS_EMMA[nom];
+
+    if(!c){
+      toast(
+        '⚠ Aucun contrat disponible pour cette '
+        + 'formation et ce financement.'
+      );
+      return;
     }
-  );
 
+    const valeurs = preparerDonneesContratEmma(
+      eleve,donnees,c
+    );
 
-  // Génération du nouveau PDF
-  return pdfDoc.save();
+    // Les contrats actuellement importés n'ont pas d'extension.
+    const {pdf} = await chargerModeleEmma(
+  nom,c.sha,4,'.pdf'
+);
 
+    const resultat = await remplirContratEmma(
+      pdf,c,valeurs
+    );
+
+    telechargerDocumentEmma(
+      resultat,
+      'Contrat-'+valeurs.nom
+      +'-'+nom.replace('contrat-','')
+      +'.pdf'
+    );
+
+    toast('✓ Contrat généré : '+valeurs.nom);
+  }catch(erreur){
+    console.error('Erreur contrat :',erreur);
+    toast('⚠ '+erreur.message);
+  }
 }
 
 
