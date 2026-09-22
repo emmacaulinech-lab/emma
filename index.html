@@ -4154,6 +4154,61 @@ button.emma-card-row{
 
 }
    
+/* FORMATIONS : sessions → élèves → fiche, sans styles hors du module. */
+#module-formations .f-sessions-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+#module-formations .f-sessions-toolbar h2{margin:0;font-size:24px;line-height:1.2;color:var(--acc);letter-spacing:-.5px;overflow-wrap:anywhere}
+#module-formations .f-sessions-toolbar p{margin:6px 0 0;font-size:12px;color:var(--mut);overflow-wrap:anywhere}
+#module-formations .f-sessions-actions{display:flex;gap:8px;flex-wrap:wrap}
+#module-formations .f-sessions-actions label{cursor:pointer}
+#module-formations .f-session-section{margin:24px 0}
+#module-formations .f-session-section h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--mut);margin:0 0 10px}
+#module-formations .f-session-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}
+#module-formations .f-session-card,#module-formations .f-student-row{font:inherit;text-align:left;cursor:pointer;color:var(--txt,var(--ios-text));border:1px solid var(--brd);background:var(--ios-surface,white);border-radius:18px;box-shadow:var(--shadow);transition:transform .15s,border-color .15s;width:100%;min-width:0}
+#module-formations .f-session-card{display:flex;flex-direction:column;gap:9px;padding:18px}
+#module-formations .f-session-card:hover,#module-formations .f-student-row:hover{border-color:var(--acc);transform:translateY(-1px)}
+#module-formations .f-session-card:focus-visible,#module-formations .f-student-row:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+#module-formations .f-session-top{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--acc);font-weight:700}
+#module-formations .f-session-top>span:first-child{background:var(--bg2);padding:4px 9px;border-radius:20px}
+#module-formations .f-session-card>strong{font-size:16px;overflow-wrap:anywhere}
+#module-formations .f-session-dates{font-size:13px;font-variant-numeric:tabular-nums}
+#module-formations .f-session-location{color:var(--mut);font-size:12px;overflow-wrap:anywhere}
+#module-formations .f-session-footer{display:flex;justify-content:space-between;gap:12px;margin-top:auto;padding-top:12px;border-top:1px solid var(--brd);font-size:11px;color:var(--mut)}
+#module-formations .f-session-back{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+#module-formations .f-student-list{display:grid;gap:10px}
+#module-formations .f-student-row{display:flex;align-items:center;gap:14px;padding:15px 17px}
+#module-formations .f-student-avatar{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:13px;color:var(--acc);background:var(--bg2);font-weight:700}
+#module-formations .f-student-summary{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;overflow-wrap:anywhere}
+#module-formations .f-student-summary>strong{font-size:14px}
+#module-formations .f-current-step{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}
+#module-formations .f-next-action{font-size:12px;line-height:1.5;color:var(--acc)}
+#module-formations .f-is-waiting{color:#926320}
+#module-formations .f-student-progress{display:flex;flex-direction:column;gap:4px;width:82px;flex-shrink:0;font-size:10px;color:var(--mut);text-align:right}
+#module-formations .f-student-progress strong{font-size:13px;color:var(--acc)}
+#module-formations .f-student-progress progress{width:100%;height:5px;accent-color:var(--acc);border:0;border-radius:10px;overflow:hidden}
+#module-formations .f-student-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0;padding:16px;background:var(--bg2);border-radius:12px}
+#module-formations .f-student-data dt{font-size:10px;color:var(--mut);margin-bottom:4px}
+#module-formations .f-student-data dd{margin:0;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+#module-formations .f-student-notes,#module-formations .f-kit-detail{font-size:12px;margin:14px 0;overflow-wrap:anywhere}
+#module-formations .f-student-notes p{white-space:pre-wrap;line-height:1.6;color:var(--mut)}
+#module-formations .f-kit-detail summary{cursor:pointer;font-weight:700;margin-bottom:12px}
+#module-formations .f-kit-detail ul{list-style:none;padding:0;line-height:1.8}
+#module-formations .f-full-student{overflow-wrap:anywhere;min-width:0}
+#module-formations .f-full-student select{max-width:100%}
+#module-formations [data-ftab].active{background:white!important;color:var(--acc)!important;box-shadow:var(--shadow)!important}
+@media(max-width:600px){
+ #module-formations .f-sessions-toolbar{align-items:flex-start!important}
+ #module-formations .f-sessions-toolbar h2{font-size:21px}
+ #module-formations .f-sessions-actions{width:100%}
+ #module-formations .f-sessions-actions .btn{flex:1;justify-content:center;min-height:40px}
+ #module-formations .f-student-row{gap:10px;padding:13px 12px;flex-wrap:wrap}
+ #module-formations .f-student-avatar{flex-basis:30px;height:32px;border-radius:10px}
+ #module-formations .f-student-summary{flex-basis:calc(100% - 55px)}
+ #module-formations .f-student-progress{margin-left:40px;flex-direction:row;align-items:center;gap:8px;width:auto;flex:1;text-align:left}
+ #module-formations .f-student-progress progress{max-width:90px}
+ #module-formations .f-student-data{grid-template-columns:1fr}
+ #module-formations .f-full-student{padding:14px!important}
+}
+
 </style>
    
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -5369,10 +5424,10 @@ button.emma-card-row{
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🎓 Formations</div></div>
   <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
     <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
-      <button id="ftab0" onclick="goFTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">👥 Étudiantes</button>
-<button id="ftab1" onclick="goFTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📦 Kits</button>
-<button id="ftab2" onclick="goFTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">✉️ Emails</button>
-<button id="ftab3" onclick="goFTab(3)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Planning</button>
+      <button id="ftab0" data-ftab="etudiantes" onclick="goFTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">👥 Étudiantes</button>
+<button id="ftab1" data-ftab="kits" onclick="goFTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📦 Kits</button>
+<button id="ftab2" data-ftab="emails" onclick="goFTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">✉️ Emails</button>
+<button id="ftab3" data-ftab="planning" onclick="goFTab(3)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📅 Planning</button>
     </div>
    <div id="fview-etudiantes"></div>
 <div id="fview-kits" style="display:none"></div>
@@ -18559,11 +18614,16 @@ async function importerToutesEtudiantesFormation(){
 let fTabActive = 'etudiantes';
 
 function goFTab(tab){
-  fTabActive = tab || 'etudiantes';
+  const onglets=['etudiantes','kits','emails','planning'];
+  fTabActive = typeof tab==='number' ? (onglets[tab]||'etudiantes') : (onglets.includes(tab)?tab:'etudiantes');
 
   // Active le bon onglet
   document.querySelectorAll('[data-ftab]').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.ftab === fTabActive);
+    const active=btn.dataset.ftab === fTabActive;
+    btn.classList.toggle('active', active);
+    btn.style.background=active?'white':'transparent';
+    btn.style.color=active?'var(--acc)':'var(--mut)';
+    btn.style.boxShadow=active?'var(--shadow)':'none';
   });
 
   // Affiche la bonne vue
@@ -18586,60 +18646,178 @@ function renderFormationsModule(){
   goFTab(fTabActive);
 }
 // Étudiantes
+// Navigation locale : aucune donnée de navigation n'est stockée dans Firebase.
+let fNavigationEtudiantes = {session:null, etudiante:null};
+
+function echapperFormation(valeur){
+  return String(valeur ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[c]);
+}
+
+function dateSessionFormation(valeur){
+  const s=String(valeur||'').trim();
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+    || (/^(\d{2})\/(\d{2})\/(\d{4})$/.test(s)
+      ? [s,...s.split('/').reverse()] : null);
+  if(!m) return '';
+  const d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12);
+  return d.getFullYear()===Number(m[1]) && d.getMonth()===Number(m[2])-1
+    && d.getDate()===Number(m[3]) ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
+function informationsSessionFormation(e){
+  const formation=e.formationTypeNormalise || e.formation || '';
+  const debut=dateSessionFormation(e.dateFormation);
+  const fin=dateSessionFormation(e.dateFinFormation);
+  const lieu=String(e.lieu||'').trim().replace(/\s+/g,' ');
+  // Ne pas fusionner des sessions de formations ou de lieux différents.
+  // Une fiche aux dates incomplètes reste indépendante jusqu'à correction.
+  const cle=JSON.stringify([formation,debut,fin,lieu.toLocaleLowerCase('fr'),
+    !debut || !fin || fin<debut ? e.id : null]);
+  return {cle,formation,debut,fin,lieu};
+}
+
+function nomEtudianteFormation(e){
+  return [e.prenom,e.nomFamille].filter(Boolean).join(' ').trim()
+    || e.nom || 'Élève sans nom';
+}
+
+function libelleDatesSessionFormation(s){
+  const date=d=>d ? d.split('-').reverse().join('/') : 'À préciser';
+  return `${date(s.debut)} → ${date(s.fin)}`;
+}
+
+function getSessionsFormation(){
+  const groupes=new Map();
+  for(const e of DB.formations.etudiantes){
+    const s=informationsSessionFormation(e);
+    if(!groupes.has(s.cle)) groupes.set(s.cle,{...s,etudiantes:[]});
+    groupes.get(s.cle).etudiantes.push(e);
+  }
+  const maintenant=new Date();
+  const aujourdHui=[maintenant.getFullYear(),String(maintenant.getMonth()+1).padStart(2,'0'),
+    String(maintenant.getDate()).padStart(2,'0')].join('-');
+  const sessions=[...groupes.values()];
+  for(const s of sessions){
+    s.groupe=!s.debut || !s.fin || s.fin<s.debut ? 3
+      : s.fin<aujourdHui ? 2 : s.debut<=aujourdHui ? 0 : 1;
+    s.etudiantes.sort((a,b)=>nomEtudianteFormation(a).localeCompare(
+      nomEtudianteFormation(b),'fr',{sensitivity:'base'}));
+  }
+  return sessions.sort((a,b)=>a.groupe-b.groupe
+    || (a.groupe===2 ? b.debut.localeCompare(a.debut) : a.debut.localeCompare(b.debut))
+    || a.formation.localeCompare(b.formation,'fr') || a.cle.localeCompare(b.cle));
+}
+
+function ouvrirSessionFormation(cle){
+  fNavigationEtudiantes={session:cle,etudiante:null};
+  renderFEtudiantes();
+  document.getElementById('f-navigation-title')?.focus({preventScroll:true});
+}
+
+function retourSessionsFormation(){
+  fNavigationEtudiantes={session:null,etudiante:null};
+  renderFEtudiantes();
+  document.getElementById('f-navigation-title')?.focus({preventScroll:true});
+}
+
+function openEtudiante(id){
+  const e=DB.formations.etudiantes.find(x=>x.id===id);
+  if(!e){ toast('⚠ Étudiante introuvable'); return; }
+  fNavigationEtudiantes={session:informationsSessionFormation(e).cle,etudiante:id};
+  renderFEtudiantes();
+  document.getElementById('f-navigation-title')?.focus({preventScroll:true});
+}
+
 function renderFEtudiantes(){
   ensureFormationsData();
-
-  const today=new Date();
-
-  const list=[...DB.formations.etudiantes].sort((a,b)=>{
-    const ja=a.dateFormation
-      ? Math.floor((new Date(a.dateFormation+'T12:00:00')-today)/86400000)
-      : 9999;
-
-    const jb=b.dateFormation
-      ? Math.floor((new Date(b.dateFormation+'T12:00:00')-today)/86400000)
-      : 9999;
-
-    return ja-jb;
-  });
-
-  let html=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--acc)">
-        ${list.length} étudiante${list.length>1?'s':''} — triées par urgence
-      </div>
-
-      <div style="display:flex;gap:8px">
-        <label class="btn bg" style="cursor:pointer">
-          📥 Importer planning
-          <input
-            type="file"
-            accept=".pdf"
-            onchange="importPlanningFormations(event)"
-            style="display:none"
-          >
-        </label>
-
-        <button class="btn bd" onclick="openEtudianteModal()">
-          + Ajouter
-        </button>
-      </div>
+  const conteneur=document.getElementById('fview-etudiantes');
+  if(!conteneur) return;
+  const importResult=document.getElementById('import-formations-result');
+  const sessions=getSessionsFormation();
+  const e=DB.formations.etudiantes.find(x=>x.id===fNavigationEtudiantes.etudiante);
+  // Une modification des dates déplace la fiche dans sa nouvelle session.
+  if(e) fNavigationEtudiantes.session=informationsSessionFormation(e).cle;
+  else fNavigationEtudiantes.etudiante=null;
+  const session=sessions.find(s=>s.cle===fNavigationEtudiantes.session);
+  if(!session) fNavigationEtudiantes.session=null;
+  const esc=echapperFormation;
+  const titre=e ? nomEtudianteFormation(e) : session ? getLabelFormation(session.formation)||'Session' : 'Sessions de formation';
+  const sousTitre=e ? libelleDatesSessionFormation(session)
+    : session ? `${libelleDatesSessionFormation(session)} · ${session.etudiantes.length} élève${session.etudiantes.length>1?'s':''}${session.lieu?' · '+session.lieu:''}`
+    : `${sessions.length} session${sessions.length>1?'s':''} · ${DB.formations.etudiantes.length} élève${DB.formations.etudiantes.length>1?'s':''}`;
+  let html=`<div class="f-sessions-toolbar">
+    <div><h2 id="f-navigation-title" tabindex="-1">${esc(titre)}</h2><p>${esc(sousTitre)}</p></div>
+    <div class="f-sessions-actions">
+      <label class="btn bg">📥 Importer planning<input type="file" accept=".pdf" onchange="importPlanningFormations(event)" hidden></label>
+      <button type="button" class="btn bd" onclick="openEtudianteModal()">+ Ajouter</button>
     </div>
-
-    <div id="import-formations-result"></div>
-  `;
-
-  if(!list.length){
-
-    html+=`
-      <div class="empty">
-        Aucune étudiante — clique sur "+ Ajouter"
-      </div>
-    `;
-
+  </div><div id="import-formations-result"></div>`;
+  if(session){
+    html+=`<nav class="f-session-back" aria-label="Navigation des formations">
+      <button type="button" class="btn bg" onclick="retourSessionsFormation()">← Sessions</button>
+      ${e ? `<button type="button" class="btn bg" data-session="${esc(encodeURIComponent(session.cle))}" onclick="ouvrirSessionFormation(decodeURIComponent(this.dataset.session))">← Élèves de la session</button>` : ''}
+    </nav>`;
+  }
+  if(e){
+    html+=renderFicheEtudianteFormation(e,new Date());
+  }else if(session){
+    html+=`<div class="f-student-list">${session.etudiantes.map(e=>{
+      const p=getProgressionFormation(e);
+      const prochaine=getProchaineActionFormation(e);
+      const prefixe=prochaine.type==='termine' ? 'Dossier terminé' : prochaine.type==='attente' ? 'En attente' : 'Prochaine action';
+      return `<button type="button" class="f-student-row" data-eleve="${esc(encodeURIComponent(e.id))}" onclick="openEtudiante(decodeURIComponent(this.dataset.eleve))">
+        <span class="f-student-avatar" aria-hidden="true">${esc(nomEtudianteFormation(e).slice(0,1).toLocaleUpperCase('fr'))}</span>
+        <span class="f-student-summary"><strong>${esc(nomEtudianteFormation(e))}</strong>
+          <span class="f-current-step">${esc(prochaine.etape)}</span>
+          <span class="f-next-action ${prochaine.type==='attente'?'f-is-waiting':''}">${esc(prefixe)}${prochaine.type==='termine'?'':' : '+esc(prochaine.label.replace(/^En attente : /,''))}</span>
+        </span>
+        <span class="f-student-progress"><strong>${p.pct} %</strong><span>${p.faits}/${p.total} étapes</span><progress max="100" value="${p.pct}" aria-label="Progression de ${esc(nomEtudianteFormation(e))}"></progress></span>
+        <span aria-hidden="true">›</span>
+      </button>`;
+    }).join('')}</div>`;
+  }else if(!sessions.length){
+    html+='<div class="empty">Aucune session pour le moment. Ajoute une élève ou importe ton planning.</div>';
   }else{
+    for(const [groupe,label] of [[0,'En cours'],[1,'À venir'],[2,'Sessions passées'],[3,'Dates à compléter']]){
+      const selection=sessions.filter(s=>s.groupe===groupe);
+      if(!selection.length) continue;
+      html+=`<section class="f-session-section"><h3>${label}</h3><div class="f-session-grid">${selection.map(s=>{
+        const terminees=s.etudiantes.filter(e=>getProchaineActionFormation(e).type==='termine').length;
+        return `<button type="button" class="f-session-card" data-session="${esc(encodeURIComponent(s.cle))}" onclick="ouvrirSessionFormation(decodeURIComponent(this.dataset.session))">
+          <span class="f-session-top"><span>${s.etudiantes.length} élève${s.etudiantes.length>1?'s':''}</span><span aria-hidden="true">↗</span></span>
+          <strong>${esc(getLabelFormation(s.formation)||'Formation à préciser')}</strong>
+          <span class="f-session-dates">${esc(libelleDatesSessionFormation(s))}</span>
+          ${s.lieu?`<span class="f-session-location">${esc(s.lieu)}</span>`:''}
+          <span class="f-session-footer">${terminees ? `${terminees} dossier${terminees>1?'s':''} terminé${terminees>1?'s':''}` : 'Voir les élèves et leur prochaine action'}<span aria-hidden="true">›</span></span>
+        </button>`;
+      }).join('')}</div></section>`;
+    }
+  }
+  conteneur.innerHTML=html;
+  // Conserver le résultat ou la lecture en cours de l'import planning.
+  if(importResult) document.getElementById('import-formations-result').replaceWith(importResult);
+}
 
-    html+=list.map(e=>{
+function informationsFicheFormation(e){
+  const esc=echapperFormation;
+  const valeurs=[
+    ['Formation',getLabelFormation(e.formationTypeNormalise||e.formation)],
+    ['Dates',libelleDatesSessionFormation(informationsSessionFormation(e))],
+    ['Lieu de formation',e.lieu],
+    ...(e.financement?.type==='cpf' ? [['N° de dossier CPF',e.numeroCPF]] : []),
+    ['Adresse complète',e.adresseComplete],['Date de naissance',
+      dateSessionFormation(e.dateNaissance) ? dateSessionFormation(e.dateNaissance).split('-').reverse().join('/') : e.dateNaissance],
+    ['Lieu de naissance',e.lieuNaissance],['Profession / situation actuelle',e.professionSituation]
+  ];
+  return `<dl class="f-student-data">${valeurs.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||'Non renseigné')}</dd></div>`).join('')}</dl>
+    <div class="f-student-notes"><strong>Notes</strong><p>${esc(e.notes||'Aucune note pour le moment.')}</p></div>
+    ${(e.kits||[]).length ? `<details class="f-kit-detail"><summary>Contenu des kits (${e.kits.length})</summary>${e.kits.map(k=>`<div><strong>${esc(KITS_CONTENU[k.type]?.label||k.type)} · ${esc(k.statut||'à préparer')}</strong><ul>${(k.contenu||[]).map(item=>`<li>${item.coche?'✓':'○'} ${esc(item.item)}</li>`).join('')}</ul></div>`).join('')}<button type="button" class="btn bg bsm" onclick="goFTab('kits')">Gérer les kits</button></details>`:''}`;
+}
+
+function renderFicheEtudianteFormation(e,today){
+
 
       // =========================
       // INFORMATIONS GÉNÉRALES
@@ -18799,7 +18977,7 @@ function renderFEtudiantes(){
       // =========================
 
       return `
-        <div
+        <div class="f-full-student"
           style="
             background:white;
             border:1.5px solid ${urgent?'var(--dep)':'var(--brd)'};
@@ -18831,7 +19009,7 @@ function renderFEtudiantes(){
                   margin-bottom:3px;
                 "
               >
-                ${e.nom}
+                ${echapperFormation(nomEtudianteFormation(e))}
 
                 ${urgent
                   ? '<span style="color:var(--dep);font-size:11px;margin-left:5px">🔴 URGENT</span>'
@@ -18846,10 +19024,10 @@ function renderFEtudiantes(){
                 "
               >
 
-                ${e.email||''}
+                ${echapperFormation(e.email||'')}
 
                 ${e.tel
-                  ? ' · '+e.tel
+                  ? ' · '+echapperFormation(e.tel)
                   : ''
                 }
 
@@ -19086,6 +19264,8 @@ function renderFEtudiantes(){
 
           </div>
 
+          ${informationsFicheFormation(e)}
+
           <!-- DOCUMENTS AUTOMATIQUES -->
 
           <div
@@ -19227,12 +19407,7 @@ function renderFEtudiantes(){
         </div>
       `;
 
-    }).join('');
-  }
 
-  document
-    .getElementById('fview-etudiantes')
-    .innerHTML=html;
 }
 
 let importBulletinRempliOuvert = false;
@@ -19721,47 +19896,52 @@ Réponds uniquement avec cet objet JSON, sans commentaire :
   selecteur.click();
 }
 
-async function toggleSuiviFormation(
-  etudianteId,
-  itemId,
-  checked
-){
+// Sérialise les modifications du suivi pour conserver les autres cases
+// lorsque deux générations ou deux clics terminent presque ensemble.
+let fileSuiviFormation=Promise.resolve();
 
-  ensureFormationsData();
+function enregistrerSuiviFormation(etudianteId,itemId,checked){
+  const operation=fileSuiviFormation.then(async()=>{
+    const e=DB.formations?.etudiantes?.find(x=>x.id===etudianteId);
+    if(!e) return false;
+    if(!ETAPES_DOSSIER_FORMATION.some(etape=>etape.items.some(item=>item.id===itemId))) return false;
+    const ancien=e.suiviFormation;
+    const presente=Object.prototype.hasOwnProperty.call(e,'suiviFormation');
+    e.suiviFormation={...(ancien||{}),[itemId]:checked===true};
+    let ok=false;
+    try{
+      ok=await sauvegarderChampSeul('formations',JSON.stringify(DB.formations))===true;
+    }catch(erreur){
+      console.error('Sauvegarde du suivi formation :',erreur);
+    }
+    if(!ok){
+      if(presente) e.suiviFormation=ancien;
+      else delete e.suiviFormation;
+    }
+    renderFEtudiantes();
+    return ok;
+  });
+  fileSuiviFormation=operation.catch(()=>{});
+  return operation;
+}
 
-  const e=
-    DB.formations.etudiantes.find(
-      x=>x.id===etudianteId
-    );
+async function toggleSuiviFormation(etudianteId,itemId,checked){
+  const ok=await enregistrerSuiviFormation(etudianteId,itemId,checked);
+  toast(ok ? (checked?'✓ Étape validée':'Étape réouverte')
+    : '⚠ La modification n’a pas pu être enregistrée. Réessaie.');
+}
 
-  if(!e) return;
-
-  e.suiviFormation=
-    creerSuiviFormationExistant(
-      e.suiviFormation
-    );
-
-  e.suiviFormation[itemId]=checked;
-
-  // Sauvegarde ciblée directement dans Firebase
-  const sauvegardeOK=
-  await sauvegarderChampSeul(
-    'formations',
-    JSON.stringify(DB.formations)
-  );
-
-  if(!sauvegardeOK){
-    toast('⚠️ La modification n’a pas pu être enregistrée');
-    return;
+async function validerDocumentGenereFormation(etudianteId,itemId){
+  // Appelée uniquement après remplissage ET déclenchement du téléchargement.
+  try{
+    const ok=await enregistrerSuiviFormation(etudianteId,itemId,true);
+    if(!ok) toast('⚠ PDF généré, mais suivi non enregistré. Réessaie de cocher l’étape.');
+    return ok;
+  }catch(erreur){
+    console.error('Suivi du document généré :',erreur);
+    toast('⚠ PDF généré, mais suivi non enregistré. Réessaie de cocher l’étape.');
+    return false;
   }
-
-  renderFEtudiantes();
-
-  toast(
-    checked
-      ? '✓ Étape validée'
-      : 'Étape réouverte'
-  );
 }
 
 async function changeStatutEtudiante(id,statut){
@@ -20387,7 +20567,9 @@ async function genererConvocationFormation(etudianteId){
       + '.pdf'
     );
 
-    toast('✓ Convocation générée : ' + donnees.prenom);
+    if(await validerDocumentGenereFormation(etudianteId,'convocation_creee')){
+      toast('✓ Convocation générée et suivi enregistré : ' + donnees.prenom);
+    }
   }catch(erreur){
     console.error('Erreur convocation :',erreur);
     toast('⚠ ' + erreur.message);
@@ -20788,7 +20970,9 @@ async function genererContratFormation(etudianteId){
       +'.pdf'
     );
 
-    toast('✓ Contrat généré : '+valeurs.nom);
+    if(await validerDocumentGenereFormation(etudianteId,'contrat_cree')){
+      toast('✓ Contrat généré et suivi enregistré : '+valeurs.nom);
+    }
   }catch(erreur){
     console.error('Erreur contrat :',erreur);
     toast('⚠ '+erreur.message);
@@ -20800,185 +20984,6 @@ async function genererContratFormation(etudianteId){
 // ═══════════════════════════════════════
 // GÉNÉRATION DE LA CONVOCATION
 // ═══════════════════════════════════════
-
-async function genererConvocationFormation(etudianteId){
-
-  ensureFormationsData();
-
-
-  const etudiante =
-    DB.formations.etudiantes.find(
-      e => e.id === etudianteId
-    );
-
-
-  if(!etudiante){
-
-    toast(
-      '⚠ Étudiante introuvable'
-    );
-
-    return;
-
-  }
-
-
-  const donnees =
-    getDonneesDocumentsFormation(
-      etudiante
-    );
-
-
-  if(!donnees){
-
-    toast(
-      '⚠ Configuration de formation introuvable'
-    );
-
-    return;
-
-  }
-
-
-  if(!donnees.modeleConvocation){
-
-    toast(
-      '⚠ Aucune convocation disponible pour cette formation'
-    );
-
-    return;
-
-  }
-
-
-  try {
-
-
-    // Pour l'instant :
-    // seul le modèle 5J CPF est calibré.
-
-    if(
-      donnees.modeleConvocation !==
-      'convocation-debutante-5j-cpf'
-    ){
-      throw new Error(
-        'Le remplissage est actuellement disponible pour Débutante 5J CPF uniquement.'
-      );
-    }
-
-
-    // ───────────────────────────────────
-    // Chargement du modèle
-    // ───────────────────────────────────
-
-    const urlModele =
-      `./documents/${donnees.modeleConvocation}.pdf`;
-
-
-    const response =
-      await fetch(urlModele);
-
-
-    if(!response.ok){
-
-      throw new Error(
-        `PDF introuvable : ${urlModele}`
-      );
-
-    }
-
-
-    const pdfBytes =
-      await response.arrayBuffer();
-
-
-    // ───────────────────────────────────
-    // Remplissage
-    // ───────────────────────────────────
-
-    const resultat =
-      await remplirConvocation5jCpf(
-        pdfBytes,
-        donnees
-      );
-
-
-    // ───────────────────────────────────
-    // Création du téléchargement
-    // ───────────────────────────────────
-
-    const url =
-      URL.createObjectURL(
-        new Blob(
-          [resultat],
-          {
-            type: 'application/pdf'
-          }
-        )
-      );
-
-
-    const lien =
-      document.createElement('a');
-
-
-    lien.href = url;
-
-
-    const nom =
-      String(
-        donnees.nomComplet ||
-        donnees.prenom
-      )
-      .replace(
-        /[\\/:*?"<>|\x00-\x1F]/g,
-        '-'
-      );
-
-
-    lien.download =
-      `Convocation-${nom}-5J-CPF.pdf`;
-
-
-    document.body.appendChild(lien);
-
-    lien.click();
-
-    lien.remove();
-
-
-    setTimeout(
-      () => URL.revokeObjectURL(url),
-      60000
-    );
-
-
-    toast(
-      '✓ Convocation générée : ' +
-      donnees.prenom
-    );
-
-
-  } catch(error){
-
-
-    console.error(
-      'Erreur génération convocation :',
-      error
-    );
-
-
-    toast(
-      '⚠ ' +
-      (
-        error.message ||
-        'Impossible de générer la convocation'
-      )
-    );
-
-  }
-
-}
 
 async function genererBulletinFormation(etudianteId){
 
@@ -21533,7 +21538,7 @@ const financementActuel =
   e?.financement?.type || 'perso';
 
 const formationActuelle =
-  e?.formationTypeNormalise || '';
+  e?.formationTypeNormalise || e?.formation || '';
 
 mettreAJourFormationsDisponibles(
   financementActuel,
@@ -21584,6 +21589,7 @@ function mettreAJourFormationsDisponibles(
       Choisir une formation
     </option>
 
+    ${valeurActuelle && !formations.some(f=>f.id===valeurActuelle) ? `<option value="${echapperFormation(valeurActuelle)}" selected>${echapperFormation(getLabelFormation(valeurActuelle))}</option>` : ''}
     ${formations.map(f=>`
       <option
         value="${f.id}"
@@ -22146,6 +22152,7 @@ async function saveEtudiante(){
   const btn=document.getElementById('saveEtudianteBtn');
   if(btn.disabled) return; // anti double-clic
   btn.disabled=true;
+  const operation=fileSuiviFormation.then(async()=>{
 
   const editId=document.getElementById('formationModal').dataset.editId;
   const prenom=
@@ -22172,6 +22179,7 @@ const nom=
 
   const existing=editId?DB.formations.etudiantes.find(x=>x.id===editId):null;
     const etu={
+    ...existing,
     adresseComplete: existing?.adresseComplete || '',
     dateNaissance: existing?.dateNaissance || '',
     lieuNaissance: existing?.lieuNaissance || '',
@@ -22192,8 +22200,9 @@ nom,
     numeroCPF:
   document.getElementById('fe-fin-type')?.value==='cpf'
     ? document.getElementById('fe-num-cpf')?.value?.trim()||''
-    : '',
+    : existing?.numeroCPF || '',
      financement:{
+      ...existing?.financement,
       type:document.getElementById('fe-fin-type')?.value||'perso',
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
       paye:document.getElementById('fe-fin-paye')?.value==='1'
@@ -22204,6 +22213,7 @@ nom,
 ),
 
 suiviFormation:{
+  ...existing?.suiviFormation,
   ...creerSuiviFormationExistant(
     existing?.suiviFormation
   ),
@@ -22214,6 +22224,9 @@ suiviFormation:{
 notes:document.getElementById('fe-notes')?.value||''
   };
 
+  // Garder les anciens kits dont le type n'est plus proposé dans le formulaire.
+  etu.kits.push(...(existing?.kits||[]).filter(k=>!KITS_CONTENU[k.type]));
+
   if(existing){
     const i=DB.formations.etudiantes.findIndex(x=>x.id===editId);
     DB.formations.etudiantes[i]=etu;
@@ -22221,10 +22234,31 @@ notes:document.getElementById('fe-notes')?.value||''
     DB.formations.etudiantes.push(etu);
   }
 
-  await saveAll();
+  let sauvegardeOK=false;
+  try{
+    sauvegardeOK=await sauvegarderChampSeul('formations',JSON.stringify(DB.formations))===true;
+  }catch(erreur){
+    console.error('Sauvegarde étudiante :',erreur);
+  }
+  if(!sauvegardeOK){
+    const index=DB.formations.etudiantes.findIndex(x=>x.id===etu.id);
+    if(existing && index>=0) DB.formations.etudiantes[index]=existing;
+    else if(index>=0) DB.formations.etudiantes.splice(index,1);
+    btn.disabled=false;
+    toast('⚠ La fiche n’a pas été enregistrée. Tu peux réessayer.');
+    return;
+  }
+  if(!existing) fNavigationEtudiantes={session:informationsSessionFormation(etu).cle,etudiante:etu.id};
   closeMo('formationModal');
   renderFEtudiantes();
   toast('✓ Étudiante enregistrée');
+  });
+  fileSuiviFormation=operation.catch(()=>{});
+  try{await operation;}catch(erreur){
+    btn.disabled=false;
+    console.error('Enregistrement étudiante :',erreur);
+    toast('⚠ La fiche n’a pas été enregistrée. Tu peux réessayer.');
+  }
 }
 
 async function delEtudiante(id){
@@ -22237,7 +22271,7 @@ async function delEtudiante(id){
 // ── Kits ──
 function renderFKits(){
   ensureFormationsData();
-  const list=DB.formations.etudiantes.filter(e=>e.formation==='kit-cils'||e.formation==='les-deux');
+  const list=DB.formations.etudiantes.filter(e=>(e.kits||[]).length || e.formation==='kit-cils'||e.formation==='les-deux');
   let html='';
   if(!list.length){
     html=`<div class="empty">Aucune étudiante en formation extension de cils</div>`;
