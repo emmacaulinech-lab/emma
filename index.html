@@ -20258,7 +20258,10 @@ const CALIBRAGE_CONVOCATIONS_EMMA = {
     bienvenue:[264.6875,610.3642,330.31242,620.8642,612.9892,10.5],
     debut:[159.10679,592.3642,199.75128,601.8642,594.7392,9.5],
     date:[429.4268,732.75,436.6468,742.75,735.25,10],
-    lundi:true
+    lundi:true,
+    jourDebut:2,
+    libelleJourDebut:'Mardi',
+    zoneJourDebut:[131.90358,592.3642,156.73278,601.8642,594.7392,9.5]
   },
   'convocation-debutante-5j-cpf': {
     sha:'3d74b3b3bd18996ec3c30b1d4be9171c9e6a11c6c87f2626acbfb4f161c8be0b',
@@ -20286,7 +20289,10 @@ const CALIBRAGE_CONVOCATIONS_EMMA = {
     bienvenue:[264.6875,610.3642,330.31242,620.8642,612.9892,10.5],
     debut:[159.10679,592.3642,199.75128,601.8642,594.7392,9.5],
     date:[429.4268,732.75,436.6468,742.75,735.25,10],
-    lundi:true
+    lundi:true,
+    jourDebut:2,
+    libelleJourDebut:'Mardi',
+    zoneJourDebut:[131.90358,592.3642,156.73278,601.8642,594.7392,9.5]
   },
   'convocation-debutante-5j-perso': {
     sha:'dac50c16fd54604268dee804cbc9d0e0e636ab521ddc0f249fa68a7f95e2a975',
@@ -20456,10 +20462,12 @@ async function remplirConvocationEmma(pdfBytes, donnees){
     'Date du document'
   );
 
-  if(c.lundi && debut.date.getDay() !== 1){
+  const jourAttendu=c.jourDebut ?? (c.lundi ? 1 : null);
+  if(jourAttendu!==null && debut.date.getDay()!==jourAttendu){
     throw new Error(
-      'Ce modèle prévoit un démarrage le lundi. '
-      + 'Vérifie la date de début.'
+      'Ce modèle prévoit un démarrage le '
+      + (c.libelleJourDebut || 'lundi').toLocaleLowerCase('fr')
+      + '. Vérifie la date de début.'
     );
   }
 
@@ -20525,11 +20533,21 @@ async function remplirConvocationEmma(pdfBytes, donnees){
     color:rose
   });
 
+  // 4J : mardi à vendredi. Zone mesurée dans les deux PDF sources.
+  if(c.zoneJourDebut){
+    const zone=c.zoneJourDebut;
+    if(zone[0]+font.widthOfTextAtSize(c.libelleJourDebut,zone[5])>=c.debut[0]){
+      throw new Error('Le jour de début dépasse la zone prévue dans le modèle.');
+    }
+    masquerDocumentEmma(page,zone);
+    page.drawText(c.libelleJourDebut,{x:zone[0],y:zone[4],size:zone[5],font,color:couleurDebut});
+  }
+
   // Réécriture du suffixe pour éviter les chevauchements.
   masquerDocumentEmma(page,c.debut);
 
   page.drawText(debut.texte + ' à 9 h 30',{
-    x:c.debut[0],
+    x:c.debut[0]+(c.zoneJourDebut ? 2 : 0),
     y:c.debut[4],
     size:c.debut[5],
     font,
