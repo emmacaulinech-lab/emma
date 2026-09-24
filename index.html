@@ -48151,7 +48151,7 @@ function choisirTypeTacheEmma(type){
         type === "formation" ||
         type === "facturation"
     ){
-        ouvrirChoixTacheProEmma(type);
+        ouvrirChoixTacheProEmma(type === "formation" ? "formations" : type);
         return;
     }
 
