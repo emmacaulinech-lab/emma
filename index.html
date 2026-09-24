@@ -17454,27 +17454,24 @@ function getToutesNotifications(today){
   });
   if(redevancesRetard.length) notifs.push({icon:'💰',txt:`${redevancesRetard.length} redevance(s) impayée(s) (+30j)`,color:'var(--dep)',onclick:`goModule('facturation')`});
 
-  ensureFormationsData();
-  const etudiantes=DB.formations.etudiantes||[];
-  const todayMs=today.getTime();
-  const joursRestants=dateStr=>dateStr?Math.floor((new Date(dateStr+'T12:00:00')-todayMs)/86400000):null;
-
-  etudiantes.forEach(e=>{
-    const j=joursRestants(e.dateFormation);
-    if(j===null) return;
-    const idx=STATUTS_FORMATION.indexOf(e.statut);
-    if(idx===0){
-      const urgent=j<14;
-      notifs.push({icon:'✉️',txt:`${urgent?'🔴 URGENT — ':''}Envoyer mail kit à ${e.nom}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(2)`});
-    }
-    else if((idx===1||idx===2)&&!e.financement?.paye){
-      const urgent=j<7;
-      notifs.push({icon:'💶',txt:`${urgent?'🔴 URGENT — ':''}Kit à payer — ${e.nom}${j>=0?' (J-'+j+')':''}`,color:urgent?'var(--dep)':'var(--warn)',onclick:`goModule('formations');goFTab(0)`});
-    }
-    else if(idx===3&&j<=7&&j>=0){
-      notifs.push({icon:'📦',txt:`Préparer le kit — ${e.nom} (J-${j})`,color:'var(--warn)',onclick:`goModule('formations');goFTab(1)`});
-    }
-  });
+  // Même source que les prochaines actions proposées au planning.
+  // Une seule action par élève ; les attentes et dossiers terminés sont exclus.
+  const jourFormation=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+  getTachesWorkflowFormations(jourFormation)
+    .sort((a,b)=>a.priorite-b.priorite || (a.dateFormation||'9999').localeCompare(b.dateFormation||'9999'))
+    .forEach(t=>{
+      const idEncode=encodeURIComponent(String(t.etudianteId)).replace(/'/g,'%27');
+      notifs.push({
+        id:t.id,
+        module:'formations',
+        etudianteId:t.etudianteId,
+        actionId:t.actionId,
+        icon:t.icon,
+        txt:t.nom,
+        color:t.priorite===1?'var(--dep)':'var(--warn)',
+        onclick:`goModule('formations');goFTab('etudiantes');openEtudiante(decodeURIComponent('${idEncode}'))`
+      });
+    });
 
   const virementsEnAttente=(DB.caisse||[]).filter(t=>t.reglement==='VIR'&&!t.rapprocheBanque&&!t.ignorerRapprochement&&t.montant>0);
   if(virementsEnAttente.length){
@@ -17608,7 +17605,7 @@ function renderNotificationsHubParModule(notifs){
                         color:${notif.color || "var(--emma-text)"};
                         font-weight:700;
                     ">
-                        ${notif.txt}
+                        ${module==='formations'?echapperFormation(notif.txt):notif.txt}
                     </span>
 
                 </div>
@@ -17647,6 +17644,18 @@ function renderNotificationsHubParModule(notifs){
 
     }
 
+}
+
+function actualiserNotificationsFormation(){
+  // Rafraîchir l'accueil sans navigation ni écriture supplémentaire.
+  if(!document.getElementById('hub-notifs-formations')) return;
+  const notifs=getToutesNotifications(new Date());
+  renderNotificationsHubParModule(notifs);
+  const compteur=document.getElementById('hub-work-training');
+  const nombre=notifs.filter(n=>n.module==='formations').length;
+  if(compteur) compteur.textContent=nombre
+    ? `${nombre} élément${nombre>1?'s':''} à traiter`
+    : 'Aucune action Formation à traiter';
 }
 
 function getTachesWorkflowFormations(date){
@@ -18758,6 +18767,7 @@ function openEtudiante(id){
 
 function renderFEtudiantes(){
   ensureFormationsData();
+  actualiserNotificationsFormation();
   const conteneur=document.getElementById('fview-etudiantes');
   if(!conteneur) return;
   const importResult=document.getElementById('import-formations-result');
