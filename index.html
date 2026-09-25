@@ -21725,12 +21725,6 @@ const ETAPES_DOSSIER_FORMATION = [
         id:'grille_besoins_recue',
         label:"Grille d'analyse des besoins reçue",
         type:'attente'
-      },
-
-      {
-        id:'piece_identite_recue',
-        label:"Pièce d'identité recto / verso reçue",
-        type:'attente'
       }
 
     ]
@@ -21781,6 +21775,12 @@ const ETAPES_DOSSIER_FORMATION = [
     id:'validation',
     titre:'Validation avant formation',
     items:[
+
+      {
+        id:'piece_identite_recue',
+        label:"Pièce d'identité recto / verso reçue",
+        type:'attente'
+      },
 
       {
         id:'contrat_signe',
@@ -21985,12 +21985,6 @@ function getProchaineActionFormation(e){
     );
   }
 
-  if(!suivi.piece_identite_recue){
-    documentsCandidature.push(
-      "pièce d'identité"
-    );
-  }
-
   if(documentsCandidature.length){
 
     return {
@@ -22058,6 +22052,10 @@ function getProchaineActionFormation(e){
   // ============================
 
   const validations=[];
+
+  if(!suivi.piece_identite_recue){
+    validations.push("pièce d’identité recto / verso");
+  }
 
   if(!suivi.contrat_signe){
     validations.push('contrat signé');
@@ -22388,23 +22386,24 @@ const EMAIL_TEMPLATES={
     sujet:'Votre dossier de formation LIMAGECILS – Contrat et informations',
     corps:(e,d,kit)=>`Bonjour ${d.prenom},
 
-Votre dossier de candidature étant complet, nous pouvons maintenant finaliser votre inscription à la formation ${d.formation}, prévue du ${d.debut} au ${d.fin}.
+Merci pour le retour de vos documents ! Nous sommes ravies de vous accompagner dans la suite de votre inscription à la formation ${d.formation}, prévue du ${d.debut} au ${d.fin}.
 
-Vous trouverez en pièces jointes :
+Pour préparer sereinement votre venue, vous trouverez en pièces jointes :
 - votre contrat de formation, à nous retourner complété et signé ;
 - le règlement intérieur ;
 - les conditions générales de vente ;
 - le programme pédagogique de votre formation ;
 - une liste d’hôtels situés à proximité du centre de formation.
 ${kit.texte?'\n'+kit.texte+'\n':''}${kit.choix?'\nMerci de nous indiquer le kit que vous souhaitez choisir afin que nous puissions le préparer avant votre arrivée.\n':''}${kit.payant?'\nVous trouverez également notre RIB en pièce jointe afin de procéder au règlement du kit. Merci d’indiquer votre nom et prénom dans le libellé du virement afin que nous puissions facilement identifier votre règlement.\n':''}
-Votre inscription sera définitivement finalisée dès réception de votre contrat signé${kit.choix?' et après validation de votre choix de kit':''}${kit.payant?(kit.choix?' et de son règlement':' et après règlement de votre kit'):''}.
+Merci de nous retourner votre contrat complété et signé, accompagné d’une copie nette et lisible du recto et du verso de votre pièce d’identité.
+
+Votre inscription sera finalisée dès réception de ces documents${kit.choix?' et après validation de votre choix de kit':''}${kit.payant?(kit.choix?' et de son règlement':' et après règlement de votre kit'):''}.
 
 Votre convocation, ainsi que les dernières informations pratiques concernant votre formation et l’organisation des modèles, vous seront ensuite transmises.
 
-Je reste à votre disposition pour toute question.
+Si vous avez une question sur les documents ou besoin d’un coup de main pour choisir votre kit, écrivez-nous : nous serons ravies de vous aider !
 
-Bien cordialement,
-LIMAGECILS`
+À bientôt,`
   },
   convocation:{
     workflow:true,
@@ -22412,18 +22411,16 @@ LIMAGECILS`
     sujet:'Votre convocation – Formation LIMAGECILS',
     corps:(e,d,kit)=>`Bonjour ${d.prenom},
 
-Votre formation ${d.formation} approche !
+Votre formation ${d.formation} approche, et nous avons hâte de vous accueillir !
 
 Vous trouverez en pièce jointe votre convocation, reprenant toutes les informations nécessaires concernant votre formation prévue du ${d.debut} au ${d.fin}.
 
-Nous vous invitons à la lire attentivement avant votre venue, notamment concernant les horaires, l’organisation de la formation et les modèles nécessaires à votre pratique.
+Prenez un petit moment pour la parcourir avant votre venue : vous y retrouverez les horaires, l’organisation de la formation et les informations sur les modèles nécessaires à votre pratique.
 ${kit.paragrapheConvocation?'\n'+kit.paragrapheConvocation+'\n':''}
-Pour toute question avant votre arrivée, nous restons bien entendu disponibles.
+Une question avant le jour J ? Écrivez-nous, nous sommes là pour vous accompagner et vous aider à préparer votre venue sereinement.
 
-Au plaisir de vous accueillir prochainement pour votre formation,
-
-Bien cordialement,
-LIMAGECILS`
+À très bientôt pour cette belle étape dans votre parcours !
+`
   },
 
   candidature:{
@@ -22433,22 +22430,23 @@ LIMAGECILS`
     sujet:'Documents à compléter – Votre formation LIMAGECILS',
     corps:(e,d)=>`Bonjour ${d.prenom},
 
-À la suite de notre échange, vous trouverez en pièces jointes les documents nécessaires à la constitution de votre dossier de formation :
+Merci pour notre échange et pour votre intérêt pour nos formations ! Nous sommes ravies de vous accompagner dans votre projet.
+
+Pour commencer à préparer votre dossier, vous trouverez en pièces jointes :
 - le bulletin de candidature ;
 - la grille d’analyse de vos besoins en formation.
 
-Merci de nous retourner ces deux documents complétés et signés, accompagnés d’une copie nette et lisible du recto et du verso de votre pièce d’identité.
+Merci de nous retourner ces deux documents complétés et signés. Ils nous permettront de mieux vous connaître et de préparer une formation adaptée à vos besoins.
 
-Dès réception de l’ensemble de ces éléments, nous pourrons finaliser votre dossier et vous transmettre les documents relatifs à votre formation.
+Dès leur réception, nous pourrons avancer ensemble sur votre inscription et vous transmettre votre contrat ainsi que les informations utiles pour la suite.
 ${e.financement?.type==='cpf'?`
-Dans le cadre d’une formation financée par le CPF, un kit de formation est obligatoire et reste à votre charge. Les différentes options disponibles, ainsi que les modalités de règlement, vous seront communiquées lors de la prochaine étape de votre inscription.
+Pour les formations financées par le CPF, un kit de formation est obligatoire et reste à votre charge. Nous vous présenterons les options disponibles et les modalités de règlement à la prochaine étape, pour vous aider à faire votre choix.
 `:''}
-Des modèles seront également nécessaires afin de vous exercer durant la formation. Giulia est en charge de l’organisation du planning des modèles ; toutes les informations nécessaires vous seront communiquées avant votre formation.
+Des modèles seront également nécessaires pour vous exercer pendant la formation. Giulia vous accompagnera dans l’organisation de leur planning ; nous vous communiquerons toutes les informations utiles avant votre venue.
 
-Je reste à votre disposition si vous avez la moindre question.
+Si vous avez la moindre question en remplissant les documents, n’hésitez pas à nous écrire : nous sommes là pour vous aider !
 
-Bien cordialement,
-LIMAGECILS`
+À bientôt,`
   },
 
   'kit-cpf':{
@@ -22564,8 +22562,8 @@ function construireMailFormation(e,type){
   const documents=documentsMailFormation(e,type);
   if(type==='contrat'&&kit.payant) documents.push({nom:'RIB'});
   return {sujet:modele.sujet,corps:modele.corps(e,d,kit),adresse:d.email,documents,
-    recuperer:type==='candidature'?['Bulletin complété et signé','Grille des besoins complétée et signée','Pièce d’identité recto','Pièce d’identité verso']:
-      type==='contrat'?['Contrat complété et signé',...(kit.choix?['Confirmation du choix du kit']:[])]:[],
+    recuperer:type==='candidature'?['Bulletin complété et signé','Grille des besoins complétée et signée']:
+      type==='contrat'?['Contrat complété et signé','Pièce d’identité recto','Pièce d’identité verso',...(kit.choix?['Confirmation du choix du kit']:[])]:[],
     etape:modele.etape||null};
 }
 
@@ -22674,9 +22672,9 @@ function regleKitsMailFormation(e){
     texte+='\n\nChoix enregistré : '+correspond.map(id=>kit(id).nom).join(' + ')+'.';
   }
   return {necessaire:true,payant,choix:choix&&e.suiviFormation?.kit_choisi!==true,texte,
-    paragrapheConvocation:!payant?'Votre kit de formation est offert. Il sera préparé pour votre formation.':
-      e.suiviFormation?.kit_paye===true?'Votre kit est bien réglé. Il sera préparé pour votre formation.':
-      'À ce jour, le règlement de votre kit de formation ne nous est pas encore parvenu. Afin que celui-ci puisse être préparé et disponible pour le début de votre formation, merci d’effectuer le règlement dès que possible à l’aide du RIB qui vous a été transmis précédemment.'};
+    paragrapheConvocation:!payant?'Bonne nouvelle : votre kit de formation vous est offert ! Nous le préparerons pour votre venue.':
+      e.suiviFormation?.kit_paye===true?'Merci, le règlement de votre kit a bien été reçu ! Nous le préparerons pour votre venue.':
+      'Petit rappel pour préparer votre arrivée : le règlement de votre kit de formation est encore en attente. Merci de l’effectuer dès que possible à l’aide du RIB transmis précédemment, afin que nous puissions préparer votre kit pour le début de la formation.'};
 }
 
 function renderFEmails(){
