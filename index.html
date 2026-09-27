@@ -5707,6 +5707,7 @@ auth.onAuthStateChanged(async user => {
       await sauvegarderChampSeul('fixes',JSON.stringify(DB.fixes));
     }
     goHub();
+    setTimeout(decalerTachesEnRetardAutomatiquementEmma,450);
     setTimeout(initialiserAccueilConversationEmma,700);
   } else {
     chargementInitialEnCours = false;
@@ -43421,9 +43422,16 @@ renderJAujourdhui();
     toast(
         `${selection.length} tâche${selection.length > 1 ? "s" : ""} ajoutée${selection.length > 1 ? "s" : ""} ✨`
     );
-}async function recollerTachesMaisonJournal(){
+}
 
-    const date = getJournalJour();
+let dernierEnregistrementRecalageEmma=0;
+let recalageAutomatiqueEmmaASauvegarder=false;
+
+async function recollerTachesMaisonJournal(options={}){
+
+    const automatique=options.automatique===true;
+    const silencieux=options.silencieux===true;
+    const date=options.date||getJournalJour();
 
     ensureJournalData();
 
@@ -43484,7 +43492,7 @@ renderJAujourdhui();
     // 1. TÂCHES DÉJÀ FAITES
     // =========================
 
-    if(estAujourdhui){
+    if(estAujourdhui&&!automatique){
 
         repositionnerTachesFaitesAvantMaintenant(
             date,
@@ -43517,6 +43525,8 @@ renderJAujourdhui();
         return !!(
 
             bloc.routineFixe ||
+
+            bloc.enCoursEmma === true ||
 
             bloc.rappelRepas ||
 
@@ -43565,8 +43575,18 @@ renderJAujourdhui();
 
     if(!tachesFlexibles.length){
 
-        toast("✓ Aucune tâche flexible à recoller");
-        return;
+        if(!silencieux) toast("✓ Aucune tâche flexible à recoller");
+        return false;
+    }
+
+    // En mode automatique, aucun enregistrement n'est effectué si le
+    // planning est déjà à jour. Cela évite les écritures Firebase inutiles.
+    const uneTacheDoitGlisser=estAujourdhui&&tachesFlexibles.some(bloc=>
+        bloc.heureDebut&&heureVersMinutes(bloc.heureDebut)<minuteActuelle
+    );
+
+    if(automatique&&!uneTacheDoitGlisser){
+        return false;
     }
 
 
@@ -43752,10 +43772,9 @@ renderJAujourdhui();
 
     if(estAujourdhui){
 
-        const depart =
-            Math.ceil(
-                minuteActuelle / 5
-            ) * 5;
+        const depart=automatique
+            ? minuteActuelle
+            : Math.ceil(minuteActuelle / 5) * 5;
 
         curseur =
             minutesVersHeure(depart);
@@ -43831,18 +43850,75 @@ renderJAujourdhui();
     // 12. SAUVEGARDE
     // =========================
 
-    await saveAll();
+    const doitEnregistrer=!automatique||
+        Date.now()-dernierEnregistrementRecalageEmma>=5*60000;
 
-    await synchroniserNotificationsPlanningEmma?.(
-        date
-    );
+    if(doitEnregistrer){
+        await sauvegarderChampSeul(
+            'journal',
+            JSON.stringify(DB.journal)
+        );
+
+        await synchroniserNotificationsPlanningEmma?.(
+            date
+        );
+
+        dernierEnregistrementRecalageEmma=Date.now();
+        recalageAutomatiqueEmmaASauvegarder=false;
+    }else{
+        recalageAutomatiqueEmmaASauvegarder=true;
+    }
 
     renderJAujourdhui();
 
-    toast(
-        "🧩 Tâches flexibles recollées"
-    );
+    if(!silencieux){
+        toast(
+            "🧩 Tâches flexibles recollées"
+        );
+    }
+
+    return true;
 }
+
+let recalageAutomatiqueEmmaEnCours=false;
+
+async function decalerTachesEnRetardAutomatiquementEmma(){
+    if(recalageAutomatiqueEmmaEnCours||document.hidden||!chargementReussi||!firebase.auth().currentUser){
+        return false;
+    }
+
+    recalageAutomatiqueEmmaEnCours=true;
+    try{
+        return await recollerTachesMaisonJournal({
+            automatique:true,
+            silencieux:true,
+            date:new Date().toLocaleDateString('fr-CA')
+        });
+    }catch(error){
+        console.error('Décalage automatique du planning impossible',error);
+        return false;
+    }finally{
+        recalageAutomatiqueEmmaEnCours=false;
+    }
+}
+
+window.addEventListener('load',()=>{
+    setTimeout(decalerTachesEnRetardAutomatiquementEmma,5000);
+    setInterval(decalerTachesEnRetardAutomatiquementEmma,60000);
+});
+
+document.addEventListener('visibilitychange',()=>{
+    if(document.hidden&&recalageAutomatiqueEmmaASauvegarder&&chargementReussi){
+        recalageAutomatiqueEmmaASauvegarder=false;
+        dernierEnregistrementRecalageEmma=Date.now();
+        const date=new Date().toLocaleDateString('fr-CA');
+        sauvegarderChampSeul('journal',JSON.stringify(DB.journal))
+            .then(()=>synchroniserNotificationsPlanningEmma?.(date))
+            .catch(error=>console.error('Sauvegarde du planning décalé impossible',error));
+    }else if(!document.hidden){
+        setTimeout(decalerTachesEnRetardAutomatiquementEmma,350);
+    }
+});
 
 function creerElementMaisonDepuisSelection(tache,date){
     const zone = DB.journal.zones.find(z => z.id === tache.zoneId);
