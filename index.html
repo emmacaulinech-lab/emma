@@ -1729,7 +1729,7 @@ textarea,
     margin:0 auto 18px;
     padding:8px;
     display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-columns:repeat(4,minmax(0,1fr));
     gap:7px;
     border-radius:22px;
     background:rgba(255,255,255,.50);
@@ -1745,6 +1745,16 @@ textarea,
     color:var(--emma-text);
     font:700 12px/1.2 inherit;
     cursor:pointer;
+}
+
+#emma-enable-notifications[data-etat="active"]{
+    color:#5f8f78;
+    background:rgba(235,248,241,.72);
+}
+
+#emma-enable-notifications[data-etat="bloque"]{
+    color:#b66d72;
+    background:rgba(255,238,240,.72);
 }
 
 #hub-modules-grid.emma-hub-grid{
@@ -1871,7 +1881,6 @@ button.emma-card-row{
 
     .emma-home-title{font-size:34px !important;line-height:1 !important}
     .emma-home-subtitle{display:none !important}
-    #emma-enable-notifications{display:none !important}
     .emma-brain-button{width:42px !important;height:42px !important;flex:0 0 42px !important}
 
     .emma-home-quick-strip{
@@ -4292,20 +4301,13 @@ button.emma-card-row{
   ✦
 </button>
 
-   <button
-  id="emma-enable-notifications"
-  class="btn bg"
-  onclick="activerNotificationsEmma()"
->
-  🔔 Activer les notifications
-</button>
-
   </section>
 
   <div class="emma-home-quick-strip" aria-label="Accès rapides">
     <button type="button" onclick="goModule('journal')">📅 Agenda</button>
     <button type="button" onclick="ouvrirAssistantEmma()">✦ Assistante</button>
     <button type="button" onclick="ouvrirVueMinuteEmma()">◷ Vue minute</button>
+    <button id="emma-enable-notifications" type="button" onclick="activerNotificationsEmma()">🔔 Notifications</button>
   </div>
 
 
@@ -49672,15 +49674,28 @@ async function enregistrerServiceWorkerEmma(){
 async function activerNotificationsEmma(){
 
     if(!("Notification" in window)){
-        toast("Notifications non supportées");
+        const estIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const estInstallee=window.matchMedia?.("(display-mode: standalone)")?.matches||navigator.standalone===true;
+        toast(estIOS&&!estInstallee
+            ? "Ajoute d’abord EMMA à l’écran d’accueil pour activer les notifications"
+            : "Notifications non supportées sur cet appareil");
         return;
     }
 
-    const permission =
-        await Notification.requestPermission();
+    let permission=Notification.permission;
+    try{
+        if(permission!=="granted") permission=await Notification.requestPermission();
+    }catch(error){
+        console.error("Erreur autorisation notifications EMMA",error);
+        toast("Impossible d’ouvrir l’autorisation des notifications");
+        return;
+    }
 
     if(permission !== "granted"){
-        toast("Notifications non autorisées");
+        toast(permission==="denied"
+            ? "Notifications bloquées : autorise EMMA dans les réglages de l’appareil"
+            : "Notifications non autorisées");
+        mettreAJourBoutonNotificationsEmma();
         return;
     }
 
@@ -49691,9 +49706,18 @@ async function activerNotificationsEmma(){
         return;
     }
 
-   await abonnerEmmaAuxPush();
+    const token=await abonnerEmmaAuxPush();
 
-    toast("🔔 Notifications autorisées");
+    if(!token){
+        mettreAJourBoutonNotificationsEmma();
+        return;
+    }
+
+    await synchroniserNotificationsPlanningEmma(
+        new Date().toLocaleDateString("fr-CA")
+    );
+
+    toast("🔔 Notifications EMMA activées");
 
     console.log(
         "Notifications EMMA activées"
@@ -49711,13 +49735,22 @@ function mettreAJourBoutonNotificationsEmma(){
 
     if(!bouton) return;
 
-    if(
-        "Notification" in window &&
-        Notification.permission === "granted"
-    ){
-        bouton.style.display = "none";
+    bouton.style.display="";
+
+    if(!("Notification" in window)){
+        bouton.textContent="🔔 Activer";
+        bouton.dataset.etat="indisponible";
+    }else if(Notification.permission==="granted"){
+        bouton.textContent="🔔 Activées";
+        bouton.dataset.etat="active";
+        bouton.title="Toucher pour renouveler l’abonnement aux notifications";
+    }else if(Notification.permission==="denied"){
+        bouton.textContent="🔕 Bloquées";
+        bouton.dataset.etat="bloque";
+        bouton.title="Autoriser EMMA dans les réglages de l’appareil";
     }else{
-        bouton.style.display = "inline-flex";
+        bouton.textContent="🔔 Notifications";
+        bouton.dataset.etat="inactive";
     }
 }
 
