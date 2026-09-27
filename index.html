@@ -22824,6 +22824,9 @@ async function copyEmailToClipboard(){
       
     if(!DB.glow || DB.glow.date !== aujourdHui){
 
+   const ancienGlow = DB.glow || {};
+   const anciennesPreferencesSport = ancienGlow.activite || {};
+
    if(DB.glow?.date){
 
     const indexExistant = DB.historiqueGlow.findIndex(
@@ -22849,8 +22852,11 @@ async function copyEmailToClipboard(){
             objectif: "",
             minutes: 0,
             terminee: false,
-            tempsDisponible: 15,
-            objectifForce: ""
+            tempsDisponible: Number(anciennesPreferencesSport.tempsDisponible || 15),
+            objectifForce: anciennesPreferencesSport.objectifForce || "",
+            etatSport: "forme",
+            tempsSportAuto: anciennesPreferencesSport.tempsSportAuto === true,
+            niveau: Number(anciennesPreferencesSport.niveau || 1)
             },
             lecture: {
                 minutes: 0
@@ -23764,8 +23770,14 @@ async function commencerSeance(id){
 
     initialiserGlowDuJour();
 
-    const seance = genererSeanceGlow();
-   DB.glow.seanceGeneree = seance;
+    const seanceCatalogue = (DB.glowSeances || []).find(item => item.id === id);
+    const seance = seanceCatalogue || genererSeanceGlow();
+
+    // Toujours travailler sur une copie : une adaptation pendant la séance ne
+    // doit jamais modifier la bibliothèque d'exercices ou de séances.
+    DB.glow.seanceGeneree = seance
+        ? JSON.parse(JSON.stringify(seance))
+        : null;
 
     if(!seance){
         toast("Séance introuvable");
@@ -23784,23 +23796,33 @@ async function commencerSeance(id){
         enRepos: false,
         tempsRepos: 0,
         planTemps,
-        phase: "exercice"
+        phase: "exercice",
+        demarreeA: Date.now(),
+        exercicesTermines: 0,
+        exercicesPasses: 0,
+        adaptations: 0
     };
 
-    await saveAll();
+    await sauvegarderChampSeul("glow", JSON.stringify(DB.glow));
 
-    renderGlowModule();
+    renderGlowSport();
 }
 
 async function quitterSeance(){
+    stopChronoGlow();
+    const entrainement = DB.glow?.entrainement || {};
+    const aCommence = Number(entrainement.exercicesTermines || 0) > 0 ||
+        Number(entrainement.exercicesPasses || 0) > 0;
 
-   stopChronoGlow();
+    if(aCommence){
+        ouvrirChoixQuitterSeanceGlow();
+        return;
+    }
 
     DB.glow.entrainement.actif = false;
-
-    await saveAll();
-
-    renderGlowModule();
+    DB.glow.seanceGeneree = null;
+    await sauvegarderChampSeul("glow", JSON.stringify(DB.glow));
+    renderGlowSport();
 }
 
 function renderLecteurSeance(){
@@ -24074,11 +24096,15 @@ const illustration =
 
             </div>
 
-            <div style="
-                display:flex;
-                gap:10px;
-                margin-top:20px;
-            ">
+            ${!estRepos ? `
+            <div style="display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px;margin-top:20px">
+                <button class="btn bd" onclick="terminerExerciceSportGlow()" style="justify-content:center">✓ Fait</button>
+                <button class="btn bg" onclick="adapterExerciceSportGlow()" style="justify-content:center">Trop difficile</button>
+                <button class="btn bg" onclick="passerExerciceSportGlow()" style="justify-content:center">Passer</button>
+            </div>
+            ` : ""}
+
+            <div style="display:flex;gap:10px;margin-top:12px">
 
                 <button
                     class="btn bg"
@@ -24116,6 +24142,254 @@ const illustration =
 
         </div>
     `;
+}
+
+function getStatsSemaineSportGlow(){
+    const debut = new Date();
+    debut.setHours(0,0,0,0);
+    debut.setDate(debut.getDate() - 6);
+    const vues = new Map();
+
+    [
+        ...(DB.glow?.historiqueSeances || []),
+        ...(DB.historiqueGlow || []).filter(item => item?.seanceId)
+    ].forEach(item => {
+        if(!item?.date || new Date(`${item.date}T12:00:00`) < debut) return;
+        const cle = `${item.date}|${item.seanceId || item.objectif || "sport"}`;
+        const precedente = vues.get(cle);
+        if(!precedente || Number(item.minutes || item.duree || 0) > Number(precedente.minutes || precedente.duree || 0)){
+            vues.set(cle,item);
+        }
+    });
+
+    const seances = [...vues.values()];
+    return {
+        nombre: seances.length,
+        minutes: seances.reduce((s,item) => s + Number(item.minutes || item.duree || 0),0),
+        partielles: seances.filter(item => item.partielle).length
+    };
+}
+
+function getContexteSportGlow(){
+    initialiserGlowDuJour();
+    const activite = DB.glow.activite || (DB.glow.activite = {});
+    const etat = activite.etatSport || "forme";
+    const recommandation = recommanderProgrammeGlow();
+    let objectif = activite.objectifForce || recommandation.id;
+    let temps = activite.tempsSportAuto
+        ? (etat === "forme" ? 20 : 10)
+        : Number(activite.tempsDisponible || 15);
+
+    if(etat === "courbaturee") objectif = "posture";
+    if(etat !== "forme") temps = Math.min(temps,10);
+
+    const disponibles = (DB.glowSeances || []).filter(s => s.objectif === objectif);
+    let seance = disponibles.find(s => Number(s.duree) === temps);
+    if(!seance){
+        seance = [...disponibles].sort((a,b) =>
+            Math.abs(Number(a.duree)-temps) - Math.abs(Number(b.duree)-temps)
+        )[0] || null;
+    }
+
+    const labels = {taille:"la taille",fessiers:"les fessiers",posture:"la posture",jambes:"les jambes"};
+    let raison = recommandation.raison;
+    if(etat === "fatiguee") raison = "Une séance courte et douce : assez pour bouger sans t’épuiser.";
+    if(etat === "courbaturee") raison = "On privilégie la mobilité et la posture pour récupérer en douceur.";
+    if(etat === "forme" && objectif !== recommandation.id) raison = `Tu as choisi de travailler ${labels[objectif] || objectif}.`;
+
+    return {etat,objectif,temps,seance,raison,recommandation};
+}
+
+async function enregistrerPreferencesSportGlow(){
+    await sauvegarderChampSeul("glow", JSON.stringify(DB.glow));
+}
+
+async function setEtatSportGlow(etat){
+    initialiserGlowDuJour();
+    DB.glow.activite.etatSport = etat;
+    if(etat !== "forme" && Number(DB.glow.activite.tempsDisponible || 15) > 10){
+        DB.glow.activite.tempsDisponible = 10;
+    }
+    await enregistrerPreferencesSportGlow();
+    renderGlowSport();
+}
+
+async function setTempsSportGlow(valeur){
+    initialiserGlowDuJour();
+    DB.glow.activite.tempsSportAuto = valeur === "auto";
+    if(valeur !== "auto") DB.glow.activite.tempsDisponible = Number(valeur);
+    await enregistrerPreferencesSportGlow();
+    renderGlowSport();
+}
+
+async function setObjectifSportGlow(objectif){
+    initialiserGlowDuJour();
+    DB.glow.activite.objectifForce = objectif;
+    await enregistrerPreferencesSportGlow();
+    renderGlowSport();
+}
+
+async function choisirSeancePlusCourteGlow(){
+    initialiserGlowDuJour();
+    const actuel = Number(getContexteSportGlow().seance?.duree || DB.glow.activite.tempsDisponible || 20);
+    const valeurs = [10,15,20,30].filter(v => v < actuel);
+    DB.glow.activite.tempsSportAuto = false;
+    DB.glow.activite.tempsDisponible = valeurs.length ? valeurs[valeurs.length-1] : 10;
+    await enregistrerPreferencesSportGlow();
+    renderGlowSport();
+}
+
+function renderGlowSport(){
+    initialiserGlowDuJour();
+    if(DB.glow.entrainement?.actif){
+        renderLecteurSeance();
+        return;
+    }
+
+    const contexte = getContexteSportGlow();
+    const stats = getStatsSemaineSportGlow();
+    const seance = contexte.seance;
+    const etats = [
+        ["forme","✨ En forme"],
+        ["fatiguee","🌙 Fatiguée"],
+        ["courbaturee","🌿 Courbaturée"]
+    ];
+    const objectifs = [
+        ["taille","🔥 Taille"],
+        ["fessiers","🍑 Fessiers"],
+        ["posture","🤍 Posture"],
+        ["jambes","🦵 Jambes"]
+    ];
+
+    document.getElementById("glow-content").innerHTML = `
+        <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px">
+            <button class="btn bg" onclick="renderGlowModule()">✨ Accueil</button>
+            <button class="btn bg" onclick="renderGlowHydratation()">💧 Eau</button>
+            <button class="btn bg" onclick="renderGlowNutrition()">🍽️ Nutrition</button>
+            <button class="btn bg" onclick="renderGlowSommeil()">🌙 Sommeil</button>
+            <button class="btn bg" onclick="renderGlowEvolution()">📈 Évolution</button>
+            <button class="btn bd">🏃 Sport</button>
+        </div>
+
+        <div style="background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(255,242,246,.72),rgba(240,249,246,.75));border:1px solid rgba(255,255,255,.92);border-radius:30px;padding:clamp(20px,4vw,34px);box-shadow:var(--shadow);margin-bottom:16px">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);font-weight:800">✦ Ton mouvement du jour</div>
+            <h2 style="font-family:'Cormorant Garamond',serif;font-size:clamp(31px,5vw,44px);margin:7px 0 5px">On bouge un peu aujourd’hui ?</h2>
+            <p style="color:var(--mut);margin:0 0 22px;line-height:1.55">Dis-moi comment tu te sens, EMMA adapte la séance — sans pression.</p>
+
+            <div style="font-size:12px;font-weight:800;margin-bottom:8px">Comment tu te sens ?</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+                ${etats.map(([id,label]) => `<button class="btn ${contexte.etat===id?"bd":"bg"}" onclick="setEtatSportGlow('${id}')">${label}</button>`).join("")}
+            </div>
+
+            <div style="font-size:12px;font-weight:800;margin-bottom:8px">Combien de temps ?</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
+                ${[10,20,30].map(v => `<button class="btn ${!DB.glow.activite.tempsSportAuto&&Number(DB.glow.activite.tempsDisponible)===v?"bd":"bg"}" onclick="setTempsSportGlow(${v})">${v} min</button>`).join("")}
+                <button class="btn ${DB.glow.activite.tempsSportAuto?"bd":"bg"}" onclick="setTempsSportGlow('auto')">✦ EMMA choisit</button>
+            </div>
+
+            ${seance ? `
+            <div style="background:rgba(255,255,255,.76);border:1px solid rgba(217,121,140,.14);border-radius:24px;padding:20px">
+                <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start">
+                    <div>
+                        <div style="font-size:11px;color:var(--acc);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Séance recommandée</div>
+                        <h3 style="font-family:'Cormorant Garamond',serif;font-size:28px;margin:5px 0">${seance.nom}</h3>
+                    </div>
+                    <span style="white-space:nowrap;background:var(--bg2);color:var(--acc);padding:7px 11px;border-radius:999px;font-weight:800;font-size:12px">${seance.duree} min</span>
+                </div>
+                <div style="color:var(--mut);font-size:13px;line-height:1.55;margin:5px 0 17px">${contexte.raison}</div>
+                <div style="font-size:12px;margin-bottom:16px">${seance.exercices?.length || 0} mouvements · guidée pas à pas · pauses incluses</div>
+                <button class="btn bd" onclick="commencerSeance('${seance.id}')" style="width:100%;justify-content:center;padding:13px">▶ Commencer ma séance</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                    <button class="btn bg bsm" onclick="choisirSeancePlusCourteGlow()">Plus courte</button>
+                    <span style="font-size:12px;color:var(--mut);align-self:center">ou change l’objectif juste dessous</span>
+                </div>
+            </div>` : `<div class="empty">Aucune séance trouvée pour ce choix.</div>`}
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:14px">
+            <div style="background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.9);border-radius:24px;padding:20px;box-shadow:var(--shadow)">
+                <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:800;margin-bottom:12px">Changer d’objectif</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">${objectifs.map(([id,label]) => `<button class="btn ${contexte.objectif===id?"bd":"bg"} bsm" onclick="setObjectifSportGlow('${id}')">${label}</button>`).join("")}</div>
+            </div>
+            <div style="background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.9);border-radius:24px;padding:20px;box-shadow:var(--shadow)">
+                <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:800">Cette semaine</div>
+                <div style="font-family:'Cormorant Garamond',serif;font-size:30px;margin-top:7px">${stats.nombre} séance${stats.nombre>1?"s":""} · ${stats.minutes} min</div>
+                <div style="font-size:12px;color:var(--mut);margin-top:4px">${stats.partielles ? `${stats.partielles} séance${stats.partielles>1?"s":""} courte${stats.partielles>1?"s":""} comptée${stats.partielles>1?"s":""} aussi. `:""}Chaque mouvement compte 🤍</div>
+            </div>
+        </div>
+    `;
+}
+
+function terminerExerciceSportGlow(){
+    if(!DB.glow?.entrainement) return;
+    DB.glow.entrainement.exercicesTermines = Number(DB.glow.entrainement.exercicesTermines || 0) + 1;
+    exerciceGlowSuivant();
+}
+
+function passerExerciceSportGlow(){
+    if(!DB.glow?.entrainement) return;
+    DB.glow.entrainement.exercicesPasses = Number(DB.glow.entrainement.exercicesPasses || 0) + 1;
+    exerciceGlowSuivant();
+}
+
+function adapterExerciceSportGlow(){
+    stopChronoGlow();
+    const entrainement = DB.glow?.entrainement;
+    const seance = getSeanceEnCoursGlow();
+    const reference = seance?.exercices?.[entrainement?.exerciceIndex];
+    const actuel = getExerciceGlow(reference?.exerciceId);
+    if(!entrainement || !seance || !actuel) return;
+
+    const deja = new Set(seance.exercices.map(item => item.exerciceId));
+    const alternative = (DB.glowExercices || []).find(item =>
+        item.id !== actuel.id &&
+        item.type === actuel.type &&
+        item.objectif?.some(obj => actuel.objectif?.includes(obj)) &&
+        Number(item.niveau || 1) <= Number(actuel.niveau || 1) &&
+        !deja.has(item.id)
+    );
+
+    if(!alternative){
+        toast("Je n’ai pas d’alternative plus douce : je passe ce mouvement 🤍");
+        passerExerciceSportGlow();
+        return;
+    }
+
+    seance.exercices[entrainement.exerciceIndex] = {exerciceId:alternative.id};
+    entrainement.adaptations = Number(entrainement.adaptations || 0) + 1;
+    entrainement.chrono = extraireSecondesExerciceGlow(alternative,entrainement.exerciceIndex);
+    entrainement.enPause = false;
+    entrainement.enRepos = false;
+    entrainement.phase = "exercice";
+    toast(`Je remplace par « ${alternative.nom} »`);
+    renderLecteurSeance();
+}
+
+function ouvrirChoixQuitterSeanceGlow(){
+    const cible = document.getElementById("glow-content");
+    if(!cible) return;
+    cible.insertAdjacentHTML("beforeend", `
+        <div id="quitterSportOverlay" style="position:fixed;inset:0;background:rgba(30,34,43,.32);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:18px">
+            <div style="background:white;border-radius:28px;padding:24px;width:min(520px,100%);box-shadow:0 24px 70px rgba(35,43,60,.25)">
+                <h3 style="font-family:'Cormorant Garamond',serif;font-size:29px;margin:0 0 7px">Tu veux t’arrêter ici ?</h3>
+                <p style="color:var(--mut);line-height:1.5;margin:0 0 18px">Ce que tu as déjà fait peut compter comme une séance courte.</p>
+                <button class="btn bd" onclick="enregistrerSeancePartielleGlow()" style="width:100%;justify-content:center;margin-bottom:8px">✓ Enregistrer ce que j’ai fait</button>
+                <button class="btn bg" onclick="document.getElementById('quitterSportOverlay').remove();renderLecteurSeance()" style="width:100%;justify-content:center;margin-bottom:8px">Reprendre ma séance</button>
+                <button class="btn bg" onclick="abandonnerSeanceGlow()" style="width:100%;justify-content:center;color:var(--mut)">Quitter sans enregistrer</button>
+            </div>
+        </div>`);
+}
+
+async function abandonnerSeanceGlow(){
+    stopChronoGlow();
+    DB.glow.entrainement.actif = false;
+    DB.glow.seanceGeneree = null;
+    await enregistrerPreferencesSportGlow();
+    renderGlowSport();
+}
+
+async function enregistrerSeancePartielleGlow(){
+    await validerFinSeanceGlow("partielle",true);
 }
    
    async function renderGlowModule(){
@@ -30093,31 +30367,23 @@ function renderFinSeanceGlow(){
                 ${seance.nom}
             </div>
 
-            <div style="
-                font-size:13px;
-                color:var(--mut);
-                margin-bottom:24px;
-            ">
+            <div style="font-size:13px;color:var(--mut);margin-bottom:22px">
                 ${seance.duree} minutes consacrées à toi ✨
             </div>
 
-            <button
-                class="btn bd"
-                onclick="validerFinSeanceGlow()"
-                style="
-                    width:100%;
-                    justify-content:center;
-                    padding:12px;
-                "
-            >
-                ✅ Enregistrer ma séance
-            </button>
+            <div style="font-size:13px;font-weight:800;margin-bottom:10px">Comment était la séance ?</div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:9px">
+                <button class="btn bg" onclick="validerFinSeanceGlow('facile')" style="justify-content:center">🌤️ Trop facile</button>
+                <button class="btn bd" onclick="validerFinSeanceGlow('parfait')" style="justify-content:center">✨ Parfaite</button>
+                <button class="btn bg" onclick="validerFinSeanceGlow('difficile')" style="justify-content:center">🌙 Difficile</button>
+                <button class="btn bg" onclick="validerFinSeanceGlow('douleur')" style="justify-content:center">🩹 Une douleur</button>
+            </div>
 
         </div>
     `;
 }
 
-async function validerFinSeanceGlow(){
+async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
 
     const seance = getSeanceEnCoursGlow();
 
@@ -30125,11 +30391,27 @@ async function validerFinSeanceGlow(){
 
     initialiserGlowDuJour();
 
+    const entrainement = DB.glow?.entrainement || {};
+    const minutesEcoulees = entrainement.demarreeA
+        ? Math.max(1,Math.round((Date.now()-Number(entrainement.demarreeA))/60000))
+        : Number(seance.duree || 0);
+    const minutesRetenues = partielle
+        ? Math.min(Number(seance.duree || minutesEcoulees),minutesEcoulees)
+        : Number(seance.duree || minutesEcoulees);
+    const ancienNiveau = Number(DB.glow.activite?.niveau || 1);
+    const niveau = feedback === "facile"
+        ? Math.min(3,ancienNiveau+1)
+        : (["difficile","douleur"].includes(feedback) ? Math.max(1,ancienNiveau-1) : ancienNiveau);
+
     DB.glow.activite = {
+        ...DB.glow.activite,
         objectif: seance.objectif,
-        minutes: seance.duree,
+        minutes: minutesRetenues,
         terminee: true,
-        seanceId: seance.id
+        seanceId: seance.id,
+        feedback,
+        partielle,
+        niveau
     };
 
     const entree = {
@@ -30139,9 +30421,17 @@ async function validerFinSeanceGlow(){
 
     seanceId: seance.id,
 
-    minutes: seance.duree,
+    minutes: minutesRetenues,
 
     terminee: true,
+
+    feedback,
+
+    partielle,
+
+    exercicesTermines: Number(entrainement.exercicesTermines || 0),
+
+    exercicesPasses: Number(entrainement.exercicesPasses || 0),
 
     exercices: (seance.exercices || []).map(exercice => ({
         exerciceId: exercice.exerciceId || exercice.id
@@ -30155,8 +30445,12 @@ DB.glow.historiqueSeances.push({
     date: DB.glow.date,
     objectif: seance.objectif,
     seanceId: seance.id,
-    duree: seance.duree,
-    score: calculGlowScore().total
+    duree: minutesRetenues,
+    score: calculGlowScore().total,
+    feedback,
+    partielle,
+    exercicesTermines: Number(entrainement.exercicesTermines || 0),
+    exercicesPasses: Number(entrainement.exercicesPasses || 0)
 });
 
     const indexExistant = DB.historiqueGlow.findIndex(item =>
@@ -30175,12 +30469,17 @@ DB.glow.historiqueSeances.push({
         exerciceIndex: 0
     };
 
-    await saveAll();
+    stopChronoGlow();
+    DB.glow.entrainement.actif = false;
+    DB.glow.seanceGeneree = null;
 
-    renderGlowModule();
+    await sauvegarderChampSeul("glow", JSON.stringify(DB.glow));
+    await sauvegarderChampSeul("historiqueGlow", JSON.stringify(DB.historiqueGlow));
+
+    renderGlowSport();
     renderGlowAccueil();
 
-    toast("✨ Séance enregistrée");
+    toast(partielle ? "✨ Ta séance courte compte aussi" : "✨ Séance enregistrée");
 }
 
 async function setEau(nb, page = "accueil"){
