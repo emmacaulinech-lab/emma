@@ -52,10 +52,10 @@ self.addEventListener("push", event => {
         body,
 
         icon:
-            "/emma/emma-icon.png?v=2",
+            "/emma/emma-icon.png?v=3",
 
         badge:
-            "/emma/emma-icon.png?v=2",
+            "/emma/emma-icon.png?v=3",
 
         tag:
             notification.tag ||
