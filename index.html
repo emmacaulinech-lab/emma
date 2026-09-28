@@ -46654,25 +46654,10 @@ function trouverAction(actionId){
   return null;
 }
 
-function assignerColonnesPlanning(items){
+// Les chevauchements restent dans une seule colonne, sans modifier les horaires.
+function trierPlanningTimeline(items){
   const toMin=t=>{ const[h,m]=t.split(':').map(Number); return h*60+m; };
-  const sorted=[...items].sort((a,b)=>toMin(a.heureDebut)-toMin(b.heureDebut));
-  const finsColonnes=[];
-  sorted.forEach(it=>{
-    let placed=false;
-    for(let c=0;c<finsColonnes.length;c++){
-      if(finsColonnes[c]<=toMin(it.heureDebut)){
-        it._col=c;
-        finsColonnes[c]=toMin(it.heureFin);
-        placed=true;
-        break;
-      }
-    }
-    if(!placed){ it._col=finsColonnes.length; finsColonnes.push(toMin(it.heureFin)); }
-  });
-  const maxCols=Math.max(1,finsColonnes.length);
-  sorted.forEach(it=>it._maxCols=maxCols);
-  return sorted;
+  return [...items].sort((a,b)=>toMin(a.heureDebut)-toMin(b.heureDebut));
 }
 
 function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
@@ -46688,7 +46673,7 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
   heureMin=Math.floor(heureMin/60)*60;
   heureMax=Math.ceil(heureMax/60)*60;
 
-  const planning=assignerColonnesPlanning(planningBrut);
+  const planning=trierPlanningTimeline(planningBrut);
   const reperesSet=new Set();
   for(let h=heureMin;h<=heureMax;h+=60) reperesSet.add(h);
   planning.forEach(p=>{ reperesSet.add(toMin(p.heureDebut)); reperesSet.add(toMin(p.heureFin)); });
@@ -46703,37 +46688,10 @@ function genererHtmlTimeline(planningBrut,dispos,faitMap,options={}){
     yMap[reperes[i]]=cumY;
     if(i<reperes.length-1) cumY+=Math.max(espaceMin,(reperes[i+1]-reperes[i])*pxParMin);
   }
-  const hauteurTotale=cumY+20;
-
-  const fondsDispo=dispos.map(d=>{
-    const top=yMap[toMin(d.debut)];
-    const hgt=yMap[toMin(d.fin)]-top;
-    const bg=d.type==='pro'?'rgba(37,99,235,.05)':'rgba(245,158,11,.05)';
-    return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg}"></div>`;
-  }).join('');
-
-   // ─────────────────────────────
-// LIGNES HORAIRES — APPLE STYLE
-// ─────────────────────────────
-
-const lignesHoraires = reperes
-    .filter(h => h % 60 === 0)
-    .map(h => `
-        <div style="
-            position:absolute;
-            top:${yMap[h]}px;
-            left:0;
-            right:0;
-            height:1px;
-            background:rgba(60,60,67,.07);
-            pointer-events:none;
-            z-index:1;
-        "></div>
-    `)
-    .join('');
+  let hauteurTotale=cumY+20;
 
   const gouttiere=1;
-  const blocsHtml=planning.map(p=>{
+  let blocsHtml=planning.map(p=>{
 
      const estSelectionne =
     blocsSelectionnesJournal.has(p.id);
@@ -46904,11 +46862,9 @@ const bg =
         ? "#ffffff"
         : couleurPastel(couleur);
     const top=yMap[toMin(p.heureDebut)];
-    const hgt=yMap[toMin(p.heureFin)]-top;
     const expanded=clickable&&window['_blocOpen_'+p.id];
     const faitBloc=!!faitMap[p.id];
-    const largeurPct=100/p._maxCols;
-    const leftPct=p._col*largeurPct;
+
     const estDecisionRepas =
     p.actionRepas === "dejeuner" ||
     p.actionRepas === "diner";
@@ -46932,9 +46888,10 @@ const checkHandler =
 return`<div ${clickHandlers} style="
     position:absolute;
     top:${top + 2}px;
-    left:calc(${leftPct}% + ${gouttiere + 2}px);
-    width:calc(${largeurPct}% - ${(gouttiere + 2) * 2}px);
-    height:${Math.max(hgt - 4, 24)}px;
+    left:${gouttiere + 2}px;
+    width:calc(100% - ${(gouttiere + 2) * 2}px);
+    height:auto;
+    min-height:48px;
 
     background:${bg};
     border:1px solid ${couleur}55;
@@ -47014,12 +46971,12 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
 
     <div style="
         font-weight:650;
-        font-size:12px;
+        font-size:11px;
+        line-height:1.35;
         letter-spacing:-0.15px;
         color:#1d1d1f;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
+        white-space:normal;
+        overflow-wrap:anywhere;
     ">
         ${iconeBloc}
         ${nomBloc}
@@ -47031,9 +46988,8 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         font-size:10px;
         font-weight:600;
         color:#6e6e73;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
+        white-space:normal;
+        overflow-wrap:anywhere;
     ">
         ${p.repas.nom}
     </div>
@@ -47044,7 +47000,7 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         font-size:9.5px;
         font-weight:500;
         color:#6e6e73;
-        white-space:nowrap;
+        white-space:normal;
     ">
         ${p.heureDebut} – ${p.heureFin}
         ${p.realiseA && p.heurePrevueDebut
@@ -47255,6 +47211,87 @@ style="
 ` : ''}
     </div>`;
   }).join('');
+
+  // Mesurer les cartes à leur largeur réelle : les noms et les boutons ouverts
+  // agrandissent la hauteur au lieu d'être coupés ou de masquer la tâche suivante.
+  const conteneur=document.getElementById(clickable?'planning-timeline':'hub-planning-mini');
+  if(conteneur && !conteneur._observateurLargeurEmma && typeof ResizeObserver!=='undefined'){
+    let largeurPrecedente=conteneur.getBoundingClientRect().width;
+    conteneur._observateurLargeurEmma=new ResizeObserver(()=>{
+      const largeur=conteneur.getBoundingClientRect().width;
+      if(largeur>0 && Math.abs(largeur-largeurPrecedente)>1){
+        largeurPrecedente=largeur;
+        if(clickable) renderPlanningTimeline(); else renderHubPlanningMini();
+      }
+    });
+    conteneur._observateurLargeurEmma.observe(conteneur);
+  }
+  const largeurConteneur=conteneur?.getBoundingClientRect().width || Math.max(240,window.innerWidth-40);
+  const mesure=document.createElement('div');
+  mesure.style.cssText=`position:fixed;left:-10000px;top:0;visibility:hidden;pointer-events:none;width:${Math.max(120,largeurConteneur-60)}px;`;
+  mesure.innerHTML=blocsHtml;
+  document.body.appendChild(mesure);
+  const cartes=[...mesure.children];
+  const hauteurs=cartes.map(c=>Math.ceil(c.getBoundingClientRect().height)+6);
+  const groupes=new Map();
+  planning.forEach((p,i)=>{
+    const debut=toMin(p.heureDebut);
+    if(!groupes.has(debut)) groupes.set(debut,[]);
+    groupes.get(debut).push(i);
+  });
+  cumY=0;
+  reperes.forEach((h,i)=>{
+    yMap[h]=cumY;
+    const hauteurCartes=(groupes.get(h)||[]).reduce((total,index)=>total+hauteurs[index],0);
+    const intervalle=i<reperes.length-1 ? (reperes[i+1]-h)*pxParMin : 0;
+    cumY+=Math.max(i<reperes.length-1?espaceMin:0,intervalle,hauteurCartes);
+  });
+  const debuts=[...groupes.keys()];
+  debuts.forEach((debut,g)=>{
+    let top=yMap[debut]+2;
+    const indices=groupes.get(debut);
+    indices.forEach((index,j)=>{
+      const carte=cartes[index];
+      const finVisible=Math.min(toMin(planning[index].heureFin),debuts[g+1]??Infinity);
+      const finY=yMap[finVisible]??top;
+      // Le dernier bloc conserve la durée visuelle disponible jusqu'au suivant.
+      const hauteur=j===indices.length-1 ? Math.max(hauteurs[index]-6,finY-top-2) : hauteurs[index]-6;
+      carte.style.top=`${top}px`;
+      carte.style.minHeight=`${hauteur}px`;
+      top+=hauteur+6;
+    });
+  });
+  blocsHtml=mesure.innerHTML;
+  mesure.remove();
+  hauteurTotale=cumY+20;
+
+  const fondsDispo=dispos.map(d=>{
+    const top=yMap[toMin(d.debut)];
+    const hgt=yMap[toMin(d.fin)]-top;
+    const bg=d.type==='pro'?'rgba(37,99,235,.05)':'rgba(245,158,11,.05)';
+    return`<div style="position:absolute;top:${top}px;left:0;right:0;height:${hgt}px;background:${bg}"></div>`;
+  }).join('');
+
+   // ─────────────────────────────
+// LIGNES HORAIRES — APPLE STYLE
+// ─────────────────────────────
+
+const lignesHoraires = reperes
+    .filter(h => h % 60 === 0)
+    .map(h => `
+        <div style="
+            position:absolute;
+            top:${yMap[h]}px;
+            left:0;
+            right:0;
+            height:1px;
+            background:rgba(60,60,67,.07);
+            pointer-events:none;
+            z-index:1;
+        "></div>
+    `)
+    .join('');
+
 
  if(clickable){
     window._timelineYMap=yMap;
