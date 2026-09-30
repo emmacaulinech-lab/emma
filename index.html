@@ -4200,6 +4200,9 @@ button.emma-card-row{
 #module-formations .f-student-avatar{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:13px;color:var(--acc);background:var(--bg2);font-weight:700}
 #module-formations .f-student-summary{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;overflow-wrap:anywhere}
 #module-formations .f-student-summary>strong{font-size:14px}
+#module-formations .f-student-session{display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;font-size:11px;color:var(--mut)}
+#module-formations .f-student-session strong{color:var(--txt,var(--ios-text));font-weight:650}
+#module-formations .f-student-session .f-session-chip{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:var(--bg2);color:var(--acc);font-size:10px;font-weight:700}
 #module-formations .f-current-step{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}
 #module-formations .f-next-action{font-size:12px;line-height:1.5;color:var(--acc)}
 #module-formations .f-is-waiting{color:#926320}
@@ -19322,10 +19325,10 @@ function renderFEtudiantes(){
   const session=sessions.find(s=>s.cle===fNavigationEtudiantes.session);
   if(!session) fNavigationEtudiantes.session=null;
   const esc=echapperFormation;
-  const titre=e ? nomEtudianteFormation(e) : session ? getLabelFormation(session.formation)||'Session' : 'Sessions de formation';
+  const titre=e ? nomEtudianteFormation(e) : session ? getLabelFormation(session.formation)||'Session' : 'Suivi des élèves';
   const sousTitre=e ? libelleDatesSessionFormation(session)
     : session ? `${libelleDatesSessionFormation(session)} · ${session.etudiantes.length} élève${session.etudiantes.length>1?'s':''}${session.lieu?' · '+session.lieu:''}`
-    : `${sessions.length} session${sessions.length>1?'s':''} · ${DB.formations.etudiantes.length} élève${DB.formations.etudiantes.length>1?'s':''}`;
+    : `${DB.formations.etudiantes.length} élève${DB.formations.etudiantes.length>1?'s':''} · ce qu’il reste à faire, dossier par dossier`;
   let html=`<div class="f-sessions-toolbar">
     <div><h2 id="f-navigation-title" tabindex="-1">${esc(titre)}</h2><p>${esc(sousTitre)}</p></div>
     <div class="f-sessions-actions">
@@ -19359,20 +19362,31 @@ function renderFEtudiantes(){
   }else if(!sessions.length){
     html+='<div class="empty">Aucune session pour le moment. Ajoute une élève ou importe ton planning.</div>';
   }else{
-    for(const [groupe,label] of [[0,'En cours'],[1,'À venir'],[2,'Sessions passées'],[3,'Dates à compléter']]){
-      const selection=sessions.filter(s=>s.groupe===groupe);
-      if(!selection.length) continue;
-      html+=`<section class="f-session-section"><h3>${label}</h3><div class="f-session-grid">${selection.map(s=>{
-        const terminees=s.etudiantes.filter(e=>getProchaineActionFormation(e).type==='termine').length;
-        return `<button type="button" class="f-session-card" data-session="${esc(encodeURIComponent(s.cle))}" onclick="ouvrirSessionFormation(decodeURIComponent(this.dataset.session))">
-          <span class="f-session-top"><span>${s.etudiantes.length} élève${s.etudiantes.length>1?'s':''}</span><span aria-hidden="true">↗</span></span>
-          <strong>${esc(getLabelFormation(s.formation)||'Formation à préciser')}</strong>
-          <span class="f-session-dates">${esc(libelleDatesSessionFormation(s))}</span>
-          ${s.lieu?`<span class="f-session-location">${esc(s.lieu)}</span>`:''}
-          <span class="f-session-footer">${terminees ? `${terminees} dossier${terminees>1?'s':''} terminé${terminees>1?'s':''}` : 'Voir les élèves et leur prochaine action'}<span aria-hidden="true">›</span></span>
-        </button>`;
-      }).join('')}</div></section>`;
-    }
+    const ordreType={action:0,attente:1,termine:2};
+    const lignes=DB.formations.etudiantes.map(e=>{
+      const s=informationsSessionFormation(e);
+      const sessionComplete=sessions.find(x=>x.cle===s.cle) || s;
+      const prochaine=getProchaineActionFormation(e);
+      const progression=getProgressionFormation(e);
+      return {e,s:sessionComplete,prochaine,progression};
+    }).sort((a,b)=>(ordreType[a.prochaine.type]??1)-(ordreType[b.prochaine.type]??1)
+      || (a.s.groupe??3)-(b.s.groupe??3)
+      || (a.s.debut||'9999').localeCompare(b.s.debut||'9999')
+      || nomEtudianteFormation(a.e).localeCompare(nomEtudianteFormation(b.e),'fr',{sensitivity:'base'}));
+    html+=`<div class="f-student-list">${lignes.map(({e,s,prochaine,progression})=>{
+      const prefixe=prochaine.type==='termine' ? 'Dossier terminé' : prochaine.type==='attente' ? 'En attente' : 'À faire maintenant';
+      const formation=getLabelFormation(s.formation)||'Formation à préciser';
+      return `<button type="button" class="f-student-row" data-eleve="${esc(encodeURIComponent(e.id))}" onclick="openEtudiante(decodeURIComponent(this.dataset.eleve))">
+        <span class="f-student-avatar" aria-hidden="true">${esc(nomEtudianteFormation(e).slice(0,1).toLocaleUpperCase('fr'))}</span>
+        <span class="f-student-summary"><strong>${esc(nomEtudianteFormation(e))}</strong>
+          <span class="f-student-session"><span class="f-session-chip">${esc(formation)}</span><strong>${esc(libelleDatesSessionFormation(s))}</strong>${s.lieu?`<span>${esc(s.lieu)}</span>`:''}</span>
+          <span class="f-current-step">${esc(prochaine.etape)}</span>
+          <span class="f-next-action ${prochaine.type==='attente'?'f-is-waiting':''}">${esc(prefixe)}${prochaine.type==='termine'?'':esc(' : '+prochaine.label.replace(/^En attente : /,''))}</span>
+        </span>
+        <span class="f-student-progress"><strong>${progression.pct} %</strong><span>${progression.faits}/${progression.total} étapes</span><progress max="100" value="${progression.pct}" aria-label="Progression de ${esc(nomEtudianteFormation(e))}"></progress></span>
+        <span aria-hidden="true">›</span>
+      </button>`;
+    }).join('')}</div>`;
   }
   conteneur.innerHTML=html;
   // Conserver le résultat ou la lecture en cours de l'import planning.
