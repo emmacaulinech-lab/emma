@@ -10294,8 +10294,53 @@ function renderAuto(){
 // ═══════════════════════════════════════
 // RÉCAP
 // ═══════════════════════════════════════
+function resultatBrutMoisRecap(mois){
+  const chargesLisseesActives=(DB.chargesLissees||[]).filter(c=>c.actif!==false&&c.moisDebut<=mois);
+  const nomsLisses=new Set(chargesLisseesActives.map(c=>normalizeNom(c.nom)));
+  const lissageMensuel=chargesLisseesActives.reduce((s,c)=>
+    s-Math.abs(Number(c.montantCycle||0))/Math.max(1,Number(c.periodiciteMois||1)),0
+  );
+  const salaireLisseMensuel=mensualiteDetteSalairePourMois(mois);
+  const fixRows=DB.fixes.filter(f=>
+    f.mois===mois&&
+    !nomsLisses.has(normalizeNom(f.nom))&&
+    !(salaireLisseMensuel<0&&normalizeNom(f.nom)==='salaire emma')
+  );
+  const fixReel=fixRows.reduce((s,f)=>s+(f.montant||0),0);
+  const varReel=DB.variables.filter(f=>
+    f.mois===mois&&f.nom!=='ACHAT'&&f.nom!=='REDEVANCE'&&f.nom!=='TVA'
+  ).reduce((s,f)=>s+(f.montant||0),0);
+  const redevManuelle=DB.variables.find(f=>f.mois===mois&&f.nom==='REDEVANCE'&&(f.banqueIds||[]).length);
+  const tvaManuelle=DB.variables.find(f=>f.mois===mois&&f.nom==='TVA'&&(f.banqueIds||[]).length);
+  const redevReel=redevManuelle?redevManuelle.montant:DB.banque.filter(b=>
+    inM(b.date,mois)&&b.nom==='REDEVANCE'&&b.montant<0
+  ).reduce((s,b)=>s+b.montant,0);
+  const tvaReel=tvaManuelle?tvaManuelle.montant:DB.banque.filter(b=>
+    inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0
+  ).reduce((s,b)=>s+b.montant,0);
+  const achats=DB.banque.filter(t=>
+    inM(t.date,mois)&&t.categorie==='ACHATS'&&t.montant<0
+  ).reduce((s,t)=>s+t.montant,0);
+  const encaissements=DB.caisse.filter(t=>
+    inM(t.date,mois)&&t.montant>0&&['VIR','CHQ','PLANITY'].includes(t.reglement)
+  ).reduce((s,t)=>s+t.montant,0);
+  const espDeposees=DB.caisse.filter(t=>
+    inM(t.date,mois)&&t.reglement==='ESP'&&t.montant>0&&t.depose===true
+  ).reduce((s,t)=>s+t.montant,0);
+  return encaissements+espDeposees+fixReel+varReel+lissageMensuel+
+    salaireLisseMensuel+redevReel+tvaReel+achats;
+}
+
 function renderRecap(){
   const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date)),...(DB.chargesLissees||[]).map(c=>c.moisDebut).filter(Boolean)])].sort().reverse();
+  const reportsDeficit=new Map();
+  const resultatsAvecReport=new Map();
+  [...allMois].sort().forEach(mois=>{
+    const resultatPrecedent=resultatsAvecReport.get(prevMois(mois))||0;
+    const report=resultatPrecedent<0?resultatPrecedent:0;
+    reportsDeficit.set(mois,report);
+    resultatsAvecReport.set(mois,resultatBrutMoisRecap(mois)+report);
+  });
   let html='';
 
   for(const mois of allMois){
@@ -10478,6 +10523,8 @@ function renderRecap(){
     const achatsTotReel=achatsW.reduce((s,v)=>s+v,0);
     const chargesW=weeks.map((wk,i)=>fixVarW[i]+lissageW[i]+salaireLisseW[i]+redevTvaW[i]+achatsW[i]);
     const chargesTot=fixVarReel+lissageMensuel+salaireLisseMensuel+redevTvaReel+achatsTotReel;
+    const reportDeficit=reportsDeficit.get(mois)||0;
+    const reportDeficitW=weeks.map(()=>reportDeficit/nw);
 
     html+=row('📋 Ch. fixes+var. réelles',fixVarW,fixVarReel,
       v=>v<0?'var(--dep)':'var(--mut)',
@@ -10512,6 +10559,13 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     </tr>`;
 
     html+=`<tr><td colspan="${nw+2}" style="background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:6px 10px;font-weight:700;border-bottom:1px solid var(--brd)">TRÉSORERIE</td></tr>`;
+
+    if(reportDeficit<0){
+      html+=row(`↩️ Report déficit ${mf(prevMois(mois))}`,reportDeficitW,reportDeficit,
+        v=>v<0?'var(--dep)':'var(--mut)',
+        (i,v)=>i>=0?`Déficit du mois précédent réparti sur ${nw} semaines`:`Résultat net négatif reporté depuis ${mf(prevMois(mois))}`
+      );
+    }
 
     
 
@@ -10602,7 +10656,7 @@ html+=row('💰 Total redevance due',redevTotW,redevTotTotal,
     const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);   
     const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);   
     const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);   
-    return vir+chq+plan+chargesW[i]+espDeposeesW[i]; });
+    return vir+chq+plan+chargesW[i]+espDeposeesW[i]+reportDeficitW[i]; });
     const resultatTot=resultatW.reduce((s,v)=>s+v,0);
     html+=`<tr style="background:${resultatTot>=0?'var(--rec2)':'var(--dep2)'}">
       <td style="font-weight:700;padding:8px 10px;color:${resultatTot>=0?'var(--rec)':'var(--dep)'}">${resultatTot>=0?'✅':'⚠️'} RÉSULTAT NET</td>
