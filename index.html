@@ -4183,6 +4183,12 @@ button.emma-card-row{
 #module-formations .f-sessions-actions label{cursor:pointer}
 #module-formations .f-session-section{margin:24px 0}
 #module-formations .f-session-section h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--mut);margin:0 0 10px}
+#module-formations .f-session-students{margin:0 0 24px;padding:14px;border:1px solid var(--brd);border-radius:20px;background:color-mix(in srgb,var(--ios-surface,white) 82%,transparent);box-shadow:var(--shadow)}
+#module-formations .f-session-students-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;width:100%;padding:2px 3px 13px;margin:0 0 12px;border:0;border-bottom:1px solid var(--brd);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+#module-formations .f-session-students-header>span:first-child{display:flex;flex-direction:column;gap:5px;min-width:0}
+#module-formations .f-session-students-header strong{font-size:16px;color:var(--acc);overflow-wrap:anywhere}
+#module-formations .f-session-students-meta{display:flex;flex-wrap:wrap;gap:5px 10px;font-size:11px;color:var(--mut)}
+#module-formations .f-session-students-count{flex:none;padding:5px 9px;border-radius:999px;background:var(--bg2);color:var(--acc);font-size:10px;font-weight:750;white-space:nowrap}
 #module-formations .f-session-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}
 #module-formations .f-session-card,#module-formations .f-student-row{font:inherit;text-align:left;cursor:pointer;color:var(--txt,var(--ios-text));border:1px solid var(--brd);background:var(--ios-surface,white);border-radius:18px;box-shadow:var(--shadow);transition:transform .15s,border-color .15s;width:100%;min-width:0}
 #module-formations .f-session-card{display:flex;flex-direction:column;gap:9px;padding:18px}
@@ -19417,30 +19423,33 @@ function renderFEtudiantes(){
     html+='<div class="empty">Aucune session pour le moment. Ajoute une élève ou importe ton planning.</div>';
   }else{
     const ordreType={action:0,attente:1,termine:2};
-    const lignes=DB.formations.etudiantes.map(e=>{
-      const s=informationsSessionFormation(e);
-      const sessionComplete=sessions.find(x=>x.cle===s.cle) || s;
-      const prochaine=getProchaineActionFormation(e);
-      const progression=getProgressionFormation(e);
-      return {e,s:sessionComplete,prochaine,progression};
-    }).sort((a,b)=>(ordreType[a.prochaine.type]??1)-(ordreType[b.prochaine.type]??1)
-      || (a.s.groupe??3)-(b.s.groupe??3)
-      || (a.s.debut||'9999').localeCompare(b.s.debut||'9999')
-      || nomEtudianteFormation(a.e).localeCompare(nomEtudianteFormation(b.e),'fr',{sensitivity:'base'}));
-    html+=`<div class="f-student-list">${lignes.map(({e,s,prochaine,progression})=>{
-      const prefixe=prochaine.type==='termine' ? 'Dossier terminé' : prochaine.type==='attente' ? 'En attente' : 'À faire maintenant';
+    html+=sessions.map(s=>{
+      const lignes=s.etudiantes.map(e=>({
+        e,
+        prochaine:getProchaineActionFormation(e),
+        progression:getProgressionFormation(e)
+      })).sort((a,b)=>(ordreType[a.prochaine.type]??1)-(ordreType[b.prochaine.type]??1)
+        || nomEtudianteFormation(a.e).localeCompare(nomEtudianteFormation(b.e),'fr',{sensitivity:'base'}));
       const formation=getLabelFormation(s.formation)||'Formation à préciser';
-      return `<button type="button" class="f-student-row" data-eleve="${esc(encodeURIComponent(e.id))}" onclick="openEtudiante(decodeURIComponent(this.dataset.eleve))">
-        <span class="f-student-avatar" aria-hidden="true">${esc(nomEtudianteFormation(e).slice(0,1).toLocaleUpperCase('fr'))}</span>
-        <span class="f-student-summary"><strong>${esc(nomEtudianteFormation(e))}</strong>
-          <span class="f-student-session"><span class="f-session-chip">${esc(formation)}</span><strong>${esc(libelleDatesSessionFormation(s))}</strong>${s.lieu?`<span>${esc(s.lieu)}</span>`:''}</span>
-          <span class="f-current-step">${esc(prochaine.etape)}</span>
-          <span class="f-next-action ${prochaine.type==='attente'?'f-is-waiting':''}">${esc(prefixe)}${prochaine.type==='termine'?'':esc(' : '+prochaine.label.replace(/^En attente : /,''))}</span>
-        </span>
-        <span class="f-student-progress"><strong>${progression.pct} %</strong><span>${progression.faits}/${progression.total} étapes</span><progress max="100" value="${progression.pct}" aria-label="Progression de ${esc(nomEtudianteFormation(e))}"></progress></span>
-        <span aria-hidden="true">›</span>
-      </button>`;
-    }).join('')}</div>`;
+      return `<section class="f-session-students">
+        <button type="button" class="f-session-students-header" data-session="${esc(encodeURIComponent(s.cle))}" onclick="ouvrirSessionFormation(decodeURIComponent(this.dataset.session))">
+          <span><strong>${esc(formation)}</strong><span class="f-session-students-meta"><span>${esc(libelleDatesSessionFormation(s))}</span>${s.lieu?`<span>📍 ${esc(s.lieu)}</span>`:''}</span></span>
+          <span class="f-session-students-count">${s.etudiantes.length} élève${s.etudiantes.length>1?'s':''}</span>
+        </button>
+        <div class="f-student-list">${lignes.map(({e,prochaine,progression})=>{
+          const prefixe=prochaine.type==='termine' ? 'Dossier terminé' : prochaine.type==='attente' ? 'En attente' : 'À faire maintenant';
+          return `<button type="button" class="f-student-row" data-eleve="${esc(encodeURIComponent(e.id))}" onclick="openEtudiante(decodeURIComponent(this.dataset.eleve))">
+            <span class="f-student-avatar" aria-hidden="true">${esc(nomEtudianteFormation(e).slice(0,1).toLocaleUpperCase('fr'))}</span>
+            <span class="f-student-summary"><strong>${esc(nomEtudianteFormation(e))}</strong>
+              <span class="f-current-step">${esc(prochaine.etape)}</span>
+              <span class="f-next-action ${prochaine.type==='attente'?'f-is-waiting':''}">${esc(prefixe)}${prochaine.type==='termine'?'':esc(' : '+prochaine.label.replace(/^En attente : /,''))}</span>
+            </span>
+            <span class="f-student-progress"><strong>${progression.pct} %</strong><span>${progression.faits}/${progression.total} étapes</span><progress max="100" value="${progression.pct}" aria-label="Progression de ${esc(nomEtudianteFormation(e))}"></progress></span>
+            <span aria-hidden="true">›</span>
+          </button>`;
+        }).join('')}</div>
+      </section>`;
+    }).join('');
   }
   conteneur.innerHTML=html;
   // Conserver le résultat ou la lecture en cours de l'import planning.
