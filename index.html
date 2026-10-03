@@ -50534,13 +50534,8 @@ async function togglePlanningFait(planningId){
     renderMaisonModule();
   }
 
-  if(termineeEnAvance){
-    ouvrirSuggestionCreneauLibereEmma(
-      item,
-      ancienDebut,
-      ancienFin
-    );
-  }
+  // Une tâche terminée en avance libère simplement le créneau :
+  // aucune popup ni nouvelle suggestion ne vient interrompre Emma.
 }
 
 function repositionnerTachesFaitesAvantMaintenant(date,minuteActuelle){
