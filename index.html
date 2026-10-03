@@ -8863,31 +8863,20 @@ if(nomChamp === 'agendaImporte'){
   }
 }
 
-async function sauvegarderComptabiliteCompleteEmma(){
-  if(!userRef) return false;
-  try{
-    securiserLiensChargesParMoisEmma();
-    const updatedAt=new Date().toISOString();
-    await userRef.collection('modules').doc('comptabilite').set({
-      caisse:JSON.stringify(DB.caisse||[]),
-      banque:JSON.stringify(DB.banque||[]),
-      fixes:JSON.stringify(DB.fixes||[]),
-      chargesLissees:JSON.stringify(DB.chargesLissees||[]),
-      semainesPerso:JSON.stringify(DB.semainesPerso||[]),
-      variables:JSON.stringify(DB.variables||[]),
-      prestations:JSON.stringify(DB.prestations||[]),
-      salaires:JSON.stringify(DB.salaires||[]),
-      salairePlan:JSON.stringify(DB.salairePlan||{}),
-      conseilsFinanciersIgnores:JSON.stringify(DB.conseilsFinanciersIgnores||[]),
-      apprentissageRapprochements:JSON.stringify(DB.apprentissageRapprochements||[]),
-      updatedAt
-    },{merge:true});
-    return true;
-  }catch(e){
-    console.error('Erreur sauvegarde Comptabilité :',e);
-    toast('⚠️ Erreur de sauvegarde Comptabilité: '+e.message);
-    return false;
+async function sauvegarderChampsComptabiliteEmma(champs){
+  const correspondances={lissees:'chargesLissees'};
+  const autorises=new Set([
+    'caisse','banque','fixes','chargesLissees','semainesPerso','variables',
+    'prestations','salaires','salairePlan','conseilsFinanciersIgnores',
+    'apprentissageRapprochements'
+  ]);
+  const uniques=[...new Set((champs||[]).map(champ=>correspondances[champ]||champ))]
+    .filter(champ=>autorises.has(champ)&&champ in DB);
+  for(const champ of uniques){
+    const ok=await sauvegarderChampSeul(champ,JSON.stringify(DB[champ]));
+    if(ok===false) return false;
   }
+  return true;
 }
 
 async function sauvegarderPhotosJour(dateStr){
@@ -9069,8 +9058,9 @@ async function saveEntry_fb(col, entry) {
     'conseilsFinanciersIgnores','apprentissageRapprochements'
   ]);
   if(!champsCompta.has(champ)||!(champ in DB)){
-    await saveAll();
-    return entry;
+    console.error('Sauvegarde Comptabilité refusée pour un champ inconnu :',col);
+    toast('⚠️ Sauvegarde non configurée : '+col);
+    return false;
   }
   await sauvegarderChampSeul(champ,JSON.stringify(DB[champ]));
   return entry;
@@ -9423,7 +9413,10 @@ async function autoRapproch(){
   }
   const rapprochementsApprisModifies=await appliquerRapprochementsApprisEmma();
   if(changed||rapprochementsApprisModifies){
-    await sauvegarderComptabiliteCompleteEmma();
+    await sauvegarderChampsComptabiliteEmma([
+      'fixes','variables','chargesLissees','banque','caisse',
+      'apprentissageRapprochements'
+    ]);
   }
 }
 
@@ -11436,7 +11429,7 @@ async function validerImportHistoriqueNumbers(){
   const nouvelles=lignesImportHistoriquePreparees().filter(l=>!l.invalide&&!l.doublon);
   if(!nouvelles.length){toast('Aucune nouvelle ligne à importer');return;}
   nouvelles.forEach(item=>DB[item.cible].push(item.entry));
-  await sauvegarderComptabiliteCompleteEmma();
+  await sauvegarderChampsComptabiliteEmma(nouvelles.map(item=>item.cible));
   closeMo('mainModal');
   renderAll();
   toast(`✓ ${nouvelles.length} ligne${nouvelles.length>1?'s':''} historique${nouvelles.length>1?'s':''} ajoutée${nouvelles.length>1?'s':''}`);
@@ -12015,7 +12008,9 @@ async function importerMouvement(i){
     }
   }
 
-  await sauvegarderComptabiliteCompleteEmma();
+  await sauvegarderChampsComptabiliteEmma([
+    'banque','caisse','fixes','variables','chargesLissees'
+  ]);
   importedMouvements.splice(i,1);
   renderImportBanqueResult();
   renderAll();
@@ -12051,7 +12046,9 @@ async function importerTousMouvements(){
     }
     count++;
   }
-  await sauvegarderComptabiliteCompleteEmma();
+  await sauvegarderChampsComptabiliteEmma([
+    'banque','caisse','fixes','variables','chargesLissees'
+  ]);
   importedMouvements=[];
   renderImportBanqueResult();
   renderAll();
