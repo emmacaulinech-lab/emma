@@ -18298,6 +18298,8 @@ function getTachesWorkflowFormations(date){
 
         mail_candidature_envoye:10,
 
+        mail_validation_perso_envoye:10,
+
         convocation_creee:15,
 
         contrat_cree:20,
@@ -18305,6 +18307,16 @@ function getTachesWorkflowFormations(date){
         dossier_contractuel_envoye:10,
 
         kit_prepare:30,
+
+        programme_prepare:10,
+
+        cgv_preparees:5,
+
+        reglement_interieur_prepare:5,
+
+        hotels_prepares:5,
+
+        emargement_complet:10,
 
         documents_entree_prepares:20,
 
@@ -18873,6 +18885,7 @@ const CORRESPONDANCE_FORMATION_KIT={
   'coaching-prive-1j':{kits:['coaching1j'],auto:true},
   'coaching-prive-2j':{kits:['coaching2j'],auto:true},
   'coaching-prive-3j':{kits:['starter'],auto:true},
+  'lashup':{kits:['lashup'],auto:true},
   'lashlift-coreen':{kits:['lashlift'],auto:true},
   'browlift':{kits:['browlift'],auto:true}
 };
@@ -18883,7 +18896,8 @@ const LABELS_TYPE_FORMATION={
   'lashlift':'Lash Lift Coréen',
   'perfectionnement-1j':'Perfectionnement 1 Jour',
   'debutant-5j':'DEBUTANT (5 jours)',
-  'debutant-express-3j':'DEBUTANT EXPRESS (3 jours)'
+  'debutant-express-3j':'DEBUTANT EXPRESS (3 jours)',
+  'lashup':"Lash Up'"
 };
 
 function normaliserTypeFormation(formationRaw, dateDebut, dateFin){
@@ -18894,6 +18908,10 @@ function normaliserTypeFormation(formationRaw, dateDebut, dateFin){
     : 1;
 
   // Formations clairement identifiées par le texte
+  if(txt.includes('lash up') || txt.includes('lashup')) {
+    return 'lashup';
+  }
+
   if(txt.includes('lashlift') || txt.includes('lash lift')) {
     return 'lashlift-coreen';
   }
@@ -18936,14 +18954,16 @@ function normaliserTypeFormation(formationRaw, dateDebut, dateFin){
   return null;
 }
 
-function construireKitsSelonFormation(typeNormalise){
+function construireKitsSelonFormation(typeNormalise,financement='perso'){
   const correspondance=CORRESPONDANCE_FORMATION_KIT[typeNormalise];
   if(!correspondance) return construireKits(['starter'],null); // fallback si type inconnu
 
   if(correspondance.auto){
     return construireKits(correspondance.kits,null);
   }
-  // Type "choix" (comme DEBUTANT) — on prend la première option par défaut, à ajuster ensuite dans la fiche
+  // En CPF, un choix doit toujours être confirmé manuellement : aucune option précochée.
+  if(financement==='cpf') return [];
+  // En financement personnel, le kit offert par défaut reste proposé.
   return construireKits(correspondance.choix[0],null);
 }
    
@@ -19162,7 +19182,8 @@ numeroCPF: (e.numeroCPF || '').toString().trim(),
     // KITS
     kits:
       construireKitsSelonFormation(
-        typeNormalise
+        typeNormalise,
+        financement
       ),
 
     // WORKFLOW
@@ -19515,12 +19536,16 @@ function renderFicheEtudianteFormation(e,today){
         getProchaineActionFormation(e);
 
 
+      const etapesDossier=
+        getEtapesDossierFormation(e);
+
+
       // =========================
       // ÉTAPES
       // =========================
 
       const workflowHtml=
-        ETAPES_DOSSIER_FORMATION.map(etape=>{
+        etapesDossier.map(etape=>{
 
           const nbFaits=
             etape.items.filter(
@@ -20562,7 +20587,7 @@ function enregistrerSuiviFormation(etudianteId,itemId,checked){
   const operation=fileSuiviFormation.then(async()=>{
     const e=DB.formations?.etudiantes?.find(x=>x.id===etudianteId);
     if(!e) return false;
-    if(!ETAPES_DOSSIER_FORMATION.some(etape=>etape.items.some(item=>item.id===itemId))) return false;
+    if(!getEtapesDossierFormation(e).some(etape=>etape.items.some(item=>item.id===itemId))) return false;
     const ancien=e.suiviFormation;
     const presente=Object.prototype.hasOwnProperty.call(e,'suiviFormation');
     e.suiviFormation={...(ancien||{}),[itemId]:checked===true};
@@ -20652,6 +20677,10 @@ const FORMATIONS_PAR_FINANCEMENT = {
     {
       id:'coaching-prive-1j',
       label:'Coaching privé 1j'
+    },
+    {
+      id:'lashup',
+      label:"Lash Up'"
     },
     {
       id:'lashlift-coreen',
@@ -20754,6 +20783,14 @@ const DOCUMENTS_FORMATION = {
       contrat: null
     },
 
+    'lashup': {
+      jours: 1,
+      heures: 6,
+      bulletin: false,
+      convocation: null,
+      contrat: null
+    },
+
     'lashlift-coreen': {
       jours: 1,
       heures: 7,
@@ -20838,6 +20875,8 @@ function getDonneesDocumentsFormation(etudiante){
     dateFin: formatDate(
       etudiante?.dateFinFormation
     ),
+
+    lieu: etudiante?.lieu || '',
 
     jours: config.jours,
     heures: config.heures,
@@ -21213,16 +21252,57 @@ async function remplirConvocation5jCpf(pdfBytes, donnees){
 
 async function genererConvocationFormation(etudianteId){
   try{
-    const {donnees} = donneesDocumentEmma(etudianteId);
+    const {donnees,eleve} = donneesDocumentEmma(etudianteId);
 
     const nom = donnees?.modeleConvocation;
     const c = CALIBRAGE_CONVOCATIONS_EMMA[nom];
 
     if(!c){
-      toast(
-        '⚠ Aucune convocation disponible pour cette '
-        + 'formation et ce financement.'
-      );
+      if(eleve?.financement?.type!=='perso'){
+        toast('⚠ Aucune convocation disponible pour cette formation et ce financement.');
+        return;
+      }
+      const pdf=await PDFLib.PDFDocument.create();
+      const page=pdf.addPage([595,842]);
+      const normal=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+      const gras=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+      const rose=PDFLib.rgb(.78,.39,.48);
+      const infos=getInfosFormationPerso(eleve);
+      const lignes=[
+        ['CONVOCATION DE FORMATION',18,gras,rose],
+        ['',8,normal,rose],
+        ['LIMAGE SCHOOL',12,gras,PDFLib.rgb(.15,.15,.18)],
+        ['',8,normal,rose],
+        ['Eleve : '+(donnees.nomComplet||donnees.prenom),11,gras,PDFLib.rgb(.15,.15,.18)],
+        ['Formation : '+donnees.formationLabel,11,normal,PDFLib.rgb(.15,.15,.18)],
+        ['Dates : du '+donnees.dateDebut+' au '+donnees.dateFin,11,normal,PDFLib.rgb(.15,.15,.18)],
+        ['Lieu : '+(donnees.lieu||'LIMAGE SCHOOL'),11,normal,PDFLib.rgb(.15,.15,.18)],
+        ['',8,normal,rose],
+        ['HORAIRES',12,gras,rose],
+        [infos.horaires,11,normal,PDFLib.rgb(.15,.15,.18)],
+        ['',8,normal,rose],
+        ['PROGRAMME',12,gras,rose],
+        [infos.programme,11,normal,PDFLib.rgb(.15,.15,.18)],
+        ['',8,normal,rose],
+        ['MODELES',12,gras,rose],
+        [infos.modeles+' Si vous venez de loin ou ne pouvez pas amener vos modeles, nous pouvons nous charger de les trouver. Giulia organise leur planning.',11,normal,PDFLib.rgb(.15,.15,.18)],
+        ['',8,normal,rose],
+        ['INFORMATIONS PRATIQUES',12,gras,rose],
+        ['Votre kit pedagogique est offert. Le petit-dejeuner et le gouter sont inclus. Merci de prevoir votre dejeuner ; un refrigerateur et un micro-ondes sont disponibles.',11,normal,PDFLib.rgb(.15,.15,.18)]
+      ];
+      let y=780;
+      const largeur=485;
+      for(const [texte,taille,police,couleur] of lignes){
+        if(!texte){y-=taille;continue;}
+        const mots=texte.split(/\s+/);let ligne='';const sorties=[];
+        for(const mot of mots){const test=ligne?ligne+' '+mot:mot;if(police.widthOfTextAtSize(test,taille)>largeur&&ligne){sorties.push(ligne);ligne=mot;}else ligne=test;}
+        if(ligne) sorties.push(ligne);
+        sorties.forEach(sortie=>{page.drawText(sortie,{x:55,y,size:taille,font:police,color:couleur});y-=taille+5;});
+        y-=4;
+      }
+      const resultat=await pdf.save();
+      telechargerDocumentEmma(resultat,'Convocation-'+(donnees.nomComplet||donnees.prenom)+'-'+donnees.formationId+'.pdf');
+      if(await validerDocumentGenereFormation(etudianteId,'convocation_creee')) toast('✓ Convocation générée et suivi enregistré : '+donnees.prenom);
       return;
     }
 
@@ -22280,9 +22360,16 @@ function mettreAJourFormationsDisponibles(
 
 function suggererKitsFormation(){
   const type=document.getElementById('fe-type-formation')?.value;
+  const financement=document.getElementById('fe-fin-type')?.value;
   if(!type){toast('⚠ Choisis d\'abord un type de formation');return;}
   const correspondance=CORRESPONDANCE_FORMATION_KIT[type];
   if(!correspondance){toast('⚠ Type inconnu');return;}
+
+  if(financement==='cpf'&&!correspondance.auto){
+    document.querySelectorAll('.fe-kit-check').forEach(cb=>cb.checked=false);
+    toast('Choix CPF à confirmer : coche manuellement le kit choisi par l’élève');
+    return;
+  }
 
   const kitsACocher=correspondance.auto?correspondance.kits:correspondance.choix[0];
 
@@ -22296,216 +22383,96 @@ function suggererKitsFormation(){
     toast('✓ Kit(s) suggéré(s) coché(s)');
   }
 }
-const ETAPES_DOSSIER_FORMATION = [
-
-  {
-    id:'fiche',
-    titre:'Inscription',
-    items:[
-      {
-        id:'fiche_creee',
-        label:'Fiche élève créée',
-        type:'action'
-      }
-    ]
-  },
-
-  {
-    id:'contact',
-    titre:'Premier contact',
-    items:[
-      {
-        id:'appel_effectue',
-        label:'Appel de premier contact effectué',
-        action:'Appeler l’élève',
-        type:'action'
-      }
-    ]
-  },
-
-  {
-    id:'candidature',
-    titre:'Candidature',
-    items:[
-
-      {
-        id:'mail_candidature_envoye',
-        label:'Mail candidature envoyé',
-        action:'Envoyer le mail de candidature',
-        type:'action'
-      },
-
-      {
-        id:'bulletin_recu',
-        label:'Bulletin de candidature reçu',
-        type:'attente'
-      },
-
-      {
-        id:'grille_besoins_recue',
-        label:"Grille d'analyse des besoins reçue",
-        type:'attente'
-      }
-
-    ]
-  },
-
-  {
-    id:'contrat',
-    titre:'Dossier contractuel',
-    items:[
-
-      {
-        id:'convocation_creee',
-        label:'Convocation créée',
-        action:'Créer la convocation',
-        type:'action'
-      },
-
-      {
-        id:'contrat_cree',
-        label:'Contrat de formation créé',
-        action:'Créer le contrat de formation',
-        type:'action'
-      },
-
-      {
-        id:'dossier_contractuel_envoye',
-        label:'Dossier contractuel envoyé',
-        action:'Envoyer le dossier contractuel',
-        type:'action'
-      },
-
-      {
-        id:'kit_demande',
-        label:'Choix du kit demandé',
-        type:'action'
-      },
-
-      {
-        id:'rib_envoye',
-        label:'RIB envoyé',
-        type:'action'
-      }
-
-    ]
-  },
-
-  {
-    id:'validation',
-    titre:'Validation avant formation',
-    items:[
-
-      {
-        id:'piece_identite_recue',
-        label:"Pièce d'identité recto / verso reçue",
-        type:'attente'
-      },
-
-      {
-        id:'contrat_signe',
-        label:'Contrat signé reçu',
-        type:'attente'
-      },
-
-      {
-        id:'kit_choisi',
-        label:'Kit choisi',
-        type:'attente'
-      },
-
-      {
-        id:'kit_paye',
-        label:'Kit payé',
-        type:'attente'
-      },
-
-      {
-        id:'kit_prepare',
-        label:'Kit préparé',
-        action:'Préparer le kit',
-        type:'action'
-      }
-
-    ]
-  },
-
-  {
-    id:'formation',
-    titre:'Documents de formation',
-    items:[
-
-      {
-        id:'documents_entree_prepares',
-        label:"Documents d'entrée préparés",
-        action:"Préparer les documents d'entrée",
-        type:'action'
-      },
-
-      {
-        id:'qcm_prepare',
-        label:'QCM formation préparé',
-        action:'Préparer le QCM',
-        type:'action'
-      },
-
-      {
-        id:'documents_sortie_prepares',
-        label:'Documents de sortie préparés',
-        action:'Préparer les documents de sortie',
-        type:'action'
-      }
-
-    ]
-  },
-
-  {
-    id:'cloture',
-    titre:'Clôture',
-    items:[
-
-      {
-        id:'dossier_verifie',
-        label:'Dossier complet vérifié',
-        action:'Vérifier le dossier complet',
-        type:'action'
-      },
-
-      {
-        id:'documents_importes',
-        label:"Documents importés sur l'autre site",
-        action:'Importer les documents',
-        type:'action'
-      },
-
-      {
-        id:'dossier_cloture',
-        label:'Dossier élève clôturé',
-        action:'Clôturer le dossier',
-        type:'action'
-      }
-
-    ]
-  }
-
+const ETAPES_DOSSIER_FORMATION_CPF=[
+  {id:'inscription',titre:'1 · Inscription & candidature',items:[
+    {id:'fiche_creee',label:'Fiche élève créée',type:'action'},
+    {id:'appel_effectue',label:'Premier contact effectué',action:'Appeler l’élève',type:'action'},
+    {id:'mail_candidature_envoye',label:'Mail candidature envoyé',action:'Envoyer le mail de candidature',type:'action'},
+    {id:'bulletin_recu',label:'Bulletin de candidature reçu et signé',type:'attente'},
+    {id:'grille_besoins_recue',label:"Grille d’analyse des besoins reçue et signée",type:'attente'},
+    {id:'cni_recue',label:"CNI recto / verso reçue",type:'attente'}
+  ]},
+  {id:'contrat',titre:'2 · Dossier contractuel',items:[
+    {id:'convocation_creee',label:'Convocation créée',action:'Créer la convocation',type:'action'},
+    {id:'contrat_cree',label:'Contrat créé',action:'Créer le contrat',type:'action'},
+    {id:'programme_prepare',label:'Programme prêt',type:'action'},
+    {id:'cgv_preparees',label:'CGV prêtes',type:'action'},
+    {id:'reglement_interieur_prepare',label:'Règlement intérieur prêt',type:'action'},
+    {id:'rib_envoye',label:'RIB prêt à joindre',type:'action'},
+    {id:'hotels_prepares',label:'Liste des hôtels prête',type:'action'},
+    {id:'dossier_contractuel_envoye',label:'Mail contrat et documents envoyé',action:'Envoyer le dossier contractuel',type:'action'},
+    {id:'contrat_signe',label:'Contrat signé reçu',type:'attente'},
+    {id:'kit_demande',label:'Choix du kit demandé',type:'action'},
+    {id:'kit_choisi',label:'Kit choisi',type:'attente'},
+    {id:'kit_paye',label:'Kit payé',type:'attente'},
+    {id:'kit_prepare',label:'Kit préparé',action:'Préparer le kit',type:'action'}
+  ]},
+  {id:'pendant',titre:'3 · Pendant la formation',items:[
+    {id:'qcm_entree_limage',label:'QCM Entrée LIMAGE SCHOOL réalisé',type:'action'},
+    {id:'qcm_entree_laugier',label:'QCM Entrée LAUGIER réalisé',type:'action'},
+    {id:'qcm_connaissances',label:'QCM Connaissances réalisé',type:'action'}
+  ]},
+  {id:'fin',titre:'4 · Fin de formation',items:[
+    {id:'emargement_complet',label:'Émargement complet — toutes les signatures vérifiées',type:'action'},
+    {id:'qcm_sortie_laugier',label:'QCM Sortie LAUGIER réalisé',type:'action'},
+    {id:'satisfaction_eleve',label:'Satisfaction élève reçue',type:'attente'},
+    {id:'satisfaction_laugier',label:'Satisfaction LAUGIER en ligne complétée',type:'action'},
+    {id:'satisfaction_formatrice',label:'Satisfaction formatrice complétée',type:'action'},
+    {id:'grille_competences',label:'Grille de compétences complétée',type:'action'},
+    {id:'synopsis_complete',label:'Synopsis 3/5 jours complété',type:'action'},
+    {id:'jury_candidate_signe',label:'Jury — signature candidate',type:'attente'},
+    {id:'jury_emma_signe',label:'Jury — signature Emma',type:'action'},
+    {id:'jury_giulia_signe',label:'Jury — signature Giulia',type:'action'},
+    {id:'attestation_fin',label:'Attestation de fin de formation remise',type:'action'}
+  ]},
+  {id:'cloture',titre:'5 · Clôture',items:[
+    {id:'dossier_verifie',label:'Dossier complet vérifié',type:'action'},
+    {id:'documents_importes',label:"Documents importés sur l’autre site",type:'action'},
+    {id:'dossier_cloture',label:'Dossier élève clôturé',type:'action'}
+  ]}
 ];
+
+const ETAPES_DOSSIER_FORMATION_PERSO=[
+  {id:'inscription',titre:'1 · Inscription',items:[
+    {id:'fiche_creee',label:'Fiche élève créée',type:'action'},
+    {id:'convocation_creee',label:'Convocation créée',action:'Créer la convocation',type:'action'},
+    {id:'cgv_preparees',label:'CGV prêtes à joindre',type:'action'},
+    {id:'mail_validation_perso_envoye',label:'Mail de validation envoyé avec convocation + CGV',action:'Préparer le mail de validation',type:'action'}
+  ]},
+  {id:'kit',titre:'2 · Préparation',items:[
+    {id:'kit_prepare',label:'Kit offert préparé',action:'Préparer le kit',type:'action'}
+  ]},
+  {id:'termine',titre:'3 · Terminé',items:[
+    {id:'dossier_cloture',label:'Formation terminée',type:'action'}
+  ]}
+];
+
+const ETAPES_DOSSIER_FORMATION=[...ETAPES_DOSSIER_FORMATION_CPF,...ETAPES_DOSSIER_FORMATION_PERSO];
+
+function getEtapesDossierFormation(e){
+  return e?.financement?.type==='cpf' ? ETAPES_DOSSIER_FORMATION_CPF : ETAPES_DOSSIER_FORMATION_PERSO;
+}
 
 
 function creerSuiviFormationExistant(suivi={}){
-
-  const resultat={};
-
-  ETAPES_DOSSIER_FORMATION.forEach(etape=>{
-
-    etape.items.forEach(item=>{
-
-      resultat[item.id]=
-        suivi[item.id]===true;
-
-    });
-
-  });
-
+  // On conserve toutes les anciennes clés : aucune avancée historique n'est supprimée.
+  const resultat={...suivi};
+  ETAPES_DOSSIER_FORMATION.forEach(etape=>etape.items.forEach(item=>{
+    if(!(item.id in resultat)) resultat[item.id]=false;
+  }));
+  if(suivi.piece_identite_recue===true&&!('cni_recue' in suivi)) resultat.cni_recue=true;
+  if(suivi.documents_entree_prepares===true){
+    if(!('qcm_entree_limage' in suivi)) resultat.qcm_entree_limage=true;
+    if(!('qcm_entree_laugier' in suivi)) resultat.qcm_entree_laugier=true;
+    if(!('qcm_connaissances' in suivi)) resultat.qcm_connaissances=true;
+  }
+  if(suivi.documents_sortie_prepares===true){
+    ['emargement_complet','qcm_sortie_laugier','satisfaction_eleve','satisfaction_laugier','satisfaction_formatrice','grille_competences','synopsis_complete','jury_candidate_signe','jury_emma_signe','jury_giulia_signe','attestation_fin'].forEach(id=>{if(!(id in suivi)) resultat[id]=true;});
+  }
+  if(suivi.dossier_contractuel_envoye===true){
+    ['programme_prepare','cgv_preparees','reglement_interieur_prepare','hotels_prepares'].forEach(id=>{if(!(id in suivi)) resultat[id]=true;});
+    if(!('mail_validation_perso_envoye' in suivi)) resultat.mail_validation_perso_envoye=true;
+  }
   return resultat;
 }
 
@@ -22518,7 +22485,7 @@ function getProgressionFormation(e){
     );
 
   const items=
-    ETAPES_DOSSIER_FORMATION.flatMap(
+    getEtapesDossierFormation(e).flatMap(
       etape=>etape.items
     );
 
@@ -22555,249 +22522,18 @@ function getProchaineActionFormation(e){
     );
 
 
-  // ============================
-  // 1. PREMIER CONTACT
-  // ============================
-
-  if(!suivi.appel_effectue){
-
-    return {
-      etape:'Premier contact',
-      id:'appel_effectue',
-      type:'action',
-      label:'Appeler l’élève'
-    };
-
-  }
-
-
-  // ============================
-  // 2. ENVOI CANDIDATURE
-  // ============================
-
-  if(!suivi.mail_candidature_envoye){
-
-    return {
-      etape:'Candidature',
-      id:'mail_candidature_envoye',
-      type:'action',
-      label:'Envoyer le mail de candidature'
-    };
-
-  }
-
-
-  // ============================
-  // 3. ATTENTE DOCUMENTS
-  // ============================
-
-  const documentsCandidature=[];
-
-  if(!suivi.bulletin_recu){
-    documentsCandidature.push(
-      'bulletin de candidature'
+  for(const etape of getEtapesDossierFormation(e)){
+    const item=etape.items.find(element=>
+      !suivi[element.id] &&
+      !(element.id==='cni_recue'&&!suivi.dossier_contractuel_envoye)
     );
-  }
-
-  if(!suivi.grille_besoins_recue){
-    documentsCandidature.push(
-      "grille d'analyse des besoins"
-    );
-  }
-
-  if(documentsCandidature.length){
-
-    return {
-      etape:'Candidature',
-      id:null,
-      type:'attente',
-      label:
-        'En attente : ' +
-        documentsCandidature.join(' · ')
+    if(item) return {
+      etape:etape.titre,
+      id:item.id,
+      type:item.type||'action',
+      label:item.type==='attente' ? 'En attente : '+item.label : (item.action||item.label)
     };
-
   }
-
-
-  // ============================
-  // 4. CRÉATION DOCUMENTS
-  // ============================
-
-  if(!suivi.convocation_creee){
-
-    return {
-      etape:'Dossier contractuel',
-      id:'convocation_creee',
-      type:'action',
-      label:'Créer la convocation'
-    };
-
-  }
-
-  if(!suivi.contrat_cree){
-
-    return {
-      etape:'Dossier contractuel',
-      id:'contrat_cree',
-      type:'action',
-      label:'Créer le contrat de formation'
-    };
-
-  }
-
-
-  // ============================
-  // 5. ENVOI DOSSIER
-  // ============================
-
-  if(
-    !suivi.dossier_contractuel_envoye ||
-    !suivi.kit_demande ||
-    !suivi.rib_envoye
-  ){
-
-    return {
-      etape:'Dossier contractuel',
-      id:'dossier_contractuel_envoye',
-      type:'action',
-      label:
-        'Envoyer contrat + convocation + documents + choix du kit + RIB'
-    };
-
-  }
-
-
-  // ============================
-  // 6. ATTENTE VALIDATION
-  // ============================
-
-  const validations=[];
-
-  if(!suivi.piece_identite_recue){
-    validations.push("pièce d’identité recto / verso");
-  }
-
-  if(!suivi.contrat_signe){
-    validations.push('contrat signé');
-  }
-
-  if(!suivi.kit_choisi){
-    validations.push('choix du kit');
-  }
-
-  if(!suivi.kit_paye){
-    validations.push('paiement du kit');
-  }
-
-  if(validations.length){
-
-    return {
-      etape:'Validation avant formation',
-      id:null,
-      type:'attente',
-      label:
-        'En attente : ' +
-        validations.join(' · ')
-    };
-
-  }
-
-
-  // ============================
-  // 7. PRÉPARATION KIT
-  // ============================
-
-  if(!suivi.kit_prepare){
-
-    return {
-      etape:'Validation avant formation',
-      id:'kit_prepare',
-      type:'action',
-      label:'Préparer le kit'
-    };
-
-  }
-
-
-  // ============================
-  // 8. DOCUMENTS FORMATION
-  // ============================
-
-  if(!suivi.documents_entree_prepares){
-
-    return {
-      etape:'Documents de formation',
-      id:'documents_entree_prepares',
-      type:'action',
-      label:"Préparer les documents d'entrée"
-    };
-
-  }
-
-  if(!suivi.qcm_prepare){
-
-    return {
-      etape:'Documents de formation',
-      id:'qcm_prepare',
-      type:'action',
-      label:'Préparer le QCM'
-    };
-
-  }
-
-  if(!suivi.documents_sortie_prepares){
-
-    return {
-      etape:'Documents de formation',
-      id:'documents_sortie_prepares',
-      type:'action',
-      label:'Préparer les documents de sortie'
-    };
-
-  }
-
-
-  // ============================
-  // 9. CLÔTURE
-  // ============================
-
-  if(!suivi.dossier_verifie){
-
-    return {
-      etape:'Clôture',
-      id:'dossier_verifie',
-      type:'action',
-      label:'Vérifier le dossier complet'
-    };
-
-  }
-
-  if(!suivi.documents_importes){
-
-    return {
-      etape:'Clôture',
-      id:'documents_importes',
-      type:'action',
-      label:"Importer les documents sur l'autre site"
-    };
-
-  }
-
-  if(!suivi.dossier_cloture){
-
-    return {
-      etape:'Clôture',
-      id:'dossier_cloture',
-      type:'action',
-      label:'Clôturer le dossier élève'
-    };
-
-  }
-
-
-  // ============================
-  // TERMINÉ
-  // ============================
 
   return {
     etape:'Terminé',
@@ -22997,7 +22733,58 @@ async function changeKitStatut(idx,ki,statut){
   toast('✓ Statut kit mis à jour');
 }
 
-// ── Emails (kits uniquement) ──
+const INFOS_FORMATIONS_PERSO={
+  'debutante-express-3j':{
+    horaires:'3 jours, de 9h30 à 17h30, avec 1h de pause déjeuner',
+    programme:'Mardi : fondamentaux, hygiène, matériel, produits, communication et étude du regard en 6 points. Mercredi : étude du regard, bouquets russes faits main, PICKOS® et premières poses. Jeudi : pratique intensive sur modèles réels.',
+    modeles:'3 modèles : mercredi à 14h30, jeudi à 10h30 et à 14h30.'
+  },
+  'lashlift-coreen':{
+    horaires:'1 journée, de 10h00 à 17h00',
+    programme:'Démonstration, pratique du Lashlift coréen, création de la grille tarifaire, photos/vidéos avant-après et remise du fascicule papier.',
+    modeles:'2 modèles : à 14h30 et à 15h30.'
+  },
+  'browlift':{
+    horaires:'1 journée, de 10h30 à 17h30, avec 30 minutes de pause déjeuner',
+    programme:'Théorie, hygiène, analyse du sourcil, démonstration puis pratique complète du Browlift sur modèle.',
+    modeles:'1 modèle à 14h30.'
+  },
+  'lashup':{
+    horaires:'1 journée, de 9h30 à 15h30',
+    programme:"Protocole LASH UP’ complet : rehaussement, technique du baume, teinture, soin, hygiène, diagnostic, tarification, rentabilité et création de contenu.",
+    modeles:'2 modèles : à 13h00 et à 15h00.'
+  },
+  'coaching-prive-1j':{
+    horaires:'1 journée, de 9h30 à 17h30, avec 1h de pause déjeuner',
+    programme:'Coaching privé adapté aux besoins : posture, technique, étude du regard, mapping, rapidité, bouquets faits main, PICKOS®, tarification et contenu photo/vidéo.',
+    modeles:'Des modèles seront nécessaires. Giulia vous contactera pour organiser précisément leur planning.'
+  },
+  'coaching-prive-2j':{
+    horaires:'2 jours, de 9h30 à 17h30, avec 1h de pause déjeuner chaque jour',
+    programme:'Coaching privé complet : fondamentaux, posture, technique, étude du regard, mapping, rapidité, bouquets faits main, PICKOS®, business et création de contenu.',
+    modeles:'3 modèles : premier jour à 14h30, deuxième jour à 10h30 et à 14h30.'
+  },
+  'debutante-4j':{
+    horaires:'4 jours, de 9h30 à 17h30',
+    programme:'Formation débutante complète selon le programme pédagogique joint à votre convocation.',
+    modeles:'Plusieurs modèles seront nécessaires ; Giulia vous contactera pour organiser leur planning.'
+  },
+  'debutante-5j':{
+    horaires:'5 jours, de 9h30 à 17h30',
+    programme:'Formation débutante complète selon le programme pédagogique joint à votre convocation.',
+    modeles:'Plusieurs modèles seront nécessaires ; Giulia vous contactera pour organiser leur planning.'
+  }
+};
+
+function getInfosFormationPerso(e){
+  return INFOS_FORMATIONS_PERSO[e?.formationTypeNormalise||e?.formation]||{
+    horaires:'Horaires indiqués sur votre convocation',
+    programme:'Le déroulé détaillé figure sur votre convocation.',
+    modeles:'Giulia vous contactera si des modèles sont nécessaires.'
+  };
+}
+
+// ── Emails formations ──
 const EMAIL_TEMPLATES={
   contrat:{
     workflow:true,
@@ -23015,7 +22802,7 @@ Pour préparer sereinement votre venue, vous trouverez en pièces jointes :
 - le programme pédagogique de votre formation ;
 - une liste d’hôtels situés à proximité du centre de formation.
 ${kit.texte?'\n'+kit.texte+'\n':''}${kit.choix?'\nMerci de nous indiquer le kit que vous souhaitez choisir afin que nous puissions le préparer avant votre arrivée.\n':''}${kit.payant?'\nVous trouverez également notre RIB en pièce jointe afin de procéder au règlement du kit. Merci d’indiquer votre nom et prénom dans le libellé du virement afin que nous puissions facilement identifier votre règlement.\n':''}
-Merci de nous retourner votre contrat complété et signé, accompagné d’une copie nette et lisible du recto et du verso de votre pièce d’identité.
+Merci de nous retourner votre contrat complété et signé.${(e.suiviFormation?.cni_recue===true||e.suiviFormation?.piece_identite_recue===true)?' Votre pièce d’identité a bien été reçue.':' Merci de joindre également une copie nette et lisible du recto et du verso de votre pièce d’identité.'}
 
 Votre inscription sera finalisée dès réception de ces documents${kit.choix?' et après validation de votre choix de kit':''}${kit.payant?(kit.choix?' et de son règlement':' et après règlement de votre kit'):''}.
 
@@ -23056,6 +22843,8 @@ Pour commencer à préparer votre dossier, vous trouverez en pièces jointes :
 - le bulletin de candidature ;
 - la grille d’analyse de vos besoins en formation.
 
+Vous pouvez également nous transmettre dès maintenant une copie nette et lisible du recto et du verso de votre pièce d’identité. Si vous ne l’avez pas sous la main, nous vous la redemanderons avec le contrat.
+
 Merci de nous retourner ces deux documents complétés et signés. Ils nous permettront de mieux vous connaître et de préparer une formation adaptée à vos besoins.
 
 Dès leur réception, nous pourrons avancer ensemble sur votre inscription et vous transmettre votre contrat ainsi que les informations utiles pour la suite.
@@ -23067,6 +22856,36 @@ Des modèles seront également nécessaires pour vous exercer pendant la formati
 Si vous avez la moindre question en remplissant les documents, n’hésitez pas à nous écrire : nous sommes là pour vous aider !
 
 À bientôt,`
+  },
+
+  'validation-perso':{
+    workflow:true,
+    label:"Mail de validation d’inscription",
+    etape:'mail_validation_perso_envoye',
+    sujet:'Validation de votre inscription – Formation LIMAGECILS',
+    corps:(e,d,kit)=>{const infos=getInfosFormationPerso(e);return `Bonjour ${d.prenom},
+
+Votre inscription à la formation ${d.formation}, prévue du ${d.debut} au ${d.fin}, est bien enregistrée. Nous avons hâte de vous accueillir !
+
+Horaires : ${infos.horaires}.
+
+Déroulé de la formation :
+${infos.programme}
+
+Organisation des modèles :
+${infos.modeles}
+Si vous venez de loin ou ne pouvez pas amener vos modèles, nous pouvons nous charger de les trouver. Giulia est en charge de leur planning et vous accompagnera dans l’organisation.
+
+Votre kit pédagogique est offert et sera préparé pour votre venue.
+
+Le petit-déjeuner et le goûter sont offerts. Merci de prévoir votre déjeuner ; un réfrigérateur et un micro-ondes sont à votre disposition sur place.
+
+Vous trouverez en pièces jointes votre convocation et les conditions générales de vente. Merci de les lire avant votre venue.
+
+Si vous avez la moindre question, écrivez-nous : nous sommes là pour vous aider.
+
+À très bientôt,
+L’équipe LIMAGE SCHOOL`;}
   },
 
   'kit-cpf':{
@@ -23167,7 +22986,11 @@ function documentsMailFormation(e,type){
   const genere=(nom,modele,calibrages,action)=>modele&&calibrages[modele]
     ? {nom,fichier:modele+'.pdf',genere:true,action}
     : absent(nom);
-  if(type==='convocation') return [genere('Convocation générée',config?.convocation,CALIBRAGE_CONVOCATIONS_EMMA,'convocation')];
+  if(type==='convocation') return [{nom:'Convocation générée',fichier:'convocation.pdf',genere:true,action:'convocation'}];
+  if(type==='validation-perso') return [
+    {nom:'Convocation personnalisée',fichier:'convocation.pdf',genere:true,action:'convocation'},
+    absent('Conditions générales de vente')
+  ];
   return [genere('Contrat généré',config?.contrat,CALIBRAGE_CONTRATS_EMMA,'contrat'),
     absent('Règlement intérieur'),absent('CGV'),absent('Liste des hôtels'),
     absent('Programme pédagogique — '+getLabelFormation(formation))];
@@ -23182,13 +23005,14 @@ function construireMailFormation(e,type){
   const documents=documentsMailFormation(e,type);
   if(type==='contrat'&&kit.payant) documents.push({nom:'RIB'});
   return {sujet:modele.sujet,corps:modele.corps(e,d,kit),adresse:d.email,documents,
-    recuperer:type==='candidature'?['Bulletin complété et signé','Grille des besoins complétée et signée']:
-      type==='contrat'?['Contrat complété et signé','Pièce d’identité recto','Pièce d’identité verso',...(kit.choix?['Confirmation du choix du kit']:[])]:[],
+    recuperer:type==='candidature'?['Bulletin complété et signé','Grille des besoins complétée et signée','CNI recto / verso si disponible']:
+      type==='contrat'?['Contrat complété et signé',...((e.suiviFormation?.cni_recue===true||e.suiviFormation?.piece_identite_recue===true)?[]:['Pièce d’identité recto','Pièce d’identité verso']),...(kit.choix?['Confirmation du choix du kit']:[])]:[],
     etape:modele.etape||null};
 }
 
 function boutonsMailsFormation(e){
-  return `<div class="f-mail-buttons" aria-label="Mails de l’élève">${['candidature','contrat','convocation'].map(type=>`<button type="button" class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="ouvrirMailFormation(decodeURIComponent(this.dataset.eleve),'${type}')">Préparer mail ${type}</button>`).join('')}</div>`;
+  const types=e.financement?.type==='cpf'?['candidature','contrat','convocation']:['validation-perso'];
+  return `<div class="f-mail-buttons" aria-label="Mails de l’élève">${types.map(type=>`<button type="button" class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="ouvrirMailFormation(decodeURIComponent(this.dataset.eleve),'${type}')">${type==='validation-perso'?"Préparer le mail de validation":'Préparer mail '+type}</button>`).join('')}</div>`;
 }
 
 function ouvrirMailFormation(etudianteId,type){
