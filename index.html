@@ -5720,14 +5720,14 @@ auth.onAuthStateChanged(async user => {
     // Après Firebase, on doit toujours les remplacer par les vrais paramètres.
     applyParamsToUI();
     ensureJournalData();
-    appliquerRoutinesFixesEmma(new Date().toLocaleDateString('fr-CA'));
-    nettoyerCopiesTachesFaitesEmma(new Date().toLocaleDateString('fr-CA'));
-    await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+    // SÉCURITÉ : une actualisation charge et affiche le Journal sans jamais
+    // modifier ni réenregistrer automatiquement le planning ou l'historique.
+    // Les routines, nettoyages et recalages restent accessibles uniquement
+    // depuis les actions explicites de l'utilisatrice.
     if(synchroniserPrevusSalairesExistantsEmma()){
       await sauvegarderChampSeul('fixes',JSON.stringify(DB.fixes));
     }
     goHub();
-    setTimeout(decalerTachesEnRetardAutomatiquementEmma,450);
     setTimeout(initialiserAccueilConversationEmma,700);
   } else {
     chargementInitialEnCours = false;
@@ -45258,11 +45258,6 @@ async function decalerTachesEnRetardAutomatiquementEmma(){
     }
 }
 
-window.addEventListener('load',()=>{
-    setTimeout(decalerTachesEnRetardAutomatiquementEmma,5000);
-    setInterval(decalerTachesEnRetardAutomatiquementEmma,60000);
-});
-
 document.addEventListener('visibilitychange',()=>{
     if(document.hidden&&recalageAutomatiqueEmmaASauvegarder&&chargementReussi){
         recalageAutomatiqueEmmaASauvegarder=false;
@@ -45271,8 +45266,6 @@ document.addEventListener('visibilitychange',()=>{
         sauvegarderChampSeul('journal',JSON.stringify(DB.journal))
             .then(()=>synchroniserNotificationsPlanningEmma?.(date))
             .catch(error=>console.error('Sauvegarde du planning décalé impossible',error));
-    }else if(!document.hidden){
-        setTimeout(decalerTachesEnRetardAutomatiquementEmma,350);
     }
 });
 
@@ -50514,17 +50507,9 @@ function estTacheOuEquivalentFaiteJourEmma(element,date){
 }
 
 function nettoyerCopiesTachesFaitesEmma(date){
-  const faitMap=DB.journal?.faitAujourdhui?.[date]||{};
-  const estDirectementFaite=bloc=>!!(
-    faitMap[bloc.id]||faitMap[cleTachePlanningEmma(bloc)]||bloc.realiseA||bloc.realiseTimestamp
-  );
-
-  if(DB.journal?.planning?.[date]){
-    DB.journal.planning[date]=DB.journal.planning[date].filter(bloc=>
-      estDirectementFaite(bloc)||
-      !((bloc.autoPlanifie||bloc.prioritaireScan||bloc.source==='journal')&&estTacheOuEquivalentFaiteJourEmma(bloc,date))
-    );
-  }
+  // Une tâche faite reste dans la timeline. Cette fonction ne touche plus
+  // jamais au planning réel : elle filtre seulement les futures propositions
+  // et l'état visuel des scans.
   if(DB.journal?.propositionIntelligente?.[date]){
     DB.journal.propositionIntelligente[date]=DB.journal.propositionIntelligente[date]
       .filter(bloc=>!estTacheOuEquivalentFaiteJourEmma(bloc,date));
