@@ -8863,6 +8863,33 @@ if(nomChamp === 'agendaImporte'){
   }
 }
 
+async function sauvegarderComptabiliteCompleteEmma(){
+  if(!userRef) return false;
+  try{
+    securiserLiensChargesParMoisEmma();
+    const updatedAt=new Date().toISOString();
+    await userRef.collection('modules').doc('comptabilite').set({
+      caisse:JSON.stringify(DB.caisse||[]),
+      banque:JSON.stringify(DB.banque||[]),
+      fixes:JSON.stringify(DB.fixes||[]),
+      chargesLissees:JSON.stringify(DB.chargesLissees||[]),
+      semainesPerso:JSON.stringify(DB.semainesPerso||[]),
+      variables:JSON.stringify(DB.variables||[]),
+      prestations:JSON.stringify(DB.prestations||[]),
+      salaires:JSON.stringify(DB.salaires||[]),
+      salairePlan:JSON.stringify(DB.salairePlan||{}),
+      conseilsFinanciersIgnores:JSON.stringify(DB.conseilsFinanciersIgnores||[]),
+      apprentissageRapprochements:JSON.stringify(DB.apprentissageRapprochements||[]),
+      updatedAt
+    },{merge:true});
+    return true;
+  }catch(e){
+    console.error('Erreur sauvegarde Comptabilité :',e);
+    toast('⚠️ Erreur de sauvegarde Comptabilité: '+e.message);
+    return false;
+  }
+}
+
 async function sauvegarderPhotosJour(dateStr){
   if(!userRef) return false;
   try {
@@ -9032,12 +9059,25 @@ async function updateParam(key, val) {
 }
 
 async function saveEntry_fb(col, entry) {
-  await saveAll();
+  const champ={
+    lissees:'chargesLissees',
+    chargesLissees:'chargesLissees'
+  }[col]||col;
+  const champsCompta=new Set([
+    'caisse','banque','fixes','chargesLissees','semainesPerso',
+    'variables','prestations','salaires','salairePlan',
+    'conseilsFinanciersIgnores','apprentissageRapprochements'
+  ]);
+  if(!champsCompta.has(champ)||!(champ in DB)){
+    await saveAll();
+    return entry;
+  }
+  await sauvegarderChampSeul(champ,JSON.stringify(DB[champ]));
   return entry;
 }
 
 async function savePrestations() {
-  await saveAll();
+  await sauvegarderChampSeul('prestations',JSON.stringify(DB.prestations||[]));
 }
 
 // ═══════════════════════════════════════
@@ -9089,7 +9129,7 @@ async function supprimerSemaine(mois,index){
   weeks.splice(index,1);
   DB.semainesPerso[cle]=weeks;
 
-  await saveAll();
+  await sauvegarderChampSeul('semainesPerso',JSON.stringify(DB.semainesPerso));
   renderRecap();
 }
    
@@ -9225,7 +9265,7 @@ async function modifierDatesSemaine(mois, index){
         e
     };
 
- await saveAll();  
+ await sauvegarderChampSeul('semainesPerso',JSON.stringify(DB.semainesPerso));
 
 renderRecap();
 
@@ -9309,8 +9349,9 @@ function tvaNette(mois){ return tvaCollectee(mois)-tvaDed(mois); }
 let apprentissageAutoEnCoursEmma=false;
 
 async function appliquerRapprochementsApprisEmma(){
-  if(apprentissageAutoEnCoursEmma) return;
+  if(apprentissageAutoEnCoursEmma) return false;
   apprentissageAutoEnCoursEmma=true;
+  let modifie=false;
   try{
     for(const b of (DB.banque||[])){
       if(estCategorieChargeBanque(b.categorie)){
@@ -9325,8 +9366,7 @@ async function appliquerRapprochementsApprisEmma(){
         if(!montantAttendu||Math.abs(Math.abs(Number(b.montant))-montantAttendu)>=.01) continue;
         if(!lierChargeImporteeAuMouvement(cible.charge,b)) continue;
         b.rapprochementAutoEmma=true;
-        await saveEntry_fb(cible.type,cible.charge);
-        await saveEntry_fb('banque',b);
+        modifie=true;
         continue;
       }
 
@@ -9345,12 +9385,12 @@ async function appliquerRapprochementsApprisEmma(){
       });
       b.caisseIds=[...selection.ids];
       b.rapprochementAutoEmma=true;
-      for(const t of lignes) await saveEntry_fb('caisse',t);
-      await saveEntry_fb('banque',b);
+      modifie=true;
     }
   }finally{
     apprentissageAutoEnCoursEmma=false;
   }
+  return modifie;
 }
 
 async function autoRapproch(){
@@ -9361,7 +9401,7 @@ async function autoRapproch(){
     const bMatch=DB.banque.filter(b=>dm(b.date)===f.mois&&b.nom===f.nom&&b.montant<0);
     if(bMatch.length){
       const tot=bMatch.reduce((s,b)=>s+b.montant,0);
-      if(!f.paye||Math.abs(tot-f.montant)>0.01){ f.montant=tot; f.paye=true; changed=true; await saveEntry_fb('fixes',f); }
+      if(!f.paye||Math.abs(tot-f.montant)>0.01){ f.montant=tot; f.paye=true; changed=true; }
     }
   }
   // Variables ↔ Banque
@@ -9370,7 +9410,7 @@ async function autoRapproch(){
     const bMatch=DB.banque.filter(b=>dm(b.date)===v.mois&&b.nom===v.nom&&b.montant<0);
     if(bMatch.length){
       const tot=bMatch.reduce((s,b)=>s+b.montant,0);
-      if(Math.abs(tot-(v.montant||0))>0.01){ v.montant=tot; changed=true; await saveEntry_fb('variables',v); }
+      if(Math.abs(tot-(v.montant||0))>0.01){ v.montant=tot; changed=true; }
     }
   }
   // ACHAT ← Banque ACHATS
@@ -9379,43 +9419,87 @@ async function autoRapproch(){
     const avant=DB.variables.find(v=>v.mois===mois&&v.nom==='ACHAT');
     const ancienEtat=avant?JSON.stringify({montant:avant.montant,banqueIds:avant.banqueIds,paye:avant.paye}):'';
     const entry=synchroniserAchatVariableMois(mois);
-    if(entry&&ancienEtat!==JSON.stringify({montant:entry.montant,banqueIds:entry.banqueIds,paye:entry.paye})){changed=true;await saveEntry_fb('variables',entry);}
+    if(entry&&ancienEtat!==JSON.stringify({montant:entry.montant,banqueIds:entry.banqueIds,paye:entry.paye})){changed=true;}
   }
-  await appliquerRapprochementsApprisEmma();
+  const rapprochementsApprisModifies=await appliquerRapprochementsApprisEmma();
+  if(changed||rapprochementsApprisModifies){
+    await sauvegarderComptabiliteCompleteEmma();
+  }
 }
 
 // ═══════════════════════════════════════
 // TABS & RENDER
 // ═══════════════════════════════════════
+let autoRapprochGlobalEnCours=null;
+let autoRapprochRelanceDemandee=false;
+
+function lancerAutoRapprochComptaSansDoublon(){
+  if(autoRapprochGlobalEnCours){
+    autoRapprochRelanceDemandee=true;
+    return autoRapprochGlobalEnCours;
+  }
+  autoRapprochGlobalEnCours=Promise.resolve()
+    .then(()=>autoRapproch())
+    .catch(erreur=>console.error('Auto-rapprochement EMMA :',erreur))
+    .finally(()=>{
+      autoRapprochGlobalEnCours=null;
+      if(autoRapprochRelanceDemandee){
+        autoRapprochRelanceDemandee=false;
+        lancerAutoRapprochComptaSansDoublon();
+      }
+    });
+  return autoRapprochGlobalEnCours;
+}
+
+function nomOngletComptaActif(){
+  return document.querySelector('#app .view.active')?.id?.replace('view-','')||'dashboard';
+}
+
+function renderOngletCompta(name=nomOngletComptaActif()){
+  // Chaque écran est calculé uniquement lorsqu'il est visible. Les données
+  // restent communes : ouvrir un autre onglet le reconstruit avec l'état à jour.
+  switch(name){
+    case 'caisse': renderCaisse(); break;
+    case 'banque': renderBanque(); break;
+    case 'fixes': renderFixes(); break;
+    case 'variables': renderVariables(); break;
+    case 'auto': renderAuto(); break;
+    case 'recap': renderRecap(); break;
+    case 'clients': renderClients(); break;
+    case 'compta': renderCompta(); break;
+    case 'settings': renderSettings(); break;
+    case 'boutique': renderBoutique(); break;
+    case 'factures':
+      renderFactures();
+      renderTvaDetail();
+      renderSansTva();
+      break;
+    case 'dashboard':
+    default:
+      renderDash();
+      renderCaisseVirtuelle();
+      break;
+  }
+}
+
 function goTab(name,el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
+  el?.classList.add('active');
   if(name==='clients') setEmmaNav('travail');
   else if(name==='settings') setEmmaNav('plus');
   else setEmmaNav('finances');
-  renderAll();
+  popSelects();
+  renderOngletCompta(name);
 }
 
 function renderAll(){
-  autoRapproch();
+  // Compatibilité : les anciennes actions peuvent continuer à appeler
+  // renderAll(), mais seul l'écran visible est désormais reconstruit.
+  lancerAutoRapprochComptaSansDoublon();
   popSelects();
-  renderDash();
-  renderCaisse();
-  renderBanque();
-  renderFixes();
-  renderVariables();
-  renderAuto();
-  renderRecap();
-  renderClients();
-  renderCompta();
-  renderSettings();
-  renderBoutique();
-  renderCaisseVirtuelle();
-  renderSansTva();
-  renderFactures();
-  renderTvaDetail();
+  renderOngletCompta();
 }
 
 function popSelects(){
@@ -9523,15 +9607,14 @@ function genererConseilsFinanciersEmma(){
     conseils.push({id:`ecart_lissee_${c.id}_${c.dernierPrelevement||''}`,type:'detail',icone:'⚖️',niveau:'attention',titre:`Écart sur ${c.nom}`,texte:`Prélèvement prévu : ${fa(Math.abs(Number(c.montantCycle||0)))}. Réel rapproché : ${fa(Math.abs(Number(c.dernierMontantReel||0)))}. Écart : ${fm(Number(c.ecartDernier||0))}.`});
   });
 
-  const vusDoublons=new Set();
-  const doublons=[];
-  (DB.banque||[]).forEach((b,i,rows)=>{
+  const groupesDoublons=new Map();
+  (DB.banque||[]).forEach(b=>{
     const cle=`${b.date}|${cleLibelleFinancierEmma(b.nom)}|${Number(b.montant).toFixed(2)}`;
-    if(vusDoublons.has(cle)) return;
-    const memes=rows.filter(x=>`${x.date}|${cleLibelleFinancierEmma(x.nom)}|${Number(x.montant).toFixed(2)}`===cle);
-    vusDoublons.add(cle);
-    if(memes.length>1) doublons.push(memes[0]);
+    const groupe=groupesDoublons.get(cle)||{premier:b,nombre:0};
+    groupe.nombre+=1;
+    groupesDoublons.set(cle,groupe);
   });
+  const doublons=[...groupesDoublons.values()].filter(groupe=>groupe.nombre>1).map(groupe=>groupe.premier);
   if(doublons.length){
     conseils.push({id:'doublons_banque',type:'detail',icone:'👯',niveau:'attention',titre:`${doublons.length} doublon(s) bancaire(s) possible(s)`,texte:'Même date, même libellé normalisé et même montant. Vérifie avant de supprimer quoi que ce soit.'});
   }
@@ -9565,7 +9648,7 @@ async function ignorerConseilFinancierEmma(index){
   const conseil=conseilsFinanciersEmma[index];
   if(!conseil) return;
   DB.conseilsFinanciersIgnores=[...new Set([...(DB.conseilsFinanciersIgnores||[]),conseil.id])];
-  await saveAll();
+  await sauvegarderChampSeul('conseilsFinanciersIgnores',JSON.stringify(DB.conseilsFinanciersIgnores));
   renderConseilsFinanciersEmma();
   toast('Conseil masqué');
 }
@@ -9662,10 +9745,16 @@ function renderDash(){
 
   // À relancer — clientes sans visite depuis 30j+
   const aujourdhui=new Date();
+  const telephonesParCliente=new Map();
+  for(const ligne of DB.caisse){
+    if(ligne.nom&&ligne.tel&&!telephonesParCliente.has(ligne.nom)){
+      telephonesParCliente.set(ligne.nom,ligne.tel);
+    }
+  }
   const allClientes={};
   for(const t of DB.caisse.filter(t=>t.montant>0)){
     if(!t.nom||t.nom==='PLANITY'||t.nom.startsWith('DÉPÔT')) continue;
-const tel=DB.caisse.filter(x=>x.nom===t.nom&&x.tel).map(x=>x.tel)[0]||'';
+const tel=telephonesParCliente.get(t.nom)||'';
 if(!allClientes[t.nom]||t.date>allClientes[t.nom].date) allClientes[t.nom]={date:t.date,prestation:t.prestation||'—',tel};  }
   const SEUIL_LONG=['Rehaussement cils','Lashlift coréen','Browlift'];
   const relancer=Object.entries(allClientes)
@@ -9846,15 +9935,24 @@ function estMouvementBanqueRapproche(b){
   return false;
 }
 
+let limiteCaisseAfficheeEmma=300;
+let signatureFiltresCaisseEmma='';
+
+function afficherPlusCaisseEmma(){
+  limiteCaisseAfficheeEmma+=300;
+  renderCaisse();
+}
+
 async function toggleIgnorerRapprochement(collection,id){
   const liste=collection==='banque'?DB.banque:DB.caisse;
   const ligne=liste.find(x=>x.id===id);
   if(!ligne) return;
   ligne.ignorerRapprochement=!ligne.ignorerRapprochement;
-  const ok=await saveAll();
-  renderCaisse();
-  renderBanque();
-  renderConseilsFinanciersEmma();
+  await saveEntry_fb(collection,ligne);
+  const ok=true;
+  // L'autre tableau sera reconstruit avec les mêmes données lorsqu'il sera
+  // ouvert : inutile de fabriquer Banque + Caisse hors écran.
+  renderOngletCompta();
   if(ok) toast(ligne.ignorerRapprochement?'🚫 Cette ligne ne sera plus proposée':'✓ Ligne réactivée pour les rapprochements');
 }
 
@@ -9876,6 +9974,14 @@ function renderCaisse(){
   if(frap==='1') rows=rows.filter(t=>estLigneCaisseRapprochee(t));
   if(frap==='ignore') rows=rows.filter(t=>t.ignorerRapprochement);
 
+  const signatureFiltres=[s,fm_,fp,fmo,fpy,frap].join('|');
+  if(signatureFiltres!==signatureFiltresCaisseEmma){
+    signatureFiltresCaisseEmma=signatureFiltres;
+    limiteCaisseAfficheeEmma=300;
+  }
+  const totalFiltre=rows.length;
+  const lignesVisibles=new Set(rows.slice(0,limiteCaisseAfficheeEmma));
+
   const byM={};
   for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
 
@@ -9888,10 +9994,12 @@ function renderCaisse(){
   if(!Object.keys(byM).length) html+=`<tr><td colspan="9"><div class="empty">Aucune prestation</div></td></tr>`;
 
   for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
+    const mrowsVisibles=mrows.filter(t=>lignesVisibles.has(t));
+    if(!mrowsVisibles.length) continue;
     const tot=mrows.reduce((s,t)=>s+t.montant,0);
     html+=`<tr class="trm"><td colspan="5" style="padding:8px 11px">▾ ${mf(mois)} <span style="font-weight:400;color:var(--mut);font-size:11px">${mrows.filter(t=>t.montant>0).length} prestations</span></td>
       <td colspan="4" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:var(--rec)">${fa(tot)}</td></tr>`;
-    for(const t of mrows){
+    for(const t of mrowsVisibles){
       const neg=t.montant<0;
       html+=`<tr>
         <td class="tdt">${dlbl(t.date)}</td>
@@ -9928,6 +10036,9 @@ function renderCaisse(){
     }
   }
   html+='</tbody></table>';
+  if(totalFiltre>limiteCaisseAfficheeEmma){
+    html+=`<div style="display:flex;justify-content:center;padding:14px"><button class="btn bg" onclick="afficherPlusCaisseEmma()">Afficher 300 lignes supplémentaires · ${Math.min(limiteCaisseAfficheeEmma,totalFiltre)} sur ${totalFiltre}</button></div>`;
+  }
   document.getElementById('caisseTable').innerHTML=html;
 }
 
@@ -9939,6 +10050,14 @@ async function togC(id, field){
 // ═══════════════════════════════════════
 // BANQUE
 // ═══════════════════════════════════════
+let limiteBanqueAfficheeEmma=200;
+let signatureFiltresBanqueEmma='';
+
+function afficherPlusBanqueEmma(){
+  limiteBanqueAfficheeEmma+=200;
+  renderBanque();
+}
+
 function renderBanque(){
   const s=(document.getElementById('bs')?.value||'').toLowerCase();
   const fm_=document.getElementById('bm')?.value||'';
@@ -9960,6 +10079,28 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
   if(frap==='1') rows=rows.filter(t=>estMouvementBanqueRapproche(t));
   if(frap==='ignore') rows=rows.filter(t=>t.ignorerRapprochement);
 
+  const signatureFiltres=[s,fm_,fc,frap].join('|');
+  if(signatureFiltres!==signatureFiltresBanqueEmma){
+    signatureFiltresBanqueEmma=signatureFiltres;
+    limiteBanqueAfficheeEmma=200;
+  }
+  const totalFiltre=rows.length;
+  const lignesVisibles=new Set(rows.slice(0,limiteBanqueAfficheeEmma));
+  const idsChargesLiees=new Set(
+    [...(DB.fixes||[]),...(DB.variables||[]),...(DB.chargesLissees||[])]
+      .flatMap(charge=>charge.banqueIds||[])
+  );
+  const facturesParOperation=new Map();
+  (DB_FACTURES||[]).forEach(facture=>{
+    if(!facture.operationBanqueId) return;
+    if(!facturesParOperation.has(facture.operationBanqueId)) facturesParOperation.set(facture.operationBanqueId,[]);
+    facturesParOperation.get(facture.operationBanqueId).push(facture);
+  });
+  const mouvementRapproche=t=>
+    ['CA','VIR'].includes(t.categorie)
+      ?(t.caisseIds||[]).length>0
+      :estCategorieChargeBanque(t.categorie)&&idsChargesLiees.has(t.id);
+
   const byM={};
   for(const t of rows){const m=dm(t.date);if(!byM[m])byM[m]=[];byM[m].push(t);}
 
@@ -9970,11 +10111,14 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
   </tr></thead><tbody>`;
 
   for(const [mois,mrows] of Object.entries(byM).sort((a,b)=>b[0].localeCompare(a[0]))){
+    const mrowsVisibles=mrows.filter(t=>lignesVisibles.has(t));
+    if(!mrowsVisibles.length) continue;
     const tot=mrows.reduce((s,t)=>s+t.montant,0);
     html+=`<tr class="trm"><td colspan="4" style="padding:8px 11px">▾ ${mf(mois)}</td>
       <td colspan="3" style="text-align:right;padding:8px 11px;font-family:'DM Mono',monospace;color:${tot>=0?'var(--rec)':'var(--dep)'}">${fm(tot,true)}</td></tr>`;
-    for(const t of mrows){
-      const suggestion=t.ignorerRapprochement?null:trouverSuggestionRapprochementBanque(t.id);
+    for(const t of mrowsVisibles){
+      const estRapproche=mouvementRapproche(t);
+      const suggestion=t.ignorerRapprochement||estRapproche?null:trouverSuggestionRapprochementBanque(t.id);
       html+=`<tr>
         <td class="tdt">${dlbl(t.date)}</td>
         <td style="font-weight:500">${t.nom}</td>
@@ -9983,15 +10127,15 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
         <td class="${t.montant>=0?'tp':'tn'}" style="text-align:right">${fm(t.montant,t.montant>0)}</td>
         <td class="tmu" style="text-align:right">${fa(sm[t.id]||0)}</td>
         <td style="white-space:nowrap">
-        ${!estMouvementBanqueRapproche(t)||t.ignorerRapprochement?`<button class="btn ${t.ignorerRapprochement?'bd':'bg'} bsm" title="${t.ignorerRapprochement?'Réactiver les propositions':'Ne plus proposer ce mouvement'}" onclick="toggleIgnorerRapprochement('banque','${t.id}')">${t.ignorerRapprochement?'↩️':'🚫'}</button> `:''}
+        ${!estRapproche||t.ignorerRapprochement?`<button class="btn ${t.ignorerRapprochement?'bd':'bg'} bsm" title="${t.ignorerRapprochement?'Réactiver les propositions':'Ne plus proposer ce mouvement'}" onclick="toggleIgnorerRapprochement('banque','${t.id}')">${t.ignorerRapprochement?'↩️':'🚫'}</button> `:''}
         ${suggestion?`<button class="btn bd bsm" title="${echapperHtmlEmma(suggestion.raison)}" onclick="ouvrirSuggestionRapprochementBanque('${t.id}')">✨ ${echapperHtmlEmma(suggestion.label)}</button> `:''}
         ${['CA','VIR'].includes(t.categorie)
             ?(t.caisseIds?.length
                 ?`<span style="font-size:11px;color:var(--rec)">✅ ${t.caisseIds.length}</span> <button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Détails</button>`
                 :`<button class="btn bg bsm" onclick="ouvrirRapprochementCaisse('${t.id}')">🔗 Lier</button>`)
             :(()=>{
-                    const chargeLiee=[...DB.fixes,...DB.variables].some(f=>f.banqueIds?.includes(t.id));
-                    const facturesLiees=DB_FACTURES.filter(f=>f.operationBanqueId===t.id);
+                    const chargeLiee=idsChargesLiees.has(t.id);
+                    const facturesLiees=facturesParOperation.get(t.id)||[];
                     const badges=[];
                     if(chargeLiee) badges.push('<span style="font-size:11px;color:var(--rec)">✅ Charge</span>');
                     if(facturesLiees.length) badges.push(`<span style="font-size:11px;color:var(--pla)">✅ ${facturesLiees.length} facture(s)</span>`);
@@ -10006,6 +10150,9 @@ all.sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(
   }
   if(!Object.keys(byM).length) html+=`<tr><td colspan="7"><div class="empty">Aucun mouvement</div></td></tr>`;
   html+='</tbody></table>';
+  if(totalFiltre>limiteBanqueAfficheeEmma){
+    html+=`<div style="display:flex;justify-content:center;padding:14px"><button class="btn bg" onclick="afficherPlusBanqueEmma()">Afficher 200 lignes supplémentaires · ${Math.min(limiteBanqueAfficheeEmma,totalFiltre)} sur ${totalFiltre}</button></div>`;
+  }
   document.getElementById('banqueTable').innerHTML=html;
 
   // CHQ à déposer
@@ -10776,7 +10923,7 @@ async function fusionnerDoublon(noms,nomCible){
   for(const t of DB.caisse){
     if(noms.includes(t.nom)&&t.nom!==nomCible){ t.nom=nomCible; }
   }
-  await saveAll();
+  await sauvegarderChampSeul('caisse',JSON.stringify(DB.caisse));
   closeMo('clientModal');
   renderClients();
   toast('✓ Fusionné vers "'+nomCible+'"');
@@ -10863,10 +11010,11 @@ function openClient(nom){
   document.getElementById('clientModal').classList.add('open');
 }
 
-function editClient(nom){
+async function editClient(nom){
   const newNom=prompt('Nouveau nom pour '+nom+' :', nom);
   if(!newNom||newNom===nom) return;
-  DB.caisse.forEach(async t=>{ if(t.nom===nom){ t.nom=newNom; await saveEntry_fb('caisse',t); }});
+  DB.caisse.forEach(t=>{if(t.nom===nom) t.nom=newNom;});
+  await sauvegarderChampSeul('caisse',JSON.stringify(DB.caisse));
   renderAll(); toast('✓ Cliente renommée');
 }
 
@@ -10874,7 +11022,7 @@ async function delClient(nom){
   if(!confirm('Supprimer toutes les prestations de '+nom+' ?')) return;
   const toDelete=DB.caisse.filter(t=>t.nom===nom);
   DB.caisse=DB.caisse.filter(t=>t.nom!==nom);
-  await saveAll();
+  await sauvegarderChampSeul('caisse',JSON.stringify(DB.caisse));
   renderAll(); toast('Supprimé');
 }
 
@@ -11108,9 +11256,7 @@ async function importData(event){
       // Push to Firebase
       toast('⏳ Import en cours...');
       for(const col of ['caisse','banque','fixes','chargesLissees','variables']){
-        for(const entry of DB[col]){
-          await saveEntry_fb(col, entry);
-        }
+        await sauvegarderChampSeul(col,JSON.stringify(DB[col]||[]));
       }
       await saveParams();
       await savePrestations();
@@ -11290,7 +11436,7 @@ async function validerImportHistoriqueNumbers(){
   const nouvelles=lignesImportHistoriquePreparees().filter(l=>!l.invalide&&!l.doublon);
   if(!nouvelles.length){toast('Aucune nouvelle ligne à importer');return;}
   nouvelles.forEach(item=>DB[item.cible].push(item.entry));
-  await saveAll();
+  await sauvegarderComptabiliteCompleteEmma();
   closeMo('mainModal');
   renderAll();
   toast(`✓ ${nouvelles.length} ligne${nouvelles.length>1?'s':''} historique${nouvelles.length>1?'s':''} ajoutée${nouvelles.length>1?'s':''}`);
@@ -11869,7 +12015,7 @@ async function importerMouvement(i){
     }
   }
 
-  await saveAll();
+  await sauvegarderComptabiliteCompleteEmma();
   importedMouvements.splice(i,1);
   renderImportBanqueResult();
   renderAll();
@@ -11905,7 +12051,7 @@ async function importerTousMouvements(){
     }
     count++;
   }
-  await saveAll();
+  await sauvegarderComptabiliteCompleteEmma();
   importedMouvements=[];
   renderImportBanqueResult();
   renderAll();
@@ -12086,22 +12232,21 @@ async function validerRapprochementCaisse(banqueId){
       for(const autreLigne of DB.banque){
         if(autreLigne.id!==banqueId&&autreLigne.caisseIds?.includes(t.id)){
           autreLigne.caisseIds=autreLigne.caisseIds.filter(id=>id!==t.id);
-          await saveEntry_fb('banque',autreLigne);
         }
       }
       const mode=t.reglement;
       if(mode==='ESP') t.depose=true;
       else if(mode==='CHQ'){ t.chqDepose=true; t.paye=true; }
       else { t.rapprocheBanque=true; t.paye=true; }
-      await saveEntry_fb('caisse',t);
       ids.push(cb.value);
     }
   }
   b.caisseIds=ids;
   const modeValide=checks[0]?.dataset?.mode||'';
   apprendreRapprochementEmma(b,'caisse',{mode:modeValide});
-  await saveEntry_fb('banque',b);
-  await saveAll();
+  await sauvegarderChampSeul('caisse',JSON.stringify(DB.caisse));
+  await sauvegarderChampSeul('banque',JSON.stringify(DB.banque));
+  await sauvegarderChampSeul('apprentissageRapprochements',JSON.stringify(DB.apprentissageRapprochements||[]));
   closeMo('mainModal');
   renderAll();
   toast(`✓ ${ids.length} prestation(s) rapprochée(s) !`);
@@ -12189,7 +12334,7 @@ async function validerRapprochementCharge(banqueId){
 
   apprendreRapprochementEmma(b,'charge',{type,nom:charge.nom});
   await saveEntry_fb(type,charge);
-  await saveAll();
+  await sauvegarderChampSeul('apprentissageRapprochements',JSON.stringify(DB.apprentissageRapprochements||[]));
   closeMo('mainModal');
   renderAll();
   toast(type==='lissees'?'✓ Prélèvement relié à la charge lissée, sans double comptage':'✓ Charge rapprochée — montant réel mis à jour');
@@ -13139,7 +13284,7 @@ async function saveEntry(addAnother=false){
       if(!t.nom||!t.moisDebut||!montant){toast('⚠ Remplis tous les champs');return;}
       if(mEditId){ const i=DB.chargesLissees.findIndex(x=>x.id===mEditId); DB.chargesLissees[i]=t; }
       else DB.chargesLissees.push(t);
-      await saveAll();
+      await sauvegarderChampSeul('chargesLissees',JSON.stringify(DB.chargesLissees));
 
     } else if(mCtx==='variables'){
       const t={id,mois:g('fMois'),nom:g('fNom'),montant:parseFloat(g('fMnt'))||0,prev:parseFloat(g('fPrev'))||0};
@@ -13160,7 +13305,7 @@ async function delEntry(table, id){
   const ancienne=DB[table]?.find(t=>t.id===id);
   DB[table]=DB[table].filter(t=>t.id!==id);
   if(table==='banque'&&ancienne?.categorie==='ACHATS') synchroniserAchatVariableMois(dm(ancienne.date));
-  await saveAll();
+  await sauvegarderChampSeul(table,JSON.stringify(DB[table]||[]));
   renderAll(); toast('Supprimé');
 }
 
