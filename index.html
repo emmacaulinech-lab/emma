@@ -17805,7 +17805,7 @@ async function traiterTacheRetardEmma(planningId,action){
   DB.journal.planning[today].push(item);
   DB.journal.planning[today].sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''));
 
-  await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+  await saveJournalEmma();
   await synchroniserNotificationsPlanningEmma(today);
   renderJAujourdhui();
   toast(`✨ « ${item.nom||item.customNom} » replacée à ${item.heureDebut}`);
@@ -36899,6 +36899,27 @@ async function terminerOccurrenceLingeEmma(item,st,zone,date){
     if(document.getElementById('module-maison')?.style.display==='flex') renderMaisonModule();
 }
 
+let sauvegardeJournalEnCours=null;
+let sauvegardeJournalDemandee=false;
+
+function saveJournalEmma(){
+    // Une rafale de clics ne lance jamais plusieurs écritures concurrentes.
+    // Si les données changent pendant une sauvegarde, un dernier instantané
+    // complet du Journal est enregistré juste après.
+    if(sauvegardeJournalEnCours){
+        sauvegardeJournalDemandee=true;
+        return sauvegardeJournalEnCours;
+    }
+    sauvegardeJournalEnCours=(async()=>{
+        do{
+            sauvegardeJournalDemandee=false;
+            const instantane=JSON.stringify(DB.journal||{});
+            await sauvegarderChampSeul('journal',instantane);
+        }while(sauvegardeJournalDemandee);
+    })().finally(()=>{sauvegardeJournalEnCours=null;});
+    return sauvegardeJournalEnCours;
+}
+
 function ensureJournalData(){
 
     if(!DB.journal){
@@ -36943,7 +36964,7 @@ function ensureJournalData(){
 
 }
 
-    if(migrerMaisonDefinitiveEmma()) saveAll();
+    if(migrerMaisonDefinitiveEmma()) saveJournalEmma();
 
     // ==========================================
     // SÉCURITÉ : ZONES ABSENTES
@@ -36956,11 +36977,11 @@ function ensureJournalData(){
         DB.journal.zones =
             seedJournalZones();
 
-        saveAll();
+        saveJournalEmma();
     }
 
     if(migrerRoutinesQuotidiennesEmma()){
-        saveAll();
+        saveJournalEmma();
     }
 
 
@@ -37061,7 +37082,7 @@ function ensureJournalData(){
     }
 
     if(migre){
-        saveAll();
+        saveJournalEmma();
     }
 
 }
@@ -37353,11 +37374,8 @@ function renderJournalModule(){
 
     goJTab(jTabActive);
 
-    if(jTabActive===0){
-        scrollVersMaintenant();
-    }
-
-    setTimeout(() => {
+    clearTimeout(renderJournalModule.routineTimer);
+    renderJournalModule.routineTimer=setTimeout(() => {
         ouvrirRoutineMatinEmma();
     },250);
 
@@ -37530,7 +37548,7 @@ async function supprimerSousTacheDefinitivement(zoneId,actionId,stId){
     idsPlanningSupprimes.forEach(id=>delete faitMap[id]);
   });
 
-  await saveAll();
+  await saveJournalEmma();
   closeMo('sousTachesModal');
   renderJAujourdhui();
   await synchroniserNotificationsPlanningEmma(getJournalJour());
@@ -37580,7 +37598,7 @@ async function deplacerZone(idx,delta){
   const tmp=DB.journal.zones[idx];
   DB.journal.zones[idx]=DB.journal.zones[newIdx];
   DB.journal.zones[newIdx]=tmp;
-  await saveAll();
+  await saveJournalEmma();
   renderJTaches();
 }
 
@@ -37589,7 +37607,7 @@ function openAjoutZone(){
   if(!nom) return;
   const icon=prompt('Emoji pour cette zone (optionnel) :','📌')||'📌';
   DB.journal.zones.push({id:genId(),nom,icon,typeDefaut:'perso',actions:[]});
-  saveAll();
+  saveJournalEmma();
   renderJTaches();
   toast('✓ Zone ajoutée');
 }
@@ -37597,7 +37615,7 @@ function openAjoutZone(){
 async function delZone(zoneId){
   if(!confirm('Supprimer cette zone et toutes ses tâches ?')) return;
   DB.journal.zones=DB.journal.zones.filter(z=>z.id!==zoneId);
-  await saveAll();
+  await saveJournalEmma();
   renderJTaches();
 }
 
@@ -37606,7 +37624,7 @@ function openAjoutAction(zoneId){
   if(!nom) return;
   const zone=DB.journal.zones.find(z=>z.id===zoneId);
   zone.actions.push({id:genId(),nom,sousTaches:[]});
-  saveAll();
+  saveJournalEmma();
   renderJTaches();
   toast('✓ Action ajoutée');
 }
@@ -37615,7 +37633,7 @@ async function delAction(zoneId,actionId){
   if(!confirm('Supprimer cette action et ses sous-tâches ?')) return;
   const zone=DB.journal.zones.find(z=>z.id===zoneId);
   zone.actions=zone.actions.filter(a=>a.id!==actionId);
-  await saveAll();
+  await saveJournalEmma();
   renderJTaches();
 }
 
@@ -37627,7 +37645,7 @@ function openAjoutSousTache(zoneId,actionId){
   const zone=DB.journal.zones.find(z=>z.id===zoneId);
   const action=zone.actions.find(a=>a.id===actionId);
   action.sousTaches.push({id:genId(),nom,freq,duree,dernierFait:null});
-  saveAll();
+  saveJournalEmma();
   renderJTaches();
   toast('✓ Sous-tâche ajoutée');
 }
@@ -37636,7 +37654,7 @@ async function delSousTache(zoneId,actionId,stId){
   const zone=DB.journal.zones.find(z=>z.id===zoneId);
   const action=zone.actions.find(a=>a.id===actionId);
   action.sousTaches=action.sousTaches.filter(st=>st.id!==stId);
-  await saveAll();
+  await saveJournalEmma();
   renderJTaches();
 }
 
@@ -37785,8 +37803,9 @@ function renderJAujourdhui(){
         DB.journal.planning[today] = [];
     }
 
-    const proposition =
-        genererPlanningIntelligent(today);
+    // Le moteur de proposition est volontairement lancé seulement lorsque
+    // l'utilisatrice demande d'organiser sa journée. Le calculer ici ne
+    // changeait pas l'affichage et ralentissait chaque ouverture du Journal.
 
 
     // =========================
@@ -38586,7 +38605,7 @@ DB.journal.propositionIntelligente[date] =
         selectionne: true
     }));
 
-saveAll();
+saveJournalEmma();
 
 ouvrirValidationPlanningJournal(date);
 }
@@ -38791,7 +38810,7 @@ function choisirBlocPropositionJournal(date,index,accepte){
     const proposition = DB.journal.propositionIntelligente?.[date];
     if(!proposition?.[index]) return;
     proposition[index].selectionne = accepte;
-    saveAll();
+    saveJournalEmma();
     ouvrirValidationPlanningJournal(date);
 }
 
@@ -38807,7 +38826,7 @@ function toggleBlocPropositionJournal(date,index,checked){
     proposition[index].selectionne =
         checked;
 
-    saveAll();
+    saveJournalEmma();
 }
 
 function ouvrirEditionBlocPropositionJournal(date,blocId){
@@ -38953,7 +38972,7 @@ function sauverEditionBlocPropositionJournal(date,blocId){
     bloc.heureDebut = debut;
     bloc.heureFin = fin;
 
-    saveAll();
+    saveJournalEmma();
 
     document
         .getElementById(
@@ -39121,7 +39140,7 @@ function validerPropositionJournal(date){
     DB.journal.propositionIntelligente[date] = [];
 
 
-    saveAll();
+    saveJournalEmma();
 
     document
         .getElementById(
@@ -39184,7 +39203,7 @@ async function preparerDemainJournal(){
     preparation.nonPlaces =
         proposition.nonPlaces || [];
 
-    await saveAll();
+    await saveJournalEmma();
 
     journalJourAffiche = demain;
     journalVue = "jour";
@@ -39247,7 +39266,7 @@ async function validerPlanningDemainJournal(date){
     preparation.dateValidation =
         new Date().toISOString();
 
-    await saveAll();
+    await saveJournalEmma();
 
     renderJAujourdhui();
 
@@ -39450,7 +39469,7 @@ if(chevauchePlanity){
     bloc.heureDebut = debut;
     bloc.heureFin = fin;
 
-    await saveAll();
+    await saveJournalEmma();
 
     document
         .getElementById("modal-edition-proposition")
@@ -39470,7 +39489,7 @@ async function retirerBlocProposition(date, blocId){
         (preparation.proposition || [])
         .filter(b => b.id !== blocId);
 
-    await saveAll();
+    await saveJournalEmma();
 
     document
         .getElementById("modal-edition-proposition")
@@ -41824,7 +41843,7 @@ async function recalculerResteJourneeEmma(date){
     dedupliquerPlanningEmma(date);
 
 
-    await saveAll();
+    await saveJournalEmma();
 
     // Les Push 5 min avant suivent
     // automatiquement les nouveaux horaires
@@ -43552,6 +43571,7 @@ function renderEtatMaisonJournal(date){
 
 const maisonSelectionTemporaire = new Set();
 const maisonVueSelection = {type:null,zoneId:null,recherche:""};
+let rechercheMaisonTimer=null;
 
 function getJourMaisonSelection(){
     return new Date().toLocaleDateString("fr-CA");
@@ -43660,7 +43680,8 @@ function fermerNavigateurTachesMaison(reafficher=true){
 
 function setRechercheMaison(valeur){
     maisonVueSelection.recherche=String(valeur||"");
-    renderNavigateurTachesMaison(true);
+    clearTimeout(rechercheMaisonTimer);
+    rechercheMaisonTimer=setTimeout(()=>renderNavigateurTachesMaison(true),120);
 }
 
 function getTachesMaisonVisibles(){
@@ -44749,7 +44770,7 @@ async function validerSessionMaisonJournal(){
     });
 
 
-    await saveAll();
+    await saveJournalEmma();
 
 
     document
@@ -45353,7 +45374,7 @@ async function forcerTacheJournal(
 
     }
 
-    await saveAll();
+    await saveJournalEmma();
 
     const elementChoisi = creerElementMaisonDepuisSelection({zoneId,actionId,sousTacheId},date);
     if(elementChoisi){
@@ -45530,7 +45551,7 @@ async function forcerTopTachesPieceJournal(zoneId){
     });
 
 
-    await saveAll();
+    await saveJournalEmma();
 
     document
         .getElementById(
@@ -46321,7 +46342,7 @@ async function validerScanMaisonGlobal(){
     sessionScanMaison = null;
     document.getElementById("modal-validation-scan-global")?.remove();
 
-    await saveAll();
+    await saveJournalEmma();
     toast("✓ Scan maison validé");
 
     if(sessionConversation){
@@ -46450,7 +46471,7 @@ function reorganiserPlanningMaintenant(){
         }));
 
 
-    saveAll();
+    saveJournalEmma();
 
 
     // On ouvre le brouillon à valider,
@@ -47663,7 +47684,7 @@ function supprimerBlocsSelectionnesJournal(){
     blocsSelectionnesJournal.clear();
     modeEditionPlanningJournal = false;
 
-    saveAll();
+    saveJournalEmma();
 
 renderJAujourdhui();
 }
@@ -47966,7 +47987,7 @@ async function decalerBlocsJournal(minutes){
     modeEditionPlanningJournal =
         false;
 
-    await saveAll();
+    await saveJournalEmma();
 
     renderJAujourdhui();
 
@@ -48186,7 +48207,7 @@ async function decalerBlocsJournalDepuisHeure(){
     modeEditionPlanningJournal =
         false;
 
-    await saveAll();
+    await saveJournalEmma();
 
     renderJAujourdhui();
 
@@ -48246,7 +48267,7 @@ async function decalerBlocsJournalVersDemain(){
     blocsSelectionnesJournal.clear();
     modeEditionPlanningJournal = false;
 
-    await saveAll();
+    await saveJournalEmma();
 
     renderJAujourdhui();
 
@@ -48598,7 +48619,7 @@ async function toggleSousTacheRonde(zoneId,actionId,stId,span){
     }
     nettoyerCopiesTachesFaitesEmma(today);
   }
-  await saveAll();
+  await saveJournalEmma();
   renderPlanningTimeline();
 }
 
@@ -49667,7 +49688,7 @@ async function validerDecisionRepasEmma(){
     }
 
 
-    await saveAll();
+    await saveJournalEmma();
 
 
     closeMo("mainModal");
