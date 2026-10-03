@@ -40099,6 +40099,88 @@ function contexteJourPlanningEmma(date){
     };
 }
 
+function estElementTravailEmma(element){
+    return element?.type==='pro'||
+        element?.categorie==='proAdmin'||
+        element?.source==='notifications'||
+        element?.module==='formations'||
+        element?.module==='facturation';
+}
+
+function rangContexteElementEmma(element,date){
+    const contexte=contexteJourPlanningEmma(date);
+    const travail=estElementTravailEmma(element);
+    const maison=element?.categorie==='maison';
+    const essentiel=element?.categorie==='repas';
+    const bienEtre=['detente','sport','lecture'].includes(element?.categorie);
+
+    if(contexte.travaille){
+        if(travail) return 0;
+        if(essentiel) return 1;
+        if(maison&&element?.effort==='classique') return 2;
+        if(bienEtre) return 3;
+        if(maison) return 5;
+        return 4;
+    }
+
+    if(maison) return 0;
+    if(essentiel) return 1;
+    if(bienEtre) return 2;
+    if(travail) return 9;
+    return 3;
+}
+
+function comparerElementsContexteEmma(a,b,date,energie='normale'){
+    if(energie==='forte'||energie==='moyenne'){
+        const pauseA=a?.categorie==='detente'?0:1;
+        const pauseB=b?.categorie==='detente'?0:1;
+        if(pauseA!==pauseB) return pauseA-pauseB;
+    }
+
+    const rangA=rangContexteElementEmma(a,date);
+    const rangB=rangContexteElementEmma(b,date);
+    if(rangA!==rangB) return rangA-rangB;
+
+    if(a?.categorie==='maison'&&b?.categorie==='maison'){
+        if(!!a.prioritaireScan!==!!b.prioritaireScan){
+            return a.prioritaireScan?-1:1;
+        }
+        const scoreA=Number(a.scoreTache||0);
+        const scoreB=Number(b.scoreTache||0);
+        if(scoreA!==scoreB) return scoreB-scoreA;
+    }
+
+    const prioriteA=Number.isFinite(Number(a?.priorite))?Number(a.priorite):99;
+    const prioriteB=Number.isFinite(Number(b?.priorite))?Number(b.priorite):99;
+    return prioriteA-prioriteB||Number(a?.duree||0)-Number(b?.duree||0);
+}
+
+function raisonPropositionContexteEmma(element,date,supplementaire=false){
+    const contexte=contexteJourPlanningEmma(date);
+    if(element.categorie==='detente'){
+        return supplementaire
+            ? 'Une pause pour garder une journée équilibrée'
+            : 'Pause proposée selon le rythme de ta journée';
+    }
+    if(estElementTravailEmma(element)){
+        return 'Une priorité Travail à avancer aujourd’hui';
+    }
+    if(element.prioritaireScan){
+        return 'Priorité Maison repérée grâce aux photos';
+    }
+    if(element.categorie==='maison'&&contexte.jourLibre){
+        return element.effort==='lourde'
+            ? 'Une priorité Maison adaptée à ton jour libre'
+            : 'Une priorité actuelle de ta Maison';
+    }
+    if(element.categorie==='maison'&&contexte.travaille){
+        return 'Un indispensable Maison court, compatible avec ta journée de travail';
+    }
+    return supplementaire
+        ? 'Une possibilité supplémentaire pour compléter ta journée'
+        : 'Utile aujourd’hui selon tes priorités';
+}
+
 function adapterElementsAuContexteEmma(elements,date){
     const contexte=contexteJourPlanningEmma(date);
     let lourdeGardee=false;
@@ -40109,11 +40191,9 @@ function adapterElementsAuContexteEmma(elements,date){
             effort:element.effort||classifierEffortTacheEmma(element)
         }))
         .filter(element=>{
-            if(contexte.typeExplicite==='repos'&&(
-                element.type==='pro'||
-                element.categorie==='proAdmin'||
-                element.source==='notifications'
-            )){
+            // Un jour libre reste réellement personnel, qu'il ait été indiqué
+            // par Emma ou déduit de l'absence de travail dans le planning.
+            if(contexte.jourLibre&&estElementTravailEmma(element)){
                 return false;
             }
 
@@ -40131,9 +40211,12 @@ function adapterElementsAuContexteEmma(elements,date){
             return true;
         })
         .map(element=>{
+            if(contexte.travaille&&estElementTravailEmma(element)){
+                return {...element,priorite:Math.max(0,Number(element.priorite||5)-4)};
+            }
             if(element.categorie!=='maison') return element;
             if(contexte.travaille&&element.effort==='classique'){
-                return {...element,priorite:Math.max(0,Number(element.priorite||5)-3)};
+                return {...element,priorite:Number(element.priorite||5)+3};
             }
             if(contexte.jourLibre&&element.effort==='lourde'){
                 return {
@@ -51879,13 +51962,10 @@ function preparerCandidatsPlanningConversationEmma(){
             !bloc.verrouille&&
             bloc.source!=='planity'&&
             bloc.type!=='tempsLibre'&&
-            !(contexte.typeExplicite==='repos'&&(
-                bloc.type==='pro'||
-                bloc.categorie==='proAdmin'||
-                bloc.source==='notifications'
-            ))&&
+            !(contexte.jourLibre&&estElementTravailEmma(bloc))&&
             !trouverSousTacheJournalEmma(cleElementPlanningConversationEmma(bloc))?.sousTache?.planificationFixe
         )
+        .sort((a,b)=>comparerElementsContexteEmma(a,b,session.date,energie))
         .map(bloc=>({
             cle:cleElementPlanningConversationEmma(bloc),
             origine:'existante',
@@ -51913,19 +51993,7 @@ function preparerCandidatsPlanningConversationEmma(){
                 !estTacheOuEquivalentFaiteJourEmma(element,session.date)&&
                 (element.categorie==='detente'||Number(element.duree||0)<=dureeMax);
         })
-        .sort((a,b)=>{
-            if(energie==='forte'||energie==='moyenne'){
-                const pauseA=a.categorie==='detente'?0:1;
-                const pauseB=b.categorie==='detente'?0:1;
-                if(pauseA!==pauseB) return pauseA-pauseB;
-            }
-            if(contexte.travaille){
-                const effortA=a.effort==='classique'?0:a.effort==='intermediaire'?1:2;
-                const effortB=b.effort==='classique'?0:b.effort==='intermediaire'?1:2;
-                if(effortA!==effortB) return effortA-effortB;
-            }
-            return (a.priorite||99)-(b.priorite||99);
-        })
+        .sort((a,b)=>comparerElementsContexteEmma(a,b,session.date,energie))
         .slice(0,Math.max(0,limiteTotale-existants.length))
         .map(element=>({
             cle:cleElementPlanningConversationEmma(element),
@@ -51933,16 +52001,7 @@ function preparerCandidatsPlanningConversationEmma(){
             nom:element.nom||element.customNom||'Proposition',
             icon:element.icon||element.iconOverride||'✨',
             duree:Number(element.duree||5),
-            raison:
-                element.categorie==='detente'
-                    ? 'Pause proposée selon le rythme de ta journée'
-                    : element.prioritaireScan
-                        ? 'Repérée grâce aux photos'
-                        : element.effort==='lourde'
-                            ? 'Une tâche plus importante, adaptée à ton jour libre'
-                            : contexte.travaille&&element.categorie==='maison'
-                                ? 'Un geste simple adapté à ta journée de travail'
-                                : 'Utile aujourd’hui selon tes priorités',
+            raison:raisonPropositionContexteEmma(element,session.date),
             element
         }));
 
@@ -51953,9 +52012,12 @@ function preparerCandidatsPlanningConversationEmma(){
     sauvegarderPreparationPlanningEmma();
 
     ouvrirAssistantEmma();
+    const orientation=contexte.travaille
+        ? 'Je commence par ce qui est prioritaire pour ton travail, puis je garde seulement les indispensables personnels compatibles avec tes créneaux.'
+        : 'Comme tu ne travailles pas aujourd’hui, je commence par les priorités indiquées dans Ma maison, puis j’équilibre avec le reste de ta journée.';
     ajouterMessageAssistantEmma(
         session.candidats.length
-            ? `J’ai ${session.candidats.length} proposition${session.candidats.length>1?'s':''} à vérifier avec toi. Rien ne sera ajouté avant ton accord final.`
+            ? `${orientation}\n\nJ’ai ${session.candidats.length} proposition${session.candidats.length>1?'s':''} à vérifier avec toi. Rien ne sera ajouté avant ton accord final.`
             : 'Je n’ai trouvé aucune tâche utile à ajouter pour le moment.'
     );
 
@@ -52061,14 +52123,7 @@ function ajouterAutresCandidatsPlanningEmma(){
                 !estTacheOuEquivalentFaiteJourEmma(element,session.date)&&
                 (element.categorie==='detente'||Number(element.duree||0)<=dureeMax);
         })
-        .sort((a,b)=>{
-            if(contexte.travaille){
-                const effortA=a.effort==='classique'?0:a.effort==='intermediaire'?1:2;
-                const effortB=b.effort==='classique'?0:b.effort==='intermediaire'?1:2;
-                if(effortA!==effortB) return effortA-effortB;
-            }
-            return (a.priorite||99)-(b.priorite||99);
-        })
+        .sort((a,b)=>comparerElementsContexteEmma(a,b,session.date,energie))
         .slice(0,contexte.travaille?3:4)
         .map(element=>({
             cle:cleElementPlanningConversationEmma(element),
@@ -52076,13 +52131,7 @@ function ajouterAutresCandidatsPlanningEmma(){
             nom:element.nom||element.customNom||'Proposition',
             icon:element.icon||element.iconOverride||'✨',
             duree:Number(element.duree||5),
-            raison:element.categorie==='detente'
-                ? 'Une pause pour garder une journée équilibrée'
-                : element.prioritaireScan
-                    ? 'Repérée grâce aux photos'
-                    : element.effort==='lourde'
-                        ? 'Une tâche plus importante adaptée à ton jour libre'
-                        : 'Une possibilité supplémentaire pour compléter ta journée',
+            raison:raisonPropositionContexteEmma(element,session.date,true),
             element
         }));
 
