@@ -21262,44 +21262,65 @@ async function genererConvocationFormation(etudianteId){
         toast('⚠ Aucune convocation disponible pour cette formation et ce financement.');
         return;
       }
-      const pdf=await PDFLib.PDFDocument.create();
-      const page=pdf.addPage([595,842]);
+      // Les formations sans modèle dédié reprennent la vraie convocation
+      // Débutante Express 3J : logo, identité visuelle et pied de page officiels.
+      const modeleReference='convocation-debutante-express-3j-perso';
+      const reference=CALIBRAGE_CONVOCATIONS_EMMA[modeleReference];
+      const {pdf}=await chargerModeleEmma(modeleReference,reference.sha,2,'.pdf');
+      const [page,pageProgramme]=pdf.getPages();
       const normal=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
       const gras=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
-      const rose=PDFLib.rgb(.78,.39,.48);
+      const rose=PDFLib.rgb(1,.40,.69);
+      const noir=PDFLib.rgb(.12,.12,.14);
+      const blanc=PDFLib.rgb(1,1,1);
+      const roseClair=PDFLib.rgb(.97,.72,.94);
       const infos=getInfosFormationPerso(eleve);
-      const lignes=[
-        ['CONVOCATION DE FORMATION',18,gras,rose],
-        ['',8,normal,rose],
-        ['LIMAGE SCHOOL',12,gras,PDFLib.rgb(.15,.15,.18)],
-        ['',8,normal,rose],
-        ['Eleve : '+(donnees.nomComplet||donnees.prenom),11,gras,PDFLib.rgb(.15,.15,.18)],
-        ['Formation : '+donnees.formationLabel,11,normal,PDFLib.rgb(.15,.15,.18)],
-        ['Dates : du '+donnees.dateDebut+' au '+donnees.dateFin,11,normal,PDFLib.rgb(.15,.15,.18)],
-        ['Lieu : '+(donnees.lieu||'LIMAGE SCHOOL'),11,normal,PDFLib.rgb(.15,.15,.18)],
-        ['',8,normal,rose],
-        ['HORAIRES',12,gras,rose],
-        [infos.horaires,11,normal,PDFLib.rgb(.15,.15,.18)],
-        ['',8,normal,rose],
-        ['PROGRAMME',12,gras,rose],
-        [infos.programme,11,normal,PDFLib.rgb(.15,.15,.18)],
-        ['',8,normal,rose],
-        ['MODELES',12,gras,rose],
-        [infos.modeles+' Si vous venez de loin ou ne pouvez pas amener vos modeles, nous pouvons nous charger de les trouver. Giulia organise leur planning.',11,normal,PDFLib.rgb(.15,.15,.18)],
-        ['',8,normal,rose],
-        ['INFORMATIONS PRATIQUES',12,gras,rose],
-        ['Votre kit pedagogique est offert. Le petit-dejeuner et le gouter sont inclus. Merci de prevoir votre dejeuner ; un refrigerateur et un micro-ondes sont disponibles.',11,normal,PDFLib.rgb(.15,.15,.18)]
-      ];
-      let y=780;
-      const largeur=485;
-      for(const [texte,taille,police,couleur] of lignes){
-        if(!texte){y-=taille;continue;}
-        const mots=texte.split(/\s+/);let ligne='';const sorties=[];
-        for(const mot of mots){const test=ligne?ligne+' '+mot:mot;if(police.widthOfTextAtSize(test,taille)>largeur&&ligne){sorties.push(ligne);ligne=mot;}else ligne=test;}
-        if(ligne) sorties.push(ligne);
-        sorties.forEach(sortie=>{page.drawText(sortie,{x:55,y,size:taille,font:police,color:couleur});y-=taille+5;});
-        y-=4;
-      }
+      const securiser=texte=>String(texte||'').replace(/[’‘]/g,"'").replace(/[–—]/g,'-').replace(/®/g,'(R)');
+      const centrer=(p,texte,y,taille,police,couleur)=>{
+        const propre=securiser(texte);p.drawText(propre,{x:(595-police.widthOfTextAtSize(propre,taille))/2,y,size:taille,font:police,color:couleur});
+      };
+      const paragraphes=(p,texte,x,y,largeur,taille=10,police=normal,couleur=noir,interligne=14)=>{
+        let courant=y;
+        for(const paragraphe of securiser(texte).split('\n')){
+          const mots=paragraphe.trim().split(/\s+/).filter(Boolean);let ligne='';
+          for(const mot of mots){
+            const essai=ligne?ligne+' '+mot:mot;
+            if(police.widthOfTextAtSize(essai,taille)>largeur&&ligne){p.drawText(ligne,{x,y:courant,size:taille,font:police,color:couleur});courant-=interligne;ligne=mot;}else ligne=essai;
+          }
+          if(ligne){p.drawText(ligne,{x,y:courant,size:taille,font:police,color:couleur});courant-=interligne;}
+          courant-=4;
+        }
+        return courant;
+      };
+
+      // Nettoyage du contenu propre à la formation 3J, en conservant le logo et les pieds de page.
+      page.drawRectangle({x:40,y:112,width:515,height:575,color:blanc});
+      page.drawRectangle({x:300,y:700,width:255,height:125,color:blanc});
+      pageProgramme.drawRectangle({x:40,y:105,width:515,height:720,color:blanc});
+
+      page.drawText('Le : '+new Date().toLocaleDateString('fr-FR'),{x:390,y:748,size:10,font:gras,color:noir});
+      centrer(page,'CONVOCATION',632,17,gras,rose);
+      centrer(page,'Formation « '+donnees.formationLabel+' »',610,12,gras,rose);
+      centrer(page,'Bienvenue '+(donnees.prenom||donnees.nomComplet)+' !',580,13,gras,rose);
+      page.drawLine({start:{x:47,y:560},end:{x:548,y:560},thickness:1,color:rose});
+
+      let y=535;
+      page.drawText('VOTRE SESSION', {x:48,y,size:12,font:gras,color:noir});y-=23;
+      y=paragraphes(page,'Dates : du '+donnees.dateDebut+' au '+donnees.dateFin+'\nHoraires : '+infos.horaires+'\nLieu : '+(donnees.lieu||'LIMAGE SCHOOL'),48,y,495,10.5,normal,noir,15)-4;
+      page.drawText('EXERCICES ET MODELES', {x:48,y,size:12,font:gras,color:noir});y-=22;
+      y=paragraphes(page,infos.modeles+' La prestation modèle est gratuite.',48,y,495,10.5,normal,noir,15)-5;
+      const texteGiulia='Si vous venez de loin ou ne pouvez pas amener vos modèles, nous pouvons nous charger de les trouver. Giulia vous contactera pour organiser leur planning.';
+      page.drawRectangle({x:48,y:y-60,width:499,height:70,color:roseClair});
+      paragraphes(page,texteGiulia,65,y-12,465,9.5,gras,noir,13);y-=88;
+      page.drawText('KIT PEDAGOGIQUE', {x:48,y,size:12,font:gras,color:noir});y-=22;
+      y=paragraphes(page,'Dans le cadre de votre financement personnel, votre kit pédagogique est offert et vous sera remis pendant la formation.',48,y,495,10.5,normal,noir,15)-5;
+      page.drawText('INFORMATIONS PRATIQUES', {x:48,y,size:12,font:gras,color:noir});y-=22;
+      paragraphes(page,'Le petit-déjeuner et le goûter sont offerts. Merci de prévoir votre déjeuner ; un réfrigérateur et un micro-ondes sont disponibles sur place.',48,y,495,10.5,normal,noir,15);
+
+      centrer(pageProgramme,'Formation : « '+donnees.formationLabel+' »',750,14,gras,rose);
+      centrer(pageProgramme,'PROGRAMME ET DEROULE',720,13,gras,noir);
+      paragraphes(pageProgramme,infos.programme,55,685,485,11,normal,noir,17);
+      centrer(pageProgramme,'Remise de votre attestation en fin de session.',190,13,gras,rose);
       const resultat=await pdf.save();
       telechargerDocumentEmma(resultat,'Convocation-'+(donnees.nomComplet||donnees.prenom)+'-'+donnees.formationId+'.pdf');
       if(await validerDocumentGenereFormation(etudianteId,'convocation_creee')) toast('✓ Convocation générée et suivi enregistré : '+donnees.prenom);
