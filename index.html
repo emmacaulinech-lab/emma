@@ -5489,9 +5489,9 @@ button.emma-card-row{
     <section class="maison-hero">
       <div><div class="maison-kicker">Maison</div><h1 class="maison-title">Ma maison ✨</h1><div class="maison-subtitle">Tout ce qui mérite ton attention, pièce par pièce.</div><button class="maison-soft-btn" style="margin-top:12px" onclick="ouvrirRattrapageDernieresRealisationsMaison()">🗓️ Rattraper les dernières réalisations</button></div>
       <div class="maison-stats">
-        <div class="maison-stat"><strong id="maison-total-tasks">0</strong><small>tâches</small></div>
-        <div class="maison-stat"><strong id="maison-done">0</strong><small>faites</small></div>
-        <div class="maison-stat"><strong id="maison-overdue">0</strong><small>à traiter</small></div>
+        <div class="maison-stat"><strong id="maison-up-to-date">0</strong><small>à jour</small></div>
+        <div class="maison-stat"><strong id="maison-overdue">0</strong><small>en retard</small></div>
+        <div class="maison-stat"><strong id="maison-due-today">0</strong><small>aujourd’hui</small></div>
       </div>
     </section>
     <div class="maison-layout">
@@ -23844,42 +23844,66 @@ function maisonMetaNiveau(niveau){
     }[niveau] || {label:"En cours",color:"#7d8dac",fond:"rgba(228,233,244,.72)"};
 }
 
+function getEtatVisuelPourcentageMaison(pourcentageAFaire){
+    const valeur=Math.max(0,Math.min(100,Number(pourcentageAFaire||0)));
+    if(valeur<=10) return {niveau:"ok",label:"À jour"};
+    if(valeur<=25) return {niveau:"moyen",label:"Peu à faire"};
+    if(valeur<=50) return {niveau:"attention",label:"À surveiller"};
+    return {niveau:"urgent",label:"À faire"};
+}
+
 function renderMaisonModule(){
     const data = getMaisonDashboardData();
     const planning = DB.journal.planning?.[data.date] || [];
     const maisonPlanning = planning.filter(item => item.categorie === "maison" || item.zoneId || item.data?.zoneId);
-    const prioritaires = [...data.pieces].sort((a,b) => a.score-b.score);
-    const priorite = prioritaires.find(p => p.actives.length) || prioritaires[0];
-    const total = document.getElementById("maison-total-tasks");
-    const done = document.getElementById("maison-done");
+    const idsPlanifies=getIdsMaisonDejaDansJournee(data.date);
+    const idsForces=new Set((DB.journal.tachesForcees?.[data.date]||[]).map(item=>item.sousTacheId));
+    const prioritaires = [...data.pieces]
+        .map(piece=>({...piece,disponibles:piece.actives.filter(tache=>!idsPlanifies.has(tache.st.id)&&!idsForces.has(tache.st.id))}))
+        .sort((a,b) => a.score-b.score);
+    const priorite = prioritaires.find(p => p.disponibles.length) || null;
+    const toutesTaches=getToutesTachesMaisonSelection(data.date);
+    const nbAJour=toutesTaches.filter(tache=>tache.echeance.ordre===3||tache.echeance.ordre===4).length;
+    const nbEnRetard=toutesTaches.filter(tache=>tache.echeance.ordre===0||tache.echeance.ordre===1).length;
+    const nbAujourdhui=toutesTaches.filter(tache=>tache.echeance.ordre===2).length;
+    const upToDate = document.getElementById("maison-up-to-date");
     const overdue = document.getElementById("maison-overdue");
-    if(total) total.textContent = data.pieces.reduce((s,piece) => s + (piece.taches?.length || 0),0);
-    if(done) done.textContent = data.faites.length;
-    if(overdue) overdue.textContent = data.pieces.filter(piece => piece.actives.length && piece.niveau === "urgent").length;
+    const dueToday = document.getElementById("maison-due-today");
+    if(upToDate) upToDate.textContent = nbAJour;
+    if(overdue) overdue.textContent = nbEnRetard;
+    if(dueToday) dueToday.textContent = nbAujourdhui;
 
     const floor = document.getElementById("maison-floor-grid");
     if(floor) floor.innerHTML = data.pieces.map(piece => {
-        const meta = maisonMetaNiveau(piece.niveau);
+        const pourcentageAFaire=piece.taches.length?Math.round(piece.actives.length/piece.taches.length*100):0;
+        const etatAffiche=getEtatVisuelPourcentageMaison(pourcentageAFaire);
+        const meta = maisonMetaNiveau(etatAffiche.niveau);
         return `<button class="maison-room" style="background:${meta.fond}" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')">
-          <div class="maison-room-top"><span>${piece.zone.icon || "🏠"}</span><span class="maison-room-score" style="color:${meta.color}">${piece.score}%</span></div>
-          <div><div class="maison-room-name">${piece.zone.nom}</div><small>${piece.actives.length ? `${piece.actives.length} à faire` : "Rien de dû"} · ${meta.label}</small><div class="maison-room-bar"><i style="width:${piece.score}%;background:${meta.color}"></i></div></div>
+          <div class="maison-room-top"><span>${piece.zone.icon || "🏠"}</span><span class="maison-room-score" style="color:${meta.color}">${pourcentageAFaire}%</span></div>
+          <div><div class="maison-room-name">${piece.zone.nom}</div><small>${piece.actives.length ? `${piece.actives.length} à faire` : "Rien de dû"} · ${etatAffiche.label}</small><div class="maison-room-bar"><i style="width:${pourcentageAFaire}%;background:${meta.color}"></i></div></div>
         </button>`;
     }).join("");
 
     const priorityCard = document.getElementById("maison-priority-card");
-    if(priorityCard && priorite){
-        const top = priorite.actives.slice(0,3);
-        priorityCard.innerHTML = `<div class="maison-kicker">⭐ Priorité</div><div class="maison-priority-name">${priorite.zone.icon || "🏠"} ${priorite.zone.nom}</div><div class="maison-priority-copy">${top.length ? `${top.length} action${top.length>1?"s":""} utile${top.length>1?"s":""} maintenant` : "Cette pièce est à jour"}</div>
+    if(priorityCard){
+        if(priorite){
+        const top = priorite.disponibles.slice(0,3);
+        priorityCard.innerHTML = `<div class="maison-kicker">⭐ Priorité</div><div class="maison-priority-name">${priorite.zone.icon || "🏠"} ${priorite.zone.nom}</div><div class="maison-priority-copy">${top.length ? `${top.length} action${top.length>1?"s":""} pas encore ajoutée${top.length>1?"s":""}` : "Cette pièce est à jour"}</div>
           ${top.map(t => `<div class="maison-task-row"><span>○</span><span>${t.st.nom || t.action.nom}</span><small>${t.st.duree || 5} min</small></div>`).join("")}
           <button class="maison-add-btn" onclick="ajouterPrioriteMaisonAuPlanning('${priorite.zone.id}')">＋ Ajouter au planning</button>`;
+        }else{
+            priorityCard.innerHTML=`<div class="maison-kicker">⭐ Priorité</div><div class="maison-priority-name">Tout est prévu ✨</div><div class="maison-priority-copy">Les tâches prioritaires sont déjà dans ton planning.</div>`;
+        }
     }
     const today = document.getElementById("maison-today-card");
     if(today) today.innerHTML = `<div class="maison-kicker">Aujourd'hui</div><div class="maison-today-number">${maisonPlanning.length}</div><div class="maison-today-copy">tâche${maisonPlanning.length>1?"s":""} maison dans ton planning</div><button class="maison-soft-btn" style="width:100%" onclick="goModule('journal')">Voir ma journée →</button>`;
 
     const list = document.getElementById("maison-all-rooms");
     if(list) list.innerHTML = prioritaires.map(piece => {
-        const meta = maisonMetaNiveau(piece.niveau);
-        return `<button class="maison-list-row" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')"><strong>${piece.zone.icon || "🏠"} ${piece.zone.nom}</strong><div class="maison-progress"><i style="width:${piece.score}%;background:${meta.color}"></i></div><small>${piece.actives.length ? `${piece.actives.length} à faire` : "À jour"} · ${piece.score}% ›</small></button>`;
+        const pourcentageAFaire=piece.taches.length?Math.round(piece.actives.length/piece.taches.length*100):0;
+        const etatAffiche=getEtatVisuelPourcentageMaison(pourcentageAFaire);
+        const meta = maisonMetaNiveau(etatAffiche.niveau);
+        return `<button class="maison-list-row" onclick="ouvrirDetailPieceJournal('${piece.zone.id}')"><strong>${piece.zone.icon || "🏠"} ${piece.zone.nom}</strong><div class="maison-progress"><i style="width:${pourcentageAFaire}%;background:${meta.color}"></i></div><small>${piece.actives.length ? `${piece.actives.length} à faire` : "À jour"} · ${pourcentageAFaire}% ›</small></button>`;
     }).join("");
 
     if(maisonVueSelection.type){
