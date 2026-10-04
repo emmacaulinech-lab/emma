@@ -5732,6 +5732,12 @@ auth.onAuthStateChanged(async user => {
     goHub();
     setTimeout(decalerTachesEnRetardAutomatiquementEmma,450);
     setTimeout(initialiserAccueilConversationEmma,700);
+    if("Notification" in window&&Notification.permission==="granted"){
+      setTimeout(async()=>{
+        await abonnerEmmaAuxPush();
+        await synchroniserNotificationsPlanningEmma(new Date().toLocaleDateString('fr-CA'));
+      },1200);
+    }
   } else {
     chargementInitialEnCours = false;
     currentUser = null;
@@ -8786,6 +8792,10 @@ async function sauvegarderChampSeul(nomChamp, valeur){
         data: valeur,
         updatedAt
       }, {merge:true});
+
+      programmerSynchronisationNotificationsEmma?.(
+        new Date().toLocaleDateString('fr-CA')
+      );
 
       return true;
     }
@@ -16043,6 +16053,7 @@ async function syncAgendaVersJournal(){
 
   if(ajoutes>0){
     await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+    await synchroniserNotificationsPlanningEmma(dateCible);
     toast(`✓ ${ajoutes} RDV ajouté(s) au planning du ${dateCible}`);
   }
 }
@@ -37785,6 +37796,7 @@ async function validerAjoutRdvRapide(){
     iconOverride:'📌',couleurOverride:'#993556'
   });
   await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+  await synchroniserNotificationsPlanningEmma(date);
   closeMo('mainModal');
   journalJourAffiche=date;
   renderJAujourdhui();
@@ -50612,6 +50624,7 @@ async function validerAjoutTacheHeure(){
   if(!DB.journal.planning[today]) DB.journal.planning[today]=[];
   DB.journal.planning[today].push(item);
   await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
+  await synchroniserNotificationsPlanningEmma(today);
   closeMo('mainModal');
   renderPlanningTimeline();
   toast('✓ Tâche ajoutée');
@@ -51429,6 +51442,17 @@ function mettreAJourBoutonNotificationsEmma(){
 }
 
 const EMMA_VAPID_KEY = "BPZL0zh0_u1eHoDkcZ6hAom0W4b86YkO9QGgeN4E2MXEp00NQA55rbMI9HtH4bOQ6FwU3zTUy28kkD3rzo7h2Y4";
+let timerSynchronisationNotificationsEmma=null;
+
+function programmerSynchronisationNotificationsEmma(date){
+    if(!date||!("Notification" in window)||Notification.permission!=="granted") return;
+    clearTimeout(timerSynchronisationNotificationsEmma);
+    timerSynchronisationNotificationsEmma=setTimeout(()=>{
+        synchroniserNotificationsPlanningEmma(date).catch(erreur=>
+            console.warn("Synchronisation différée des notifications impossible",erreur)
+        );
+    },900);
+}
 
 async function abonnerEmmaAuxPush() {
 
@@ -51496,8 +51520,6 @@ async function synchroniserNotificationsPlanningEmma(date){
     const maintenant=new Date();
     const aujourdHui=maintenant.toLocaleDateString('fr-CA');
     const minuteActuelle=maintenant.getHours()*60+maintenant.getMinutes();
-    const energie=DB.journal?.contexteJour?.[date]?.energie||'normale';
-
     const collection =
         firebase.firestore()
         .collection("emma_taches_notifications");
@@ -51544,18 +51566,18 @@ async function synchroniserNotificationsPlanningEmma(date){
                 return;
             }
 
-            // Pas de notification 5 min avant les clientes Planity
-            if(
+            const estRdvCliente=
                 bloc.source === "planity" ||
-                bloc.verrouille === true
-            ){
-                return;
-            }
+                bloc.typeElement === "planity" ||
+                bloc.type === "cliente";
 
-            // Un RDV manuel n'est pas considéré comme une tâche
-            if(bloc.aClasser === true){
-                return;
-            }
+            const estRdvPersonnel=
+                !estRdvCliente && (
+                    bloc.source === "assistant" ||
+                    bloc.categorie === "evenement" ||
+                    bloc.type === "perso" && bloc.verrouille === true ||
+                    bloc.aClasser === true && bloc.iconOverride === "📌"
+                );
 
             const planningId =
                 String(
@@ -51578,18 +51600,29 @@ async function synchroniserNotificationsPlanningEmma(date){
                 collection.doc(idDocument);
 
             const duree=Number(bloc.duree||0);
-            const rappelMinutes=energie==='forte'
-                ? 10
-                : duree>=45
-                    ? 10
-                    : 5;
+            // Tâches et clientes : à l'heure exacte.
+            // Rendez-vous personnels (manuel ou assistante) : une heure avant.
+            const rappelMinutes=estRdvPersonnel ? 60 : 0;
             const categorie=bloc.categorie||bloc.data?.categorie||'tache';
             const texte=bloc.nom||bloc.customNom||'Tâche';
-            const message=categorie==='detente'
-                ? `${texte} approche. Ce moment est là pour souffler ♡`
-                : energie==='forte'
-                    ? `${texte} approche. Fais seulement ce que ton énergie permet ♡`
-                    : `${texte} commence bientôt. Tu veux t’y mettre ?`;
+            const typeNotification=estRdvCliente
+                ? "rdv_cliente"
+                : estRdvPersonnel
+                    ? "rdv_personnel"
+                    : "tache";
+            const suivant=planning
+                .filter(item=>item.id!==bloc.id&&item.heureDebut&&item.heureDebut>bloc.heureDebut)
+                .sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut))[0];
+            const suite=suivant
+                ? ` Ensuite : ${suivant.nom||suivant.customNom||"prochaine étape"} à ${suivant.heureDebut}.`
+                : "";
+            const message=estRdvCliente
+                ? `${texte} commence maintenant.${suite}`
+                : estRdvPersonnel
+                    ? `${texte} est prévu dans 1 heure.${suite}`
+                    : categorie==='detente'
+                        ? `${texte} commence maintenant. Ce moment est là pour souffler ♡${suite}`
+                        : `${texte} commence maintenant. Tu veux t’y mettre ?${suite}`;
 
             batch.set(
                 ref,
@@ -51617,6 +51650,8 @@ async function synchroniserNotificationsPlanningEmma(date){
 
                     rappelMinutes,
 
+                    typeNotification,
+
                     categorie,
 
                     url:`/emma/?module=journal&type=tache&id=${encodeURIComponent(planningId)}`,
@@ -51634,6 +51669,85 @@ async function synchroniserNotificationsPlanningEmma(date){
             );
 
         });
+
+        const ajouterNotificationProgramme=(suffixe,donnees)=>{
+            const idDocument=(utilisateur.uid+"_"+date+"_programme_"+suffixe).replace(/\//g,"_");
+            batch.set(collection.doc(idDocument),{
+                userId:utilisateur.uid,
+                date,
+                planningId:"programme_"+suffixe,
+                faite:false,
+                source:"programme_emma",
+                updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+                ...donnees
+            });
+        };
+        const minuteVersHeure=minute=>{
+            if(minute<0||minute>=1440) return null;
+            return `${String(Math.floor(minute/60)).padStart(2,"0")}:${String(minute%60).padStart(2,"0")}`;
+        };
+        const horaireEncoreUtile=heure=>
+            !!heure&&(date>aujourdHui||(date===aujourdHui&&strToMin(heure)>minuteActuelle));
+        const blocsProgramme=planning
+            .filter(bloc=>bloc.heureDebut&&bloc.type!=="tempsLibre")
+            .sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
+
+        // Résumé unique dix minutes avant le premier élément de la journée.
+        if(blocsProgramme.length){
+            const premiere=blocsProgramme[0];
+            const heureResume=minuteVersHeure(strToMin(premiere.heureDebut)-10);
+            if(horaireEncoreUtile(heureResume)){
+                const clientes=blocsProgramme.filter(bloc=>bloc.source==="planity"||bloc.typeElement==="planity"||bloc.type==="cliente").length;
+                const autres=blocsProgramme.length-clientes;
+                const resume=[clientes?`${clientes} rendez-vous cliente${clientes>1?"s":""}`:"",autres?`${autres} autre${autres>1?"s":""} étape${autres>1?"s":""}`:""].filter(Boolean).join(" et ");
+                ajouterNotificationProgramme("debut_journee",{
+                    texte:"Résumé de la journée",
+                    titre:"Bonjour Emma ✨",
+                    message:`Aujourd’hui : ${resume||"une journée légère"}. Première étape : ${premiere.nom||premiere.customNom||"ton planning"} à ${premiere.heureDebut}.`,
+                    heure:heureResume,heureFin:null,duree:0,rappelMinutes:0,typeNotification:"resume_journee",
+                    categorie:"journal",url:"/emma/?module=journal"
+                });
+            }
+
+            // Bilan trente minutes après le dernier élément, sans dépasser 22 h 30.
+            const derniere=blocsProgramme.reduce((max,bloc)=>strToMin(bloc.heureFin||bloc.heureDebut)>strToMin(max.heureFin||max.heureDebut)?bloc:max,blocsProgramme[0]);
+            const heureBilan=minuteVersHeure(strToMin(derniere.heureFin||derniere.heureDebut)+30);
+            if(heureBilan&&strToMin(heureBilan)<=22*60+30&&horaireEncoreUtile(heureBilan)){
+                ajouterNotificationProgramme("bilan_journee",{
+                    texte:"Bilan de la journée",
+                    titre:"EMMA ✨",
+                    message:"Journée presque terminée ♡ On vérifie ce qui est fait et on prépare demain ?",
+                    heure:heureBilan,heureFin:null,duree:0,rappelMinutes:0,typeNotification:"bilan_journee",
+                    categorie:"journal",url:"/emma/?module=journal"
+                });
+            }
+        }
+
+        // Les données Glow représentent la journée courante : rappels seulement aujourd'hui.
+        if(date===aujourdHui){
+            const nutrition=DB.glow?.nutrition||{};
+            const repas=nutrition.repas||[];
+            const repasPrevu=nutrition.repasPrevus||{};
+            const dejeunerConnu=repas.some(item=>item.type==="dejeuner")||!!repasPrevu.dejeuner;
+            const dinerConnu=repas.some(item=>item.type==="diner")||!!repasPrevu.diner||!!nutrition.dinerPrevu;
+            if(!dejeunerConnu&&horaireEncoreUtile("11:30")) ajouterNotificationProgramme("dejeuner",{
+                texte:"Déjeuner",titre:"EMMA · Glow 🥗",message:"Ton déjeuner n’est pas encore décidé. Tu veux une idée simple ?",
+                heure:"11:30",heureFin:null,duree:0,rappelMinutes:0,typeNotification:"nutrition",categorie:"glow",url:"/emma/?module=glow&type=nutrition"
+            });
+            if(!dinerConnu&&horaireEncoreUtile("18:30")) ajouterNotificationProgramme("diner",{
+                texte:"Dîner",titre:"EMMA · Glow 🥗",message:"Ton dîner n’est pas encore décidé. On choisit selon ce que tu as déjà mangé ?",
+                heure:"18:30",heureFin:null,duree:0,rappelMinutes:0,typeNotification:"nutrition",categorie:"glow",url:"/emma/?module=glow&type=nutrition"
+            });
+            const eau=Number(DB.glow?.eau||0);
+            if(eau<3&&horaireEncoreUtile("11:00")) ajouterNotificationProgramme("eau_matin",{
+                texte:"Hydratation",titre:"EMMA · Glow 💧",message:"Petit point eau : pense à boire un verre ♡",
+                heure:"11:00",heureFin:null,duree:0,rappelMinutes:0,typeNotification:"eau",categorie:"glow",url:"/emma/?module=glow"
+            });
+            if(eau<6&&horaireEncoreUtile("16:00")) ajouterNotificationProgramme("eau_apres_midi",{
+                texte:"Hydratation",titre:"EMMA · Glow 💧",message:"Où en es-tu avec ton eau aujourd’hui ?",
+                heure:"16:00",heureFin:null,duree:0,rappelMinutes:0,typeNotification:"eau",categorie:"glow",url:"/emma/?module=glow"
+            });
+        }
 
         await batch.commit();
 
@@ -53723,6 +53837,8 @@ const tachesDeplacees =
     'journal',
     JSON.stringify(DB.journal)
 );
+
+await synchroniserNotificationsPlanningEmma(action.date);
 
 return tachesDeplacees;
 }
