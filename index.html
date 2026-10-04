@@ -1850,6 +1850,17 @@ button.emma-card-row{
     font-weight:800;
     cursor:pointer;
 }
+.emma-glow-meal-actions button:nth-child(3){grid-column:1 / -1}
+
+.glow-extension-nav{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px}
+.glow-extension-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.glow-extension-card{background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.9);border-radius:22px;padding:18px;box-shadow:var(--shadow)}
+.glow-check-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:11px;align-items:center;padding:12px 0;border-bottom:1px solid var(--brd)}
+.glow-check-row input[type="checkbox"]{width:22px;height:22px;accent-color:var(--acc)}
+.glow-sticky-action{position:sticky;bottom:12px;z-index:20;width:100%;min-height:52px;justify-content:center;box-shadow:var(--shadow2);margin-top:14px}
+.glow-plan-day{background:rgba(255,255,255,.64);border:1px solid var(--brd);border-radius:20px;padding:15px;margin-bottom:10px}
+.glow-shopping-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--brd)}
+@media(max-width:700px){.glow-extension-grid{grid-template-columns:1fr}.glow-extension-card{padding:15px}.glow-check-row{grid-template-columns:auto minmax(0,1fr)}}
 
 .emma-assistant-dock{
     width:100%;
@@ -4448,11 +4459,13 @@ button.emma-card-row{
       <div class="emma-card-row"><span>💧</span><span><strong>Eau</strong><small id="hub-glow-water">0 / 8 verres</small></span></div>
       <div class="emma-card-row"><span>🏃</span><span><strong>Sport</strong><small id="hub-glow-sport">0 / 30 min</small></span></div>
       <div class="emma-card-row"><span>🥗</span><span><strong>Nutrition</strong><small id="hub-glow-meals">0 repas renseigné</small></span></div>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();ouvrirOutfitDuJourGlow()"><span>👗</span><span><strong>Outfit of the day ?</strong><small>Ajouter ma tenue</small></span><span>›</span></button>
     </div>
 
     <div class="emma-glow-meal-actions" onclick="event.stopPropagation()">
       <button type="button" onclick="renseignerRepasDepuisHub()">Renseigner un repas</button>
       <button type="button" onclick="choisirRepasDepuisHub()">Choisir un repas</button>
+      <button type="button" onclick="prendreRepasPhotoDepuisHub()">📸 Prendre mon repas en photo</button>
     </div>
 
     <div class="hub-card-notifications" id="hub-notifs-glow"></div>
@@ -8337,6 +8350,10 @@ async function loadAll() {
         DB.historiqueGlow = JSON.parse(g.historique);
       }
     }
+
+    // Extensions Glow persistantes, dans des documents ciblés distincts.
+    // Elles sont chargées en complément et ne remplacent jamais DB.glow.
+    await chargerExtensionsGlowSecurisees();
 
 
     const journalDoc = await userRef
@@ -25114,6 +25131,21 @@ async function enregistrerSeancePartielleGlow(){
 
 </div>
 
+        <div class="glow-extension-grid" style="margin-bottom:18px">
+          <button class="glow-extension-card" style="text-align:left;cursor:pointer" onclick="renderGlowSoins()">
+            <strong style="font-size:18px">✨ Prendre soin de moi</strong>
+            <small style="display:block;color:var(--mut);margin-top:5px">Soins récurrents, échéances et ajout au Journal</small>
+          </button>
+          <button class="glow-extension-card" style="text-align:left;cursor:pointer" onclick="renderGlowDressing()">
+            <strong style="font-size:18px">👗 Mon dressing</strong>
+            <small style="display:block;color:var(--mut);margin-top:5px">Mes vêtements et idées de tenues</small>
+          </button>
+          <button class="glow-extension-card" style="text-align:left;cursor:pointer;grid-column:1/-1" onclick="renderPlanificationRepasGlow()">
+            <strong style="font-size:18px">🍽️ Planifier mes prochains repas</strong>
+            <small style="display:block;color:var(--mut);margin-top:5px">Période de courses, restes et liste intelligente</small>
+          </button>
+        </div>
+
         <!-- GLOW SCORE -->
         <div style="
             background:rgba(255,255,255,.60);
@@ -27539,6 +27571,10 @@ function renderGlowNutrition(){
             </button>
 
         </div>
+
+        <button class="btn bd" onclick="renderPlanificationRepasGlow()" style="width:100%;justify-content:center;min-height:52px;margin-bottom:18px">
+          🍽️ Planifier mes prochains repas
+        </button>
 
 
         <!-- RESUME JOURNEE -->
@@ -50891,6 +50927,17 @@ async function togglePlanningFait(planningId){
     nettoyerCopiesTachesFaitesEmma(today);
   }
 
+  // Un soin Glow n'est réalisé qu'au clic sur sa case dans le vrai Journal.
+  // L'ajout au planning seul ne modifie jamais sa fréquence ni son historique.
+  if(item.source==="glow_soin"&&item.data?.soinId){
+    await enregistrerRealisationSoinGlow(
+      item.data.soinId,
+      today,
+      cocheMaintenant,
+      planningId
+    );
+  }
+
   repositionnerTachesFaitesAvantMaintenant(today,minuteActuelle);
 
   dedupliquerPlanningEmma(today);
@@ -55392,6 +55439,241 @@ if(
     });
 }
    
+// ═══════════════════════════════════════
+// EXTENSIONS GLOW — SOINS, DRESSING, REPAS
+// Données nouvelles uniquement, documents Firebase ciblés.
+// ═══════════════════════════════════════
+const SOINS_GLOW_DEFAUT = [
+  ["cheveux_lavage","Laver les cheveux","cheveux",4,15,"jours"],
+  ["cheveux_brushing","Faire le brushing","cheveux",null,30,"apres_lavage"],
+  ["cheveux_masque","Masque cheveux","cheveux",30,10,"jours","Temps de pose libre"],
+  ["cheveux_huile","Soin sans rinçage / huile pointes","cheveux",7,3,"jours"],
+  ["cheveux_pointes","Couper / rafraîchir les pointes","cheveux",90,null,"jours","Rappel"],
+  ["visage_masque","Masque visage","visage",7,15,"jours"],
+  ["visage_gommage","Gommage / exfoliation visage","visage",15,5,"jours"],
+  ["visage_complet","Soin visage complet","visage",30,30,"jours"],
+  ["visage_sourcils","Faire / entretenir les sourcils","visage",15,5,"jours"],
+  ["visage_pores","Nettoyer les pores / points noirs","visage",30,15,"jours"],
+  ["visage_guasha","Gua Sha visage","visage",4,5,"jours","2 fois par semaine"],
+  ["visage_levres","Gommage + soin des lèvres","visage",7,5,"jours"],
+  ["corps_gommage","Gommage corps","corps",7,10,"jours"],
+  ["corps_hydratation","Hydrater le corps","corps",4,5,"jours","2 fois par semaine"],
+  ["corps_epilation","Épilation / rasage","corps",7,15,"jours"],
+  ["corps_pieds","Soin des pieds","corps",15,15,"jours","Callosités incluses"]
+].map(([id,nom,categorie,frequenceJours,duree,typeFrequence,note])=>({
+  id,nom,categorie,frequenceJours,duree,typeFrequence,note:note||"",derniereRealisation:null,historique:[]
+}));
+Object.assign(SOINS_GLOW_DEFAUT.find(x=>x.id==="cheveux_masque"),{frequenceJours:null,frequenceMois:1});
+Object.assign(SOINS_GLOW_DEFAUT.find(x=>x.id==="cheveux_pointes"),{frequenceJours:null,frequenceMois:3});
+
+function fusionnerSoinsGlowSansPerte(existant){
+  const source=existant&&typeof existant==="object"?existant:{};
+  const anciennes=source.taches&&typeof source.taches==="object"?source.taches:{};
+  const taches={...anciennes};
+  SOINS_GLOW_DEFAUT.forEach(defaut=>{
+    taches[defaut.id]={...defaut,...(anciennes[defaut.id]||{})};
+    taches[defaut.id].historique=Array.isArray(anciennes[defaut.id]?.historique)
+      ? anciennes[defaut.id].historique : [];
+  });
+  return {...source,version:Number(source.version||1),taches};
+}
+
+function initialiserExtensionsGlowLocales(){
+  DB.glowSoins=fusionnerSoinsGlowSansPerte(DB.glowSoins);
+  DB.glowDressing={version:1,vetements:[],looks:[],...(DB.glowDressing||{})};
+  DB.glowDressing.vetements=Array.isArray(DB.glowDressing.vetements)?DB.glowDressing.vetements:[];
+  DB.glowDressing.looks=Array.isArray(DB.glowDressing.looks)?DB.glowDressing.looks:[];
+  DB.glowNutritionPlans={version:1,planActif:null,courses:null,historiqueCourses:[],stockTexte:"",...(DB.glowNutritionPlans||{})};
+  DB.glowNutritionPlans.historiqueCourses=Array.isArray(DB.glowNutritionPlans.historiqueCourses)?DB.glowNutritionPlans.historiqueCourses:[];
+}
+
+async function chargerExtensionsGlowSecurisees(){
+  const destinations=[
+    ["glow_soins","glowSoins"],
+    ["glow_dressing","glowDressing"],
+    ["glow_nutrition","glowNutritionPlans"]
+  ];
+  for(const [documentId,cle] of destinations){
+    try{
+      const snap=await userRef.collection("modules").doc(documentId).get();
+      if(!snap.exists||!snap.data().data) continue;
+      const charge=JSON.parse(snap.data().data);
+      if(charge&&typeof charge==="object") DB[cle]=charge;
+    }catch(error){
+      console.error(`Extension Glow indisponible (${documentId}) — anciennes données conservées sans écriture`,error);
+    }
+  }
+  initialiserExtensionsGlowLocales();
+}
+
+async function sauvegarderExtensionGlow(cle){
+  if(!chargementReussi||!userRef) return false;
+  const correspondance={glowSoins:"glow_soins",glowDressing:"glow_dressing",glowNutritionPlans:"glow_nutrition"};
+  const documentId=correspondance[cle];
+  if(!documentId) return false;
+  await userRef.collection("modules").doc(documentId).set({
+    data:JSON.stringify(DB[cle]||{}),updatedAt:new Date().toISOString()
+  },{merge:true});
+  return true;
+}
+
+function prendreRepasPhotoDepuisHub(){
+  goModule("glow");
+  setTimeout(()=>{renderGlowNutrition();setTimeout(()=>ouvrirPhotoRepasGlow(),80)},80);
+}
+
+function navigationExtensionsGlow(actif){
+  return `<div class="glow-extension-nav">
+    <button class="btn ${actif==="accueil"?"bd":"bg"}" onclick="renderGlowModule()">✨ Accueil</button>
+    <button class="btn ${actif==="soins"?"bd":"bg"}" onclick="renderGlowSoins()">🧖‍♀️ Soins</button>
+    <button class="btn ${actif==="dressing"?"bd":"bg"}" onclick="renderGlowDressing()">👗 Dressing</button>
+    <button class="btn ${actif==="repas"?"bd":"bg"}" onclick="renderPlanificationRepasGlow()">🍽️ Planifier</button>
+    <button class="btn bg" onclick="renderGlowNutrition()">🥗 Nutrition</button>
+    <button class="btn bg" onclick="renderGlowSport()">🏃 Sport</button>
+  </div>`;
+}
+
+function dateLocaleISO(date=new Date()){return date.toLocaleDateString("fr-CA")}
+function ajouterJoursISO(dateISO,jours){const d=new Date(`${dateISO}T12:00:00`);d.setDate(d.getDate()+Number(jours||0));return dateLocaleISO(d)}
+function differenceJoursGlow(a,b){return Math.round((new Date(`${a}T12:00:00`)-new Date(`${b}T12:00:00`))/86400000)}
+
+function etatSoinGlow(soin){
+  if(soin.typeFrequence==="apres_lavage") return {statut:"lie",label:"À proposer après le lavage",prochaine:null,ordre:4};
+  const aujourdHui=dateLocaleISO();
+  if(!soin.derniereRealisation) return {statut:"retard",label:"Jamais fait · à faire",prochaine:aujourdHui,ordre:0};
+  let prochaine;
+  if(Number(soin.frequenceMois||0)>0){
+    const date=new Date(`${soin.derniereRealisation}T12:00:00`);
+    date.setMonth(date.getMonth()+Number(soin.frequenceMois));
+    prochaine=dateLocaleISO(date);
+  }else prochaine=ajouterJoursISO(soin.derniereRealisation,soin.frequenceJours);
+  const ecart=differenceJoursGlow(prochaine,aujourdHui);
+  if(ecart<0) return {statut:"retard",label:`En retard de ${Math.abs(ecart)} jour${Math.abs(ecart)>1?"s":""}`,prochaine,ordre:0};
+  if(ecart===0) return {statut:"aujourdhui",label:"À faire aujourd’hui",prochaine,ordre:1};
+  if(ecart<=3) return {statut:"bientot",label:`À faire dans ${ecart} jour${ecart>1?"s":""}`,prochaine,ordre:2};
+  return {statut:"jour",label:`À jour · dans ${ecart} jours`,prochaine,ordre:3};
+}
+
+let selectionSoinsGlow=new Set();
+function toggleSelectionSoinGlow(id,active){active?selectionSoinsGlow.add(id):selectionSoinsGlow.delete(id);renderGlowSoins()}
+function selectionnerSoinsGlow(mode){
+  initialiserExtensionsGlowLocales();selectionSoinsGlow.clear();
+  Object.values(DB.glowSoins.taches).forEach(soin=>{const etat=etatSoinGlow(soin);if(mode==="tous"||etat.statut===mode)selectionSoinsGlow.add(soin.id)});
+  renderGlowSoins();
+}
+
+function renderGlowSoins(){
+  initialiserExtensionsGlowLocales();
+  const aujourdHui=dateLocaleISO();
+  const deja=new Set((DB.journal?.planning?.[aujourdHui]||[]).filter(x=>x.source==="glow_soin").map(x=>x.data?.soinId));
+  const groupes=[["cheveux","💇‍♀️ Cheveux"],["visage","🧖‍♀️ Visage"],["corps","🧴 Corps"]];
+  document.getElementById("glow-content").innerHTML=`${navigationExtensionsGlow("soins")}
+    <div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">✨ PRENDRE SOIN DE MOI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:32px;margin:5px 0">Mes soins</h1>
+      <p style="color:var(--mut);margin-bottom:13px">Ils sont gérés ici et rejoignent le vrai planning du Journal uniquement quand tu les ajoutes.</p>
+      <div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn bg bsm" onclick="selectionnerSoinsGlow('tous')">Tout sélectionner</button><button class="btn bg bsm" onclick="selectionnerSoinsGlow('retard')">En retard</button><button class="btn bg bsm" onclick="selectionnerSoinsGlow('aujourdhui')">Aujourd’hui</button><button class="btn bg bsm" onclick="selectionnerSoinsGlow('')">Désélectionner</button></div>
+    </div>
+    <div class="glow-extension-grid">${groupes.map(([categorie,label])=>`<section class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:24px">${label}</h2>${Object.values(DB.glowSoins.taches).filter(s=>s.categorie===categorie).sort((a,b)=>etatSoinGlow(a).ordre-etatSoinGlow(b).ordre).map(soin=>{const etat=etatSoinGlow(soin);const estDeja=deja.has(soin.id);return `<label class="glow-check-row" style="${estDeja?'opacity:.58':''}"><input type="checkbox" ${selectionSoinsGlow.has(soin.id)?"checked":""} ${estDeja?"disabled":""} onchange="toggleSelectionSoinGlow('${soin.id}',this.checked)"><span><strong>${echapperTexteRepasGlow(soin.nom)}</strong><small style="display:block;color:var(--mut);margin-top:3px">${soin.duree?`${soin.duree} min · `:""}${etat.label}${soin.note?` · ${soin.note}`:""}</small></span><span style="font-size:10px;color:${etat.statut==='retard'?'var(--dep)':'var(--rec)'}">${estDeja?"✓ Dans la journée":""}</span></label>`}).join("")}</section>`).join("")}</div>
+    ${selectionSoinsGlow.size?`<button class="btn bd glow-sticky-action" onclick="ajouterSoinsSelectionnesALaJournee()">Ajouter ${selectionSoinsGlow.size} soin${selectionSoinsGlow.size>1?'s':''} à ma journée</button>`:""}`;
+}
+
+async function ajouterSoinsSelectionnesALaJournee(){
+  initialiserExtensionsGlowLocales();ensureJournalData();
+  const date=getJournalJour();DB.journal.planning[date]=DB.journal.planning[date]||[];
+  if(selectionSoinsGlow.has("cheveux_lavage")&&!selectionSoinsGlow.has("cheveux_brushing")&&confirm("Ajouter le brushing juste après le lavage ?")) selectionSoinsGlow.add("cheveux_brushing");
+  let curseur=date===dateLocaleISO()?minToStr(Math.ceil((new Date().getHours()*60+new Date().getMinutes())/5)*5):"09:00";
+  let ajoutes=0;
+  for(const id of selectionSoinsGlow){
+    const soin=DB.glowSoins.taches[id];if(!soin) continue;
+    const existe=DB.journal.planning[date].some(item=>item.source==="glow_soin"&&item.data?.soinId===id&&!DB.journal.faitAujourdhui?.[date]?.[item.id]);
+    if(existe) continue;
+    const duree=Math.max(1,Number(soin.duree||5));const place=placerSansChevauchement(date,curseur,duree);
+    DB.journal.planning[date].push({id:`glow_soin_${id}_${genId()}`,source:"glow_soin",sourceId:id,type:"perso",categorie:"soin",nom:`✨ ${soin.nom}`,icon:"✨",duree,priorite:1,flexible:true,verrouille:false,heureDebut:place.heureDebut,heureFin:place.heureFin,data:{soinId:id,categorieSoin:soin.categorie}});
+    curseur=place.heureFin;ajoutes++;
+  }
+  DB.journal.planning[date].sort((a,b)=>(a.heureDebut||"").localeCompare(b.heureDebut||""));
+  if(ajoutes){await sauvegarderChampSeul("journal",JSON.stringify(DB.journal));await synchroniserNotificationsPlanningEmma?.(date)}
+  selectionSoinsGlow.clear();renderGlowSoins();toast(ajoutes?`✓ ${ajoutes} soin${ajoutes>1?'s':''} ajouté${ajoutes>1?'s':''}`:"Ces soins sont déjà dans la journée");
+}
+
+async function enregistrerRealisationSoinGlow(id,date,faite,planningId){
+  initialiserExtensionsGlowLocales();const soin=DB.glowSoins.taches[id];if(!soin)return;
+  soin.historique=Array.isArray(soin.historique)?soin.historique:[];
+  if(faite){if(!soin.historique.some(x=>x.planningId===planningId))soin.historique.push({date,planningId,realiseeAt:new Date().toISOString()})}
+  else soin.historique=soin.historique.filter(x=>x.planningId!==planningId);
+  soin.derniereRealisation=soin.historique.map(x=>x.date).filter(Boolean).sort().at(-1)||null;
+  await sauvegarderExtensionGlow("glowSoins");
+}
+
+const CATEGORIES_DRESSING_GLOW=["hauts","pulls/gilets","pantalons","jeans","shorts","jupes","robes","ensembles","vestes/manteaux","chaussures","sacs","accessoires"];
+function renderGlowDressing(){
+  initialiserExtensionsGlowLocales();const actifs=DB.glowDressing.vetements.filter(v=>v.actif!==false);
+  document.getElementById("glow-content").innerHTML=`${navigationExtensionsGlow("dressing")}
+    <div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">👗 MON DRESSING</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:32px;margin:5px 0">${actifs.length} pièce${actifs.length>1?'s':''}</h1><p style="color:var(--mut)">La base est prête sans image lourde dans Firestore.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn bd" onclick="ouvrirAjoutVetementGlow()">＋ Ajouter une pièce</button><button class="btn bg" onclick="importPhotosDressingGlow()">📱 Importer des photos</button><button class="btn bg" onclick="importExportSheinGlow()">🛍️ Import SHEIN</button><button class="btn bg" onclick="proposerTenueGlow()">✨ Trouve-moi une tenue</button></div></div>
+    <div class="glow-extension-grid"><section class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:24px">Mes vêtements</h2>${actifs.length?actifs.map(v=>`<div class="glow-check-row"><span>${v.categorie==='chaussures'?'👟':v.categorie==='sacs'?'👜':'👚'}</span><span><strong>${echapperTexteRepasGlow(v.description||v.categorie)}</strong><small style="display:block;color:var(--mut)">${echapperTexteRepasGlow([v.couleur,v.categorie,(v.saisons||[]).join(' · ')].filter(Boolean).join(' · '))}</small></span><button class="btn bg bsm" onclick="archiverVetementGlow('${v.id}')">Archiver</button></div>`).join(''):`<p style="color:var(--mut);padding:18px 0">Ajoute progressivement les pièces que tu possèdes.</p>`}</section>
+      <section class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:24px">📸 Mes looks</h2><p style="color:var(--mut);margin:9px 0 15px">Les photos Outfit seront activées après validation d’un stockage fichiers dédié. Aucune photo ne sera mise en base64 dans Firestore.</p>${DB.glowDressing.looks.length?DB.glowDressing.looks.map(l=>`<div class="glow-check-row"><span>${l.note||'👗'}</span><span>${l.date}<small style="display:block;color:var(--mut)">${(l.vetementIds||[]).length} pièce(s)</small></span></div>`).join(''):''}<button class="btn bg" onclick="ouvrirOutfitDuJourGlow()">📸 Ajouter ma tenue</button></section></div>`;
+}
+
+function ouvrirAjoutVetementGlow(){
+  document.getElementById("glow-modal-extension")?.remove();document.body.insertAdjacentHTML("beforeend",`<div id="glow-modal-extension" class="mo open"><div class="mb"><h2>Ajouter un vêtement</h2><div class="fr"><label>Catégorie</label><select id="dress-cat">${CATEGORIES_DRESSING_GLOW.map(c=>`<option>${c}</option>`).join('')}</select></div><div class="fr"><label>Description</label><input id="dress-desc" placeholder="Ex : chemise fluide"></div><div class="fr"><label>Couleur</label><input id="dress-color" placeholder="Ex : beige"></div><div class="fr"><label>Saisons</label><input id="dress-seasons" placeholder="Ex : printemps, été"></div><div class="fr"><label>Style / tags</label><input id="dress-tags" placeholder="Ex : travail, élégante"></div><div class="ma"><button class="btn bg" onclick="document.getElementById('glow-modal-extension').remove()">Annuler</button><button class="btn bd" onclick="enregistrerVetementGlow()">Enregistrer</button></div></div></div>`);
+}
+async function enregistrerVetementGlow(){
+  initialiserExtensionsGlowLocales();const description=document.getElementById("dress-desc").value.trim();if(!description){toast("Ajoute une courte description");return}
+  DB.glowDressing.vetements.push({id:`vetement_${genId()}`,photoRef:null,categorie:document.getElementById("dress-cat").value,sousCategorie:"",couleur:document.getElementById("dress-color").value.trim(),description,saisons:document.getElementById("dress-seasons").value.split(',').map(x=>x.trim()).filter(Boolean),tags:document.getElementById("dress-tags").value.split(',').map(x=>x.trim()).filter(Boolean),dateAjout:new Date().toISOString(),actif:true,source:"manuel"});
+  await sauvegarderExtensionGlow("glowDressing");document.getElementById("glow-modal-extension")?.remove();renderGlowDressing();
+}
+async function archiverVetementGlow(id){const v=DB.glowDressing?.vetements?.find(x=>x.id===id);if(!v)return;v.actif=false;await sauvegarderExtensionGlow("glowDressing");renderGlowDressing()}
+function importPhotosDressingGlow(){alert("Le stockage photo actuel d’EMMA utilise encore du base64 pour certaines fonctions et n’est pas sûr pour des centaines de vêtements. L’import multiple est volontairement bloqué jusqu’à la mise en place d’un stockage fichiers dédié.")}
+function importExportSheinGlow(){alert("L’interface est prête, mais aucun format n’est deviné. Envoie-moi un véritable export SHEIN pour que je construise un import fiable sans identifiants ni mot de passe.")}
+function ouvrirOutfitDuJourGlow(){alert("La photo Outfit n’est pas enregistrée pour le moment : je refuse de la placer en base64 dans Firestore. Le module sera activé avec un stockage fichiers sécurisé.")}
+function proposerTenueGlow(){
+  initialiserExtensionsGlowLocales();const actifs=DB.glowDressing.vetements.filter(v=>v.actif!==false);if(!actifs.length){toast("Ajoute d’abord tes vêtements");return}
+  const categories=["hauts","pulls/gilets","robes","ensembles","pantalons","jeans","jupes","shorts","chaussures","vestes/manteaux","sacs","accessoires"];
+  const selection=[];for(const cat of categories){const candidats=actifs.filter(v=>v.categorie===cat&&!selection.includes(v));if(candidats.length&&((cat==='robes'||cat==='ensembles')?!selection.length:true))selection.push(candidats[Math.floor(Math.random()*candidats.length)]);if(selection.length>=4)break}
+  alert("Tenue proposée uniquement avec tes pièces :\n\n"+selection.map(v=>`• ${v.description} [${v.id}]`).join("\n"));
+}
+
+function recettesDisponiblesPlanGlow(){return (DB.glow?.nutrition?.recettes||[]).filter(r=>r&&r.id&&r.nom)}
+function creerRepasPlanGlow(date,type,recette,personnes=2){return {id:`repas_plan_${genId()}`,date,type,personnes,statut:"garder",recetteId:recette?.id||null,nom:recette?.nom||"À choisir",ingredients:Array.isArray(recette?.ingredients)?recette.ingredients.map(x=>({...x})):[],portionsBase:Number(recette?.portions||2)}}
+async function creerPlanRepasGlow(nombreJours){
+  initialiserExtensionsGlowLocales();const recettes=recettesDisponiblesPlanGlow();const debut=new Date();const repas=[];let index=0;
+  for(let j=0;j<nombreJours;j++){const date=dateLocaleISO(new Date(debut.getFullYear(),debut.getMonth(),debut.getDate()+j));for(const type of ["dejeuner","diner"]){if(index>1&&index%4===3)repas.push({...creerRepasPlanGlow(date,type,null),statut:"restes",nom:"Restes d’un repas précédent"});else{const recette=recettes.length?recettes[index%Math.min(recettes.length,Math.max(1,Math.ceil(recettes.length/2)))]:null;repas.push(creerRepasPlanGlow(date,type,recette))}index++}}
+  DB.glowNutritionPlans.planActif={id:`plan_${genId()}`,debut:dateLocaleISO(debut),fin:ajouterJoursISO(dateLocaleISO(debut),nombreJours-1),creeLe:new Date().toISOString(),repas};DB.glowNutritionPlans.courses=null;await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
+}
+function creerPlanJusquaGlow(){
+  const fin=document.getElementById("glow-plan-date-fin")?.value;
+  if(!fin){toast("Choisis une date de fin");return}
+  const jours=differenceJoursGlow(fin,dateLocaleISO())+1;
+  if(jours<1||jours>30){toast("Choisis une période entre 1 et 30 jours");return}
+  creerPlanRepasGlow(jours);
+}
+
+function renderPlanificationRepasGlow(){
+  initialiserExtensionsGlowLocales();const plan=DB.glowNutritionPlans.planActif;
+  document.getElementById("glow-content").innerHTML=`${navigationExtensionsGlow("repas")}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">🍽️ PLANIFICATION INTELLIGENTE</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:32px;margin:5px 0">Mes prochains repas</h1><p style="color:var(--mut)">Période de courses libre, 2 personnes par défaut et réutilisation des recettes.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn bg" onclick="creerPlanRepasGlow(3)">3 jours</button><button class="btn bg" onclick="creerPlanRepasGlow(5)">5 jours</button><button class="btn bg" onclick="creerPlanRepasGlow(7)">7 jours</button><input id="glow-plan-date-fin" type="date" min="${dateLocaleISO()}" style="padding:10px;border-radius:12px;border:1px solid var(--brd2)"><button class="btn bg" onclick="creerPlanJusquaGlow()">Jusqu’à cette date</button></div></div>
+    ${plan?`<div class="glow-extension-card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2>${plan.debut.split('-').reverse().join('/')} → ${plan.fin.split('-').reverse().join('/')}</h2><button class="btn bd" onclick="preparerCoursesGlow()">🛒 Préparer mes courses</button></div><div class="fr" style="margin-top:12px"><label>📦 Ce qu’il me reste à la maison</label><textarea id="stock-maison-glow" rows="2" onchange="sauverStockMaisonGlow(this.value)">${echapperTexteRepasGlow(DB.glowNutritionPlans.stockTexte||'')}</textarea></div>${[...new Set(plan.repas.map(r=>r.date))].map(date=>`<div class="glow-plan-day"><strong>${new Date(`${date}T12:00:00`).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</strong>${plan.repas.filter(r=>r.date===date).map(r=>`<div class="glow-check-row"><span>${r.type==='dejeuner'?'☀️':'🌙'}</span><span><strong>${echapperTexteRepasGlow(r.nom)}</strong><small style="display:block;color:var(--mut)">${r.statut==='absent'?'Je ne mange pas à la maison':r.statut==='restes'?'Restes':`${r.personnes} personne${r.personnes>1?'s':''}`}</small></span><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><input aria-label="Nombre de personnes" type="number" min="1" max="12" value="${r.personnes}" style="width:54px;padding:7px" onchange="modifierPersonnesRepasGlow('${r.id}',this.value)"><button class="btn bg bsm" onclick="changerStatutRepasGlow('${r.id}','garder')">❤️</button><button class="btn bg bsm" onclick="changerRepasPlanGlow('${r.id}')">🔄</button><button class="btn bg bsm" onclick="changerStatutRepasGlow('${r.id}','restes')">🍽️</button><button class="btn bg bsm" onclick="changerStatutRepasGlow('${r.id}','absent')">🚫</button></div></div>`).join('')}</div>`).join('')}</div>`:`<div class="glow-extension-card"><p style="color:var(--mut)">Choisis une durée pour créer ton premier planning. Aucune donnée Nutrition existante ne sera remplacée.</p></div>`}${DB.glowNutritionPlans.courses?renderListeCoursesGlowHTML():''}`;
+}
+async function sauverStockMaisonGlow(valeur){DB.glowNutritionPlans.stockTexte=valeur;await sauvegarderExtensionGlow("glowNutritionPlans")}
+function trouverRepasPlanGlow(id){return DB.glowNutritionPlans?.planActif?.repas?.find(r=>r.id===id)}
+async function modifierPersonnesRepasGlow(id,nombre){const r=trouverRepasPlanGlow(id);if(!r)return;r.personnes=Math.max(1,Number(nombre||1));await sauvegarderExtensionGlow("glowNutritionPlans")}
+async function changerStatutRepasGlow(id,statut){const r=trouverRepasPlanGlow(id);if(!r)return;r.statut=statut;if(statut==='restes')r.nom="Restes d’un repas précédent";else if(statut==='absent')r.nom="Je ne mange pas à la maison";else{const recette=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId);if(recette)r.nom=recette.nom}await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
+async function changerRepasPlanGlow(id){
+  const r=trouverRepasPlanGlow(id),recettes=recettesDisponiblesPlanGlow();if(!r||!recettes.length){toast("Aucune autre recette enregistrée");return}
+  const autres=DB.glowNutritionPlans.planActif.repas.filter(x=>x.id!==id&&x.statut!=="absent");const noms=new Set(autres.flatMap(x=>x.ingredients||[]).map(i=>String(i.nom||'').toLowerCase()));
+  const candidates=recettes.filter(x=>x.id!==r.recetteId).map(recette=>({recette,score:(recette.ingredients||[]).filter(i=>noms.has(String(i.nom||'').toLowerCase())).length})).sort((a,b)=>b.score-a.score);
+  const recette=candidates[0]?.recette;if(!recette){toast("Aucune alternative disponible");return}Object.assign(r,creerRepasPlanGlow(r.date,r.type,recette,r.personnes),{id:r.id});await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
+}
+function rayonIngredientGlow(nom){const n=String(nom||'').toLowerCase();if(/courget|tomat|oignon|fruit|pomme|salade|carotte|ail|citron/.test(n))return"🥬 Fruits & légumes";if(/poulet|boeuf|saumon|poisson|jambon|viande/.test(n))return"🥩 Viandes / poissons";if(/lait|crème|fromage|oeuf|œuf|yaourt|beurre/.test(n))return"🧀 Frais";if(/surgel/.test(n))return"❄️ Surgelés";if(/eau|jus|vin|boisson/.test(n))return"🥤 Boissons";return"🍝 Épicerie"}
+async function preparerCoursesGlow(){
+  const plan=DB.glowNutritionPlans.planActif;if(!plan)return;const fusion=new Map();const stock=String(DB.glowNutritionPlans.stockTexte||'').toLowerCase();
+  plan.repas.filter(r=>!["restes","absent"].includes(r.statut)).forEach(r=>(r.ingredients||[]).forEach(i=>{const nom=String(i.nom||'').trim();if(!nom||stock.includes(nom.toLowerCase()))return;const unite=String(i.unite||'').trim();const cle=`${nom.toLowerCase()}|${unite.toLowerCase()}`;const facteur=Number(r.personnes||2)/Math.max(1,Number(r.portionsBase||2));const quantite=Number.parseFloat(i.quantite);const courant=fusion.get(cle)||{id:`course_${genId()}`,nom,unite,quantite:0,texteQuantite:"",rayon:rayonIngredientGlow(nom),coche:false,manuel:false};if(Number.isFinite(quantite))courant.quantite+=quantite*facteur;else courant.texteQuantite=String(i.quantite||'À prévoir');fusion.set(cle,courant)}));
+  DB.glowNutritionPlans.courses={id:`courses_${genId()}`,creeLe:new Date().toISOString(),terminees:false,articles:[...fusion.values()]};await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
+}
+function renderListeCoursesGlowHTML(){const c=DB.glowNutritionPlans.courses;const rayons=[...new Set(c.articles.map(a=>a.rayon))];return `<div class="glow-extension-card" style="margin-top:14px"><h2 style="font-family:'Cormorant Garamond',serif;font-size:27px">🛒 Ma liste de courses</h2>${rayons.map(rayon=>`<h3 style="margin-top:16px">${rayon}</h3>${c.articles.filter(a=>a.rayon===rayon).map(a=>`<label class="glow-shopping-row"><input type="checkbox" ${a.coche?'checked':''} onchange="cocherArticleCoursesGlow('${a.id}',this.checked)"><span style="${a.coche?'text-decoration:line-through;opacity:.55':''}">${echapperTexteRepasGlow(a.nom)}</span><small>${a.texteQuantite||`${Math.round(a.quantite*100)/100} ${echapperTexteRepasGlow(a.unite)}`}</small></label>`).join('')}`).join('')}<div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap"><button class="btn bg" onclick="ajouterArticleCoursesGlow()">＋ Ajouter un article</button><button class="btn bd" onclick="terminerCoursesGlow()">✅ Courses terminées</button></div></div>`}
+async function cocherArticleCoursesGlow(id,coche){const a=DB.glowNutritionPlans.courses?.articles?.find(x=>x.id===id);if(!a)return;a.coche=coche;await sauvegarderExtensionGlow("glowNutritionPlans")}
+async function ajouterArticleCoursesGlow(){const nom=prompt("Article à ajouter :");if(!nom?.trim())return;const q=prompt("Quantité (facultatif) :")||"";DB.glowNutritionPlans.courses.articles.push({id:`course_${genId()}`,nom:nom.trim(),unite:"",quantite:0,texteQuantite:q,rayon:"🧴 Maison / autres",coche:false,manuel:true});await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
+async function terminerCoursesGlow(){const c=DB.glowNutritionPlans.courses;if(!c)return;DB.glowNutritionPlans.historiqueCourses.push({id:c.id,date:new Date().toISOString(),nombreArticles:c.articles.length});c.terminees=true;c.termineesLe=new Date().toISOString();await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();toast("Courses archivées sans supprimer le planning ✓")}
+
 document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
 
