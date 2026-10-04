@@ -51404,7 +51404,19 @@ async function activerNotificationsEmma(){
         new Date().toLocaleDateString("fr-CA")
     );
 
-    toast("🔔 Notifications EMMA activées");
+    try{
+        await registration.showNotification("EMMA ✨",{
+            body:"Les notifications fonctionnent sur cet appareil ♡",
+            icon:"/emma/emma-icon.png?v=5",
+            badge:"/emma/emma-icon.png?v=5",
+            tag:"emma-test-local",
+            data:{url:"/emma/"}
+        });
+        toast("🔔 Notification test envoyée");
+    }catch(erreur){
+        console.warn("Notification test locale impossible",erreur);
+        toast("🔔 Notifications activées — test impossible sur cet appareil");
+    }
 
     console.log(
         "Notifications EMMA activées"
@@ -51561,11 +51573,6 @@ async function synchroniserNotificationsPlanningEmma(date){
                 return;
             }
 
-            // Une tâche passée ne doit pas recréer un ancien rappel Push.
-            if(date<aujourdHui||(date===aujourdHui&&strToMin(bloc.heureFin||bloc.heureDebut)<=minuteActuelle)){
-                return;
-            }
-
             const estRdvCliente=
                 bloc.source === "planity" ||
                 bloc.typeElement === "planity" ||
@@ -51603,6 +51610,12 @@ async function synchroniserNotificationsPlanningEmma(date){
             // Tâches et clientes : à l'heure exacte.
             // Rendez-vous personnels (manuel ou assistante) : une heure avant.
             const rappelMinutes=estRdvPersonnel ? 60 : 0;
+            const minuteRappel=strToMin(bloc.heureDebut)-rappelMinutes;
+            // Après sa minute d'envoi, un rappel ne doit jamais être recréé :
+            // cela évite les doublons lors des recalages automatiques.
+            if(date<aujourdHui||(date===aujourdHui&&minuteRappel<minuteActuelle)){
+                return;
+            }
             const categorie=bloc.categorie||bloc.data?.categorie||'tache';
             const texte=bloc.nom||bloc.customNom||'Tâche';
             const typeNotification=estRdvCliente
