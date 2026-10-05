@@ -23515,7 +23515,7 @@ function calculGlowScore(){
     };
 
     // 💧 Eau (20 pts)
-    detail.eau = Math.round((DB.glow.eau || 0) / 8 * 20);
+    detail.eau = Math.min(20,Math.round((DB.glow.eau || 0) / 8 * 20));
 
     // 😊 Humeur (10 pts)
     if(DB.glow.humeur){
@@ -27498,6 +27498,19 @@ function supprimerRecetteGlow(id){
     renderGlowNutrition();
 
     toast("Recette supprimée");
+}
+
+function navigationGlowSimple(active){return `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px"><button class="btn ${active==='accueil'?'bd':'bg'}" onclick="renderGlowModule()">✨ Accueil</button><button class="btn ${active==='eau'?'bd':'bg'}" onclick="renderGlowHydratation()">💧 Eau</button><button class="btn ${active==='nutrition'?'bd':'bg'}" onclick="renderGlowNutrition()">🍽️ Nutrition</button><button class="btn ${active==='sommeil'?'bd':'bg'}" onclick="renderGlowSommeil()">🌙 Sommeil</button><button class="btn ${active==='evolution'?'bd':'bg'}" onclick="renderGlowEvolution()">📈 Évolution</button><button class="btn ${active==='sport'?'bd':'bg'}" onclick="renderGlowSport()">🏃 Sport</button></div>`}
+
+function renderGlowSommeil(){
+  initialiserGlowDuJour();const heures=DB.glow.sommeil;
+  document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('sommeil')}<div class="glow-extension-card" style="max-width:680px;margin:auto"><div class="maison-kicker">🌙 SOMMEIL</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:36px;margin:5px 0">Comment as-tu dormi ?</h1><p style="color:var(--mut);margin-bottom:20px">Indique la durée de ta dernière nuit. Elle compte uniquement pour la journée actuelle.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">${[5,6,7,8,9].map(h=>`<button class="btn ${Number(heures)===h?'bd':'bg'}" onclick="enregistrerSommeilGlow(${h})">${h} h</button>`).join('')}</div><div class="fr"><label>Durée précise</label><div style="display:flex;gap:8px"><input id="glow-sommeil-heures" type="number" min="0" max="14" step="0.5" value="${heures??''}" placeholder="Ex : 7.5"><button class="btn bd" onclick="enregistrerSommeilGlow(document.getElementById('glow-sommeil-heures').value)">Enregistrer</button></div></div><div style="margin-top:20px;padding:16px;border-radius:18px;background:var(--bg2)"><strong>${heures==null?'Aucune nuit renseignée':`${heures} h renseignée${Number(heures)>1?'s':''}`}</strong><div style="font-size:12px;color:var(--mut);margin-top:5px">${heures>=8?'20 points Glow':heures>=7?'15 points Glow':heures>=6?'10 points Glow':'0 point Glow'}</div></div></div>`;
+}
+async function enregistrerSommeilGlow(valeur){const heures=Math.max(0,Math.min(14,Number(valeur)));if(!Number.isFinite(heures)){toast("Durée invalide");return}DB.glow.sommeil=heures;DB.glow.glowScore=calculGlowScore().total;await sauvegarderChampSeul("glow",JSON.stringify(DB.glow));renderGlowSommeil();renderGlowAccueil();toast("✓ Sommeil enregistré")}
+
+function renderGlowEvolution(){
+  initialiserGlowDuJour();const score=calculGlowScore(),labels={eau:"💧 Eau",humeur:"😊 Humeur",activite:"🏃 Sport",sommeil:"🌙 Sommeil",nutrition:"🍽️ Nutrition",lecture:"📚 Lecture",photo:"📸 Photo"},maximums={eau:20,humeur:10,activite:20,sommeil:20,nutrition:15,lecture:10,photo:5};const seances=[...(DB.historiqueGlow||[])].filter(x=>x?.date&&x?.terminee).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total} points</h1><p style="color:var(--mut)">Le calcul actuel attribue réellement au maximum 70 points. Nutrition, lecture et photo ne sont pas encore reliées au score.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
 }
 
 function renderGlowNutrition(){
@@ -37980,10 +37993,7 @@ function renderJAujourdhui(){
         ">
 
             <button
-                onclick="
-                    journalVue='jour';
-                    renderJAujourdhui()
-                "
+                onclick="changerVueJournal('jour')"
                 style="
                     flex:1;
                     padding:7px;
@@ -38008,10 +38018,7 @@ function renderJAujourdhui(){
             </button>
 
             <button
-                onclick="
-                    journalVue='semaine';
-                    renderJAujourdhui()
-                "
+                onclick="changerVueJournal('semaine')"
                 style="
                     flex:1;
                     padding:7px;
@@ -39260,7 +39267,7 @@ async function preparerDemainJournal(){
     await saveAll();
 
     journalJourAffiche = demain;
-    journalVue = "jour";
+    window.journalVue = "jour";
 
     renderJAujourdhui();
 
@@ -51213,16 +51220,21 @@ function ouvrirBlocPlanning(planningId){
 
 let historiqueVue='jour'; // 'jour' ou 'semaine'
 let historiqueJourAffiche=null;
-   let journalJourAffiche=null;
+let journalJourAffiche=null;
+window.journalVue=window.journalVue||'jour';
 function getJournalJour(){
   if(!journalJourAffiche) journalJourAffiche=new Date().toISOString().split('T')[0];
   return journalJourAffiche;
 }
 function journalJourNav(delta){
-  const d=new Date(getJournalJour()+'T12:00:00');
   const pas=window.journalVue==='semaine'?delta*7:delta;
-  d.setDate(d.getDate()+pas);
-  journalJourAffiche=d.toISOString().split('T')[0];
+  const [annee,mois,jour]=getJournalJour().split('-').map(Number);
+  const d=new Date(annee,mois-1,jour+pas,12,0,0);
+  journalJourAffiche=dateLocaleISO(d);
+  renderJAujourdhui();
+}
+function changerVueJournal(vue){
+  window.journalVue=vue==='semaine'?'semaine':'jour';
   renderJAujourdhui();
 }
 function journalJourAujourdhui(){
