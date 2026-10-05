@@ -56030,37 +56030,158 @@ function choixAssietteGlowHTML(champ,valeur){
 }
 function selectionnerChoixAssietteGlow(champ,valeur,bouton){const input=document.getElementById(`assiette-${champ}`);if(input)input.value=valeur;bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.remove('bd'));bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.add('bg'));bouton?.classList.remove('bg');bouton?.classList.add('bd')}
 function ouvrirCompositionRepasGlow(id){
-  const r=trouverRepasPlanGlow(id);
-if(!r)return;
 
-const a = {
-  proteine: r.assiette?.proteine || "",
-  legumes: r.assiette?.legumes || "",
-  feculent: r.assiette?.feculent || "",
-  complement: r.assiette?.complement || "",
-  plaisirSucre: r.assiette?.plaisirSucre || ""
-};
+  const r = trouverRepasPlanGlow(id);
+  if(!r) return;
 
-/*
-  Compatibilité avec les repas qui existaient avant l'éditeur d'assiette :
-  si aucune assiette structurée n'est enregistrée, on tente de retrouver
-  les ingrédients dans les catégories existantes.
-*/
-if(!Object.values(a).some(Boolean)){
-  const noms = (r.ingredients || [])
-    .map(i => typeof i === "string" ? i : i?.nom)
-    .filter(Boolean);
+  const a = {
+    proteine: r.assiette?.proteine || "",
+    legumes: r.assiette?.legumes || "",
+    feculent: r.assiette?.feculent || "",
+    complement: r.assiette?.complement || "",
+    plaisirSucre: r.assiette?.plaisirSucre || ""
+  };
 
-  for(const [champ, options] of Object.entries(OPTIONS_ASSIETTE_GLOW)){
-    const trouve = options.find(option =>
-      noms.some(nom =>
-        String(nom).trim().toLowerCase() === String(option).trim().toLowerCase()
-      )
-    );
+  /*
+    Pour les anciens repas qui n'avaient pas encore
+    d'assiette structurée, on essaie de retrouver
+    automatiquement les éléments déjà présents.
+  */
+  if(!Object.values(a).some(Boolean)){
 
-    if(trouve) a[champ] = trouve;
+    const noms = (r.ingredients || [])
+      .map(i => typeof i === "string" ? i : i?.nom)
+      .filter(Boolean);
+
+    for(const [champ, options] of Object.entries(OPTIONS_ASSIETTE_GLOW)){
+
+      const trouve = options.find(option =>
+        noms.some(nom =>
+          String(nom).trim().toLowerCase() ===
+          String(option).trim().toLowerCase()
+        )
+      );
+
+      if(trouve){
+        a[champ] = trouve;
+      }
+    }
   }
-}
+
+  document.getElementById("glow-modal-repas-plan")?.remove();
+
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `
+    <div id="glow-modal-repas-plan" class="mo open">
+
+      <div
+        class="mb"
+        style="
+          width:min(650px,95vw);
+          max-height:92vh;
+          overflow:auto
+        "
+      >
+
+        <div class="maison-kicker">
+          🍽️ COMPOSER MON ASSIETTE
+        </div>
+
+        <h2 style="margin:5px 0 4px">
+          ${r.type === "dejeuner" ? "Déjeuner" : "Dîner"}
+          du ${r.date.split("-").reverse().join("/")}
+        </h2>
+
+        <p style="
+          font-size:12px;
+          color:var(--mut);
+          margin-bottom:16px
+        ">
+          Appuie simplement sur ce que tu veux dans chaque catégorie.
+        </p>
+
+        <div class="fr">
+          <label>🥩 Protéine</label>
+          ${choixAssietteGlowHTML("proteine", a.proteine)}
+        </div>
+
+        <div class="fr">
+          <label>🥦 Légumes</label>
+          ${choixAssietteGlowHTML("legumes", a.legumes)}
+        </div>
+
+        <div class="fr">
+          <label>🍚 Féculent facultatif</label>
+          ${choixAssietteGlowHTML("feculent", a.feculent)}
+        </div>
+
+        <div class="fr">
+          <label>✨ Sauce / complément facultatif</label>
+          ${choixAssietteGlowHTML("complement", a.complement)}
+        </div>
+
+        ${
+          r.type === "diner"
+            ? `
+              <div class="fr">
+                <label>🍫 Mon plaisir sucré du soir</label>
+                ${choixAssietteGlowHTML(
+                  "plaisirSucre",
+                  a.plaisirSucre || "Carrés de chocolat"
+                )}
+              </div>
+            `
+            : ""
+        }
+
+        <div style="
+          display:grid;
+          gap:8px;
+          margin-top:16px
+        ">
+
+          <button
+            class="btn bd"
+            onclick="enregistrerCompositionRepasGlow('${r.id}')"
+          >
+            ✓ Garder cette assiette
+          </button>
+
+          <button
+            class="btn bg"
+            onclick="proposerNouvelleAssietteGlow('${r.id}',this)"
+          >
+            ✨ Une autre assiette complète
+          </button>
+
+          <button
+            class="btn bg"
+            onclick="changerStatutDepuisCompositionGlow('${r.id}','restes')"
+          >
+            🍽️ Ce sera des restes
+          </button>
+
+          <button
+            class="btn bg"
+            onclick="changerStatutDepuisCompositionGlow('${r.id}','absent')"
+          >
+            🚫 Je ne mange pas à la maison
+          </button>
+
+          <button
+            class="btn bg"
+            onclick="document.getElementById('glow-modal-repas-plan')?.remove()"
+          >
+            Annuler
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+    `
+  );
 }
 async function enregistrerCompositionRepasGlow(id){const r=trouverRepasPlanGlow(id);if(!r)return;const assiette={proteine:document.getElementById("assiette-proteine")?.value.trim()||"",legumes:document.getElementById("assiette-legumes")?.value.trim()||"",feculent:document.getElementById("assiette-feculent")?.value.trim()||"",complement:document.getElementById("assiette-complement")?.value.trim()||"",plaisirSucre:r.type==='diner'?(document.getElementById("assiette-plaisirSucre")?.value.trim()||""):""};if(!assiette.proteine&&!assiette.legumes&&!assiette.feculent){toast("Compose au moins une partie de l’assiette");return}r.assiette=assiette;r.nom=[assiette.proteine,assiette.legumes,assiette.feculent].filter(x=>x&&x.toLowerCase()!=="aucun").join(" · ");r.ingredients=Object.entries(assiette).map(([champ,nom])=>ingredientAssietteGlow(champ,nom)).filter(Boolean);r.portionsBase=2;r.statut="garder";delete r.resteDeId;r.recetteId=null;await sauvegarderExtensionGlow("glowNutritionPlans");document.getElementById("glow-modal-repas-plan")?.remove();renderPlanificationRepasGlow()}
 async function changerStatutDepuisCompositionGlow(id,statut){document.getElementById("glow-modal-repas-plan")?.remove();await changerStatutRepasGlow(id,statut)}
