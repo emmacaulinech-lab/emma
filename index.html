@@ -27551,9 +27551,30 @@ function renderGlowNutrition(){
 
         </div>
 
-        <button class="btn bd" onclick="renderPlanificationRepasGlow()" style="width:100%;justify-content:center;min-height:52px;margin-bottom:18px">
-          🍽️ Planifier mes prochains repas
-        </button>
+        <div style="
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:18px
+">
+
+  <button
+    class="btn bd"
+    onclick="renderPlanificationRepasGlow()"
+    style="justify-content:center;min-height:52px"
+  >
+    🍽️ Planifier mes prochains repas
+  </button>
+
+  <button
+    class="btn bg"
+    onclick="renderIngredientsGlow()"
+    style="justify-content:center;min-height:52px"
+  >
+    🥕 Mes ingrédients
+  </button>
+
+</div>
 
 
         <!-- RESUME JOURNEE -->
@@ -55655,7 +55676,258 @@ const OPTIONS_ASSIETTE_GLOW={
   complement:["Sauce yaourt","Crème","Feta","Fromage râpé","Avocat","Aucun"],
   plaisirSucre:["Carrés de chocolat","Yaourt sucré","Fruit + chocolat","Biscuits","Glace","Dessert maison","Aucun"]
 };
+const LABELS_CATEGORIES_INGREDIENTS_GLOW = {
+  proteine: "🥩 Protéines",
+  legumes: "🥦 Légumes",
+  feculent: "🍚 Féculents",
+  complement: "✨ Sauces / compléments",
+  plaisirSucre: "🍫 Plaisirs sucrés"
+};
 
+function normaliserNomIngredientGlow(nom){
+  return String(nom || "").trim().toLowerCase();
+}
+
+function initialiserPreferencesIngredientsGlow(){
+  initialiserExtensionsGlowLocales();
+
+  if(
+    !DB.glowNutritionPlans.preferencesIngredients ||
+    typeof DB.glowNutritionPlans.preferencesIngredients !== "object"
+  ){
+    DB.glowNutritionPlans.preferencesIngredients = {};
+  }
+
+  if(!Array.isArray(DB.glowNutritionPlans.ingredientsPersonnalises)){
+    DB.glowNutritionPlans.ingredientsPersonnalises = [];
+  }
+}
+
+function statutIngredientGlow(nom){
+  initialiserPreferencesIngredientsGlow();
+
+  return DB.glowNutritionPlans.preferencesIngredients[
+    normaliserNomIngredientGlow(nom)
+  ] || "neutre";
+}
+
+function ingredientInterditGlow(nom){
+  return statutIngredientGlow(nom) === "interdit";
+}
+
+function optionsAssietteDisponiblesGlow(champ){
+  initialiserPreferencesIngredientsGlow();
+
+  const standards = OPTIONS_ASSIETTE_GLOW[champ] || [];
+
+  const personnels = DB.glowNutritionPlans.ingredientsPersonnalises
+    .filter(i => i.categorie === champ)
+    .map(i => i.nom);
+
+  return [...new Set([...standards, ...personnels])]
+    .filter(nom =>
+      nom === "Aucun" ||
+      !ingredientInterditGlow(nom)
+    );
+}
+
+function tousIngredientsGlow(){
+  initialiserPreferencesIngredientsGlow();
+
+  const resultat = [];
+
+  Object.entries(OPTIONS_ASSIETTE_GLOW).forEach(([categorie, noms]) => {
+    noms
+      .filter(nom => nom !== "Aucun")
+      .forEach(nom => {
+        resultat.push({ nom, categorie });
+      });
+  });
+
+  DB.glowNutritionPlans.ingredientsPersonnalises.forEach(ingredient => {
+    if(
+      ingredient?.nom &&
+      !resultat.some(i =>
+        normaliserNomIngredientGlow(i.nom) ===
+        normaliserNomIngredientGlow(ingredient.nom)
+      )
+    ){
+      resultat.push(ingredient);
+    }
+  });
+
+  return resultat;
+}
+
+async function changerPreferenceIngredientGlow(nom, statut){
+  initialiserPreferencesIngredientsGlow();
+
+  const cle = normaliserNomIngredientGlow(nom);
+
+  if(statut === "neutre"){
+    delete DB.glowNutritionPlans.preferencesIngredients[cle];
+  }else{
+    DB.glowNutritionPlans.preferencesIngredients[cle] = statut;
+  }
+
+  await sauvegarderExtensionGlow("glowNutritionPlans");
+  renderIngredientsGlow();
+}
+
+async function ajouterIngredientGlow(){
+  initialiserPreferencesIngredientsGlow();
+
+  const nom = document.getElementById("glow-nouvel-ingredient")?.value.trim();
+  const categorie = document.getElementById("glow-nouvel-ingredient-cat")?.value;
+
+  if(!nom || !categorie){
+    toast("Renseigne l’ingrédient et sa catégorie");
+    return;
+  }
+
+  const existe = tousIngredientsGlow().some(i =>
+    normaliserNomIngredientGlow(i.nom) === normaliserNomIngredientGlow(nom)
+  );
+
+  if(existe){
+    toast("Cet ingrédient existe déjà");
+    return;
+  }
+
+  DB.glowNutritionPlans.ingredientsPersonnalises.push({
+    id: `ingredient_${genId()}`,
+    nom,
+    categorie
+  });
+
+  await sauvegarderExtensionGlow("glowNutritionPlans");
+  renderIngredientsGlow();
+
+  toast("✓ Ingrédient ajouté");
+}
+
+function renderIngredientsGlow(){
+  initialiserPreferencesIngredientsGlow();
+
+  const ingredients = tousIngredientsGlow();
+
+  document.getElementById("glow-content").innerHTML = `
+    ${navigationExtensionsGlow("ingredients")}
+
+    <div class="glow-extension-card" style="margin-bottom:14px">
+      <div class="maison-kicker">🥕 MES INGRÉDIENTS</div>
+
+      <h1 style="
+        font-family:'Cormorant Garamond',serif;
+        font-size:32px;
+        margin:5px 0
+      ">
+        Mes préférences
+      </h1>
+
+      <p style="color:var(--mut)">
+        EMMA privilégiera ce que tu aimes et ne proposera plus les ingrédients que tu exclus.
+      </p>
+    </div>
+
+    ${Object.keys(OPTIONS_ASSIETTE_GLOW).map(categorie => {
+
+      const liste = ingredients.filter(i => i.categorie === categorie);
+
+      return `
+        <div class="glow-extension-card" style="margin-bottom:14px">
+
+          <h2 style="
+            font-family:'Cormorant Garamond',serif;
+            font-size:23px;
+            margin-bottom:14px
+          ">
+            ${LABELS_CATEGORIES_INGREDIENTS_GLOW[categorie]}
+          </h2>
+
+          <div style="display:grid;gap:8px">
+
+            ${liste.map(ingredient => {
+
+              const statut = statutIngredientGlow(ingredient.nom);
+
+              return `
+                <div class="glow-check-row">
+
+                  <span style="flex:1">
+                    <strong>${echapperTexteRepasGlow(ingredient.nom)}</strong>
+                  </span>
+
+                  <div style="display:flex;gap:5px;flex-wrap:wrap">
+
+                    <button
+                      class="btn ${statut === "aime" ? "bd" : "bg"} bsm"
+                      onclick='changerPreferenceIngredientGlow(${JSON.stringify(ingredient.nom)},"aime")'
+                    >
+                      ❤️
+                    </button>
+
+                    <button
+                      class="btn ${statut === "neutre" ? "bd" : "bg"} bsm"
+                      onclick='changerPreferenceIngredientGlow(${JSON.stringify(ingredient.nom)},"neutre")'
+                    >
+                      😐
+                    </button>
+
+                    <button
+                      class="btn ${statut === "interdit" ? "bd" : "bg"} bsm"
+                      onclick='changerPreferenceIngredientGlow(${JSON.stringify(ingredient.nom)},"interdit")'
+                    >
+                      🚫
+                    </button>
+
+                  </div>
+                </div>
+              `;
+            }).join("")}
+
+          </div>
+        </div>
+      `;
+    }).join("")}
+
+    <div class="glow-extension-card">
+
+      <h2 style="
+        font-family:'Cormorant Garamond',serif;
+        font-size:23px;
+        margin-bottom:12px
+      ">
+        ＋ Ajouter un ingrédient
+      </h2>
+
+      <div class="fr">
+        <label>Ingrédient</label>
+        <input
+          id="glow-nouvel-ingredient"
+          placeholder="Ex : veau"
+        >
+      </div>
+
+      <div class="fr">
+        <label>Catégorie</label>
+
+        <select id="glow-nouvel-ingredient-cat">
+          ${Object.entries(LABELS_CATEGORIES_INGREDIENTS_GLOW)
+            .map(([value,label]) =>
+              `<option value="${value}">${label}</option>`
+            ).join("")}
+        </select>
+      </div>
+
+      <button class="btn bd" onclick="ajouterIngredientGlow()">
+        ＋ Ajouter
+      </button>
+
+    </div>
+  `;
+}
+   
 function getRepasPlanifieGlow(date,type){
   const repas=DB.glowNutritionPlans?.planActif?.repas||[];
   const trouve=repas.find(r=>r.date===date&&r.type===type&&r.statut!=="absent");
@@ -55702,11 +55974,21 @@ async function creerPlanRepasGlow(nombreJours){
     const recettes=recettesDisponiblesPlanGlow().slice(0,30).map(r=>({nom:r.nom,portions:r.portions||2,ingredients:(r.ingredients||[]).slice(0,20)}));
     const repasRecents=(DB.glow?.nutrition?.repas||[]).slice(-20).map(r=>r.nom||r.resume||(r.aliments||[]).map(a=>typeof a==="string"?a:a.nom).filter(Boolean).join(", ")).filter(Boolean);
     const debut=new Date(),dates=Array.from({length:nombreJours},(_,j)=>dateLocaleISO(new Date(debut.getFullYear(),debut.getMonth(),debut.getDate()+j)));
+    const ingredientsAimesGlow = tousIngredientsGlow()
+  .filter(i => statutIngredientGlow(i.nom) === "aime")
+  .map(i => i.nom);
+
+const ingredientsInterditsGlow = tousIngredientsGlow()
+  .filter(i => statutIngredientGlow(i.nom) === "interdit")
+  .map(i => i.nom);
     const response=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:5000,messages:[{role:"user",content:[{type:"text",text:`Prépare un planning réaliste de déjeuners et dîners pour ${nombreJours} jours et 2 personnes par défaut.
 Dates exactes : ${dates.join(", ")}.
 Ce qu'il reste à la maison : ${DB.glowNutritionPlans.stockTexte||"non renseigné"}.
 Recettes déjà enregistrées (à privilégier si utile) : ${JSON.stringify(recettes)}.
 Repas récents (éviter trop de répétitions) : ${JSON.stringify(repasRecents)}.
+Ingrédients appréciés à privilégier quand c'est cohérent : ${JSON.stringify(ingredientsAimesGlow)}.
+Ingrédients interdits : ${JSON.stringify(ingredientsInterditsGlow)}.
+Ne propose JAMAIS un ingrédient interdit, ni comme ingrédient principal, ni dans une sauce, un accompagnement, un dessert ou un plaisir sucré.
 Règles : construire chaque repas comme une assiette simple avec une protéine, des légumes, un féculent facultatif et un complément facultatif. Chaque dîner comporte aussi un petit plaisir sucré. Réutiliser les mêmes ingrédients, limiter les achats différents, prévoir 2 ou 3 repas restes sur 7 jours sans les enchaîner. Pour un aliment qui se compte (poulet, steak, œuf, courgette, fruit...), donner d'abord une quantité en pièces et n'utiliser les grammes que pour le riz, les pâtes ou ce qui ne se compte pas clairement. Les quantités correspondent à 2 personnes. Réponds UNIQUEMENT en JSON valide sans backticks :
 {"repas":[{"date":"AAAA-MM-JJ","type":"dejeuner|diner","nom":"","statut":"garder|restes","portionsBase":2,"assiette":{"proteine":"","legumes":"","feculent":"","complement":"","plaisirSucre":""},"ingredients":[{"nom":"","quantite":0,"unite":"pièce|portion|g|ml|boîte|pot"}]}]}`}] }]})});
     const data=await response.json();if(!response.ok||data.error)throw new Error(data.error?.message||"Planning impossible");const texte=(data.content||[]).map(x=>x.text||"").join("").replace(/```json|```/g,"").trim();const match=texte.match(/\{[\s\S]*\}/);if(!match)throw new Error("Réponse de l’IA illisible");
@@ -55740,12 +56022,42 @@ async function modifierPersonnesRepasGlow(id,nombre){const r=trouverRepasPlanGlo
 async function changerStatutRepasGlow(id,statut){const r=trouverRepasPlanGlow(id);if(!r)return;r.statut=statut;if(statut==='restes'){const repas=DB.glowNutritionPlans.planActif?.repas||[],index=repas.findIndex(x=>x.id===id),source=[...repas.slice(0,index)].reverse().find(x=>!['restes','absent'].includes(x.statut));if(!source){toast("Aucun repas précédent disponible pour les restes");r.statut="garder";return}r.resteDeId=source.id;r.nom=`Restes de ${source.nom}`;r.ingredients=[];r.assiette={}}else if(statut==='absent'){delete r.resteDeId;r.nom="Je ne mange pas à la maison"}else{delete r.resteDeId;const recette=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId);if(recette)r.nom=recette.nom}await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
 
 function choixAssietteGlowHTML(champ,valeur){
-  const options=OPTIONS_ASSIETTE_GLOW[champ]||[];
+  const options = optionsAssietteDisponiblesGlow(champ);
   return `<input id="assiette-${champ}" type="hidden" value="${echapperTexteRepasGlow(valeur||'')}"><div style="display:flex;gap:7px;flex-wrap:wrap">${options.map(option=>`<button type="button" class="btn ${(valeur||'')===option?'bd':'bg'} bsm" onclick="selectionnerChoixAssietteGlow('${champ}',${JSON.stringify(option)},this)">${echapperTexteRepasGlow(option)}</button>`).join('')}</div>`;
 }
 function selectionnerChoixAssietteGlow(champ,valeur,bouton){const input=document.getElementById(`assiette-${champ}`);if(input)input.value=valeur;bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.remove('bd'));bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.add('bg'));bouton?.classList.remove('bg');bouton?.classList.add('bd')}
 function ouvrirCompositionRepasGlow(id){
-  const r=trouverRepasPlanGlow(id);if(!r)return;const a=r.assiette||{};document.getElementById("glow-modal-repas-plan")?.remove();document.body.insertAdjacentHTML("beforeend",`<div id="glow-modal-repas-plan" class="mo open"><div class="mb" style="width:min(650px,95vw);max-height:92vh;overflow:auto"><div class="maison-kicker">🍽️ COMPOSER MON ASSIETTE</div><h2 style="margin:5px 0 4px">${r.type==='dejeuner'?'Déjeuner':'Dîner'} du ${r.date.split('-').reverse().join('/')}</h2><p style="font-size:12px;color:var(--mut);margin-bottom:16px">Appuie simplement sur ce que tu veux dans chaque catégorie.</p><div class="fr"><label>🥩 Protéine</label>${choixAssietteGlowHTML('proteine',a.proteine)}</div><div class="fr"><label>🥦 Légumes</label>${choixAssietteGlowHTML('legumes',a.legumes)}</div><div class="fr"><label>🍚 Féculent facultatif</label>${choixAssietteGlowHTML('feculent',a.feculent)}</div><div class="fr"><label>✨ Sauce / complément facultatif</label>${choixAssietteGlowHTML('complement',a.complement)}</div>${r.type==='diner'?`<div class="fr"><label>🍫 Mon plaisir sucré du soir</label>${choixAssietteGlowHTML('plaisirSucre',a.plaisirSucre||'Carrés de chocolat')}</div>`:''}<div style="display:grid;gap:8px;margin-top:16px"><button class="btn bd" onclick="enregistrerCompositionRepasGlow('${r.id}')">✓ Garder cette assiette</button><button class="btn bg" onclick="proposerNouvelleAssietteGlow('${r.id}',this)">✨ Une autre assiette complète</button><button class="btn bg" onclick="changerStatutDepuisCompositionGlow('${r.id}','restes')">🍽️ Ce sera des restes</button><button class="btn bg" onclick="changerStatutDepuisCompositionGlow('${r.id}','absent')">🚫 Je ne mange pas à la maison</button><button class="btn bg" onclick="document.getElementById('glow-modal-repas-plan')?.remove()">Annuler</button></div></div></div>`)
+  const r=trouverRepasPlanGlow(id);
+if(!r)return;
+
+const a = {
+  proteine: r.assiette?.proteine || "",
+  legumes: r.assiette?.legumes || "",
+  feculent: r.assiette?.feculent || "",
+  complement: r.assiette?.complement || "",
+  plaisirSucre: r.assiette?.plaisirSucre || ""
+};
+
+/*
+  Compatibilité avec les repas qui existaient avant l'éditeur d'assiette :
+  si aucune assiette structurée n'est enregistrée, on tente de retrouver
+  les ingrédients dans les catégories existantes.
+*/
+if(!Object.values(a).some(Boolean)){
+  const noms = (r.ingredients || [])
+    .map(i => typeof i === "string" ? i : i?.nom)
+    .filter(Boolean);
+
+  for(const [champ, options] of Object.entries(OPTIONS_ASSIETTE_GLOW)){
+    const trouve = options.find(option =>
+      noms.some(nom =>
+        String(nom).trim().toLowerCase() === String(option).trim().toLowerCase()
+      )
+    );
+
+    if(trouve) a[champ] = trouve;
+  }
+}
 }
 async function enregistrerCompositionRepasGlow(id){const r=trouverRepasPlanGlow(id);if(!r)return;const assiette={proteine:document.getElementById("assiette-proteine")?.value.trim()||"",legumes:document.getElementById("assiette-legumes")?.value.trim()||"",feculent:document.getElementById("assiette-feculent")?.value.trim()||"",complement:document.getElementById("assiette-complement")?.value.trim()||"",plaisirSucre:r.type==='diner'?(document.getElementById("assiette-plaisirSucre")?.value.trim()||""):""};if(!assiette.proteine&&!assiette.legumes&&!assiette.feculent){toast("Compose au moins une partie de l’assiette");return}r.assiette=assiette;r.nom=[assiette.proteine,assiette.legumes,assiette.feculent].filter(x=>x&&x.toLowerCase()!=="aucun").join(" · ");r.ingredients=Object.entries(assiette).map(([champ,nom])=>ingredientAssietteGlow(champ,nom)).filter(Boolean);r.portionsBase=2;r.statut="garder";delete r.resteDeId;r.recetteId=null;await sauvegarderExtensionGlow("glowNutritionPlans");document.getElementById("glow-modal-repas-plan")?.remove();renderPlanificationRepasGlow()}
 async function changerStatutDepuisCompositionGlow(id,statut){document.getElementById("glow-modal-repas-plan")?.remove();await changerStatutRepasGlow(id,statut)}
