@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "scripts": {"test": "node nutrition-v2.cjs", "preview": "node preview.cjs"},
+  "devDependencies": {"acorn": "^8.15.0"}
+}

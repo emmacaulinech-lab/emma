@@ -2177,6 +2177,12 @@ button.emma-card-row{
 .glow-plan-day{background:rgba(255,255,255,.64);border:1px solid var(--brd);border-radius:20px;padding:15px;margin-bottom:10px}
 .glow-shopping-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--brd)}
 @media(max-width:700px){.glow-extension-grid{grid-template-columns:1fr}.glow-extension-card{padding:15px}.glow-check-row{grid-template-columns:auto minmax(0,1fr)}}
+.glow-plan-day .glow-check-row>span:nth-child(2){min-width:0;overflow-wrap:anywhere}
+#bibliotheque-resultats-glow .glow-check-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#bibliotheque-resultats-glow .glow-check-row>div:last-child{display:flex;flex-wrap:wrap;gap:5px}
+.glow-plan-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.glow-plan-heading h2{font-size:22px;overflow-wrap:anywhere}
+@media(max-width:700px){.glow-plan-day .glow-check-row>div:last-child{grid-column:1/-1;justify-content:flex-start!important}.glow-plan-day .glow-check-row{grid-template-columns:24px minmax(0,1fr)}.glow-shopping-row{grid-template-columns:22px minmax(0,1fr);gap:8px}.glow-shopping-row>small{grid-column:2}#bibliotheque-resultats-glow .glow-check-row>div:last-child{width:100%}}
 
 .emma-assistant-dock{
     width:100%;
@@ -11872,7 +11878,7 @@ async function importBanquePDF(event){
       fullText+=content.items.map(x=>x.str).join(' ')+'\n';
     }
 
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
@@ -11955,7 +11961,7 @@ async function importBanqueImage(event){
       r.onerror=rej;
       r.readAsDataURL(file);
     });
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
@@ -12761,7 +12767,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
 {"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}`}
         ]}]};
 
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify(body)
@@ -12960,7 +12966,7 @@ Réponds UNIQUEMENT avec un tableau JSON valide, sans backticks, sans texte avan
           {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
           {type:'text',text:promptTexte}
         ]}]};
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify(body)
@@ -13234,7 +13240,7 @@ async function suggererRapprochementIA(){
   el.innerHTML=`<div style="text-align:center;padding:12px"><div class="spinner" style="margin:0 auto"></div></div>`;
 
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
@@ -15968,7 +15974,7 @@ async function importerPlanity(event){
     const mediaType=file.type||'image/png';
     const today=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
 
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
   method:'POST',
   headers:{
     'Content-Type':'application/json',
@@ -19487,7 +19493,7 @@ async function importPlanningFormations(event){
       fullText+=content.items.map(x=>x.str).join(' ')+'\n';
     }
 
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
@@ -20906,7 +20912,7 @@ function ouvrirImportBulletinRempli(etudianteId){
         }
       };
 
-      const reponse = await fetch(
+      const reponse = await fetchIAAvecLoaderEmma(
         'https://api.anthropic.com/v1/messages',
         {
           method: 'POST',
@@ -23719,7 +23725,7 @@ async function copyEmailToClipboard(){
 // ═══════════════════════════════════════
    function initialiserGlowDuJour(){
 
-    const aujourdHui = new Date().toISOString().split("T")[0];
+    const aujourdHui = dateLocaleISO();
 
     DB.historiqueGlow = DB.historiqueGlow || [];
       
@@ -23771,6 +23777,11 @@ async function copyEmailToClipboard(){
     chrono: 0,
     enPause: false
 },
+           nutrition: {
+             repas: [],
+             objectif: ancienGlow.nutrition?.objectif || 'equilibre',
+             recettes: ancienGlow.nutrition?.recettes || []
+           },
         };
 
         return true;
@@ -23810,16 +23821,7 @@ if(DB.glow.sommeil >= 8){
 // 🏃 Programme du jour (20 pts)
 
 const aujourdHui = DB.glow?.date || dateLocaleISO();
-const minutesHistorique = [
-    ...(DB.glow?.historiqueSeances || []),
-    ...(DB.historiqueGlow || [])
-]
-    .filter(item => item?.date === aujourdHui && item?.terminee !== false)
-    .reduce((maximum,item) => Math.max(maximum,Number(item.minutes || item.duree || 0)),0);
-const minutesSport = Math.max(
-    DB.glow.activite?.terminee ? Number(DB.glow.activite.minutes || 0) : 0,
-    minutesHistorique
-);
+const minutesSport = bilanSportJourGlow(aujourdHui).minutes;
 
 if(minutesSport > 0){
 
@@ -24094,15 +24096,14 @@ function renderHubCardsEmma(){
     const debutSemaine = new Date();
     debutSemaine.setHours(0,0,0,0);
     debutSemaine.setDate(debutSemaine.getDate() - 6);
-    const minutesSport = (DB.glow?.historiqueSeances || DB.historiqueGlow || [])
-        .filter(item => item?.terminee && item?.date && new Date(item.date) >= debutSemaine)
-        .reduce((total,item) => total + Number(item.duree || 0),0);
+    const bilanSport = bilanSportJourGlow(today);
+    const minutesSport = bilanSport.minutes;
 
     const water = document.getElementById("hub-glow-water");
     const sport = document.getElementById("hub-glow-sport");
     const meals = document.getElementById("hub-glow-meals");
     if(water) water.textContent = `${eau} / 8 verres`;
-    if(sport) sport.textContent = `${minutesSport} / 30 min`;
+    if(sport) sport.textContent = `${minutesSport} min aujourd’hui · ${bilanSport.seances} séance${bilanSport.seances>1?'s':''}`;
     if(meals) meals.textContent = `${repas.length} repas renseigné${repas.length > 1 ? "s" : ""}`;
 }
 
@@ -25120,28 +25121,12 @@ const illustration =
 }
 
 function getStatsSemaineSportGlow(){
-    const debut = new Date();
-    debut.setHours(0,0,0,0);
-    debut.setDate(debut.getDate() - 6);
-    const vues = new Map();
-
-    [
-        ...(DB.glow?.historiqueSeances || []),
-        ...(DB.historiqueGlow || []).filter(item => item?.seanceId)
-    ].forEach(item => {
-        if(!item?.date || new Date(`${item.date}T12:00:00`) < debut) return;
-        const cle = `${item.date}|${item.seanceId || item.objectif || "sport"}`;
-        const precedente = vues.get(cle);
-        if(!precedente || Number(item.minutes || item.duree || 0) > Number(precedente.minutes || precedente.duree || 0)){
-            vues.set(cle,item);
-        }
-    });
-
-    const seances = [...vues.values()];
+    const jours=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return dateLocaleISO(d);});
+    const bilans=jours.map(date=>bilanSportJourGlow(date));
     return {
-        nombre: seances.length,
-        minutes: seances.reduce((s,item) => s + Number(item.minutes || item.duree || 0),0),
-        partielles: seances.filter(item => item.partielle).length
+        nombre: bilans.reduce((n,b)=>n+b.seances,0),
+        minutes: bilans.reduce((n,b)=>n+b.minutes,0),
+        partielles: bilans.reduce((n,b)=>n+b.partielles,0)
     };
 }
 
@@ -25424,34 +25409,8 @@ async function enregistrerSeancePartielleGlow(){
      SPORT
   ================================= */
 
-  const historiqueSport = [
-    ...(DB.glow?.historiqueSeances || []),
-    ...(DB.historiqueGlow || [])
-  ];
-
-  const seancesAujourdhui =
-    historiqueSport.filter(item =>
-      item?.date === aujourdHui &&
-      item?.terminee !== false
-    );
-
-  const minutesSport =
-    seancesAujourdhui.reduce(
-      (maximum,item) =>
-        Math.max(
-          maximum,
-          Number(
-            item.minutes ||
-            item.duree ||
-            0
-          )
-        ),
-      DB.glow?.activite?.terminee
-        ? Number(
-            DB.glow.activite.minutes || 0
-          )
-        : 0
-    );
+  const bilanSport = bilanSportJourGlow(aujourdHui);
+  const minutesSport = bilanSport.minutes;
 
   const recommandation =
     recommanderProgrammeGlow();
@@ -25474,7 +25433,7 @@ async function enregistrerSeancePartielleGlow(){
 
   const sportValeur =
     minutesSport > 0
-      ? `${minutesSport} min`
+      ? `${minutesSport} min aujourd’hui · ${bilanSport.seances} séance${bilanSport.seances > 1 ? 's' : ''}`
       : (
           labelsSport[objectifSport] ||
           "Séance du jour"
@@ -25693,6 +25652,7 @@ async function enregistrerSeancePartielleGlow(){
     <div class="glow-dashboard">
 
       ${navigationGlowSimple("accueil")}
+      ${copieLocaleSportGlow()?'<div class="ib">Une séance locale attend sa confirmation Firebase. <button class="btn bg bsm" onclick="telechargerCopieLocaleSportGlow()">Télécharger la copie locale</button></div>':''}
 
       <!-- =====================
            GLOW SCORE
@@ -26046,9 +26006,9 @@ async function enregistrerSeancePartielleGlow(){
 
         <button
           class="btn bg"
-          onclick="renderGlowIngredients()"
+          onclick="renderIngredientsGlow()"
         >
-          ❤️ Mes ingrédients
+          🥕 Bibliothèque alimentaire
         </button>
 
       </div>
@@ -27100,6 +27060,7 @@ function variationStable(texte){
     function choisirMeilleures(liste, nombre = 3){
 
         return [...liste]
+            .filter(rep=>{try{validerAlimentsAutorisesGlow({ingredients:(rep.aliments||[]).map(nom=>({nom}))});return true;}catch{return false;}})
 
             .map(rep => ({
                 ...rep,
@@ -27133,7 +27094,7 @@ function variationStable(texte){
             titre:"☀️ Déjeuner suggéré",
 
             options:
-                repasPlanifie?.length ? [repasPlanifie] : choisirMeilleures(dejeuners, 3)
+                planningNutritionDisponibleGlow(aujourdHui) ? choixSemaineNutritionGlow(aujourdHui).map(r=>[r.nom]) : repasPlanifie?.length ? [repasPlanifie] : choisirMeilleures(dejeuners, 3)
 
         });
 
@@ -27160,7 +27121,7 @@ function variationStable(texte){
             titre:"🍓 Collation si tu as faim",
 
             options:
-                optionsCollation.slice(0,3)
+                optionsCollation.filter(aliments=>{try{validerAlimentsAutorisesGlow({ingredients:aliments.map(nom=>({nom}))});return true;}catch{return false;}}).slice(0,3)
 
         });
 
@@ -27181,7 +27142,7 @@ function variationStable(texte){
             titre:"🌙 Ce qu’on pourrait manger ce soir",
 
             options:
-                repasPlanifie?.length ? [repasPlanifie] : choisirMeilleures(diners, 3)
+                planningNutritionDisponibleGlow(aujourdHui) ? choixSemaineNutritionGlow(aujourdHui).map(r=>[r.nom]) : repasPlanifie?.length ? [repasPlanifie] : choisirMeilleures(diners, 3)
 
         });
 
@@ -27401,8 +27362,7 @@ async function validerDinerPrevuGlow(){
 
     if(!el) return;
 
-    const recettes =
-        DB.glow?.nutrition?.recettes || [];
+    const recettes = recettesDisponiblesPlanGlow();
 
     if(!recettes.length){
 
@@ -27444,7 +27404,7 @@ async function validerDinerPrevuGlow(){
                         font-size:13px;
                         font-weight:800;
                     ">
-                        ${recette.nom}
+                        ${echapperTexteRepasGlow(recette.nom)}
                     </div>
 
                     <div style="
@@ -27471,6 +27431,7 @@ async function validerDinerPrevuGlow(){
 }     
 
    function ouvrirRecetteGlow(id){
+    if(DB.glowNutritionPlans?.recettesV2?.some(r=>r.id===id))return ouvrirFicheRecetteV2Glow(id);
 
     const recette =
         DB.glow?.nutrition?.recettes
@@ -28037,7 +27998,7 @@ function renderGlowNutrition(){
     onclick="renderIngredientsGlow()"
     style="justify-content:center;min-height:52px"
   >
-    🥕 Mes ingrédients
+    🥕 Bibliothèque alimentaire
   </button>
 
 </div>
@@ -29411,10 +29372,11 @@ async function genererRecetteIA(){
     `;
 
 
+    afficherEmmaReflechit('EMMA prépare ta recette…','');
     try{
 
         const response =
-            await fetch(
+            await fetchIAAvecLoaderEmma(
                 "https://api.anthropic.com/v1/messages",
                 {
                     method:"POST",
@@ -29456,6 +29418,7 @@ async function genererRecetteIA(){
 "${demande}"
 
 La recette doit être réaliste, simple et adaptée à un usage quotidien.
+Ne propose aucun aliment exclu : ${JSON.stringify(Object.entries(DB.glowNutritionPlans?.preferencesIngredients||{}).filter(([,v])=>v==='interdit').map(([n])=>n))}.
 
 Réponds UNIQUEMENT en JSON valide, sans backticks :
 
@@ -29518,6 +29481,7 @@ Réponds UNIQUEMENT en JSON valide, sans backticks :
 
         const recette =
             JSON.parse(match[0]);
+        validerAlimentsAutorisesGlow(recette);
 
 
         window.recetteIAGlowEnCours =
@@ -29666,7 +29630,7 @@ Réponds UNIQUEMENT en JSON valide, sans backticks :
                 Impossible de générer la recette.
             </div>
         `;
-    }
+    }finally{cacherEmmaReflechit();}
 }
 
 function enregistrerRecetteIAGlow(){
@@ -29908,10 +29872,11 @@ async function analyserPhotoRepasGlow(event){
 
     const typeRepas=typeRepasSelonHeureGlow();
     ouvrirChargementPhotoRepasGlow();
+    afficherEmmaReflechit('EMMA analyse ton repas…','');
 
     try{
         const photo=await compresserPhotoRepasGlow(file);
-        const response=await fetch("https://api.anthropic.com/v1/messages",{
+        const response=await fetchIAAvecLoaderEmma("https://api.anthropic.com/v1/messages",{
             method:"POST",
             headers:{
                 "Content-Type":"application/json",
@@ -29961,6 +29926,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
         document.getElementById("glow-modal-photo-repas")?.remove();
         toast(`⚠️ ${error.message||"Photo impossible à analyser"}`);
     }finally{
+        cacherEmmaReflechit();
         // La photo n'est conservée ni dans DB ni dans Firebase.
         event.target.value="";
     }
@@ -31548,6 +31514,10 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
     initialiserGlowDuJour();
 
     const entrainement = DB.glow?.entrainement || {};
+    if(entrainement.enregistree) return;
+    entrainement.enregistree = true;
+    const realisationId = entrainement.realisationId || `sport_${genId()}`;
+    entrainement.realisationId = realisationId;
     const minutesEcoulees = entrainement.demarreeA
         ? Math.max(1,Math.round((Date.now()-Number(entrainement.demarreeA))/60000))
         : Number(seance.duree || 0);
@@ -31565,12 +31535,14 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
         minutes: minutesRetenues,
         terminee: true,
         seanceId: seance.id,
+        realisationId,
         feedback,
         partielle,
         niveau
     };
 
     const entree = {
+    realisationId,
     date: DB.glow.date,
 
     objectif: seance.objectif,
@@ -31598,6 +31570,7 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
     DB.glow.historiqueSeances || [];
 
 DB.glow.historiqueSeances.push({
+    realisationId,
     date: DB.glow.date,
     objectif: seance.objectif,
     seanceId: seance.id,
@@ -31610,8 +31583,7 @@ DB.glow.historiqueSeances.push({
 });
 
     const indexExistant = DB.historiqueGlow.findIndex(item =>
-        item.date === entree.date &&
-        item.seanceId === entree.seanceId
+        item.realisationId === realisationId
     );
 
     if(indexExistant >= 0){
@@ -31629,8 +31601,14 @@ DB.glow.historiqueSeances.push({
     DB.glow.entrainement.actif = false;
     DB.glow.seanceGeneree = null;
 
-    await sauvegarderChampSeul("glow", JSON.stringify(DB.glow));
-    await sauvegarderChampSeul("historiqueGlow", JSON.stringify(DB.historiqueGlow));
+    DB.glow.glowScore=calculGlowScore().total;
+    DB.glow.historiqueSeances.at(-1).score=DB.glow.glowScore;
+    const cleCopieSport=`emma_sport_${currentUser?.uid||'local'}`;
+    try{localStorage.setItem(cleCopieSport,JSON.stringify({glow:DB.glow,historiqueGlow:DB.historiqueGlow,confirmee:false}));}catch{}
+    const glowSauve=await sauvegarderChampSeul("glow", JSON.stringify(DB.glow));
+    const historiqueSauve=await sauvegarderChampSeul("historiqueGlow", JSON.stringify(DB.historiqueGlow));
+    if(!glowSauve||!historiqueSauve){toast('⚠️ Séance conservée localement si possible ; la sauvegarde Firebase doit être réessayée.');renderGlowSport();return;}
+    try{localStorage.setItem(cleCopieSport,JSON.stringify({glow:DB.glow,historiqueGlow:DB.historiqueGlow,confirmee:true}));}catch{}
 
     renderGlowSport();
     renderGlowAccueil();
@@ -32100,7 +32078,7 @@ async function genererQuestionsLivre(id){
   el.innerHTML=`<div style="text-align:center;padding:12px"><div class="spinner" style="margin:0 auto"></div></div>`;
 
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
@@ -32237,7 +32215,7 @@ async function genererRecoLivre(){
   el.innerHTML=`<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>`;
 
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
@@ -41559,9 +41537,9 @@ elements.push({
         const repasPlanifieDiner=repasPlanifieVersNutritionGlow(getRepasPlanifieGlow(date,"diner"));
         const repasPrevus = {
             ...(nutrition.repasPrevus || {}),
-            dejeuner:nutrition.repasPrevus?.dejeuner || repasPlanifieDejeuner
+            dejeuner:repasChoisiPourJournalGlow('dejeuner',date)
         };
-        const dinerPrevuJournal=nutrition.dinerPrevu || repasPlanifieDiner;
+        const dinerPrevuJournal=repasChoisiPourJournalGlow('diner',date);
 
        // =========================
 // 👩‍🍳 PRÉPARATION DÉJEUNER
@@ -46442,7 +46420,7 @@ function analyserPhotoPieceJournal(zoneId){
             // =========================
 
             const response =
-                await fetch(
+                await fetchIAAvecLoaderEmma(
                     "https://api.anthropic.com/v1/messages",
                     {
 
@@ -49013,9 +48991,9 @@ function assurerRappelsRepasJournal(date){
     const repasPlanifieDiner=repasPlanifieVersNutritionGlow(getRepasPlanifieGlow(date,"diner"));
     const repasPrevus={
         ...(nutrition.repasPrevus||{}),
-        dejeuner:nutrition.repasPrevus?.dejeuner||repasPlanifieDejeuner
+        dejeuner:repasChoisiPourJournalGlow('dejeuner',date)
     };
-    const dinerPrevuJournal=nutrition.dinerPrevu||repasPlanifieDiner;
+    const dinerPrevuJournal=repasChoisiPourJournalGlow('diner',date);
 
 
     // =========================
@@ -50001,6 +49979,7 @@ function selectionnerTacheProEmma(index){
 }
 
 function ouvrirDecisionRepasEmma(type){
+    ensureJournalData();
 
     const estDejeuner = type === "dejeuner";
 const titre = estDejeuner ? "Déjeuner" : "Dîner";
@@ -50031,6 +50010,7 @@ const dureeDefaut =
 
 
     window._repasDecisionEmma = type;
+    window._repasSourceDecisionEmma=null;
 
 
     document.getElementById("mTitle").textContent =
@@ -50057,7 +50037,7 @@ const dureeDefaut =
             <input
                 type="text"
                 id="emma-repas-nom"
-                value="${nomExistant}"
+                value="${echapperTexteRepasGlow(nomExistant)}"
                 placeholder="${
                     estDejeuner
                         ? "Ex : Poulet pané + courgettes"
@@ -50107,6 +50087,13 @@ const dureeDefaut =
 
     `;
 
+
+    if(planningNutritionDisponibleGlow(dateLocaleISO())){
+      const choix=choixSemaineNutritionGlow(dateLocaleISO(),type);
+      const input=document.getElementById('emma-repas-nom');input.readOnly=true;
+      input.insertAdjacentHTML('beforebegin',`<select id="emma-repas-planning" style="width:100%;margin-bottom:8px" onchange="selectionDecisionPlanningGlow(this.value)"><option value="">Choisir dans ma semaine</option>${choix.map(r=>`<option value="${echapperTexteRepasGlow(r.id)}">${r.date===dateLocaleISO()&&r.type===type?'Aujourd’hui · ':''}${echapperTexteRepasGlow(r.nom)}${r.statut==='restes'?' ♻️':''}</option>`).join('')}<option value="autre">Je veux autre chose</option></select>`);
+      const prevu=choix.find(r=>r.date===dateLocaleISO()&&r.type===type);if(prevu){document.getElementById('emma-repas-planning').value=prevu.id;selectionDecisionPlanningGlow(prevu.id);}
+    }
 
     document.querySelector(
         "#mainModal .ma"
@@ -50293,6 +50280,7 @@ function replacerTachesFlexiblesAutourBlocEmma(
 }
 
 async function validerDecisionRepasEmma(){
+    ensureJournalData();
 
     const type =
         window._repasDecisionEmma;
@@ -50336,6 +50324,14 @@ async function validerDecisionRepasEmma(){
         toast("⚠ Choisis une heure");
         return;
     }
+    let repasDuPlan=null;
+    if(planningNutritionDisponibleGlow(dateLocaleISO())){
+      const selection=document.getElementById('emma-repas-planning')?.value;
+      if(selection!=='autre'){
+        repasDuPlan=choixSemaineNutritionGlow(dateLocaleISO(),type).find(r=>r.id===selection);
+        if(!repasDuPlan||repasDuPlan.nom!==nom)return toast('Choisis un repas dans le planning.');
+      }
+    }
 
 
     initialiserGlowDuJour();
@@ -50358,6 +50354,8 @@ async function validerDecisionRepasEmma(){
 
 
         DB.glow.nutrition.repasPrevus.dejeuner = {
+            ...(repasDuPlan?repasPlanifieVersNutritionGlow(repasDuPlan):{}),
+            horsPlanning:!repasDuPlan,
 
             nom,
 
@@ -50382,6 +50380,8 @@ async function validerDecisionRepasEmma(){
     else{
 
         DB.glow.nutrition.dinerPrevu = {
+            ...(repasDuPlan?repasPlanifieVersNutritionGlow(repasDuPlan):{}),
+            horsPlanning:!repasDuPlan,
 
             nom,
 
@@ -53756,7 +53756,7 @@ async function demanderClaudeEmma(message){
     getContexteTachesAssistantEmma();
 
         const response =
-            await fetch(
+            await fetchIAAvecLoaderEmma(
                 'https://api.anthropic.com/v1/messages',
                 {
                     method:'POST',
@@ -55973,6 +55973,9 @@ function initialiserExtensionsGlowLocales(){
   DB.glowNutritionPlans.historiqueCourses=Array.isArray(DB.glowNutritionPlans.historiqueCourses)?DB.glowNutritionPlans.historiqueCourses:[];
 }
 
+const etatsChargementExtensionsGlow = {};
+const filesSauvegardeExtensionsGlow = {};
+
 async function chargerExtensionsGlowSecurisees(){
   const destinations=[
     ["glow_soins","glowSoins"],
@@ -55982,10 +55985,13 @@ async function chargerExtensionsGlowSecurisees(){
   for(const [documentId,cle] of destinations){
     try{
       const snap=await userRef.collection("modules").doc(documentId).get();
-      if(!snap.exists||!snap.data().data) continue;
+      if(!snap.exists){etatsChargementExtensionsGlow[cle]=true;continue;}
+      if(typeof snap.data().data!=='string')throw new Error('Format du document non reconnu');
       const charge=JSON.parse(snap.data().data);
-      if(charge&&typeof charge==="object") DB[cle]=charge;
+      if(!charge||typeof charge!=='object'||Array.isArray(charge))throw new Error('Structure du document non reconnue');
+      DB[cle]=charge;etatsChargementExtensionsGlow[cle]=true;
     }catch(error){
+      etatsChargementExtensionsGlow[cle] = false;
       console.error(`Extension Glow indisponible (${documentId}) — anciennes données conservées sans écriture`,error);
     }
   }
@@ -55993,13 +55999,30 @@ async function chargerExtensionsGlowSecurisees(){
 }
 
 async function sauvegarderExtensionGlow(cle){
-  if(!chargementReussi||!userRef) return false;
+  if(!chargementReussi||!userRef||etatsChargementExtensionsGlow[cle] !== true){
+    throw new Error("Sauvegarde bloquée : recharge pour vérifier les données existantes.");
+  }
   const correspondance={glowSoins:"glow_soins",glowDressing:"glow_dressing",glowNutritionPlans:"glow_nutrition"};
   const documentId=correspondance[cle];
   if(!documentId) return false;
-  await userRef.collection("modules").doc(documentId).set({
-    data:JSON.stringify(DB[cle]||{}),updatedAt:new Date().toISOString()
-  },{merge:true});
+  const contenu = JSON.stringify(DB[cle]||{});
+  if(new Blob([contenu]).size > 950000){
+    throw new Error("Document proche de la limite Firebase. Exporte une sauvegarde avant de poursuivre.");
+  }
+  const reference = userRef;
+  const cleLocale=`emma_extension_${currentUser?.uid||'local'}_${cle}`;
+  const copieLocale={data:contenu,date:new Date().toISOString(),confirmee:false};
+  try{localStorage.setItem(cleLocale,JSON.stringify(copieLocale));}catch(error){console.warn('Copie locale indisponible',error);}
+  const precedente = filesSauvegardeExtensionsGlow[cle] || Promise.resolve();
+  const sauvegarde = precedente.catch(()=>{}).then(()=>reference.collection("modules").doc(documentId).set({
+    data:contenu,updatedAt:new Date().toISOString()
+  },{merge:true}));
+  filesSauvegardeExtensionsGlow[cle] = sauvegarde;
+  try{
+    await sauvegarde;
+    try{const locale=JSON.parse(localStorage.getItem(cleLocale)||'null');if(locale?.data===contenu)localStorage.setItem(cleLocale,JSON.stringify({...locale,confirmee:true}));}catch{}
+  }catch(error){toast('⚠️ Sauvegarde Firebase impossible. Une copie locale est conservée si le navigateur le permet.');throw error;}
+  if(cle==='glowNutritionPlans')await synchroniserChoixNutritionV2Glow();
   return true;
 }
 
@@ -56014,6 +56037,7 @@ function navigationExtensionsGlow(actif){
     <button class="btn ${actif==="soins"?"bd":"bg"}" onclick="renderGlowSoins()">🧖‍♀️ Soins</button>
     <button class="btn ${actif==="dressing"?"bd":"bg"}" onclick="renderGlowDressing()">👗 Dressing</button>
     <button class="btn ${actif==="repas"?"bd":"bg"}" onclick="renderPlanificationRepasGlow()">🍽️ Planifier</button>
+    <button class="btn ${actif==="ingredients"?"bd":"bg"}" onclick="renderIngredientsGlow()">🥕 Bibliothèque</button>
     <button class="btn bg" onclick="renderGlowNutrition()">🥗 Nutrition</button>
     <button class="btn bg" onclick="renderGlowSport()">🏃 Sport</button>
   </div>`;
@@ -56115,7 +56139,7 @@ function importExportSheinGlow(){document.getElementById("dress-shein-import")?.
 let importDressingGlowEnCours=[];
 function normaliserCategorieDressingGlow(valeur){const v=String(valeur||"").toLowerCase();return CATEGORIES_DRESSING_GLOW.find(c=>v.includes(c.split('/')[0]))||(/top|t-shirt|chemise|blouse/.test(v)?"hauts":/pull|gilet|sweat/.test(v)?"pulls/gilets":/pantalon/.test(v)?"pantalons":/jean/.test(v)?"jeans":/short/.test(v)?"shorts":/jupe/.test(v)?"jupes":/robe/.test(v)?"robes":/ensemble/.test(v)?"ensembles":/veste|manteau|blazer/.test(v)?"vestes/manteaux":/chauss|basket|botte|sandale/.test(v)?"chaussures":/sac/.test(v)?"sacs":/bijou|ceinture|lunette|accessoire/.test(v)?"accessoires":"hauts")}
 async function compresserImageDressingGlow(file){return new Promise((resolve,reject)=>{const lecteur=new FileReader();lecteur.onerror=()=>reject(new Error("Photo illisible"));lecteur.onload=()=>{const image=new Image();image.onerror=()=>reject(new Error("Format de photo non reconnu"));image.onload=()=>{const max=1400,ratio=Math.min(1,max/Math.max(image.width,image.height)),canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(image.width*ratio));canvas.height=Math.max(1,Math.round(image.height*ratio));canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>{if(!blob)return reject(new Error("Compression impossible"));resolve({blob,base64:canvas.toDataURL("image/jpeg",.78).split(',')[1],mediaType:"image/jpeg",preview:URL.createObjectURL(blob)})},"image/jpeg",.78)};image.src=lecteur.result};lecteur.readAsDataURL(file)})}
-async function analyserPhotoDressingGlow(photo,source){const apiKey=localStorage.getItem("anthropic_key")||"";if(!apiKey)throw new Error("Configure d’abord ta clé IA dans les paramètres");const plusieurs=source==="shein";const response=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1800,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:photo.mediaType,data:photo.base64}},{type:"text",text:`Analyse cette ${plusieurs?"capture de commande SHEIN et liste séparément chaque vêtement clairement visible":"photo et décris uniquement le vêtement principal"}. Catégories autorisées : ${CATEGORIES_DRESSING_GLOW.join(", ")}. Réponds uniquement en JSON valide sans backticks : {"vetements":[{"description":"","categorie":"","couleur":"","saisons":[""],"tags":[""]}]}`}]}]})});const data=await response.json();if(!response.ok||data.error)throw new Error(data.error?.message||"Analyse impossible");const texte=(data.content||[]).map(x=>x.text||"").join("").replace(/```json|```/g,"").trim(),match=texte.match(/\{[\s\S]*\}/);if(!match)throw new Error("Analyse illisible");return (JSON.parse(match[0]).vetements||[]).filter(v=>v?.description).map(v=>({...v,categorie:normaliserCategorieDressingGlow(v.categorie),saisons:Array.isArray(v.saisons)?v.saisons:[],tags:Array.isArray(v.tags)?v.tags:[]}))}
+async function analyserPhotoDressingGlow(photo,source){const apiKey=localStorage.getItem("anthropic_key")||"";if(!apiKey)throw new Error("Configure d’abord ta clé IA dans les paramètres");const plusieurs=source==="shein";const response=await fetchIAAvecLoaderEmma("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1800,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:photo.mediaType,data:photo.base64}},{type:"text",text:`Analyse cette ${plusieurs?"capture de commande SHEIN et liste séparément chaque vêtement clairement visible":"photo et décris uniquement le vêtement principal"}. Catégories autorisées : ${CATEGORIES_DRESSING_GLOW.join(", ")}. Réponds uniquement en JSON valide sans backticks : {"vetements":[{"description":"","categorie":"","couleur":"","saisons":[""],"tags":[""]}]}`}]}]})});const data=await response.json();if(!response.ok||data.error)throw new Error(data.error?.message||"Analyse impossible");const texte=(data.content||[]).map(x=>x.text||"").join("").replace(/```json|```/g,"").trim(),match=texte.match(/\{[\s\S]*\}/);if(!match)throw new Error("Analyse illisible");return (JSON.parse(match[0]).vetements||[]).filter(v=>v?.description).map(v=>({...v,categorie:normaliserCategorieDressingGlow(v.categorie),saisons:Array.isArray(v.saisons)?v.saisons:[],tags:Array.isArray(v.tags)?v.tags:[]}))}
 async function traiterPhotosDressingGlow(event,source="photos"){const fichiers=[...(event.target.files||[])].filter(f=>f.type.startsWith("image/"));event.target.value="";if(!fichiers.length)return;toast(`✨ Analyse de ${fichiers.length} image${fichiers.length>1?'s':''}…`);try{const elements=[];for(const fichier of fichiers){const photo=await compresserImageDressingGlow(fichier),detectes=await analyserPhotoDressingGlow(photo,source);detectes.forEach(v=>elements.push({...v,_photo:photo,source:source==="shein"?"shein_capture":"photo"}))}if(!elements.length)throw new Error("Aucun vêtement détecté");ouvrirValidationImportDressingGlow(elements)}catch(error){console.error("Import Dressing",error);toast(`⚠️ ${error.message}`)}}
 function extraireVetementsExportSheinGlow(obj){const trouves=[];const visiter=(valeur)=>{if(Array.isArray(valeur)){valeur.forEach(visiter);return}if(!valeur||typeof valeur!=="object")return;const nom=valeur.productName||valeur.goodsName||valeur.name||valeur.title||valeur.description;const image=valeur.imageUrl||valeur.image||valeur.img||valeur.thumbnail||valeur.productImage;if(nom&&(image||valeur.sku||valeur.productId))trouves.push({description:String(nom),categorie:normaliserCategorieDressingGlow(valeur.category||valeur.categoryName||nom),couleur:String(valeur.color||valeur.skuColor||""),saisons:[],tags:["SHEIN"],photoRef:typeof image==="string"&&/^https:\/\//.test(image)?image:null,source:"shein_export"});Object.values(valeur).forEach(visiter)};visiter(obj);return trouves.filter((v,i,a)=>a.findIndex(x=>x.description===v.description&&x.photoRef===v.photoRef)===i)}
 function parserCSVSimpleGlow(texte){const lignes=texte.split(/\r?\n/).filter(Boolean),lire=l=>{const r=[];let c="",q=false;for(let i=0;i<l.length;i++){const x=l[i];if(x==='"'&&l[i+1]==='"'){c+='"';i++}else if(x==='"')q=!q;else if(x===','&&!q){r.push(c);c=""}else c+=x}r.push(c);return r};if(lignes.length<2)return[];const entetes=lire(lignes[0]).map(x=>x.trim());return lignes.slice(1).map(l=>Object.fromEntries(lire(l).map((v,i)=>[entetes[i],v])))}
@@ -56132,10 +56156,26 @@ function proposerTenueGlow(){
   alert("Tenue proposée uniquement avec tes pièces :\n\n"+selection.map(v=>`• ${v.description} [${v.id}]`).join("\n"));
 }
 
+let operationsEmmaEnCours=0;
+async function fetchIAAvecLoaderEmma(url,options){
+  afficherEmmaReflechit('EMMA réfléchit…','');
+  const controleur=options?.signal?null:new AbortController();
+  const delai=controleur?setTimeout(()=>controleur.abort(),120000):null;
+  try{
+    const reponse=await fetch(url,{...options,...(controleur?{signal:controleur.signal}:{})});
+    if(reponse.clone)await reponse.clone().text();
+    return reponse;
+  }finally{
+    if(delai)clearTimeout(delai);
+    cacherEmmaReflechit();
+  }
+}
 function afficherEmmaReflechit(
   texte = "EMMA réfléchit…",
   sousTexte = "Un instant ✨"
 ){
+  operationsEmmaEnCours++;
+  if(operationsEmmaEnCours>1)return;
   let overlay = document.getElementById("emma-thinking-overlay");
 
   if(!overlay){
@@ -56172,12 +56212,12 @@ function afficherEmmaReflechit(
   document.getElementById("emma-thinking-text").textContent = texte;
   document.getElementById("emma-thinking-sub").textContent = sousTexte;
 
-  requestAnimationFrame(() => {
-    overlay.classList.add("visible");
-  });
+  overlay.classList.add("visible");
 }
 
 function cacherEmmaReflechit(){
+  operationsEmmaEnCours=Math.max(0,operationsEmmaEnCours-1);
+  if(operationsEmmaEnCours)return;
   const overlay = document.getElementById("emma-thinking-overlay");
 
   if(!overlay) return;
@@ -56185,7 +56225,159 @@ function cacherEmmaReflechit(){
   overlay.classList.remove("visible");
 }
 
-function recettesDisponiblesPlanGlow(){return (DB.glow?.nutrition?.recettes||[]).filter(r=>r&&r.id&&r.nom)}
+// Nutrition V2 : adaptateurs additifs, les clés et documents legacy restent inchangés.
+function copieLocaleSportGlow(){try{const copie=JSON.parse(localStorage.getItem(`emma_sport_${currentUser?.uid||'local'}`)||'null');return copie&&!copie.confirmee?copie:null;}catch{return null;}}
+function telechargerCopieLocaleSportGlow(){const copie=copieLocaleSportGlow();if(!copie)return;const url=URL.createObjectURL(new Blob([JSON.stringify(copie)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='EMMA_SPORT_COPIE_LOCALE.json';a.click();URL.revokeObjectURL(url);}
+function bilanSportJourGlow(date = dateLocaleISO()){
+  const uniques = new Map(), comptes = new Map();
+  const archives = (DB.historiqueGlow || []).filter(x=>x?.date === date);
+  const sources = [DB.glow?.historiqueSeances || [], DB.historiqueSeances || [], archives,
+    ...archives.map(x=>x.historiqueSeances || [])];
+  for(const source of sources){
+    const occurrences = new Map();
+    for(const item of source){
+      if(item?.date !== date || item.terminee === false || (!item.seanceId&&!item.realisationId)) continue;
+      const minutes = Number(item.minutes ?? item.duree ?? 0);
+      if(!Number.isFinite(minutes) || minutes <= 0) continue;
+      if(item.realisationId){uniques.set(item.realisationId,{minutes,seanceId:item.seanceId,partielle:item.partielle});continue;}
+      const cle = `${item.seanceId}|${minutes}|${item.feedback || ''}|${item.partielle === true}`;
+      occurrences.set(cle,(occurrences.get(cle)||0)+1);
+      const precedent = comptes.get(cle);
+      comptes.set(cle,{minutes,seanceId:item.seanceId,partielle:item.partielle,nombre:Math.max(precedent?.nombre || 0,occurrences.get(cle))});
+    }
+  }
+  const seances = [...uniques.values(),...Array.from(comptes.values()).flatMap(x=>Array.from({length:x.nombre},()=>x))];
+  const activites = [DB.glow?.date === date ? DB.glow.activite : null,...archives.map(x=>x.activite)];
+  // L'activité est un résumé de la dernière séance, jamais une séance supplémentaire.
+  if(!seances.length){
+    const activite = activites.filter(x=>x?.terminee).sort((a,b)=>Number(b.minutes)-Number(a.minutes))[0];
+    if(Number(activite?.minutes)>0) seances.push({minutes:Number(activite.minutes)});
+  }
+  return {minutes:seances.reduce((n,x)=>n+x.minutes,0),seances:seances.length,partielles:seances.filter(x=>x.partielle).length};
+}
+
+const ALIMENTS_SUPPLEMENTAIRES_GLOW = {
+  proteine: ['Escalope de veau','Dinde','Bœuf à mijoter','Filet de porc','Crevettes','Sardines','Maquereau','Truite','Cabillaud','Lentilles','Pois chiches','Haricots rouges'],
+  legumes: ['Aubergines','Poivrons','Chou-fleur','Petits pois','Poireaux','Asperges','Concombre','Betteraves','Endives','Chou','Oignons','Ail','Potiron','Fenouil'],
+  feculent: ['Boulgour','Polenta','Flocons d’avoine','Nouilles','Feuilles de lasagnes','Couscous','Farine','Tortillas'],
+  complement: ['Mozzarella','Parmesan','Ricotta','Emmental','Chèvre','Beurre','Lait','Yaourt nature','Coulis de tomate','Concentré de tomate','Huile d’olive','Moutarde','Olives','Basilic','Persil','Paprika','Curry','Sel','Poivre','Vinaigre','Bouillon'],
+  plaisirSucre: ['Pommes','Bananes','Poires','Oranges','Fraises','Compote','Chocolat noir','Sucre','Miel','Yaourt sucré']
+};
+const TYPES_ALIMENTS_GLOW = {ingredient:'Ingrédient',composition:'Composition',recette:'Plat maison',prepare:'Plat préparé',repas:'Repas complet'};
+const POIDS_PIECES_GLOW = {'blanc de poulet':150,'escalope de veau':150,'steak hache':125,'oeufs':60,'saumon':150,'poisson blanc':150,'courgettes':200,'aubergines':300,'carottes':100,'pommes de terre':150,'patate douce':200,'tomates':120,'poivrons':180,'oignons':100,'pommes':150,'bananes':120,'poires':150,'oranges':180};
+function cleAlimentGlow(nom){
+  const n = String(nom||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/œ/g,'oe').replace(/[’']/g,' ').replace(/\s+/g,' ').trim();
+  const alias = {'courgette':'courgettes','carotte':'carottes','aubergine':'aubergines','pomme de terre':'pommes de terre','oeuf':'oeufs','blancs de poulet':'blanc de poulet','filet de poulet':'blanc de poulet','filets de poulet':'blanc de poulet','escalope de poulet':'blanc de poulet','pave de saumon':'saumon','paves de saumon':'saumon'};
+  return alias[n] || n;
+}
+function initialiserNutritionV2Glow(){
+  initialiserPreferencesIngredientsGlow();
+  const d = DB.glowNutritionPlans;
+  for(const cle of ['alimentsV2','recettesV2','historiquePlans','archivesCourses','historiqueRecettes','stockV2']) if(!Array.isArray(d[cle])) d[cle]=[];
+  d.habitudes = {personnes:2,tempsMax:30,appareils:[],restesSemaine:3,style:'Équilibré mais gourmand',repasMaison:['dejeuner','diner'],joursMaison:[0,1,2,3,4,5,6],...(d.habitudes||{})};
+  d.feedbackPlats = d.feedbackPlats || {};
+}
+function metadataAlimentGlow(nom,categorie='complement'){
+  const cle=cleAlimentGlow(nom),poids=POIDS_PIECES_GLOW[cle];
+  const type=/poelee de legumes/.test(cle)?'composition':/sauce yaourt|fruit \+ chocolat|dessert maison/.test(cle)?'recette':'ingredient';
+  return {nom,categorie,type,unitePrincipale:poids?'pièce':/riz|pâtes|semoule|quinoa|farine|lentilles|haricots|epinards|chocolat/.test(cle)?'g':/lait|huile|vinaigre/.test(cle)?'ml':'g',poidsMoyenPiece:poids||null,achetableEnPieces:!!poids,utilisableEnRecette:type==='ingredient'};
+}
+function catalogueAlimentaireGlow(){
+  initialiserNutritionV2Glow();
+  const liste=[];
+  const ajouter=(x)=>{if(!x?.nom||x.nom==='Aucun')return;const index=liste.findIndex(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(x.nom));const element={...metadataAlimentGlow(x.nom,x.categorie),...x};if(index<0)liste.push(element);else liste[index]={...liste[index],...element};};
+  Object.entries(OPTIONS_ASSIETTE_GLOW).forEach(([categorie,noms])=>noms.forEach(nom=>ajouter({nom,categorie})));
+  Object.entries(ALIMENTS_SUPPLEMENTAIRES_GLOW).forEach(([categorie,noms])=>noms.forEach(nom=>ajouter({nom,categorie})));
+  DB.glowNutritionPlans.ingredientsPersonnalises.forEach(ajouter);
+  DB.glowNutritionPlans.alimentsV2.forEach(ajouter);
+  ajouter({nom:'Poêlée de légumes',type:'composition',categorie:'legumes',composants:['Courgettes','Carottes']});
+  ['Lasagnes surgelées','Pizza achetée','Plat préparé du commerce'].forEach((nom,i)=>ajouter({id:`prepare_defaut_${i}`,nom,type:'prepare',categorie:'complement',unitePrincipale:'portion'}));
+  recettesDisponiblesPlanGlow().forEach(r=>ajouter({...r,type:'recette',categorie:r.categorie||'complement',recetteId:r.id}));
+  return liste;
+}
+function validerAlimentsAutorisesGlow(repas){
+  const noms=[repas.nom,...Object.values(repas.assiette||{}),...(repas.ingredients||[]).map(i=>typeof i==='string'?i:i.nom)].filter(Boolean);
+  const interdits=Object.entries(DB.glowNutritionPlans?.preferencesIngredients||{}).filter(([,v])=>v==='interdit').map(([k])=>cleAlimentGlow(k));
+  const simplifier=n=>cleAlimentGlow(n).split(/[^a-zà-ÿ0-9]+/).filter(Boolean).map(m=>m.length>3?m.replace(/s$/,''):m).join(' ');
+  const interdit=noms.find(n=>interdits.some(cle=>simplifier(n)===simplifier(cle)||(` ${simplifier(n)} `).includes(` ${simplifier(cle)} `)));
+  if(interdit)throw new Error(`Proposition refusée : ${interdit} contient un aliment exclu.`);
+}
+function signatureRepasGlow(r){return JSON.stringify([r.nom,r.typeAliment||'',r.assiette||{},r.ingredients||[],r.recetteId||null]);}
+function actualiserDependancesRepasGlow(r){
+  delete r.recetteGeneree;
+  const d=DB.glowNutritionPlans;
+  d.planActif.revision=Number(d.planActif.revision||0)+1;
+  if(d.courses)d.courses.aActualiser=true;
+  const source=r.statut==='restes'?trouverRepasPlanGlow(r.resteDeId):r;
+  if(source&&source!==r)delete source.recetteGeneree;
+  for(const reste of d.planActif.repas.filter(x=>x.statut==='restes'&&x.resteDeId===r.id)){
+    reste.nom=r.statut==='garder'?`Restes de ${r.nom}`:'Restes à réattribuer';
+    reste.sourceIndisponible=r.statut!=='garder';
+    delete reste.recetteGeneree;
+  }
+}
+async function synchroniserChoixNutritionV2Glow(){
+  const n=DB.glow?.nutrition;if(!n)return;
+  let modifie=false,journalModifie=false;
+  for(const type of ['dejeuner','diner']){
+    const ancien=type==='diner'?n.dinerPrevu:n.repasPrevus?.dejeuner;
+    if(!ancien?.choixPlanId)continue;
+    const r=trouverRepasPlanGlow(ancien.choixPlanId);
+    let prevu=r&&r.statut!=='absent'&&!r.sourceIndisponible?r:null;
+    if(prevu){try{validerAlimentsAutorisesGlow(prevu);}catch{prevu=null;}}
+    if(!prevu){
+      if(!ancien.aRevoir){ancien.aRevoir=true;modifie=true;const date=ancien.date?dateLocaleISO(new Date(ancien.date)):dateLocaleISO();for(const bloc of DB.journal?.planning?.[date]||[]){if(bloc.source==='glow'&&bloc.id===`glow_${type}_${date}`&&!DB.journal.faitAujourdhui?.[date]?.[bloc.id]){bloc.customNom=`À revoir : ${ancien.nom}`;journalModifie=true;}}}
+      continue;
+    }
+    const nouveau={...ancien,...repasPlanifieVersNutritionGlow(prevu),date:ancien.date,aRevoir:false};
+    if(JSON.stringify(nouveau)===JSON.stringify(ancien))continue;
+    if(type==='diner')n.dinerPrevu=nouveau;else n.repasPrevus.dejeuner=nouveau;
+    modifie=true;
+    const date=ancien.date?dateLocaleISO(new Date(ancien.date)):dateLocaleISO();
+    for(const bloc of DB.journal?.planning?.[date]||[]){
+      if(bloc.source==='glow'&&bloc.id===`glow_${type}_${date}`&&!DB.journal.faitAujourdhui?.[date]?.[bloc.id]){bloc.customNom=nouveau.nom;journalModifie=true;}
+    }
+  }
+  if(modifie){
+    const ok=await sauvegarderChampSeul('glow',JSON.stringify(DB.glow));
+    if(!ok)toast('⚠️ Le planning est enregistré ; la synchronisation du choix du jour doit être réessayée.');
+  }
+  if(journalModifie)await sauvegarderChampSeul('journal',JSON.stringify(DB.journal));
+}
+function copieLocaleNutritionV2Glow(){
+  try{const copie=JSON.parse(localStorage.getItem(`emma_extension_${currentUser?.uid||'local'}_glowNutritionPlans`)||'null');return copie&&!copie.confirmee&&copie.data!==JSON.stringify(DB.glowNutritionPlans)?copie:null;}catch{return null;}
+}
+function telechargerCopieLocaleNutritionGlow(){
+  const copie=copieLocaleNutritionV2Glow();if(!copie)return;
+  const url=URL.createObjectURL(new Blob([copie.data],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='EMMA_NUTRITION_COPIE_LOCALE.json';a.click();URL.revokeObjectURL(url);
+}
+function quantiteIngredientV2Glow(i,facteur=1){
+  const q=Number(String(i.quantite??'').replace(',','.'));
+  if(!Number.isFinite(q)||q<=0)return {quantite:null,unite:i.unite||'',texte:String(i.quantite||'À préciser')};
+  let unite=String(i.unite||'').toLowerCase().trim();
+  if(['pièces','piece','pieces','pavé','pavés','filet','filets'].includes(unite))unite='pièce';
+  let quantite=q*facteur;
+  if(unite==='kg'){unite='g';quantite*=1000;}
+  if(unite==='l'){unite='ml';quantite*=1000;}
+  const poids=i.poidsMoyenPiece||catalogueAlimentaireGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(i.nom))?.poidsMoyenPiece;
+  const poidsTotal=unite==='pièce'&&poids?quantite*Number(poids):null;
+  return {quantite,unite,poidsTotal,texte:`${Math.round(quantite*100)/100} ${unite==='pièce'&&quantite>1?'pièces':unite}${poidsTotal?` (≈ ${Math.round(poidsTotal)} g)`:''}`};
+}
+async function demanderJSONNutritionGlow(prompt,message='EMMA réfléchit…'){
+  const apiKey=localStorage.getItem('anthropic_key');
+  if(!apiKey)throw new Error('Configure ta clé IA dans les paramètres.');
+  afficherEmmaReflechit(message,'');
+  try{
+    const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content:prompt+'\nRéponds uniquement en JSON valide sans backticks.'}]})});
+    const data=await response.json();if(!response.ok||data.error)throw new Error(data.error?.message||'IA indisponible');
+    const texte=(data.content||[]).map(x=>x.text||'').join('').replace(/```json|```/g,'').trim();
+    return JSON.parse(texte);
+  }finally{cacherEmmaReflechit();}
+}
+function recettesDisponiblesPlanGlow(){
+  const recettes=[...(DB.glow?.nutrition?.recettes||[]),...(DB.glowNutritionPlans?.recettesV2||[])].filter(r=>r&&r.id&&r.nom);
+  return [...new Map(recettes.map(r=>[r.id,r])).values()];
+}
 function creerRepasPlanGlow(date,type,recette,personnes=2){return {id:`repas_plan_${genId()}`,date,type,personnes,statut:"garder",recetteId:recette?.id||null,nom:recette?.nom||"À choisir",ingredients:Array.isArray(recette?.ingredients)?recette.ingredients.map(x=>({...x})):[],portionsBase:Number(recette?.portions||2)}}
 
 const OPTIONS_ASSIETTE_GLOW={
@@ -56225,9 +56417,9 @@ function initialiserPreferencesIngredientsGlow(){
 function statutIngredientGlow(nom){
   initialiserPreferencesIngredientsGlow();
 
-  return DB.glowNutritionPlans.preferencesIngredients[
-    normaliserNomIngredientGlow(nom)
-  ] || "neutre";
+  const valeurs=Object.entries(DB.glowNutritionPlans.preferencesIngredients)
+    .filter(([cle])=>cleAlimentGlow(cle)===cleAlimentGlow(nom)).map(([,v])=>v);
+  return valeurs.includes('interdit')?'interdit':valeurs.includes('aime')?'aime':'neutre';
 }
 
 function ingredientInterditGlow(nom){
@@ -56236,61 +56428,35 @@ function ingredientInterditGlow(nom){
 
 function optionsAssietteDisponiblesGlow(champ){
 
-  const standards = OPTIONS_ASSIETTE_GLOW[champ] || [];
+  const standards = [...(OPTIONS_ASSIETTE_GLOW[champ] || []),...(ALIMENTS_SUPPLEMENTAIRES_GLOW[champ]||[])];
 
   const personnels = Array.isArray(DB.glowNutritionPlans?.ingredientsPersonnalises)
     ? DB.glowNutritionPlans.ingredientsPersonnalises
-        .filter(i => i.categorie === champ)
+        .filter(i => i.categorie === champ && (!i.type||i.type==='ingredient'))
         .map(i => i.nom)
     : [];
 
-  const preferences = DB.glowNutritionPlans?.preferencesIngredients || {};
-
-  return [...new Set([...standards, ...personnels])]
+  const nouveaux=(DB.glowNutritionPlans?.alimentsV2||[]).filter(i=>i.categorie===champ&&i.type==='ingredient').map(i=>i.nom);
+  return [...new Set([...standards, ...personnels,...nouveaux])]
+    .filter(nom=>nom==='Aucun'||metadataAlimentGlow(nom,champ).type==='ingredient')
     .filter(nom =>
       nom === "Aucun" ||
-      preferences[String(nom || "").trim().toLowerCase()] !== "interdit"
+      !ingredientInterditGlow(nom)
     );
 }
 
-function tousIngredientsGlow(){
-  initialiserPreferencesIngredientsGlow();
-
-  const resultat = [];
-
-  Object.entries(OPTIONS_ASSIETTE_GLOW).forEach(([categorie, noms]) => {
-    noms
-      .filter(nom => nom !== "Aucun")
-      .forEach(nom => {
-        resultat.push({ nom, categorie });
-      });
-  });
-
-  DB.glowNutritionPlans.ingredientsPersonnalises.forEach(ingredient => {
-    if(
-      ingredient?.nom &&
-      !resultat.some(i =>
-        normaliserNomIngredientGlow(i.nom) ===
-        normaliserNomIngredientGlow(ingredient.nom)
-      )
-    ){
-      resultat.push(ingredient);
-    }
-  });
-
-  return resultat;
-}
+function tousIngredientsGlow(){return catalogueAlimentaireGlow();}
 
 async function changerPreferenceIngredientGlow(nom, statut){
   initialiserPreferencesIngredientsGlow();
 
   const cle = normaliserNomIngredientGlow(nom);
 
-  if(statut === "neutre"){
-    delete DB.glowNutritionPlans.preferencesIngredients[cle];
-  }else{
-    DB.glowNutritionPlans.preferencesIngredients[cle] = statut;
-  }
+  Object.keys(DB.glowNutritionPlans.preferencesIngredients)
+    .filter(k=>cleAlimentGlow(k)===cleAlimentGlow(nom))
+    .forEach(k=>DB.glowNutritionPlans.preferencesIngredients[k]=statut);
+  DB.glowNutritionPlans.preferencesIngredients[cle] = statut;
+  [...(DB.glowNutritionPlans.recettesV2||[]),...(DB.glowNutritionPlans.alimentsV2||[])].filter(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(nom)).forEach(i=>i.favorite=statut==='aime');
 
   await sauvegarderExtensionGlow("glowNutritionPlans");
   renderIngredientsGlow();
@@ -56328,7 +56494,7 @@ async function ajouterIngredientGlow(){
   toast("✓ Ingrédient ajouté");
 }
 
-function renderIngredientsGlow(){
+function renderIngredientsGlowLegacy(){
   initialiserPreferencesIngredientsGlow();
 
   const ingredients = tousIngredientsGlow();
@@ -56450,24 +56616,126 @@ function renderIngredientsGlow(){
   `;
 }
    
+let filtreBibliothequeGlow='tout';
+let alimentAnalyseGlow=null;
+function argumentHTMLGlow(valeur){return echapperTexteRepasGlow(JSON.stringify(valeur));}
+function renderIngredientsGlow(){
+  initialiserNutritionV2Glow();
+  document.getElementById('glow-content').innerHTML=`${navigationExtensionsGlow('ingredients')}
+    <h1 style="font-family:'Cormorant Garamond',serif;font-size:32px;margin:12px 0">Ma bibliothèque alimentaire</h1>
+    <div class="fr"><input id="bibliotheque-recherche-glow" aria-label="Rechercher dans la bibliothèque" placeholder="Rechercher un aliment ou un plat" oninput="renderResultatsBibliothequeGlow()"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">${[['tout','Tout'],['ingredient','Ingrédients'],['plats','Plats'],['recettes','Mes recettes'],['prepare','Préparés'],['favoris','❤️ Favoris'],['exclus','🚫 Exclus']].map(([v,t])=>`<button class="btn ${filtreBibliothequeGlow===v?'bd':'bg'} bsm" onclick="filtreBibliothequeGlow='${v}';renderIngredientsGlow()">${t}</button>`).join('')}</div>
+    <div id="bibliotheque-resultats-glow"></div>
+    <div style="border-top:1px solid var(--brd2);padding:18px 0;margin-top:14px"><h2>Ajouter un aliment ou un plat</h2><div class="fr"><input id="aliment-nom-v2" aria-label="Nom de l’aliment ou du plat" placeholder="Ex : escalope de veau, mes lasagnes, pizza surgelée"></div><button class="btn bd" onclick="analyserAlimentV2Glow(this)">✨ Analyser</button><button class="btn bg" onclick="previsualiserAlimentV2Glow({nom:document.getElementById('aliment-nom-v2').value,categorie:'complement',type:'ingredient'})">Ajouter manuellement</button></div>`;
+  renderResultatsBibliothequeGlow();
+}
+function renderResultatsBibliothequeGlow(){
+  const recherche=cleAlimentGlow(document.getElementById('bibliotheque-recherche-glow')?.value);
+  const liste=catalogueAlimentaireGlow().filter(i=>cleAlimentGlow(i.nom).includes(recherche)).filter(i=>
+    filtreBibliothequeGlow==='tout'||filtreBibliothequeGlow===i.type||
+    filtreBibliothequeGlow==='plats'&&['recette','composition','repas'].includes(i.type)||
+    filtreBibliothequeGlow==='recettes'&&!!i.recetteId||
+    filtreBibliothequeGlow==='favoris'&&(statutIngredientGlow(i.nom)==='aime'||i.favorite&&!ingredientInterditGlow(i.nom))||
+    filtreBibliothequeGlow==='exclus'&&statutIngredientGlow(i.nom)==='interdit');
+  document.getElementById('bibliotheque-resultats-glow').innerHTML=Object.entries(LABELS_CATEGORIES_INGREDIENTS_GLOW).map(([cat,label])=>{
+    const aliments=liste.filter(i=>i.categorie===cat);if(!aliments.length)return '';
+    return `<details ${recherche||filtreBibliothequeGlow!=='tout'?'open':''} style="padding:12px 0;border-bottom:1px solid var(--brd2)"><summary style="cursor:pointer;font-weight:600">${label} · ${aliments.length}</summary><div style="display:grid;gap:7px;margin-top:12px">${aliments.map(i=>`<div class="glow-check-row" style="flex-wrap:wrap"><div style="flex:1;min-width:130px"><strong>${echapperTexteRepasGlow(i.nom)}</strong><small style="display:block;color:var(--mut)">${TYPES_ALIMENTS_GLOW[i.type]||'Ingrédient'}${i.poidsMoyenPiece?` · ≈ ${Number(i.poidsMoyenPiece)} g/pièce`:''}</small></div><div style="display:flex;gap:5px">${[['aime','❤️','Aimé'],['neutre','😐','Neutre'],['interdit','🚫','Exclu']].map(([statut,icone,titre])=>`<button class="btn ${statutIngredientGlow(i.nom)===statut?'bd':'bg'} bsm" title="${titre}" onclick="changerPreferenceIngredientGlow(${argumentHTMLGlow(i.nom)},'${statut}')">${icone}</button>`).join('')}<button class="btn bg bsm" title="Modifier la fiche" onclick="previsualiserAlimentV2Glow(catalogueAlimentaireGlow().find(i=>i.nom===${argumentHTMLGlow(i.nom)}),true)">✎</button>${i.recetteId?`<button class="btn bg bsm" onclick="ouvrirFicheRecetteV2Glow(${argumentHTMLGlow(i.recetteId)})">Recette</button>`:''}</div></div>`).join('')}</div></details>`;
+  }).join('')||'<p>Aucun aliment trouvé.</p>';
+}
+async function analyserAlimentV2Glow(bouton){
+  const nom=document.getElementById('aliment-nom-v2')?.value.trim();if(!nom)return toast('Indique un nom.');
+  bouton.disabled=true;
+  try{
+    const resultat=await demanderJSONNutritionGlow(`Analyse cet aliment : ${JSON.stringify(nom)}. Distingue ingredient, composition (plusieurs ingrédients), recette (plat maison), prepare (produit fini acheté), repas. Catégories : ${JSON.stringify(LABELS_CATEGORIES_INGREDIENTS_GLOW)}. Retourne {nom,type,categorie,sousCategorie,unitePrincipale,poidsMoyenPiece,achetableEnPieces,utilisableEnRecette,portions,ingredients:[{nom,quantite,unite}],etapes:[],tempsPreparation,tempsCuisson,temperature,modeCuisson,materiel:[]}. Quantités pour 2 portions, poids approximatif seulement si pertinent. Pour un préparé ne décompose pas en ingrédients. Pour une recette donne des ingrédients réels et des étapes précises. Respecte les exclusions : ${JSON.stringify(catalogueAlimentaireGlow().filter(i=>ingredientInterditGlow(i.nom)).map(i=>i.nom))}.`,'EMMA analyse cet aliment…');
+    previsualiserAlimentV2Glow({...resultat,nom:resultat.nom||nom});
+  }catch(e){toast(`⚠️ ${e.message}`);}finally{bouton.disabled=false;}
+}
+function previsualiserAlimentV2Glow(aliment,modifier=false){
+  if(!aliment?.nom?.trim())return toast('Indique un nom.');
+  alimentAnalyseGlow={...metadataAlimentGlow(aliment.nom,aliment.categorie),...aliment,_modifier:modifier};
+  const a=alimentAnalyseGlow;
+  document.getElementById('glow-modal-aliment-v2')?.remove();
+  document.body.insertAdjacentHTML('beforeend',`<div id="glow-modal-aliment-v2" class="mo open"><div class="mb" style="width:min(650px,95vw);max-height:92vh;overflow:auto"><h2>${modifier?'Modifier':'Vérifier'} la fiche</h2><div class="fr"><label>Nom</label><input id="aliment-v2-nom" value="${echapperTexteRepasGlow(a.nom)}"></div><div class="g2"><div class="fr"><label>Type</label><select id="aliment-v2-type">${Object.entries(TYPES_ALIMENTS_GLOW).map(([v,t])=>`<option value="${v}" ${a.type===v?'selected':''}>${t}</option>`).join('')}</select></div><div class="fr"><label>Catégorie</label><select id="aliment-v2-cat">${Object.entries(LABELS_CATEGORIES_INGREDIENTS_GLOW).map(([v,t])=>`<option value="${v}" ${a.categorie===v?'selected':''}>${t}</option>`).join('')}</select></div></div><div class="g2"><div class="fr"><label>Achat</label><select id="aliment-v2-unite">${['pièce','g','ml','pot','boîte','paquet','portion'].map(u=>`<option ${a.unitePrincipale===u?'selected':''}>${u}</option>`).join('')}</select></div><div class="fr"><label>≈ g par pièce</label><input id="aliment-v2-poids" type="number" min="0" value="${Number(a.poidsMoyenPiece)||''}"></div></div><details ${['recette','composition','repas'].includes(a.type)?'open':''}><summary>Recette / composition</summary><div class="fr"><label>Portions de référence</label><input id="aliment-v2-portions" type="number" min="1" max="24" value="${Number(a.portions)||2}"></div><div class="fr"><label>Ingrédients : nom ; quantité ; unité, une ligne par ingrédient</label><textarea id="aliment-v2-ingredients" rows="6">${echapperTexteRepasGlow((a.ingredients||[]).map(i=>[i.nom,i.quantite,i.unite].join(' ; ')).join('\n'))}</textarea></div><div class="fr"><label>Étapes, une par ligne</label><textarea id="aliment-v2-etapes" rows="5">${echapperTexteRepasGlow((a.etapes||[]).join('\n'))}</textarea></div><div class="g2">${[['tempsPreparation','Préparation (min)'],['tempsCuisson','Cuisson (min)'],['temperature','Température'],['modeCuisson','Mode de cuisson']].map(([k,t])=>`<div class="fr"><label>${t}</label><input id="aliment-v2-${k}" value="${echapperTexteRepasGlow(a[k]||'')}"></div>`).join('')}</div><div class="fr"><label>Matériel</label><input id="aliment-v2-materiel" value="${echapperTexteRepasGlow((a.materiel||[]).join(', '))}"></div></details><div class="fr"><label>Notes</label><textarea id="aliment-v2-notes">${echapperTexteRepasGlow(a.notes||'')}</textarea></div><div class="ma"><button class="btn bg" onclick="document.getElementById('glow-modal-aliment-v2').remove()">Annuler</button><button class="btn bd" onclick="enregistrerAlimentV2Glow(this)">${modifier?'Enregistrer':'Ajouter'}</button></div></div></div>`);
+}
+async function enregistrerAlimentV2Glow(bouton){
+  const ancien=alimentAnalyseGlow;if(!ancien)return;
+  const lire=k=>document.getElementById(`aliment-v2-${k}`)?.value.trim()||'';
+  const a={...ancien,id:ancien._modifier&&ancien.id?ancien.id:`aliment_${genId()}`,nom:lire('nom'),type:lire('type'),categorie:lire('cat'),unitePrincipale:lire('unite'),poidsMoyenPiece:Number(lire('poids'))||null,portions:Math.max(1,Number(lire('portions'))||2),notes:lire('notes')};
+  if(!a.nom)return toast('Indique un nom.');
+  if(!ancien._modifier&&catalogueAlimentaireGlow().some(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(a.nom)))return toast('Cet aliment existe déjà. Ouvre sa fiche pour le modifier.');
+  if(ancien._modifier&&cleAlimentGlow(a.nom)!==cleAlimentGlow(ancien.nom))return toast('Conserve le nom pour préserver les liens ; ajoute une nouvelle fiche pour un autre aliment.');
+  a.achetableEnPieces=a.unitePrincipale==='pièce';a.utilisableEnRecette=a.type==='ingredient';
+  a.ingredients=lire('ingredients').split('\n').filter(x=>x.trim()).map(l=>{const [nom,quantite,unite]=l.split(';').map(x=>x.trim());return {nom,quantite:Number(String(quantite).replace(',','.'))||quantite,unite:unite||'g'};});
+  a.etapes=lire('etapes').split('\n').filter(Boolean);
+  ['tempsPreparation','tempsCuisson','temperature','modeCuisson'].forEach(k=>a[k]=lire(k));
+  a.materiel=lire('materiel').split(',').map(x=>x.trim()).filter(Boolean);
+  bouton.disabled=true;
+  try{
+    initialiserNutritionV2Glow();
+    const d=DB.glowNutritionPlans;
+    if(['recette','composition','repas'].includes(a.type)){
+      a.recetteId=ancien._modifier&&ancien.recetteId?ancien.recetteId:a.id;
+      const index=d.recettesV2.findIndex(r=>r.id===a.recetteId);
+      const recette={...a,id:a.recetteId};
+      if(index<0)d.recettesV2.push(recette);else{d.historiqueRecettes.push(JSON.parse(JSON.stringify(d.recettesV2[index])));d.recettesV2[index]=recette;}
+      for(const r of d.planActif?.repas||[]){
+        if(r.recetteId===a.recetteId&&r.statut==='garder'){
+          r.ingredients=a.ingredients.map(i=>({...i}));r.portionsBase=a.portions;actualiserDependancesRepasGlow(r);
+        }
+      }
+    }
+    const index=d.alimentsV2.findIndex(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(a.nom));
+    if(index<0)d.alimentsV2.push(a);else d.alimentsV2[index]=a;
+    if(a.type==='ingredient'&&!d.ingredientsPersonnalises.some(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(a.nom)))d.ingredientsPersonnalises.push({...a});
+    await sauvegarderExtensionGlow('glowNutritionPlans');
+    document.getElementById('glow-modal-aliment-v2')?.remove();renderIngredientsGlow();toast('✓ Fiche enregistrée');
+  }catch(e){toast(`⚠️ ${e.message}`);}finally{bouton.disabled=false;}
+}
+function ouvrirFicheRecetteV2Glow(id){const r=recettesDisponiblesPlanGlow().find(x=>x.id===id);if(r)previsualiserAlimentV2Glow({...r,recetteId:id,type:r.type||'recette'},true);}
+
+function planningNutritionDisponibleGlow(date){const p=DB.glowNutritionPlans?.planActif;return !!(p&&p.debut<=date&&p.fin>=date);}
+function repasChoisiPourJournalGlow(type,date){
+  const n=DB.glow?.nutrition||{},choisi=type==='diner'?n.dinerPrevu:n.repasPrevus?.dejeuner;
+  const memeDate=choisi?.date?dateLocaleISO(new Date(choisi.date))===date:DB.glow?.date===date;
+  const lie=choisi?.choixPlanId?trouverRepasPlanGlow(choisi.choixPlanId):null;
+  if(choisi&&memeDate&&!choisi.aRevoir&&(choisi.horsPlanning||lie&&lie.statut!=='absent'&&!lie.sourceIndisponible||!planningNutritionDisponibleGlow(date)))return choisi;
+  return repasPlanifieVersNutritionGlow(getRepasPlanifieGlow(date,type));
+}
+function choixSemaineNutritionGlow(date,type){
+  if(!planningNutritionDisponibleGlow(date))return [];
+  return (DB.glowNutritionPlans.planActif.repas||[]).filter(r=>r.statut!=='absent'&&!r.sourceIndisponible).filter(r=>{
+    if(r.statut!=='restes')return true;
+    const source=trouverRepasPlanGlow(r.resteDeId);
+    const dejaCuisine=(DB.glow?.nutrition?.repas||[]).some(x=>x.sourcePlanId===source?.id||x.nom===source?.nom);
+    return source?.statut==='garder'&&r.date>=date&&(r.date===date||source.date<date||source.date===date&&dejaCuisine);
+  }).filter(r=>{try{validerAlimentsAutorisesGlow(r.statut==='restes'?trouverRepasPlanGlow(r.resteDeId):r);return true;}catch{return false;}}).sort((a,b)=>Number(b.date===date&&b.type===type)-Number(a.date===date&&a.type===type));
+}
+function selectionDecisionPlanningGlow(id){
+  const input=document.getElementById('emma-repas-nom');
+  input.readOnly=id!=='autre';window._repasSourceDecisionEmma=id==='autre'?null:id;
+  input.value=id==='autre'?'':trouverRepasPlanGlow(id)?.nom||'';
+  if(id==='autre')input.focus();
+}
 function getRepasPlanifieGlow(date,type){
   const repas=DB.glowNutritionPlans?.planActif?.repas||[];
   const trouve=repas.find(r=>r.date===date&&r.type===type&&r.statut!=="absent");
   if(!trouve)return null;
   if(trouve.statut!=="restes")return trouve;
-  return repas.find(r=>r.id===trouve.resteDeId)||trouve;
+  const source=repas.find(r=>r.id===trouve.resteDeId&&r.statut!=='absent');
+  return source&&!trouve.sourceIndisponible?{...source,date:trouve.date,sourcePlanId:source.id,choixPlanId:trouve.id}:null;
 }
 
 function alimentsRepasPlanGlow(repas){
   const a=repas?.assiette||{};
-  return [a.proteine,a.legumes,a.feculent,a.complement,a.plaisirSucre]
+  const aliments=[a.proteine,a.legumes,a.feculent,a.complement,a.plaisirSucre]
     .filter(v=>v&&String(v).toLowerCase()!=="aucun");
+  return aliments.length?aliments:[repas?.nom].filter(Boolean);
 }
 
 function repasPlanifieVersNutritionGlow(repas){
   if(!repas)return null;
   const aliments=alimentsRepasPlanGlow(repas);
-  return {nom:repas.nom||aliments.join(" · "),aliments,date:new Date(`${repas.date}T12:00:00`).toISOString(),sourcePlanId:repas.id,tempsPreparation:20,tempsCuisson:0};
+  return {nom:repas.nom||aliments.join(" · "),aliments,date:new Date(`${repas.date}T12:00:00`).toISOString(),sourcePlanId:repas.sourcePlanId||repas.resteDeId||repas.id,choixPlanId:repas.choixPlanId||repas.id,tempsPreparation:repas.tempsPreparation??20,tempsCuisson:repas.tempsCuisson||0};
 }
 
 function choixRepasPlanifieDuJourGlow(type,date=dateLocaleISO()){
@@ -56478,6 +56746,9 @@ function choixRepasPlanifieDuJourGlow(type,date=dateLocaleISO()){
 function ingredientAssietteGlow(champ,nom){
   const n=String(nom||"").toLowerCase();
   if(!nom||n==="aucun")return null;
+  const fiche=catalogueAlimentaireGlow().find(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(nom));
+  if(fiche?.type==='composition'||fiche?.type==='recette')return null;
+  if(fiche?.poidsMoyenPiece)return {nom,quantite:champ==='proteine'&&cleAlimentGlow(nom)==='oeufs'?4:2,unite:'pièce',poidsMoyenPiece:fiche.poidsMoyenPiece};
   const pieces={
     "blanc de poulet":[2,"pièce"],"poulet entier":[1,"pièce"],"steak haché":[2,"pièce"],"œufs":[4,"pièce"],
     "saumon":[2,"pavé"],"poisson blanc":[2,"filet"],"thon":[2,"boîte"],"jambon":[4,"tranche"],"tofu":[1,"paquet"],
@@ -56487,11 +56758,16 @@ function ingredientAssietteGlow(champ,nom){
   if(pieces[n])return {nom,quantite:pieces[n][0],unite:pieces[n][1]};
   if(["riz","pâtes","semoule","quinoa"].includes(n))return {nom,quantite:200,unite:"g"};
   if(champ==="plaisirSucre")return {nom,quantite:2,unite:"portion"};
-  return {nom,quantite:1,unite:/crème|feta|fromage|sauce/.test(n)?"pot":"portion"};
+  return {nom,quantite:champ==='legumes'?400:champ==='complement'?100:200,unite:fiche?.unitePrincipale||'g'};
 }
 async function creerPlanRepasGlow(nombreJours){
 
   initialiserExtensionsGlowLocales();
+  initialiserNutritionV2Glow();
+  if(!Number.isInteger(nombreJours)||nombreJours<1||nombreJours>30)return;
+  const habitudes=DB.glowNutritionPlans.habitudes;
+  const planAvant=DB.glowNutritionPlans.planActif;
+  const revisionAvant=Number(planAvant?.revision||0);
 
   const apiKey = localStorage.getItem("anthropic_key") || "";
 
@@ -56522,12 +56798,13 @@ async function creerPlanRepasGlow(nombreJours){
     const recettes = recettesDisponiblesPlanGlow()
       .slice(0,30)
       .map(r => ({
+        id:r.id,
         nom: r.nom,
         portions: r.portions || 2,
         ingredients: (r.ingredients || []).slice(0,20)
       }));
 
-    const repasRecents = (DB.glow?.nutrition?.repas || [])
+    const repasRecents = [...(DB.glow?.nutrition?.repas || []),...(DB.glowNutritionPlans.historiquePlans||[]).slice(-3).flatMap(p=>p.repas||[]),...(planAvant?.repas||[])]
       .slice(-20)
       .map(r =>
         r.nom ||
@@ -56557,11 +56834,9 @@ async function creerPlanRepasGlow(nombreJours){
       .filter(i => statutIngredientGlow(i.nom) === "aime")
       .map(i => i.nom);
 
-    const ingredientsInterditsGlow = tousIngredientsGlow()
-      .filter(i => statutIngredientGlow(i.nom) === "interdit")
-      .map(i => i.nom);
+    const ingredientsInterditsGlow = Object.entries(DB.glowNutritionPlans.preferencesIngredients||{}).filter(([,v])=>v==='interdit').map(([n])=>n);
 
-    const response = await fetch(
+    const response = await fetchIAAvecLoaderEmma(
       "https://api.anthropic.com/v1/messages",
       {
         method: "POST",
@@ -56575,7 +56850,7 @@ async function creerPlanRepasGlow(nombreJours){
 
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 5000,
+          max_tokens: Math.min(24000,nombreJours*1600),
 
           messages: [
             {
@@ -56585,13 +56860,18 @@ async function creerPlanRepasGlow(nombreJours){
                 {
                   type: "text",
 
-                  text: `Prépare un planning réaliste de déjeuners et dîners pour ${nombreJours} jours et 2 personnes par défaut.
+                  text: `Prépare un planning réaliste de déjeuners et dîners pour ${nombreJours} jours et ${habitudes.personnes} personnes par défaut.
+Habitudes : ${JSON.stringify(habitudes)}.
+Feedback des plats : ${JSON.stringify(DB.glowNutritionPlans.feedbackPlats)}.
+Style : équilibré mais gourmand. Équilibre la journée et la semaine. Lasagnes, gratins, bolognaise, veau aux olives, poulet crème et préparés sont autorisés. Varie les vrais plats avec les assiettes simples. N'affiche pas de calories/macros.
+Types de repas : recette, prepare, repas. Pour un plat maison décompose en VRAIS ingrédients avec des quantités numériques pour portionsBase. Une poêlée doit nommer ses légumes réels. Pour un préparé, un seul produit acheté fini, aucune décomposition. Réutilise les recettes enregistrées par recetteId. Respecte tempsMax, appareils, joursMaison et repasMaison. Marque absent les repas hors domicile.
 
 Dates exactes :
 ${dates.join(", ")}.
 
 Ce qu'il reste à la maison :
 ${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
+Stock avec quantités et priorités : ${JSON.stringify(DB.glowNutritionPlans.stockV2.filter(s=>!s.archive))}.
 
 Recettes déjà enregistrées (à privilégier si utile) :
 ${JSON.stringify(recettes)}.
@@ -56608,7 +56888,7 @@ ${JSON.stringify(ingredientsInterditsGlow)}.
 Ne propose JAMAIS un ingrédient interdit, ni comme ingrédient principal, ni dans une sauce, un accompagnement, un dessert ou un plaisir sucré.
 
 Règles :
-construire chaque repas comme une assiette simple avec une protéine, des légumes, un féculent facultatif et un complément facultatif.
+alterner plats maison gourmands et assiettes simples. Pour une assiette, indiquer protéine, vrais légumes, féculent et complément facultatifs.
 
 Chaque dîner comporte aussi un petit plaisir sucré.
 
@@ -56616,7 +56896,7 @@ Réutiliser les mêmes ingrédients, limiter les achats différents, prévoir 2 
 
 Pour un aliment qui se compte (poulet, steak, œuf, courgette, fruit...), donner d'abord une quantité en pièces et n'utiliser les grammes que pour le riz, les pâtes ou ce qui ne se compte pas clairement.
 
-Les quantités correspondent à 2 personnes.
+Les quantités correspondent à portionsBase. Les restes seront ajoutés par l'application : ne double pas les quantités dans la réponse.
 
 Réponds UNIQUEMENT en JSON valide sans backticks :
 
@@ -56626,7 +56906,10 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       "date":"AAAA-MM-JJ",
       "type":"dejeuner|diner",
       "nom":"",
-      "statut":"garder|restes",
+      "statut":"garder|restes|absent",
+      "typeAliment":"recette|prepare|repas",
+      "recetteId":null,
+      "tempsPreparation":20,
       "portionsBase":2,
       "assiette":{
         "proteine":"",
@@ -56714,14 +56997,16 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
 
           type,
 
-          personnes: 2,
+          personnes: Math.max(1,Number(habitudes.personnes)||2),
+          typeAliment:['recette','prepare','repas'].includes(r.typeAliment)?r.typeAliment:'repas',
+          tempsPreparation:Math.max(0,Number(r.tempsPreparation)||20),
 
           statut:
             r.statut === "restes"
               ? "restes"
-              : "garder",
+              : r.statut==='absent'?'absent':"garder",
 
-          recetteId: null,
+          recetteId: recettesDisponiblesPlanGlow().some(x=>x.id===r.recetteId)?r.recetteId:null,
 
           nom: String(
             r.nom || "À compléter"
@@ -56805,7 +57090,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
           `Restes de ${dernierRepasComplet.nom}`;
 
       }else if(
-        repasCourant.statut !== "restes"
+        repasCourant.statut === "garder"
       ){
 
         dernierRepasComplet =
@@ -56813,6 +57098,15 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       }
     }
 
+    if(DB.glowNutritionPlans.planActif !== planAvant||Number(planAvant?.revision||0)!==revisionAvant)throw new Error('Le planning a changé pendant la génération. Réessaie.');
+    if(parCle.size!==attendus.size)throw new Error('Planning incomplet : réessaie, ton planning actuel est conservé.');
+    for(const r of repas){
+      if(!habitudes.repasMaison.includes(r.type)||!habitudes.joursMaison.includes(new Date(`${r.date}T12:00:00`).getDay()))r.statut='absent';
+      if(r.statut==='restes'&&!r.resteDeId)throw new Error('Restes sans repas source. Réessaie.');
+      if(r.statut==='garder')normaliserRepasV2Glow(r);
+    }
+    for(const r of repas.filter(x=>x.statut==='restes'))if(!repas.some(x=>x.id===r.resteDeId&&x.statut==='garder'&&x.date<=r.date))throw new Error('Restes incompatibles avec les repas à la maison. Réessaie.');
+    if(planAvant)DB.glowNutritionPlans.historiquePlans.push(JSON.parse(JSON.stringify(planAvant)));
     DB.glowNutritionPlans.planActif = {
 
       id: `plan_${genId()}`,
@@ -56827,7 +57121,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       repas
     };
 
-    DB.glowNutritionPlans.courses = null;
+    if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.courses.aActualiser=true;
 
     renderPlanificationRepasGlow();
 
@@ -56876,11 +57170,13 @@ function resumeAssietteGlow(repas){
 function renderPlanificationRepasGlow(){
 
   initialiserExtensionsGlowLocales();
+  initialiserNutritionV2Glow();
 
   const plan = DB.glowNutritionPlans.planActif;
 
   document.getElementById("glow-content").innerHTML = `
     ${navigationExtensionsGlow("repas")}
+    ${copieLocaleNutritionV2Glow()?'<div class="ib">Une modification locale n’a pas été confirmée par Firebase. <button class="btn bg bsm" onclick="telechargerCopieLocaleNutritionGlow()">Télécharger la copie locale</button></div>':''}
 
     <div
       class="glow-extension-card"
@@ -56902,8 +57198,9 @@ function renderPlanificationRepasGlow(){
       </h1>
 
       <p style="color:var(--mut)">
-        Période de courses libre, 2 personnes par défaut et réutilisation des recettes.
+        ${echapperTexteRepasGlow(DB.glowNutritionPlans.habitudes?.style||'Équilibré mais gourmand')}
       </p>
+      <button class="btn bg bsm" onclick="ouvrirHabitudesNutritionGlow()">⚙️ Mes habitudes</button>
 
       <div
         style="
@@ -56960,9 +57257,10 @@ function renderPlanificationRepasGlow(){
       plan
         ? `
           <div class="glow-extension-card">
+            ${DB.glowNutritionPlans.courses?.aActualiser?'<div class="ib">Le planning ou le stock a changé. La liste de courses doit être actualisée. <button class="btn bd bsm" onclick="preparerCoursesGlow()">🛒 Actualiser</button></div>':''}
 
             <div
-              style="
+              class="glow-plan-heading" style="
                 display:flex;
                 justify-content:space-between;
                 gap:10px;
@@ -57004,6 +57302,7 @@ function renderPlanificationRepasGlow(){
 
             </div>
 
+            ${renderStockV2GlowHTML()}
             ${
               [...new Set(plan.repas.map(r => r.date))]
                 .map(date => `
@@ -57059,7 +57358,7 @@ function renderPlanificationRepasGlow(){
                                     : r.statut === "restes"
                                       ? "Restes"
 
-                                      : `${r.personnes} personne${
+                                      : `${portionsNecessairesRecetteGlow(r)} portions · ${r.personnes} ce repas${portionsNecessairesRecetteGlow(r)>Number(r.personnes)?` + ${portionsNecessairesRecetteGlow(r)-Number(r.personnes)} pour les restes`:''} · ${r.personnes} personne${
                                           r.personnes > 1
                                             ? "s"
                                             : ""
@@ -57216,10 +57515,78 @@ function renderPlanificationRepasGlow(){
     }
   `;
 }
-async function sauverStockMaisonGlow(valeur){DB.glowNutritionPlans.stockTexte=valeur;await sauvegarderExtensionGlow("glowNutritionPlans")}
+async function sauverStockMaisonGlow(valeur){DB.glowNutritionPlans.stockTexte=valeur;if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.courses.aActualiser=true;await sauvegarderExtensionGlow("glowNutritionPlans")}
+function renderStockV2GlowHTML(){
+  initialiserNutritionV2Glow();
+  return `<details style="margin:12px 0"><summary>📦 Placard / frigo</summary>${DB.glowNutritionPlans.stockV2.filter(s=>!s.archive).map(s=>`<div class="glow-check-row"><span>${s.prioritaire?'⚠️ ':''}${echapperTexteRepasGlow(s.nom)} · ${echapperTexteRepasGlow(quantiteIngredientV2Glow(s).texte)} · ${s.emplacement==='frigo'?'Frigo':'Placard'}</span><button class="btn bg bsm" onclick="archiverStockV2Glow('${s.id}')">Utilisé</button></div>`).join('')}<div class="fr"><label>Aliment</label><input id="stock-v2-nom"></div><div class="g2"><input id="stock-v2-quantite" type="number" min="0" aria-label="Quantité en stock" placeholder="Quantité"><select id="stock-v2-unite" aria-label="Unité">${['g','pièce','ml','portion','pot','boîte','paquet'].map(u=>`<option>${u}</option>`).join('')}</select></div><div style="display:flex;gap:10px;margin:10px 0"><select id="stock-v2-emplacement" aria-label="Emplacement"><option value="placard">Placard</option><option value="frigo">Frigo</option></select><label><input type="checkbox" id="stock-v2-prioritaire"> À utiliser en priorité</label></div><button class="btn bg bsm" onclick="ajouterStockV2Glow()">＋ Ajouter au stock</button></details>`;
+}
+async function ajouterStockV2Glow(){
+  const nom=document.getElementById('stock-v2-nom').value.trim(),q=Number(document.getElementById('stock-v2-quantite').value);if(!nom||!Number.isFinite(q)||q<=0)return toast('Indique un aliment et une quantité.');
+  DB.glowNutritionPlans.stockV2.push({id:`stock_${genId()}`,nom,quantite:q,unite:document.getElementById('stock-v2-unite').value,emplacement:document.getElementById('stock-v2-emplacement').value,prioritaire:document.getElementById('stock-v2-prioritaire').checked});
+  if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.courses.aActualiser=true;
+  await sauvegarderExtensionGlow('glowNutritionPlans');renderPlanificationRepasGlow();
+}
+async function archiverStockV2Glow(id){const s=DB.glowNutritionPlans.stockV2.find(x=>x.id===id);if(!s)return;s.archive=true;if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.courses.aActualiser=true;await sauvegarderExtensionGlow('glowNutritionPlans');renderPlanificationRepasGlow();}
 function trouverRepasPlanGlow(id){return DB.glowNutritionPlans?.planActif?.repas?.find(r=>r.id===id)}
-async function modifierPersonnesRepasGlow(id,nombre){const r=trouverRepasPlanGlow(id);if(!r)return;r.personnes=Math.max(1,Number(nombre||1));await sauvegarderExtensionGlow("glowNutritionPlans")}
-async function changerStatutRepasGlow(id,statut){const r=trouverRepasPlanGlow(id);if(!r)return;r.statut=statut;if(statut==='restes'){const repas=DB.glowNutritionPlans.planActif?.repas||[],index=repas.findIndex(x=>x.id===id),source=[...repas.slice(0,index)].reverse().find(x=>!['restes','absent'].includes(x.statut));if(!source){toast("Aucun repas précédent disponible pour les restes");r.statut="garder";return}r.resteDeId=source.id;r.nom=`Restes de ${source.nom}`;r.ingredients=[];r.assiette={}}else if(statut==='absent'){delete r.resteDeId;r.nom="Je ne mange pas à la maison"}else{delete r.resteDeId;const recette=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId);if(recette)r.nom=recette.nom}await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
+async function modifierPersonnesRepasGlow(id,nombre){
+  const r=trouverRepasPlanGlow(id),n=Number(nombre);if(!r||!Number.isInteger(n)||n<1||n>12)return toast('Choisis entre 1 et 12 personnes.');
+  if(n===Number(r.personnes))return;
+  r.personnes=n;actualiserDependancesRepasGlow(r);
+  await sauvegarderExtensionGlow('glowNutritionPlans');renderPlanificationRepasGlow();
+}
+async function changerStatutRepasGlow(id,statut,sourceId){
+  const r=trouverRepasPlanGlow(id);if(!r||!['garder','absent','restes'].includes(statut))return;
+  const plan=DB.glowNutritionPlans.planActif,ancienSource=trouverRepasPlanGlow(r.resteDeId);
+  if(statut==='restes'){
+    const index=plan.repas.findIndex(x=>x.id===id),candidates=plan.repas.slice(0,index).filter(x=>x.statut==='garder');
+    if(!sourceId){
+      if(!candidates.length)return toast('Aucun repas précédent disponible.');
+      document.getElementById('glow-modal-restes-v2')?.remove();
+      document.body.insertAdjacentHTML('beforeend',`<div id="glow-modal-restes-v2" class="mo open"><div class="mb"><h2>Restes de quel repas ?</h2>${candidates.map(x=>`<button class="btn bg" style="display:block;margin:8px 0" onclick="changerStatutRepasGlow('${id}','restes','${x.id}')">${echapperTexteRepasGlow(x.nom)} · ${x.date}</button>`).join('')}<button class="btn bg" onclick="document.getElementById('glow-modal-restes-v2').remove()">Annuler</button></div></div>`);return;
+    }
+    const source=candidates.find(x=>x.id===sourceId);if(!source)return;
+    if(r.statut==='garder')r.compositionAvantStatut={nom:r.nom,assiette:r.assiette,ingredients:r.ingredients,recetteId:r.recetteId,typeAliment:r.typeAliment,portionsBase:r.portionsBase};
+    r.resteDeId=source.id;r.nom=`Restes de ${source.nom}`;r.sourceIndisponible=false;
+  }else if(statut==='absent'){
+    if(r.statut==='garder')r.compositionAvantStatut={nom:r.nom,assiette:r.assiette,ingredients:r.ingredients,recetteId:r.recetteId,typeAliment:r.typeAliment,portionsBase:r.portionsBase};
+    r.nom='Je ne mange pas à la maison';delete r.resteDeId;
+  }else{
+    if(r.compositionAvantStatut)Object.assign(r,r.compositionAvantStatut);
+    else if(r.statut!=='garder')return ouvrirCompositionRepasGlow(id);
+    delete r.resteDeId;
+  }
+  r.statut=statut;actualiserDependancesRepasGlow(r);if(ancienSource)delete ancienSource.recetteGeneree;
+  await sauvegarderExtensionGlow('glowNutritionPlans');document.getElementById('glow-modal-restes-v2')?.remove();renderPlanificationRepasGlow();
+}
+
+function normaliserRepasV2Glow(r){
+  const recette=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId)||recettesDisponiblesPlanGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(r.nom));
+  if(recette&&r.typeAliment!=='prepare'){
+    r.recetteId=recette.id;r.nom=recette.nom;r.typeAliment='recette';r.ingredients=(recette.ingredients||[]).map(i=>typeof i==='string'?{nom:i,quantite:'',unite:''}:{...i});r.portionsBase=Number(recette.portions)||2;
+    for(const cle of ['tempsPreparation','tempsCuisson'])if(recette[cle]!==undefined&&Number.isFinite(Number(recette[cle])))r[cle]=Math.max(0,Number(recette[cle]));
+  }
+  if(r.typeAliment==='prepare'){
+    r.recetteId=null;r.ingredients=[{nom:r.nom,quantite:Math.max(1,Number(r.portionsBase)||2),unite:'portion'}];r.assiette={};
+  }
+  if((r.ingredients||[]).some(i=>/poelee de legumes/.test(cleAlimentGlow(i.nom))))throw new Error('Précise les vrais légumes de la poêlée.');
+  if(r.typeAliment!=='prepare'&&!(r.ingredients||[]).length)throw new Error('Ce repas doit avoir de vrais ingrédients.');
+  validerAlimentsAutorisesGlow(r);
+  return r;
+}
+function ouvrirHabitudesNutritionGlow(){
+  initialiserNutritionV2Glow();const h=DB.glowNutritionPlans.habitudes;
+  document.getElementById('glow-modal-habitudes')?.remove();
+  document.body.insertAdjacentHTML('beforeend',`<div id="glow-modal-habitudes" class="mo open"><div class="mb" style="max-height:92vh;overflow:auto"><h2>Mes habitudes</h2><div class="g2">${[['personnes','Personnes',1,12],['tempsMax','Cuisine en semaine (min)',5,180],['restesSemaine','Repas de restes / semaine',0,14],['repasGourmands','Repas gourmands / semaine',0,14],['budget','Budget courses (€)',0,1000]].map(([k,t,min,max])=>`<div class="fr"><label>${t}</label><input id="habitudes-${k}" type="number" min="${min}" max="${max}" value="${h[k]??''}"></div>`).join('')}</div><div class="fr"><label>Mon style cette semaine</label><select id="habitudes-style">${['Équilibré mais gourmand','Plus léger','Plus gourmand'].map(s=>`<option ${h.style===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="fr"><label>Appareils disponibles</label><input id="habitudes-appareils" placeholder="Four, plaques, Airfryer…" value="${echapperTexteRepasGlow(h.appareils.join(', '))}"></div><div class="fr"><label>Repas à la maison</label>${[['dejeuner','Déjeuner'],['diner','Dîner']].map(([v,t])=>`<label style="margin-right:12px"><input type="checkbox" class="habitudes-repas" value="${v}" ${h.repasMaison.includes(v)?'checked':''}> ${t}</label>`).join('')}</div><div class="fr"><label>Jours à la maison</label><div style="display:flex;flex-wrap:wrap;gap:8px">${['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'].map((j,i)=>`<label><input type="checkbox" class="habitudes-jour" value="${i}" ${h.joursMaison.includes(i)?'checked':''}> ${j}</label>`).join('')}</div></div><div class="ma"><button class="btn bg" onclick="document.getElementById('glow-modal-habitudes').remove()">Annuler</button><button class="btn bd" onclick="enregistrerHabitudesNutritionGlow()">Enregistrer</button></div></div></div>`);
+}
+async function enregistrerHabitudesNutritionGlow(){
+  const h=DB.glowNutritionPlans.habitudes;
+  for(const [k,min,max] of [['personnes',1,12],['tempsMax',5,180],['restesSemaine',0,14],['repasGourmands',0,14],['budget',0,1000]]){
+    const valeur=document.getElementById(`habitudes-${k}`).value;if(valeur==='')continue;const n=Number(valeur);if(!Number.isFinite(n)||n<min||n>max)return toast('Vérifie les valeurs.');h[k]=n;
+  }
+  h.style=document.getElementById('habitudes-style').value;h.appareils=document.getElementById('habitudes-appareils').value.split(',').map(x=>x.trim()).filter(Boolean);
+  h.repasMaison=[...document.querySelectorAll('.habitudes-repas:checked')].map(x=>x.value);h.joursMaison=[...document.querySelectorAll('.habitudes-jour:checked')].map(x=>Number(x.value));
+  await sauvegarderExtensionGlow('glowNutritionPlans');document.getElementById('glow-modal-habitudes').remove();renderPlanificationRepasGlow();
+}
 
 function choixAssietteGlowHTML(champ, valeur){
 
@@ -57344,6 +57711,9 @@ function choixAssietteGlowHTML(champ, valeur){
   */
   const valeurFinale =
     optionSelectionnee || valeur || "";
+  const prioritaires=[...new Set([optionSelectionnee,'Aucun',...options.filter(n=>statutIngredientGlow(n)==='aime'),...options].filter(Boolean))].slice(0,8);
+  const autres=options.filter(n=>!prioritaires.includes(n));
+  const boutonHTML=option=>`<button type="button" data-champ-assiette="${champ}" class="btn ${option===optionSelectionnee?'bd':'bg'} bsm" onclick="selectionnerChoixAssietteGlow(${argumentHTMLGlow(champ)},${argumentHTMLGlow(option)},this)">${echapperTexteRepasGlow(option)}</button>`;
 
   return `
     <input
@@ -57360,31 +57730,13 @@ function choixAssietteGlowHTML(champ, valeur){
       "
     >
 
-      ${options.map(option => {
-
-        const selectionne =
-          option === optionSelectionnee;
-
-        return `
-          <button
-            type="button"
-            class="btn ${selectionne ? "bd" : "bg"} bsm"
-            onclick='selectionnerChoixAssietteGlow(
-              ${JSON.stringify(champ)},
-              ${JSON.stringify(option)},
-              this
-            )'
-          >
-            ${echapperTexteRepasGlow(option)}
-          </button>
-        `;
-
-      }).join("")}
+      ${prioritaires.map(boutonHTML).join('')}
 
     </div>
+    ${autres.length?`<details style="margin-top:8px"><summary>Autres aliments · ${autres.length}</summary><div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${autres.map(boutonHTML).join('')}</div></details>`:''}
   `;
 }
-function selectionnerChoixAssietteGlow(champ,valeur,bouton){const input=document.getElementById(`assiette-${champ}`);if(input)input.value=valeur;bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.remove('bd'));bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.add('bg'));bouton?.classList.remove('bg');bouton?.classList.add('bd')}
+function selectionnerChoixAssietteGlow(champ,valeur,bouton){const input=document.getElementById(`assiette-${champ}`);if(input)input.value=valeur;document.querySelectorAll(`[data-champ-assiette="${champ}"]`).forEach(b=>{b.classList.remove('bd');b.classList.add('bg');});bouton?.classList.remove('bg');bouton?.classList.add('bd');if(champ==='legumes')document.querySelectorAll('.poelee-legume-v2').forEach(c=>c.checked=false);}
 function ouvrirCompositionRepasGlow(id){
 
   const r = trouverRepasPlanGlow(id);
@@ -57458,6 +57810,11 @@ function ouvrirCompositionRepasGlow(id){
         </p>
 
         <div class="fr">
+          <label>Plat / recette</label>
+          <select id="repas-fiche-v2"><option value="">Composer une assiette</option>${recettesDisponiblesPlanGlow().filter(x=>!ingredientInterditGlow(x.nom)).map(x=>`<option value="recette:${echapperTexteRepasGlow(x.id)}" ${r.recetteId===x.id?'selected':''}>${echapperTexteRepasGlow(x.nom)}</option>`).join('')}${catalogueAlimentaireGlow().filter(x=>x.type==='prepare'&&!ingredientInterditGlow(x.nom)).map(x=>`<option value="prepare:${echapperTexteRepasGlow(x.id)}" ${r.typeAliment==='prepare'&&r.nom===x.nom?'selected':''}>📦 ${echapperTexteRepasGlow(x.nom)}</option>`).join('')}</select>
+        </div>
+
+        <div class="fr">
           <label>🥩 Protéine</label>
           ${choixAssietteGlowHTML("proteine", a.proteine)}
         </div>
@@ -57465,6 +57822,7 @@ function ouvrirCompositionRepasGlow(id){
         <div class="fr">
           <label>🥦 Légumes</label>
           ${choixAssietteGlowHTML("legumes", a.legumes)}
+          <details style="margin-top:8px" ${/poêlée/i.test(a.legumes)?'open':''}><summary>🥦 Poêlée maison</summary><div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0">${optionsAssietteDisponiblesGlow('legumes').filter(n=>n!=='Aucun').map(n=>`<label><input class="poelee-legume-v2" type="checkbox" value="${echapperTexteRepasGlow(n)}" ${(r.compositionLegumes||[]).includes(n)?'checked':''}> ${echapperTexteRepasGlow(n)}</label>`).join('')}</div><button class="btn bg bsm" onclick="choisirCombinaisonLegumesGlow()">✨ Choisis-moi une combinaison</button></details>
         </div>
 
         <div class="fr">
@@ -57504,12 +57862,7 @@ function ouvrirCompositionRepasGlow(id){
             ✓ Garder cette assiette
           </button>
 
-          <button
-            class="btn bg"
-            onclick="proposerNouvelleAssietteGlow('${r.id}',this)"
-          >
-            ✨ Une autre assiette complète
-          </button>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${[['surprise','🎲 Surprends-moi'],['rapide','⚡ Plus rapide'],['gourmand','🍝 Plus gourmand'],['leger','🥗 Plus léger'],['favoris','❤️ Mes favoris'],['stock','🧊 Mon stock'],['accompagnement','Même plat, autre accompagnement'],['15min','⏱️ 15 min'],['envie','Pas envie aujourd’hui']].map(([mode,t])=>`<button class="btn bg bsm" onclick="proposerNouvelleAssietteGlow('${r.id}',this,'${mode}')">${t}</button>`).join('')}</div>
 
           <button
             class="btn bg"
@@ -57539,9 +57892,43 @@ function ouvrirCompositionRepasGlow(id){
     `
   );
 }
-async function enregistrerCompositionRepasGlow(id){const r=trouverRepasPlanGlow(id);if(!r)return;const assiette={proteine:document.getElementById("assiette-proteine")?.value.trim()||"",legumes:document.getElementById("assiette-legumes")?.value.trim()||"",feculent:document.getElementById("assiette-feculent")?.value.trim()||"",complement:document.getElementById("assiette-complement")?.value.trim()||"",plaisirSucre:r.type==='diner'?(document.getElementById("assiette-plaisirSucre")?.value.trim()||""):""};if(!assiette.proteine&&!assiette.legumes&&!assiette.feculent){toast("Compose au moins une partie de l’assiette");return}r.assiette=assiette;r.nom=[assiette.proteine,assiette.legumes,assiette.feculent].filter(x=>x&&x.toLowerCase()!=="aucun").join(" · ");r.ingredients=Object.entries(assiette).map(([champ,nom])=>ingredientAssietteGlow(champ,nom)).filter(Boolean);r.portionsBase=2;r.statut="garder";delete r.resteDeId;r.recetteId=null;await sauvegarderExtensionGlow("glowNutritionPlans");document.getElementById("glow-modal-repas-plan")?.remove();renderPlanificationRepasGlow()}
+function choisirCombinaisonLegumesGlow(){
+  const cases=[...document.querySelectorAll('.poelee-legume-v2')];
+  const autorises=cases.filter(c=>!ingredientInterditGlow(c.value)).sort((a,b)=>(statutIngredientGlow(b.value)==='aime')-(statutIngredientGlow(a.value)==='aime'));
+  const noms=autorises.slice(0,3).map(x=>x.value);cases.forEach(c=>c.checked=noms.includes(c.value));
+}
+async function enregistrerCompositionRepasGlow(id){
+  const r=trouverRepasPlanGlow(id);if(!r)return;
+  const selection=document.getElementById('repas-fiche-v2')?.value||'';
+  const ancienneSource=trouverRepasPlanGlow(r.resteDeId);
+  let candidat={...r,statut:'garder',typeAliment:'repas',recetteId:null,portionsBase:2};
+  delete candidat.resteDeId;
+  if(selection.startsWith('recette:')){
+    const recette=recettesDisponiblesPlanGlow().find(x=>x.id===selection.slice(8));if(!recette)return;
+    candidat={...candidat,nom:recette.nom,recetteId:recette.id,typeAliment:'recette',assiette:{},compositionLegumes:[]};
+  }else if(selection.startsWith('prepare:')){
+    const fiche=catalogueAlimentaireGlow().find(x=>x.id===selection.slice(8));if(!fiche)return;
+    candidat={...candidat,nom:fiche.nom,typeAliment:'prepare',assiette:{},compositionLegumes:[]};
+  }else{
+    const assiette=Object.fromEntries(Object.keys(OPTIONS_ASSIETTE_GLOW).map(champ=>[champ,document.getElementById(`assiette-${champ}`)?.value.trim()||'']));
+    if(r.type!=='diner')assiette.plaisirSucre='';
+    const legumes=[...document.querySelectorAll('.poelee-legume-v2:checked')].map(c=>c.value);
+    if(legumes.length)assiette.legumes=`Poêlée : ${legumes.join(' + ')}`;
+    const ingredients=Object.entries(assiette).filter(([k])=>k!=='legumes'||!legumes.length).map(([champ,nom])=>ingredientAssietteGlow(champ,nom)).filter(Boolean);
+    if(legumes.length)legumes.forEach(nom=>{const i=ingredientAssietteGlow('legumes',nom);if(i){const q=quantiteIngredientV2Glow(i);ingredients.push({...i,quantite:q.unite==='pièce'?1:200});}});
+    candidat={...candidat,nom:[assiette.proteine,assiette.legumes,assiette.feculent].filter(x=>x&&x.toLowerCase()!=='aucun').join(' · '),assiette,ingredients,compositionLegumes:legumes};
+    if(!candidat.nom)return toast('Compose au moins une partie de l’assiette.');
+  }
+  try{
+    normaliserRepasV2Glow(candidat);
+    const changement=signatureRepasGlow(r)!==signatureRepasGlow(candidat)||r.statut!==candidat.statut;
+    Object.assign(r,candidat);delete r.resteDeId;
+    if(changement){actualiserDependancesRepasGlow(r);if(ancienneSource)delete ancienneSource.recetteGeneree;}
+    await sauvegarderExtensionGlow('glowNutritionPlans');document.getElementById('glow-modal-repas-plan')?.remove();renderPlanificationRepasGlow();
+  }catch(e){toast(`⚠️ ${e.message}`);}
+}
 async function changerStatutDepuisCompositionGlow(id,statut){document.getElementById("glow-modal-repas-plan")?.remove();await changerStatutRepasGlow(id,statut)}
-async function proposerNouvelleAssietteGlow(id, bouton){
+async function proposerNouvelleAssietteGlow(id, bouton, mode='surprise'){
 
   const r = trouverRepasPlanGlow(id);
   const apiKey = localStorage.getItem("anthropic_key") || "";
@@ -57552,6 +57939,7 @@ async function proposerNouvelleAssietteGlow(id, bouton){
   }
 
   const ancien = bouton.textContent;
+  const signatureAvant=signatureRepasGlow(r);
 
   bouton.disabled = true;
   bouton.textContent = "✨ EMMA cherche…";
@@ -57572,7 +57960,7 @@ async function proposerNouvelleAssietteGlow(id, bouton){
       .map(i => i.nom)
       .filter(Boolean);
 
-    const response = await fetch(
+    const response = await fetchIAAvecLoaderEmma(
       "https://api.anthropic.com/v1/messages",
       {
         method: "POST",
@@ -57595,20 +57983,24 @@ async function proposerNouvelleAssietteGlow(id, bouton){
                 {
                   type: "text",
 
-                  text: `Propose une autre assiette simple pour ${
+                  text: `Propose un repas adapté au mode ${mode}, équilibré mais gourmand. Habitudes : ${JSON.stringify(DB.glowNutritionPlans.habitudes||{})}. Recettes favorites : ${JSON.stringify(recettesDisponiblesPlanGlow())}. Favoris : ${JSON.stringify(tousIngredientsGlow().filter(i=>statutIngredientGlow(i.nom)==='aime').map(i=>i.nom))}. Interdits ABSOLUS : ${JSON.stringify(Object.entries(DB.glowNutritionPlans.preferencesIngredients||{}).filter(([,v])=>v==='interdit').map(([n])=>n))}. Feedback plats : ${JSON.stringify(DB.glowNutritionPlans.feedbackPlats||{})}. Les plats gourmands et préparés sont autorisés. Mode accompagnement : conserve le plat/protéine. Mode 15min : 15 min maximum, préfère un repas rapide déjà au planning ou des restes. Pas envie aujourd'hui ne signifie pas détester. Ne décompose pas un produit préparé. Quantités pour portionsBase=${r.personnes||2}, SANS multiplier par les restes, avec ingrédients réels.
+Autres repas de cette semaine : ${JSON.stringify(DB.glowNutritionPlans.planActif.repas.map(x=>({nom:x.nom,temps:x.tempsPreparation,statut:x.statut})))}.
+Propose pour ${
                     r.type === "dejeuner"
                       ? "un déjeuner"
                       : "un dîner"
                   } de ${r.personnes || 2} personne(s).
 
 Assiette refusée :
-${JSON.stringify(r.assiette || r.nom)}.
+${JSON.stringify({nom:r.nom,recetteId:r.recetteId,assiette:r.assiette||{},ingredients:r.ingredients||[]})}.
+Pour le mode 15min, préparation + cuisson doivent durer au maximum 15 minutes au total. Donne tempsPreparation et tempsCuisson comme nombres de minutes.
 
 Ingrédients déjà utilisés dans les autres repas et à privilégier :
 ${JSON.stringify(autres)}.
 
 Ce qu'il reste à la maison :
 ${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
+Stock quantifié / à utiliser en priorité : ${JSON.stringify((DB.glowNutritionPlans.stockV2||[]).filter(s=>!s.archive))}.
 
 ${r.type === "diner"
   ? "Ajoute un petit plaisir sucré."
@@ -57621,6 +58013,10 @@ Réponds uniquement en JSON valide sans backticks :
 
 {
   "nom":"",
+  "typeAliment":"recette|prepare|repas",
+  "recetteId":null,
+  "tempsPreparation":20,
+  "tempsCuisson":0,
   "assiette":{
     "proteine":"",
     "legumes":"",
@@ -57665,46 +58061,54 @@ Réponds uniquement en JSON valide sans backticks :
     }
 
     const proposition = JSON.parse(match[0]);
+    if(signatureRepasGlow(r)!==signatureAvant)throw new Error('Ce repas a changé pendant la recherche. Réessaie.');
+    const candidat=normaliserRepasV2Glow({...proposition,personnes:r.personnes,portionsBase:r.personnes||2,typeAliment:proposition.typeAliment||'repas'});
+    const tempsTotal=Number(candidat.tempsPreparation)+Number(candidat.tempsCuisson||0);
+    if(mode==='15min'&&(!Number.isFinite(tempsTotal)||tempsTotal>15))throw new Error('Cette proposition dépasse 15 minutes. Le repas actuel est conservé.');
+    if(mode==='accompagnement'&&r.assiette?.proteine&&cleAlimentGlow(candidat.assiette?.proteine)!==cleAlimentGlow(r.assiette.proteine))throw new Error('Le plat principal a changé. Le repas actuel est conservé.');
+    const ancienneSource=trouverRepasPlanGlow(r.resteDeId);
 
     r.nom = String(
-      proposition.nom || "Nouvelle assiette"
+      candidat.nom || "Nouvelle assiette"
     );
 
-    r.assiette = {
+    r.assiette = candidat.typeAliment==='prepare'?{}:{
       proteine: String(
-        proposition.assiette?.proteine || ""
+        candidat.assiette?.proteine || ""
       ),
 
       legumes: String(
-        proposition.assiette?.legumes || ""
+        candidat.assiette?.legumes || ""
       ),
 
       feculent: String(
-        proposition.assiette?.feculent || ""
+        candidat.assiette?.feculent || ""
       ),
 
       complement: String(
-        proposition.assiette?.complement || ""
+        candidat.assiette?.complement || ""
       ),
 
       plaisirSucre:
         r.type === "diner"
           ? String(
-              proposition.assiette?.plaisirSucre ||
+              candidat.assiette?.plaisirSucre ||
               "Carrés de chocolat"
             )
           : ""
     };
 
-    r.ingredients = Array.isArray(proposition.ingredients)
-      ? proposition.ingredients
+    r.ingredients = Array.isArray(candidat.ingredients)
+      ? candidat.ingredients
       : [];
 
     r.statut = "garder";
 
     delete r.resteDeId;
 
-    r.recetteId = null;
+    r.recetteId = candidat.recetteId||null;
+    r.typeAliment=candidat.typeAliment;r.portionsBase=candidat.portionsBase;r.tempsPreparation=Number(candidat.tempsPreparation)||20;r.tempsCuisson=Number(candidat.tempsCuisson)||0;
+    actualiserDependancesRepasGlow(r);if(ancienneSource)delete ancienneSource.recetteGeneree;
 
     await sauvegarderExtensionGlow(
       "glowNutritionPlans"
@@ -57738,12 +58142,12 @@ Réponds uniquement en JSON valide sans backticks :
    async function changerRepasPlanGlow(id){
   const r=trouverRepasPlanGlow(id),recettes=recettesDisponiblesPlanGlow();if(!r)return;if(!recettes.length){definirRepasPlanGlow(id);return}
   const autres=DB.glowNutritionPlans.planActif.repas.filter(x=>x.id!==id&&x.statut!=="absent");const noms=new Set(autres.flatMap(x=>x.ingredients||[]).map(i=>String(i.nom||'').toLowerCase()));
-  const candidates=recettes.filter(x=>x.id!==r.recetteId).map(recette=>({recette,score:(recette.ingredients||[]).filter(i=>noms.has(String(i.nom||'').toLowerCase())).length})).sort((a,b)=>b.score-a.score);
-  const recette=candidates[0]?.recette;if(!recette){toast("Aucune alternative disponible");return}Object.assign(r,creerRepasPlanGlow(r.date,r.type,recette,r.personnes),{id:r.id});await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
+  const candidates=recettes.filter(x=>x.id!==r.recetteId).filter(x=>{try{validerAlimentsAutorisesGlow(x);return true;}catch{return false;}}).map(recette=>({recette,score:(recette.ingredients||[]).filter(i=>noms.has(String(i.nom||'').toLowerCase())).length})).sort((a,b)=>b.score-a.score);
+  const recette=candidates[0]?.recette;if(!recette){toast("Aucune alternative disponible");return}const source=trouverRepasPlanGlow(r.resteDeId);Object.assign(r,creerRepasPlanGlow(r.date,r.type,recette,r.personnes),{id:r.id,assiette:{},typeAliment:'recette'});delete r.resteDeId;actualiserDependancesRepasGlow(r);if(source)delete source.recetteGeneree;await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
 }
 async function definirRepasPlanGlow(id){
   const r=trouverRepasPlanGlow(id);if(!r)return;const nom=prompt("Quel repas veux-tu prévoir ?",["À choisir","À compléter","Je ne mange pas à la maison","Restes d’un repas précédent"].includes(r.nom)?"":r.nom);if(nom===null||!nom.trim())return;
-  const ingredients=prompt("Ingrédients séparés par des virgules (facultatif) :",(r.ingredients||[]).map(i=>i.nom).join(", "));r.nom=nom.trim();r.statut="garder";r.recetteId=null;if(ingredients!==null)r.ingredients=ingredients.split(",").map(x=>x.trim()).filter(Boolean).map(nom=>({nom,quantite:"",unite:""}));await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
+  const ingredients=prompt("Ingrédients séparés par des virgules (facultatif) :",(r.ingredients||[]).map(i=>i.nom).join(", "));if(ingredients===null)return;const source=trouverRepasPlanGlow(r.resteDeId);r.nom=nom.trim();r.statut="garder";r.recetteId=null;r.assiette={};r.typeAliment='recette';r.ingredients=ingredients.split(",").map(x=>x.trim()).filter(Boolean).map(nom=>({nom,quantite:"",unite:""}));delete r.resteDeId;actualiserDependancesRepasGlow(r);if(source)delete source.recetteGeneree;await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
 }
 
 function portionsNecessairesRecetteGlow(repas){
@@ -57787,7 +58191,7 @@ function recetteEnregistreeRepasGlow(repas){
   */
   if(
     Number(repas.recetteGeneree.portions) !==
-    Number(portions)
+    Number(portions) || repas.recetteGeneree.signatureRepas !== signatureRepasGlow(repas)
   ){
     return null;
   }
@@ -57949,12 +58353,7 @@ function afficherRecetteRepasGlow(repas, recette){
 
                         <strong>
                           ${echapperTexteRepasGlow(
-                            [
-                              i.quantite,
-                              i.unite
-                            ]
-                              .filter(Boolean)
-                              .join(" ")
+                            quantiteIngredientV2Glow(i).texte
                           )}
                         </strong>
 
@@ -58042,7 +58441,10 @@ function afficherRecetteRepasGlow(repas, recette){
             `
             : ""
         }
+        ${recette.materiel?.length?`<p style="margin-top:12px">Matériel : ${echapperTexteRepasGlow(recette.materiel.join(', '))}</p>`:''}
+        ${recette.notes?`<p>${echapperTexteRepasGlow(recette.notes)}</p>`:''}
 
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:16px"><button class="btn bg" onclick="enregistrerRecettePlanV2Glow('${repas.id}',this)">❤️ Enregistrer dans Mes recettes</button>${[['adore','❤️ J’adore'],['aime','🙂 J’aime bien'],['bof','😐 Bof'],['interdit','🚫 Plus jamais']].map(([v,t])=>`<button class="btn bg bsm" onclick="feedbackPlatV2Glow('${repas.id}','${v}')">${t}</button>`).join('')}</div>
         <button
           class="btn bd"
           style="
@@ -58092,11 +58494,26 @@ async function ouvrirRecetteRepasGlow(id){
 
   const portions =
     portionsNecessairesRecetteGlow(repasSource);
+  if(repasSource.statut==='absent'||repas.sourceIndisponible)return toast('Choisis un repas source disponible.');
+  if(repasSource.typeAliment==='prepare'){
+    afficherRecetteRepasGlow(repasSource,{nom:repasSource.nom,portions,ingredients:[{nom:repasSource.nom,quantite:portions,unite:'portion'}],etapes:['Suivre les instructions et les quantités indiquées sur l’emballage.']});return;
+  }
+  const recetteSauvee=recettesDisponiblesPlanGlow().find(r=>r.id===repasSource.recetteId)||recettesDisponiblesPlanGlow().find(r=>cleAlimentGlow(r.nom)===cleAlimentGlow(repasSource.nom));
+  if(recetteSauvee?.ingredients?.length&&recetteSauvee?.etapes?.length){
+    try{
+      validerAlimentsAutorisesGlow(recetteSauvee);
+      const facteur=portions/Math.max(1,Number(recetteSauvee.portions)||2);
+      const adaptee={...recetteSauvee,portions,ingredients:recetteSauvee.ingredients.map(i=>{const quantite=quantiteIngredientV2Glow(i,facteur);return {...i,quantite:quantite.quantite??i.quantite,unite:quantite.unite};})};
+      afficherRecetteRepasGlow(repasSource,adaptee);return;
+    }catch(e){return toast(`⚠️ ${e.message}`);}
+  }
+  const signatureAvant=signatureRepasGlow(repasSource);
 
   const dejaGeneree =
     recetteEnregistreeRepasGlow(repasSource);
 
   if(dejaGeneree){
+    try{validerAlimentsAutorisesGlow(dejaGeneree);}catch(e){return toast(`⚠️ ${e.message}`);}
     afficherRecetteRepasGlow(
       repasSource,
       dejaGeneree
@@ -58134,7 +58551,7 @@ async function ouvrirRecetteRepasGlow(id){
             .map(i => i.nom)
         : [];
 
-    const response = await fetch(
+    const response = await fetchIAAvecLoaderEmma(
       "https://api.anthropic.com/v1/messages",
       {
         method:"POST",
@@ -58210,6 +58627,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
   "tempsCuisson":"",
   "temperature":"",
   "modeCuisson":"",
+  "materiel":[],
   "ingredients":[
     {
       "nom":"",
@@ -58255,10 +58673,14 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
 
     const recette =
       JSON.parse(match[0]);
+    validerAlimentsAutorisesGlow(recette);
+    if(trouverRepasPlanGlow(repasSource.id)!==repasSource||signatureAvant!==signatureRepasGlow(repasSource)||portions!==portionsNecessairesRecetteGlow(repasSource))throw new Error('Le repas ou ses portions ont changé. Relance la recette.');
+    if(!Array.isArray(recette.ingredients)||!recette.ingredients.length||!Array.isArray(recette.etapes)||!recette.etapes.length)throw new Error('Recette incomplète. Réessaie.');
 
     recette.portions = portions;
 
     repasSource.recetteGeneree = {
+      signatureRepas:signatureAvant,
       nom:
         String(
           recette.nom ||
@@ -58286,6 +58708,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
         String(
           recette.modeCuisson || ""
         ),
+      materiel:Array.isArray(recette.materiel)?recette.materiel.map(String):[],
 
       ingredients:
         Array.isArray(recette.ingredients)
@@ -58300,6 +58723,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       creeLe:
         new Date().toISOString()
     };
+    if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.courses.aActualiser=true;
 
     await sauvegarderExtensionGlow(
       "glowNutritionPlans"
@@ -58329,14 +58753,96 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     cacherEmmaReflechit();
   }
 }
-function rayonIngredientGlow(nom){const n=String(nom||'').toLowerCase();if(/courget|tomat|oignon|fruit|pomme|salade|carotte|ail|citron/.test(n))return"🥬 Fruits & légumes";if(/poulet|boeuf|saumon|poisson|jambon|viande/.test(n))return"🥩 Viandes / poissons";if(/lait|crème|fromage|oeuf|œuf|yaourt|beurre/.test(n))return"🧀 Frais";if(/surgel/.test(n))return"❄️ Surgelés";if(/eau|jus|vin|boisson/.test(n))return"🥤 Boissons";return"🍝 Épicerie"}
-async function preparerCoursesGlow(){
-  const plan=DB.glowNutritionPlans.planActif;if(!plan)return;const fusion=new Map();const stock=String(DB.glowNutritionPlans.stockTexte||'').toLowerCase();
-  const personnesRestes=new Map();plan.repas.filter(r=>r.statut==='restes'&&r.resteDeId).forEach(r=>personnesRestes.set(r.resteDeId,(personnesRestes.get(r.resteDeId)||0)+Number(r.personnes||2)));
-  plan.repas.filter(r=>!["restes","absent"].includes(r.statut)).forEach(r=>(r.ingredients||[]).forEach(i=>{const nom=String(i.nom||'').trim();if(!nom||stock.includes(nom.toLowerCase()))return;const unite=String(i.unite||'').trim();const cle=`${nom.toLowerCase()}|${unite.toLowerCase()}`;const portionsNecessaires=Number(r.personnes||2)+Number(personnesRestes.get(r.id)||0);const facteur=portionsNecessaires/Math.max(1,Number(r.portionsBase||2));const quantite=Number.parseFloat(i.quantite);const courant=fusion.get(cle)||{id:`course_${genId()}`,nom,unite,quantite:0,texteQuantite:"",rayon:rayonIngredientGlow(nom),coche:false,manuel:false};if(Number.isFinite(quantite))courant.quantite+=quantite*facteur;else courant.texteQuantite=String(i.quantite||'À prévoir');fusion.set(cle,courant)}));
-  DB.glowNutritionPlans.courses={id:`courses_${genId()}`,creeLe:new Date().toISOString(),terminees:false,articles:[...fusion.values()]};await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();
+async function enregistrerRecettePlanV2Glow(id,bouton){
+  const r=trouverRepasPlanGlow(id);if(!r)return;
+  if(r.typeAliment==='prepare')return toast('Ce produit est un plat préparé.');
+  const recette=recetteEnregistreeRepasGlow(r)||recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId);
+  if(!recette)return toast('Génère d’abord la recette.');
+  initialiserNutritionV2Glow();bouton.disabled=true;
+  try{
+    const d=DB.glowNutritionPlans,existante=d.recettesV2.find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(recette.nom));
+    if(!existante)d.recettesV2.push({...recette,id:`recette_v2_${genId()}`,type:'recette',categorie:'complement',favorite:true});
+    await sauvegarderExtensionGlow('glowNutritionPlans');toast('✓ Recette conservée dans Mes recettes');
+  }catch(e){toast(`⚠️ ${e.message}`);}finally{bouton.disabled=false;}
 }
-function renderListeCoursesGlowHTML(){const c=DB.glowNutritionPlans.courses;const rayons=[...new Set(c.articles.map(a=>a.rayon))];return `<div class="glow-extension-card" style="margin-top:14px"><h2 style="font-family:'Cormorant Garamond',serif;font-size:27px">🛒 Ma liste de courses</h2>${rayons.map(rayon=>`<h3 style="margin-top:16px">${rayon}</h3>${c.articles.filter(a=>a.rayon===rayon).map(a=>`<label class="glow-shopping-row"><input type="checkbox" ${a.coche?'checked':''} onchange="cocherArticleCoursesGlow('${a.id}',this.checked)"><span style="${a.coche?'text-decoration:line-through;opacity:.55':''}">${echapperTexteRepasGlow(a.nom)}</span><small>${a.texteQuantite||`${Math.round(a.quantite*100)/100} ${echapperTexteRepasGlow(a.unite)}`}</small></label>`).join('')}`).join('')}<div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap"><button class="btn bg" onclick="ajouterArticleCoursesGlow()">＋ Ajouter un article</button><button class="btn bd" onclick="terminerCoursesGlow()">✅ Courses terminées</button></div></div>`}
+async function feedbackPlatV2Glow(id,avis){
+  const r=trouverRepasPlanGlow(id);if(!r)return;initialiserNutritionV2Glow();
+  const cle=cleAlimentGlow(r.nom),precedent=DB.glowNutritionPlans.feedbackPlats[cle];
+  DB.glowNutritionPlans.feedbackPlats[cle]={avis,date:dateLocaleISO(),historique:[...(precedent?.historique||[]),...(precedent?[{avis:precedent.avis,date:precedent.date}]:[])]};
+  const statut=avis==='interdit'?'interdit':avis==='bof'?'neutre':'aime';
+  Object.keys(DB.glowNutritionPlans.preferencesIngredients).filter(k=>cleAlimentGlow(k)===cle).forEach(k=>DB.glowNutritionPlans.preferencesIngredients[k]=statut);
+  DB.glowNutritionPlans.preferencesIngredients[normaliserNomIngredientGlow(r.nom)]=statut;
+  [...DB.glowNutritionPlans.recettesV2,...DB.glowNutritionPlans.alimentsV2].filter(x=>cleAlimentGlow(x.nom)===cle).forEach(x=>x.favorite=statut==='aime');
+  await sauvegarderExtensionGlow('glowNutritionPlans');toast('✓ Ton avis est enregistré');
+}
+function rayonIngredientGlow(nom){const n=cleAlimentGlow(nom);if(/surgel/.test(n))return"❄️ Surgelés";if(/courget|tomat|oignon|fruit|pomme|salade|carotte|ail|citron|aubergin|poivron|brocoli|chou|poireau|concombr|epinard/.test(n))return"🥬 Fruits & légumes";if(/poulet|boeuf|saumon|poisson|jambon|viande|veau|porc|dinde|crevette|cabillaud/.test(n))return"🥩 Viandes / poissons";if(/lait|creme|fromage|oeuf|yaourt|beurre|feta|ricotta|mozzarella|parmesan/.test(n))return"🧀 Frais";if(/eau|jus|vin|boisson/.test(n))return"🥤 Boissons";return"🍝 Épicerie"}
+function quantiteCoursesIngredientGlow(i,facteur){
+  const q=quantiteIngredientV2Glow(i,facteur);
+  const poids=i.poidsMoyenPiece||catalogueAlimentaireGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(i.nom))?.poidsMoyenPiece;
+  if(q.unite==='g'&&q.quantite!==null&&Number(poids)>0)return {...q,quantite:q.quantite/Number(poids),unite:'pièce',poidsTotal:q.quantite,texte:`≈ ${Math.round(q.quantite/Number(poids)*100)/100} pièces (${Math.round(q.quantite)} g)`};
+  return q;
+}
+function calculerArticlesCoursesV2Glow(plan){
+  initialiserNutritionV2Glow();const fusion=new Map();
+  for(const reste of plan.repas.filter(r=>r.statut==='restes')){
+    const source=plan.repas.find(r=>r.id===reste.resteDeId);
+    if(!source||source.statut!=='garder')throw new Error('Réattribue les restes dont le repas source est indisponible.');
+  }
+  for(const r of plan.repas.filter(r=>!['restes','absent'].includes(r.statut))){
+    const total=portionsNecessairesRecetteGlow(r),cache=recetteEnregistreeRepasGlow(r);
+    const sauvee=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId)||recettesDisponiblesPlanGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(r.nom));
+    const source=r.typeAliment==='prepare'?{ingredients:[{nom:r.nom,quantite:1,unite:'portion'}],portions:1}:cache||sauvee||{ingredients:r.ingredients||[],portions:r.portionsBase||2};
+    if(!cache&&!sauvee&&Object.values(r.assiette||{}).some(n=>['recette','composition'].includes(catalogueAlimentaireGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(n))?.type)))throw new Error(`Ouvre la recette de ${r.nom} pour décomposer ses composants avant les courses.`);
+    if(!source.ingredients?.length)throw new Error(`Précise les ingrédients de ${r.nom}.`);
+    validerAlimentsAutorisesGlow(source);
+    for(const ingredient of source.ingredients){
+      const i=typeof ingredient==='string'?{nom:ingredient}:ingredient;
+      if(!i.nom)continue;
+      if(/poelee de legumes/.test(cleAlimentGlow(i.nom)))throw new Error('Choisis les vrais légumes de la poêlée avant les courses.');
+      const quantite=quantiteCoursesIngredientGlow(i,total/Math.max(1,Number(source.portions)||2));
+      const cle=`${cleAlimentGlow(i.nom)}|${quantite.unite}`;
+      const a=fusion.get(cle)||{id:`course_${genId()}`,nom:i.nom,unite:quantite.unite,quantite:0,besoin:0,poidsTotal:0,provenance:[],aPreciser:false,rayon:rayonIngredientGlow(i.nom),coche:false,manuel:false};
+      if(quantite.quantite===null)a.aPreciser=true;
+      else{a.quantite+=quantite.quantite;a.besoin+=quantite.quantite;a.poidsTotal+=quantite.poidsTotal||0;}
+      for(const repas of [r,...plan.repas.filter(x=>x.statut==='restes'&&x.resteDeId===r.id)]){
+        const part=quantiteCoursesIngredientGlow(i,Number(repas.personnes||2)/Math.max(1,Number(source.portions)||2));
+        a.provenance.push({repasId:repas.id,sourceId:r.id,date:repas.date,type:repas.type,nom:repas.nom,quantite:part.quantite,unite:part.unite,texte:part.texte});
+      }
+      fusion.set(cle,a);
+    }
+  }
+  const stock=DB.glowNutritionPlans.stockV2.filter(s=>!s.archive);
+  for(const a of fusion.values()){
+    let disponible=0;
+    stock.filter(s=>cleAlimentGlow(s.nom)===cleAlimentGlow(a.nom)).forEach(s=>{
+      const q=quantiteCoursesIngredientGlow(s,1);if(q.unite===a.unite)disponible+=q.quantite||0;
+      else if(a.unite==='g'&&q.poidsTotal)disponible+=q.poidsTotal;
+    });
+    a.stockDeduit=Math.min(a.besoin,disponible);a.quantite=Math.max(0,a.besoin-disponible);
+    a.stockAVerifier=String(DB.glowNutritionPlans.stockTexte||'').split(/[\n,;]/).some(n=>cleAlimentGlow(n)===cleAlimentGlow(a.nom));
+    const fiche=catalogueAlimentaireGlow().find(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(a.nom));
+    const pack=fiche?.conditionnement;
+    if(pack&&Number(pack.quantite)>0&&pack.unite===a.unite)a.achatConseille=`${Math.ceil(a.quantite/Number(pack.quantite))} × ${pack.quantite} ${pack.unite}`;
+    const poidsRestant=a.besoin?a.poidsTotal*a.quantite/a.besoin:0;
+    a.texteQuantite=a.aPreciser?'Quantité à préciser':`${Math.round(a.quantite*100)/100} ${a.unite==='pièce'&&a.quantite>1?'pièces':a.unite}${poidsRestant?` (≈ ${Math.round(poidsRestant)} g)`:''}`;
+    const ancien=DB.glowNutritionPlans.courses?.articles?.find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(a.nom)&&x.unite===a.unite&&!x.manuel);
+    if(ancien){a.id=ancien.id;a.coche=ancien.quantite===a.quantite&&ancien.coche===true;}
+  }
+  return [...fusion.values(),...(DB.glowNutritionPlans.courses?.articles||[]).filter(a=>a.manuel).map(a=>({...a}))];
+}
+async function preparerCoursesGlow(){
+  const plan=DB.glowNutritionPlans.planActif;if(!plan)return;
+  try{
+    const articles=calculerArticlesCoursesV2Glow(plan);
+    if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.archivesCourses.push(JSON.parse(JSON.stringify(DB.glowNutritionPlans.courses)));
+    DB.glowNutritionPlans.courses={id:`courses_${genId()}`,planId:plan.id,revisionPlan:plan.revision||0,creeLe:new Date().toISOString(),terminees:false,aActualiser:false,articles};
+    await sauvegarderExtensionGlow('glowNutritionPlans');renderPlanificationRepasGlow();
+  }catch(e){toast(`⚠️ ${e.message}`);}
+}
+function renderListeCoursesGlowHTML(){
+  const c=DB.glowNutritionPlans.courses,rayons=[...new Set(c.articles.map(a=>a.rayon))];
+  return `<section style="padding:20px 0;margin-top:14px;border-top:1px solid var(--brd2)"><h2 style="font-family:'Cormorant Garamond',serif;font-size:27px">🛒 Ma liste de courses</h2>${rayons.map(rayon=>`<h3 style="margin-top:16px">${echapperTexteRepasGlow(rayon)}</h3>${c.articles.filter(a=>a.rayon===rayon).map(a=>`<div style="border-bottom:1px solid var(--brd2);padding:9px 0"><label class="glow-shopping-row"><input type="checkbox" ${a.coche?'checked':''} onchange="cocherArticleCoursesGlow('${a.id}',this.checked)"><span style="overflow-wrap:anywhere;${a.coche?'text-decoration:line-through;opacity:.55':''}">${echapperTexteRepasGlow(a.nom)}</span><small>${echapperTexteRepasGlow(a.texteQuantite||`${Math.round(a.quantite*100)/100} ${a.unite}`)}</small></label>${a.provenance?.length?`<details><summary style="font-size:12px;color:var(--mut);cursor:pointer">Besoin : ${Math.round(a.besoin*100)/100} ${echapperTexteRepasGlow(a.unite)}${a.stockDeduit?` · Stock déduit : ${a.stockDeduit}`:''} · Pourquoi ?</summary>${a.provenance.map(p=>`<div style="font-size:12px;margin:6px 0">${echapperTexteRepasGlow(`${p.date} ${p.type==='diner'?'dîner':'déjeuner'} · ${p.nom} : ${p.texte}`)}</div>`).join('')}</details>`:''}${a.stockAVerifier?'<small>📦 Stock noté sans quantité : à vérifier</small>':''}${a.achatConseille?`<small style="display:block">Achat conseillé : ${echapperTexteRepasGlow(a.achatConseille)}</small>`:''}</div>`).join('')}`).join('')}<div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap"><button class="btn bg" onclick="ajouterArticleCoursesGlow()">＋ Ajouter un article</button><button class="btn bd" onclick="terminerCoursesGlow()">✅ Courses terminées</button></div></section>`;
+}
 async function cocherArticleCoursesGlow(id,coche){const a=DB.glowNutritionPlans.courses?.articles?.find(x=>x.id===id);if(!a)return;a.coche=coche;await sauvegarderExtensionGlow("glowNutritionPlans")}
 async function ajouterArticleCoursesGlow(){const nom=prompt("Article à ajouter :");if(!nom?.trim())return;const q=prompt("Quantité (facultatif) :")||"";DB.glowNutritionPlans.courses.articles.push({id:`course_${genId()}`,nom:nom.trim(),unite:"",quantite:0,texteQuantite:q,rayon:"🧴 Maison / autres",coche:false,manuel:true});await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
 async function terminerCoursesGlow(){const c=DB.glowNutritionPlans.courses;if(!c)return;DB.glowNutritionPlans.historiqueCourses.push({id:c.id,date:new Date().toISOString(),nombreArticles:c.articles.length});c.terminees=true;c.termineesLe=new Date().toISOString();await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow();toast("Courses archivées sans supprimer le planning ✓")}
