@@ -55716,18 +55716,21 @@ function ingredientInterditGlow(nom){
 }
 
 function optionsAssietteDisponiblesGlow(champ){
-  initialiserPreferencesIngredientsGlow();
 
   const standards = OPTIONS_ASSIETTE_GLOW[champ] || [];
 
-  const personnels = DB.glowNutritionPlans.ingredientsPersonnalises
-    .filter(i => i.categorie === champ)
-    .map(i => i.nom);
+  const personnels = Array.isArray(DB.glowNutritionPlans?.ingredientsPersonnalises)
+    ? DB.glowNutritionPlans.ingredientsPersonnalises
+        .filter(i => i.categorie === champ)
+        .map(i => i.nom)
+    : [];
+
+  const preferences = DB.glowNutritionPlans?.preferencesIngredients || {};
 
   return [...new Set([...standards, ...personnels])]
     .filter(nom =>
       nom === "Aucun" ||
-      !ingredientInterditGlow(nom)
+      preferences[String(nom || "").trim().toLowerCase()] !== "interdit"
     );
 }
 
