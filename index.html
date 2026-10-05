@@ -303,6 +303,81 @@ td { padding: 9px 11px; vertical-align: middle; }
 .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--brd); border-top-color: var(--acc); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* ===== EMMA LOADER GLOBAL ===== */
+
+.emma-thinking-overlay{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  background:rgba(248,251,255,.52);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
+}
+
+.emma-thinking-overlay.visible{
+  opacity:1;
+  pointer-events:all;
+}
+
+.emma-thinking-card{
+  min-width:220px;
+  max-width:85vw;
+
+  padding:26px 30px;
+
+  border-radius:26px;
+
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.95);
+
+  box-shadow:
+    0 20px 60px rgba(89,105,135,.15),
+    inset 0 1px 0 rgba(255,255,255,.95);
+
+  text-align:center;
+}
+
+.emma-thinking-spinner{
+  width:38px;
+  height:38px;
+
+  margin:0 auto 14px;
+
+  border-radius:50%;
+
+  border:3px solid rgba(157,185,232,.22);
+  border-top-color:#9d8bd0;
+
+  animation:emmaThinkingSpin .75s linear infinite;
+}
+
+@keyframes emmaThinkingSpin{
+  to{
+    transform:rotate(360deg);
+  }
+}
+
+.emma-thinking-text{
+  font-family:'Nunito',sans-serif;
+  font-size:14px;
+  font-weight:800;
+  color:var(--emma-text);
+}
+
+.emma-thinking-sub{
+  margin-top:4px;
+  font-size:11px;
+  color:var(--emma-muted);
+}
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -55666,6 +55741,59 @@ function proposerTenueGlow(){
   alert("Tenue proposée uniquement avec tes pièces :\n\n"+selection.map(v=>`• ${v.description} [${v.id}]`).join("\n"));
 }
 
+function afficherEmmaReflechit(
+  texte = "EMMA réfléchit…",
+  sousTexte = "Un instant ✨"
+){
+  let overlay = document.getElementById("emma-thinking-overlay");
+
+  if(!overlay){
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `
+      <div id="emma-thinking-overlay" class="emma-thinking-overlay">
+        <div class="emma-thinking-card">
+
+          <div class="emma-thinking-spinner"></div>
+
+          <div
+            id="emma-thinking-text"
+            class="emma-thinking-text"
+          >
+            ${texte}
+          </div>
+
+          <div
+            id="emma-thinking-sub"
+            class="emma-thinking-sub"
+          >
+            ${sousTexte}
+          </div>
+
+        </div>
+      </div>
+      `
+    );
+
+    overlay = document.getElementById("emma-thinking-overlay");
+  }
+
+  document.getElementById("emma-thinking-text").textContent = texte;
+  document.getElementById("emma-thinking-sub").textContent = sousTexte;
+
+  requestAnimationFrame(() => {
+    overlay.classList.add("visible");
+  });
+}
+
+function cacherEmmaReflechit(){
+  const overlay = document.getElementById("emma-thinking-overlay");
+
+  if(!overlay) return;
+
+  overlay.classList.remove("visible");
+}
+
 function recettesDisponiblesPlanGlow(){return (DB.glow?.nutrition?.recettes||[]).filter(r=>r&&r.id&&r.nom)}
 function creerRepasPlanGlow(date,type,recette,personnes=2){return {id:`repas_plan_${genId()}`,date,type,personnes,statut:"garder",recetteId:recette?.id||null,nom:recette?.nom||"À choisir",ingredients:Array.isArray(recette?.ingredients)?recette.ingredients.map(x=>({...x})):[],portionsBase:Number(recette?.portions||2)}}
 
@@ -55971,35 +56099,376 @@ function ingredientAssietteGlow(champ,nom){
   return {nom,quantite:1,unite:/crème|feta|fromage|sauce/.test(n)?"pot":"portion"};
 }
 async function creerPlanRepasGlow(nombreJours){
-  initialiserExtensionsGlowLocales();const apiKey=localStorage.getItem("anthropic_key")||"";if(!apiKey){toast("Configure d’abord ta clé IA dans les paramètres");return}
-  const bouton=document.activeElement?.tagName==="BUTTON"?document.activeElement:null,texteBouton=bouton?.textContent;if(bouton){bouton.disabled=true;bouton.textContent="✨ EMMA prépare…"}
-  try{
-    const recettes=recettesDisponiblesPlanGlow().slice(0,30).map(r=>({nom:r.nom,portions:r.portions||2,ingredients:(r.ingredients||[]).slice(0,20)}));
-    const repasRecents=(DB.glow?.nutrition?.repas||[]).slice(-20).map(r=>r.nom||r.resume||(r.aliments||[]).map(a=>typeof a==="string"?a:a.nom).filter(Boolean).join(", ")).filter(Boolean);
-    const debut=new Date(),dates=Array.from({length:nombreJours},(_,j)=>dateLocaleISO(new Date(debut.getFullYear(),debut.getMonth(),debut.getDate()+j)));
-    const ingredientsAimesGlow = tousIngredientsGlow()
-  .filter(i => statutIngredientGlow(i.nom) === "aime")
-  .map(i => i.nom);
 
-const ingredientsInterditsGlow = tousIngredientsGlow()
-  .filter(i => statutIngredientGlow(i.nom) === "interdit")
-  .map(i => i.nom);
-    const response=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:5000,messages:[{role:"user",content:[{type:"text",text:`Prépare un planning réaliste de déjeuners et dîners pour ${nombreJours} jours et 2 personnes par défaut.
-Dates exactes : ${dates.join(", ")}.
-Ce qu'il reste à la maison : ${DB.glowNutritionPlans.stockTexte||"non renseigné"}.
-Recettes déjà enregistrées (à privilégier si utile) : ${JSON.stringify(recettes)}.
-Repas récents (éviter trop de répétitions) : ${JSON.stringify(repasRecents)}.
-Ingrédients appréciés à privilégier quand c'est cohérent : ${JSON.stringify(ingredientsAimesGlow)}.
-Ingrédients interdits : ${JSON.stringify(ingredientsInterditsGlow)}.
+  initialiserExtensionsGlowLocales();
+
+  const apiKey = localStorage.getItem("anthropic_key") || "";
+
+  if(!apiKey){
+    toast("Configure d’abord ta clé IA dans les paramètres");
+    return;
+  }
+
+  const bouton =
+    document.activeElement?.tagName === "BUTTON"
+      ? document.activeElement
+      : null;
+
+  const texteBouton = bouton?.textContent;
+
+  if(bouton){
+    bouton.disabled = true;
+    bouton.textContent = "✨ EMMA prépare…";
+  }
+
+  afficherEmmaReflechit(
+    "EMMA prépare tes repas…",
+    "Je construis ton planning 🍽️"
+  );
+
+  try{
+
+    const recettes = recettesDisponiblesPlanGlow()
+      .slice(0,30)
+      .map(r => ({
+        nom: r.nom,
+        portions: r.portions || 2,
+        ingredients: (r.ingredients || []).slice(0,20)
+      }));
+
+    const repasRecents = (DB.glow?.nutrition?.repas || [])
+      .slice(-20)
+      .map(r =>
+        r.nom ||
+        r.resume ||
+        (r.aliments || [])
+          .map(a => typeof a === "string" ? a : a.nom)
+          .filter(Boolean)
+          .join(", ")
+      )
+      .filter(Boolean);
+
+    const debut = new Date();
+
+    const dates = Array.from(
+      {length:nombreJours},
+      (_,j) =>
+        dateLocaleISO(
+          new Date(
+            debut.getFullYear(),
+            debut.getMonth(),
+            debut.getDate() + j
+          )
+        )
+    );
+
+    const ingredientsAimesGlow = tousIngredientsGlow()
+      .filter(i => statutIngredientGlow(i.nom) === "aime")
+      .map(i => i.nom);
+
+    const ingredientsInterditsGlow = tousIngredientsGlow()
+      .filter(i => statutIngredientGlow(i.nom) === "interdit")
+      .map(i => i.nom);
+
+    const response = await fetch(
+      "https://api.anthropic.com/v1/messages",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 5000,
+
+          messages: [
+            {
+              role: "user",
+
+              content: [
+                {
+                  type: "text",
+
+                  text: `Prépare un planning réaliste de déjeuners et dîners pour ${nombreJours} jours et 2 personnes par défaut.
+
+Dates exactes :
+${dates.join(", ")}.
+
+Ce qu'il reste à la maison :
+${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
+
+Recettes déjà enregistrées (à privilégier si utile) :
+${JSON.stringify(recettes)}.
+
+Repas récents (éviter trop de répétitions) :
+${JSON.stringify(repasRecents)}.
+
+Ingrédients appréciés à privilégier quand c'est cohérent :
+${JSON.stringify(ingredientsAimesGlow)}.
+
+Ingrédients interdits :
+${JSON.stringify(ingredientsInterditsGlow)}.
+
 Ne propose JAMAIS un ingrédient interdit, ni comme ingrédient principal, ni dans une sauce, un accompagnement, un dessert ou un plaisir sucré.
-Règles : construire chaque repas comme une assiette simple avec une protéine, des légumes, un féculent facultatif et un complément facultatif. Chaque dîner comporte aussi un petit plaisir sucré. Réutiliser les mêmes ingrédients, limiter les achats différents, prévoir 2 ou 3 repas restes sur 7 jours sans les enchaîner. Pour un aliment qui se compte (poulet, steak, œuf, courgette, fruit...), donner d'abord une quantité en pièces et n'utiliser les grammes que pour le riz, les pâtes ou ce qui ne se compte pas clairement. Les quantités correspondent à 2 personnes. Réponds UNIQUEMENT en JSON valide sans backticks :
-{"repas":[{"date":"AAAA-MM-JJ","type":"dejeuner|diner","nom":"","statut":"garder|restes","portionsBase":2,"assiette":{"proteine":"","legumes":"","feculent":"","complement":"","plaisirSucre":""},"ingredients":[{"nom":"","quantite":0,"unite":"pièce|portion|g|ml|boîte|pot"}]}]}`}] }]})});
-    const data=await response.json();if(!response.ok||data.error)throw new Error(data.error?.message||"Planning impossible");const texte=(data.content||[]).map(x=>x.text||"").join("").replace(/```json|```/g,"").trim();const match=texte.match(/\{[\s\S]*\}/);if(!match)throw new Error("Réponse de l’IA illisible");
-    const resultat=JSON.parse(match[0]),attendus=new Set(dates.flatMap(date=>[`${date}|dejeuner`,`${date}|diner`]));const proposes=(Array.isArray(resultat.repas)?resultat.repas:[]).filter(r=>attendus.has(`${r.date}|${r.type}`)),parCle=new Map(proposes.map(r=>[`${r.date}|${r.type}`,r]));
-    const repas=[];for(const date of dates)for(const type of ["dejeuner","diner"]){const r=parCle.get(`${date}|${type}`)||{};repas.push({id:`repas_plan_${genId()}`,date,type,personnes:2,statut:r.statut==="restes"?"restes":"garder",recetteId:null,nom:String(r.nom||"À compléter"),assiette:{proteine:String(r.assiette?.proteine||""),legumes:String(r.assiette?.legumes||""),feculent:String(r.assiette?.feculent||""),complement:String(r.assiette?.complement||""),plaisirSucre:type==="diner"?String(r.assiette?.plaisirSucre||"Carrés de chocolat"):""},ingredients:Array.isArray(r.ingredients)?r.ingredients.map(i=>({nom:String(i.nom||"").trim(),quantite:i.quantite??"",unite:String(i.unite||"").trim()})).filter(i=>i.nom):[],portionsBase:Math.max(1,Number(r.portionsBase||2))})}
-    let dernierRepasComplet=null;for(const repasCourant of repas){if(repasCourant.statut==="restes"&&dernierRepasComplet){repasCourant.resteDeId=dernierRepasComplet.id;repasCourant.nom=`Restes de ${dernierRepasComplet.nom}`}else if(repasCourant.statut!=="restes")dernierRepasComplet=repasCourant}
-    DB.glowNutritionPlans.planActif={id:`plan_${genId()}`,debut:dates[0],fin:dates.at(-1),creeLe:new Date().toISOString(),repas};DB.glowNutritionPlans.courses=null;renderPlanificationRepasGlow();await sauvegarderExtensionGlow("glowNutritionPlans");toast("✓ Planning préparé par EMMA");
-  }catch(error){console.error("Planning repas IA impossible",error);toast(`⚠️ ${error.message||"Impossible de préparer les repas"}`)}finally{if(bouton){bouton.disabled=false;bouton.textContent=texteBouton}}
+
+Règles :
+construire chaque repas comme une assiette simple avec une protéine, des légumes, un féculent facultatif et un complément facultatif.
+
+Chaque dîner comporte aussi un petit plaisir sucré.
+
+Réutiliser les mêmes ingrédients, limiter les achats différents, prévoir 2 ou 3 repas restes sur 7 jours sans les enchaîner.
+
+Pour un aliment qui se compte (poulet, steak, œuf, courgette, fruit...), donner d'abord une quantité en pièces et n'utiliser les grammes que pour le riz, les pâtes ou ce qui ne se compte pas clairement.
+
+Les quantités correspondent à 2 personnes.
+
+Réponds UNIQUEMENT en JSON valide sans backticks :
+
+{
+  "repas":[
+    {
+      "date":"AAAA-MM-JJ",
+      "type":"dejeuner|diner",
+      "nom":"",
+      "statut":"garder|restes",
+      "portionsBase":2,
+      "assiette":{
+        "proteine":"",
+        "legumes":"",
+        "feculent":"",
+        "complement":"",
+        "plaisirSucre":""
+      },
+      "ingredients":[
+        {
+          "nom":"",
+          "quantite":0,
+          "unite":"pièce|portion|g|ml|boîte|pot"
+        }
+      ]
+    }
+  ]
+}`
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if(!response.ok || data.error){
+      throw new Error(
+        data.error?.message || "Planning impossible"
+      );
+    }
+
+    const texte = (data.content || [])
+      .map(x => x.text || "")
+      .join("")
+      .replace(/```json|```/g, "")
+      .trim();
+
+    const match = texte.match(/\{[\s\S]*\}/);
+
+    if(!match){
+      throw new Error("Réponse de l’IA illisible");
+    }
+
+    const resultat = JSON.parse(match[0]);
+
+    const attendus = new Set(
+      dates.flatMap(date => [
+        `${date}|dejeuner`,
+        `${date}|diner`
+      ])
+    );
+
+    const proposes = (
+      Array.isArray(resultat.repas)
+        ? resultat.repas
+        : []
+    ).filter(r =>
+      attendus.has(`${r.date}|${r.type}`)
+    );
+
+    const parCle = new Map(
+      proposes.map(r => [
+        `${r.date}|${r.type}`,
+        r
+      ])
+    );
+
+    const repas = [];
+
+    for(const date of dates){
+
+      for(const type of ["dejeuner","diner"]){
+
+        const r =
+          parCle.get(`${date}|${type}`) || {};
+
+        repas.push({
+
+          id: `repas_plan_${genId()}`,
+
+          date,
+
+          type,
+
+          personnes: 2,
+
+          statut:
+            r.statut === "restes"
+              ? "restes"
+              : "garder",
+
+          recetteId: null,
+
+          nom: String(
+            r.nom || "À compléter"
+          ),
+
+          assiette: {
+
+            proteine:
+              String(
+                r.assiette?.proteine || ""
+              ),
+
+            legumes:
+              String(
+                r.assiette?.legumes || ""
+              ),
+
+            feculent:
+              String(
+                r.assiette?.feculent || ""
+              ),
+
+            complement:
+              String(
+                r.assiette?.complement || ""
+              ),
+
+            plaisirSucre:
+              type === "diner"
+                ? String(
+                    r.assiette?.plaisirSucre ||
+                    "Carrés de chocolat"
+                  )
+                : ""
+          },
+
+          ingredients:
+            Array.isArray(r.ingredients)
+              ? r.ingredients
+                  .map(i => ({
+                    nom:
+                      String(
+                        i.nom || ""
+                      ).trim(),
+
+                    quantite:
+                      i.quantite ?? "",
+
+                    unite:
+                      String(
+                        i.unite || ""
+                      ).trim()
+                  }))
+                  .filter(i => i.nom)
+              : [],
+
+          portionsBase:
+            Math.max(
+              1,
+              Number(
+                r.portionsBase || 2
+              )
+            )
+        });
+      }
+    }
+
+    let dernierRepasComplet = null;
+
+    for(const repasCourant of repas){
+
+      if(
+        repasCourant.statut === "restes" &&
+        dernierRepasComplet
+      ){
+
+        repasCourant.resteDeId =
+          dernierRepasComplet.id;
+
+        repasCourant.nom =
+          `Restes de ${dernierRepasComplet.nom}`;
+
+      }else if(
+        repasCourant.statut !== "restes"
+      ){
+
+        dernierRepasComplet =
+          repasCourant;
+      }
+    }
+
+    DB.glowNutritionPlans.planActif = {
+
+      id: `plan_${genId()}`,
+
+      debut: dates[0],
+
+      fin: dates.at(-1),
+
+      creeLe:
+        new Date().toISOString(),
+
+      repas
+    };
+
+    DB.glowNutritionPlans.courses = null;
+
+    renderPlanificationRepasGlow();
+
+    await sauvegarderExtensionGlow(
+      "glowNutritionPlans"
+    );
+
+    toast("✓ Planning préparé par EMMA");
+
+  }catch(error){
+
+    console.error(
+      "Planning repas IA impossible",
+      error
+    );
+
+    toast(
+      `⚠️ ${
+        error.message ||
+        "Impossible de préparer les repas"
+      }`
+    );
+
+  }finally{
+
+    cacherEmmaReflechit();
+
+    if(bouton){
+      bouton.disabled = false;
+      bouton.textContent = texteBouton;
+    }
+  }
 }
 function creerPlanJusquaGlow(){
   const fin=document.getElementById("glow-plan-date-fin")?.value;
@@ -56185,8 +56654,201 @@ function ouvrirCompositionRepasGlow(id){
 }
 async function enregistrerCompositionRepasGlow(id){const r=trouverRepasPlanGlow(id);if(!r)return;const assiette={proteine:document.getElementById("assiette-proteine")?.value.trim()||"",legumes:document.getElementById("assiette-legumes")?.value.trim()||"",feculent:document.getElementById("assiette-feculent")?.value.trim()||"",complement:document.getElementById("assiette-complement")?.value.trim()||"",plaisirSucre:r.type==='diner'?(document.getElementById("assiette-plaisirSucre")?.value.trim()||""):""};if(!assiette.proteine&&!assiette.legumes&&!assiette.feculent){toast("Compose au moins une partie de l’assiette");return}r.assiette=assiette;r.nom=[assiette.proteine,assiette.legumes,assiette.feculent].filter(x=>x&&x.toLowerCase()!=="aucun").join(" · ");r.ingredients=Object.entries(assiette).map(([champ,nom])=>ingredientAssietteGlow(champ,nom)).filter(Boolean);r.portionsBase=2;r.statut="garder";delete r.resteDeId;r.recetteId=null;await sauvegarderExtensionGlow("glowNutritionPlans");document.getElementById("glow-modal-repas-plan")?.remove();renderPlanificationRepasGlow()}
 async function changerStatutDepuisCompositionGlow(id,statut){document.getElementById("glow-modal-repas-plan")?.remove();await changerStatutRepasGlow(id,statut)}
-async function proposerNouvelleAssietteGlow(id,bouton){const r=trouverRepasPlanGlow(id),apiKey=localStorage.getItem("anthropic_key")||"";if(!r||!apiKey){toast("Clé IA manquante dans les paramètres");return}const ancien=bouton.textContent;bouton.disabled=true;bouton.textContent="✨ EMMA cherche…";try{const autres=DB.glowNutritionPlans.planActif.repas.filter(x=>x.id!==id&&!['restes','absent'].includes(x.statut)).flatMap(x=>x.ingredients||[]).map(i=>i.nom).filter(Boolean);const response=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1200,messages:[{role:"user",content:[{type:"text",text:`Propose une autre assiette simple pour ${r.type==='dejeuner'?'un déjeuner':'un dîner'} de ${r.personnes||2} personne(s). Assiette refusée : ${JSON.stringify(r.assiette||r.nom)}. Ingrédients déjà utilisés dans les autres repas et à privilégier : ${JSON.stringify(autres)}. Ce qu'il reste à la maison : ${DB.glowNutritionPlans.stockTexte||'non renseigné'}. ${r.type==='diner'?'Ajoute un petit plaisir sucré.':''} Donne les aliments comptables en pièces plutôt qu'en grammes. Réponds uniquement en JSON valide sans backticks : {"nom":"","assiette":{"proteine":"","legumes":"","feculent":"","complement":"","plaisirSucre":""},"ingredients":[{"nom":"","quantite":0,"unite":"pièce|portion|g|boîte|pot"}]}`}]}]})});const data=await response.json();if(!response.ok||data.error)throw new Error(data.error?.message||"Proposition impossible");const texte=(data.content||[]).map(x=>x.text||"").join("").replace(/```json|```/g,"").trim(),match=texte.match(/\{[\s\S]*\}/);if(!match)throw new Error("Réponse illisible");const proposition=JSON.parse(match[0]);r.nom=String(proposition.nom||"Nouvelle assiette");r.assiette={proteine:String(proposition.assiette?.proteine||""),legumes:String(proposition.assiette?.legumes||""),feculent:String(proposition.assiette?.feculent||""),complement:String(proposition.assiette?.complement||""),plaisirSucre:r.type==='diner'?String(proposition.assiette?.plaisirSucre||"Carrés de chocolat"):""};r.ingredients=Array.isArray(proposition.ingredients)?proposition.ingredients:[];r.statut="garder";delete r.resteDeId;r.recetteId=null;await sauvegarderExtensionGlow("glowNutritionPlans");document.getElementById("glow-modal-repas-plan")?.remove();renderPlanificationRepasGlow();toast("✓ Nouvelle assiette proposée")}catch(error){console.error("Nouvelle assiette",error);toast(`⚠️ ${error.message}`);bouton.disabled=false;bouton.textContent=ancien}}
-async function changerRepasPlanGlow(id){
+async function proposerNouvelleAssietteGlow(id, bouton){
+
+  const r = trouverRepasPlanGlow(id);
+  const apiKey = localStorage.getItem("anthropic_key") || "";
+
+  if(!r || !apiKey){
+    toast("Clé IA manquante dans les paramètres");
+    return;
+  }
+
+  const ancien = bouton.textContent;
+
+  bouton.disabled = true;
+  bouton.textContent = "✨ EMMA cherche…";
+
+  afficherEmmaReflechit(
+    "EMMA réfléchit…",
+    "Je te prépare une nouvelle assiette ✨"
+  );
+
+  try{
+
+    const autres = DB.glowNutritionPlans.planActif.repas
+      .filter(x =>
+        x.id !== id &&
+        !["restes", "absent"].includes(x.statut)
+      )
+      .flatMap(x => x.ingredients || [])
+      .map(i => i.nom)
+      .filter(Boolean);
+
+    const response = await fetch(
+      "https://api.anthropic.com/v1/messages",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1200,
+
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+
+                  text: `Propose une autre assiette simple pour ${
+                    r.type === "dejeuner"
+                      ? "un déjeuner"
+                      : "un dîner"
+                  } de ${r.personnes || 2} personne(s).
+
+Assiette refusée :
+${JSON.stringify(r.assiette || r.nom)}.
+
+Ingrédients déjà utilisés dans les autres repas et à privilégier :
+${JSON.stringify(autres)}.
+
+Ce qu'il reste à la maison :
+${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
+
+${r.type === "diner"
+  ? "Ajoute un petit plaisir sucré."
+  : ""
+}
+
+Donne les aliments comptables en pièces plutôt qu'en grammes.
+
+Réponds uniquement en JSON valide sans backticks :
+
+{
+  "nom":"",
+  "assiette":{
+    "proteine":"",
+    "legumes":"",
+    "feculent":"",
+    "complement":"",
+    "plaisirSucre":""
+  },
+  "ingredients":[
+    {
+      "nom":"",
+      "quantite":0,
+      "unite":"pièce|portion|g|boîte|pot"
+    }
+  ]
+}`
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if(!response.ok || data.error){
+      throw new Error(
+        data.error?.message || "Proposition impossible"
+      );
+    }
+
+    const texte = (data.content || [])
+      .map(x => x.text || "")
+      .join("")
+      .replace(/```json|```/g, "")
+      .trim();
+
+    const match = texte.match(/\{[\s\S]*\}/);
+
+    if(!match){
+      throw new Error("Réponse illisible");
+    }
+
+    const proposition = JSON.parse(match[0]);
+
+    r.nom = String(
+      proposition.nom || "Nouvelle assiette"
+    );
+
+    r.assiette = {
+      proteine: String(
+        proposition.assiette?.proteine || ""
+      ),
+
+      legumes: String(
+        proposition.assiette?.legumes || ""
+      ),
+
+      feculent: String(
+        proposition.assiette?.feculent || ""
+      ),
+
+      complement: String(
+        proposition.assiette?.complement || ""
+      ),
+
+      plaisirSucre:
+        r.type === "diner"
+          ? String(
+              proposition.assiette?.plaisirSucre ||
+              "Carrés de chocolat"
+            )
+          : ""
+    };
+
+    r.ingredients = Array.isArray(proposition.ingredients)
+      ? proposition.ingredients
+      : [];
+
+    r.statut = "garder";
+
+    delete r.resteDeId;
+
+    r.recetteId = null;
+
+    await sauvegarderExtensionGlow(
+      "glowNutritionPlans"
+    );
+
+    document
+      .getElementById("glow-modal-repas-plan")
+      ?.remove();
+
+    renderPlanificationRepasGlow();
+
+    toast("✓ Nouvelle assiette proposée");
+
+  }catch(error){
+
+    console.error(
+      "Nouvelle assiette",
+      error
+    );
+
+    toast(`⚠️ ${error.message}`);
+
+  }finally{
+
+    cacherEmmaReflechit();
+
+    bouton.disabled = false;
+    bouton.textContent = ancien;
+  }
+}
+   async function changerRepasPlanGlow(id){
   const r=trouverRepasPlanGlow(id),recettes=recettesDisponiblesPlanGlow();if(!r)return;if(!recettes.length){definirRepasPlanGlow(id);return}
   const autres=DB.glowNutritionPlans.planActif.repas.filter(x=>x.id!==id&&x.statut!=="absent");const noms=new Set(autres.flatMap(x=>x.ingredients||[]).map(i=>String(i.nom||'').toLowerCase()));
   const candidates=recettes.filter(x=>x.id!==r.recetteId).map(recette=>({recette,score:(recette.ingredients||[]).filter(i=>noms.has(String(i.nom||'').toLowerCase())).length})).sort((a,b)=>b.score-a.score);
