@@ -58791,7 +58791,8 @@ function calculerArticlesCoursesV2Glow(plan){
   for(const r of plan.repas.filter(r=>!['restes','absent'].includes(r.statut))){
     const total=portionsNecessairesRecetteGlow(r),cache=recetteEnregistreeRepasGlow(r);
     const sauvee=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId)||recettesDisponiblesPlanGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(r.nom));
-    const source=r.typeAliment==='prepare'?{ingredients:[{nom:r.nom,quantite:1,unite:'portion'}],portions:1}:cache||sauvee||{ingredients:r.ingredients||[],portions:r.portionsBase||2};
+    // Même priorité que l'écran recette : la fiche enregistrée prime sur un ancien cache.
+    const source=r.typeAliment==='prepare'?{ingredients:[{nom:r.nom,quantite:1,unite:'portion'}],portions:1}:sauvee||cache||{ingredients:r.ingredients||[],portions:r.portionsBase||2};
     if(!cache&&!sauvee&&Object.values(r.assiette||{}).some(n=>['recette','composition'].includes(catalogueAlimentaireGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(n))?.type)))throw new Error(`Ouvre la recette de ${r.nom} pour décomposer ses composants avant les courses.`);
     if(!source.ingredients?.length)throw new Error(`Précise les ingrédients de ${r.nom}.`);
     validerAlimentsAutorisesGlow(source);

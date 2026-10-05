@@ -72,6 +72,16 @@ await test('Stock is subtracted by quantity; vague text never removes needs',()=
 await test('Cached recipe ingredients become the shopping source',()=>{
   const p=plan(),r=p.repas[0];r.recetteGeneree={portions:4,signatureRepas:context.signatureRepasGlow(r),ingredients:[{nom:'Poulet',quantite:600,unite:'g'},{nom:'Crème',quantite:200,unite:'ml'}]};assert.equal(context.calculerArticlesCoursesV2Glow(p).find(x=>x.nom==='Crème').quantite,200);
 });
+await test('Saved lasagnes: 9 sheets for 4 portions override a stale 18-sheet cache',()=>{
+  const p=plan(),r=p.repas[0];d().stockV2=[];d().courses=null;
+  r.nom='Lasagnes bolognaise maison';r.recetteId='lasagnes-reference';
+  r.recetteGeneree={portions:4,signatureRepas:context.signatureRepasGlow(r),ingredients:[{nom:'Feuilles de lasagne',quantite:18,unite:'pièces'}]};
+  d().recettesV2.push({id:r.recetteId,nom:r.nom,portions:4,ingredients:[{nom:'Feuilles de lasagne',quantite:9,unite:'pièces'}],etapes:['Assembler et cuire']});
+  const a=context.calculerArticlesCoursesV2Glow(p).find(x=>x.nom==='Feuilles de lasagne');
+  assert.equal(a.besoin,9);assert.equal(a.provenance.length,2);assert.equal(a.provenance.reduce((s,x)=>s+x.quantite,0),9);
+  assert.equal(r.recetteGeneree.ingredients[0].quantite,18);
+  d().recettesV2=d().recettesV2.filter(x=>x.id!=='lasagnes-reference');
+});
 await test('Prepared dishes stay purchased products; saved recipes are reused',()=>{
   const p=plan();p.repas=p.repas.slice(0,1);const r=p.repas[0];r.nom='Lasagnes surgelées';r.typeAliment='prepare';context.normaliserRepasV2Glow(r);let a=context.calculerArticlesCoursesV2Glow(p);assert.equal(a.length,1);assert.equal(a[0].nom,r.nom);assert.equal(a[0].quantite,2);
   d().recettesV2=[{id:'lasagne',nom:'Mes lasagnes',portions:2,ingredients:[{nom:'Feuilles de lasagnes',quantite:150,unite:'g'}],etapes:['Cuire']}];r.typeAliment='recette';r.nom='Mes lasagnes';context.normaliserRepasV2Glow(r);assert.equal(r.recetteId,'lasagne');assert.equal(r.ingredients[0].quantite,150);
