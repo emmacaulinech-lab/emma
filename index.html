@@ -25389,521 +25389,672 @@ async function enregistrerSeancePartielleGlow(){
    
    async function renderGlowModule(){
 
-    const nouveauJour = initialiserGlowDuJour();
-    const eau = DB.glow.eau || 0;
+  const nouveauJour = initialiserGlowDuJour();
 
-    const score = calculGlowScore();
-    const glowScore = score.total;
-    const recommandation = recommanderProgrammeGlow();
-    const seanceRecommandee = choisirMeilleureSeanceGlow();
-   if(DB.glow.entrainement?.actif){
-
+  if(DB.glow.entrainement?.actif){
     renderLecteurSeance();
-
     return;
-}
+  }
 
-    DB.glow.glowScore = glowScore;
+  initialiserExtensionsGlowLocales();
 
-    if(nouveauJour){
-        await saveAll();
+  /* ================================
+     DONNÉES GÉNÉRALES
+  ================================= */
+
+  const score = calculGlowScore();
+  const glowScore = score.total;
+
+  DB.glow.glowScore = glowScore;
+
+  if(nouveauJour){
+    await saveAll();
+  }
+
+  const aujourdHui =
+    DB.glow?.date || dateLocaleISO();
+
+  const eau =
+    Number(DB.glow?.eau || 0);
+
+  const sommeil =
+    DB.glow?.sommeil;
+
+  /* ================================
+     SPORT
+  ================================= */
+
+  const historiqueSport = [
+    ...(DB.glow?.historiqueSeances || []),
+    ...(DB.historiqueGlow || [])
+  ];
+
+  const seancesAujourdhui =
+    historiqueSport.filter(item =>
+      item?.date === aujourdHui &&
+      item?.terminee !== false
+    );
+
+  const minutesSport =
+    seancesAujourdhui.reduce(
+      (maximum,item) =>
+        Math.max(
+          maximum,
+          Number(
+            item.minutes ||
+            item.duree ||
+            0
+          )
+        ),
+      DB.glow?.activite?.terminee
+        ? Number(
+            DB.glow.activite.minutes || 0
+          )
+        : 0
+    );
+
+  const recommandation =
+    recommanderProgrammeGlow();
+
+  const seanceRecommandee =
+    choisirMeilleureSeanceGlow();
+
+  const labelsSport = {
+    taille: "Taille",
+    fessiers: "Fessiers",
+    posture: "Posture",
+    jambes: "Jambes"
+  };
+
+  const objectifSport =
+    DB.glow?.activite?.objectifForce ||
+    recommandation?.id ||
+    seanceRecommandee?.objectif ||
+    "";
+
+  const sportValeur =
+    minutesSport > 0
+      ? `${minutesSport} min`
+      : (
+          labelsSport[objectifSport] ||
+          "Séance du jour"
+        );
+
+  const sportSousTitre =
+    minutesSport > 0
+      ? "Séance réalisée aujourd’hui ✓"
+      : seanceRecommandee
+        ? `${
+            Number(
+              seanceRecommandee.duree ||
+              DB.glow?.activite?.tempsDisponible ||
+              15
+            )
+          } min recommandées`
+        : "Voir ma séance recommandée";
+
+  /* ================================
+     NUTRITION
+  ================================= */
+
+  const repasJour =
+    DB.glow?.nutrition?.repas || [];
+
+  const dejeunerRenseigne =
+    repasJour.find(r =>
+      r?.type === "dejeuner"
+    );
+
+  const dinerRenseigne =
+    repasJour.find(r =>
+      r?.type === "diner"
+    );
+
+  const dejeunerPlanifie =
+    typeof getRepasPlanifieGlow === "function"
+      ? getRepasPlanifieGlow(
+          aujourdHui,
+          "dejeuner"
+        )
+      : null;
+
+  const dinerPlanifie =
+    typeof getRepasPlanifieGlow === "function"
+      ? getRepasPlanifieGlow(
+          aujourdHui,
+          "diner"
+        )
+      : null;
+
+  const dejeunerNom =
+    dejeunerRenseigne?.nom ||
+    dejeunerPlanifie?.nom ||
+    "À choisir";
+
+  const dinerNom =
+    dinerRenseigne?.nom ||
+    dinerPlanifie?.nom ||
+    "À choisir";
+
+  const nombreRepasRenseignes =
+    Number(Boolean(dejeunerRenseigne)) +
+    Number(Boolean(dinerRenseigne));
+
+  const nutritionValeur =
+    `${nombreRepasRenseignes}/2 repas`;
+
+  const nutritionSousTitre =
+    `☀️ ${dejeunerNom} · 🌙 ${dinerNom}`;
+
+  /* ================================
+     SOINS
+  ================================= */
+
+  const soins =
+    Object.values(
+      DB.glowSoins?.taches || {}
+    );
+
+  const soinsAvecEtat =
+    soins.map(soin => ({
+      soin,
+      etat: etatSoinGlow(soin)
+    }));
+
+  const soinsUrgents =
+    soinsAvecEtat.filter(item =>
+      item.etat.statut === "retard" ||
+      item.etat.statut === "aujourdhui"
+    );
+
+  const soinsRetard =
+    soinsAvecEtat.filter(item =>
+      item.etat.statut === "retard"
+    );
+
+  const prochainSoin =
+    [...soinsAvecEtat]
+      .filter(item =>
+        item.etat.statut !== "lie"
+      )
+      .sort(
+        (a,b) =>
+          Number(a.etat.ordre || 99) -
+          Number(b.etat.ordre || 99)
+      )[0];
+
+  const soinsValeur =
+    soinsUrgents.length
+      ? `${soinsUrgents.length} à faire`
+      : "À jour ✨";
+
+  const soinsSousTitre =
+    soinsRetard.length
+      ? `${soinsRetard.length} soin${
+          soinsRetard.length > 1 ? "s" : ""
+        } en retard`
+      : prochainSoin
+        ? `${prochainSoin.soin.nom} · ${prochainSoin.etat.label}`
+        : "Aucun soin urgent";
+
+  /* ================================
+     DRESSING
+  ================================= */
+
+  const vetements =
+    Array.isArray(
+      DB.glowDressing?.vetements
+    )
+      ? DB.glowDressing.vetements.filter(
+          v => v.actif !== false
+        )
+      : [];
+
+  const looks =
+    Array.isArray(
+      DB.glowDressing?.looks
+    )
+      ? DB.glowDressing.looks
+      : [];
+
+  const dressingValeur =
+    `${vetements.length} pièce${
+      vetements.length > 1 ? "s" : ""
+    }`;
+
+  const dressingSousTitre =
+    looks.length
+      ? `${looks.length} tenue${
+          looks.length > 1 ? "s" : ""
+        } enregistrée${
+          looks.length > 1 ? "s" : ""
+        }`
+      : vetements.length
+        ? "Trouver une tenue avec mes vêtements"
+        : "Ajouter mes premiers vêtements";
+
+  /* ================================
+     SOMMEIL
+  ================================= */
+
+  const sommeilValeur =
+    sommeil == null
+      ? "Non renseigné"
+      : `${sommeil} h`;
+
+  let sommeilSousTitre =
+    "Renseigner ma dernière nuit";
+
+  if(sommeil != null){
+
+    if(Number(sommeil) >= 8){
+      sommeilSousTitre =
+        "20 / 20 · Très bonne nuit ✨";
+    }else if(Number(sommeil) >= 7){
+      sommeilSousTitre =
+        "15 / 20 · Bonne nuit";
+    }else if(Number(sommeil) >= 6){
+      sommeilSousTitre =
+        "10 / 20 · Nuit un peu courte";
+    }else{
+      sommeilSousTitre =
+        "0 / 20 · Priorité au repos";
     }
+  }
 
-    let ronds = "";
+  /* ================================
+     ÉVOLUTION
+  ================================= */
 
-    for(let i = 1; i <= 8; i++){
+  const historiqueJours =
+    Array.isArray(DB.historiqueGlow)
+      ? DB.historiqueGlow.filter(
+          item => item?.date
+        )
+      : [];
 
-        ronds += `
-            <span
-                onclick="setEau(${i})"
-                style="
-                    cursor:pointer;
-                    font-size:28px;
-                    margin-right:6px;
-                    user-select:none;
-                    transition:transform .15s;
-                "
+  const evolutionSousTitre =
+    historiqueJours.length
+      ? `${historiqueJours.length} journée${
+          historiqueJours.length > 1
+            ? "s"
+            : ""
+        } dans mon historique`
+      : "Mon évolution commencera à apparaître ici";
+
+  /* ================================
+     AFFICHAGE
+  ================================= */
+
+  document
+    .getElementById("glow-content")
+    .innerHTML = `
+
+    <div class="glow-dashboard">
+
+      ${navigationGlowSimple("accueil")}
+
+      <!-- =====================
+           GLOW SCORE
+      ====================== -->
+
+      <section class="glow-dashboard-score">
+
+        <div class="glow-dashboard-score-main">
+
+          <div
+            class="glow-dashboard-circle"
+            style="--score:${glowScore}%"
+          >
+
+            <div
+              class="glow-dashboard-circle-inner"
             >
-                ${i <= eau ? "🩷" : "🤍"}
-            </span>
-        `;
-    }
 
-    document.getElementById("glow-content").innerHTML = `
+              <span
+                class="glow-dashboard-circle-value"
+              >
+                ${glowScore}%
+              </span>
 
-<!-- NAVIGATION GLOW -->
-<div style="
-    display:flex;
-    gap:8px;
-    overflow-x:auto;
-    padding-bottom:6px;
-    margin-bottom:18px;
-">
-
-    <button class="btn bd" onclick="renderGlowModule()">
-        ✨ Accueil
-    </button>
-
-    <button class="btn bg" onclick="renderGlowHydratation()">
-        💧 Eau
-    </button>
-
-    <button class="btn bg" onclick="renderGlowNutrition()">
-        🍽️ Nutrition
-    </button>
-
-    <button class="btn bg" onclick="renderGlowSommeil()">
-        🌙 Sommeil
-    </button>
-
-    <button class="btn bg" onclick="renderGlowEvolution()">
-        📈 Évolution
-    </button>
-
-    <button class="btn bg" onclick="renderGlowSport()">
-        🏃 Sport
-    </button>
-
-</div>
-
-        <div class="glow-extension-grid" style="margin-bottom:18px">
-          <button class="glow-extension-card" style="text-align:left;cursor:pointer" onclick="renderGlowSoins()">
-            <strong style="font-size:18px">✨ Prendre soin de moi</strong>
-            <small style="display:block;color:var(--mut);margin-top:5px">Soins récurrents, échéances et ajout au Journal</small>
-          </button>
-          <button class="glow-extension-card" style="text-align:left;cursor:pointer" onclick="renderGlowDressing()">
-            <strong style="font-size:18px">👗 Mon dressing</strong>
-            <small style="display:block;color:var(--mut);margin-top:5px">Mes vêtements et idées de tenues</small>
-          </button>
-          <button class="glow-extension-card" style="text-align:left;cursor:pointer;grid-column:1/-1" onclick="renderPlanificationRepasGlow()">
-            <strong style="font-size:18px">🍽️ Planifier mes prochains repas</strong>
-            <small style="display:block;color:var(--mut);margin-top:5px">Période de courses, restes et liste intelligente</small>
-          </button>
-        </div>
-
-        <!-- GLOW SCORE -->
-        <div style="
-            background:rgba(255,255,255,.60);
-            border:1px solid rgba(255,255,255,.85);
-            border-radius:26px;
-            padding:24px;
-            box-shadow:var(--shadow);
-            margin-bottom:18px;
-            text-align:center;
-        ">
-
-            <div style="
-                font-size:11px;
-                text-transform:uppercase;
-                letter-spacing:.12em;
-                color:var(--mut);
-                font-weight:800;
-                margin-bottom:14px;
-            ">
-                ✨ Glow Score
-            </div>
-
-            <div style="
-                width:130px;
-                height:130px;
-                border-radius:50%;
-                margin:0 auto 12px;
-                padding:8px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                background:conic-gradient(
-                    var(--acc) ${glowScore}%,
-                    rgba(255,255,255,.55) ${glowScore}%
-                );
-            ">
-
-                <div style="
-                    width:100%;
-                    height:100%;
-                    border-radius:50%;
-                    background:white;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    flex-direction:column;
-                ">
-
-                    <div style="
-                        font-family:'Cormorant Garamond',serif;
-                        font-size:38px;
-                        font-weight:700;
-                        color:var(--acc);
-                        line-height:1;
-                    ">
-                        ${glowScore}%
-                    </div>
-
-                    <div style="font-size:11px;color:var(--mut);margin-top:5px">
-                        Aujourd’hui
-                    </div>
-
-                </div>
+              <span
+                class="glow-dashboard-circle-label"
+              >
+                GLOW
+              </span>
 
             </div>
+          </div>
 
-            <div style="font-size:12px;color:var(--mut)">
-                ${eau === 8
-                    ? "Objectif hydratation atteint ✨"
-                    : "Ton score augmentera avec tes habitudes du jour"}
+          <div>
+
+            <div class="maison-kicker">
+              ✨ AUJOURD’HUI
             </div>
 
-            <div style="
-                margin-top:20px;
-                display:grid;
-                gap:8px;
-                font-size:13px;
-                text-align:left;
-            ">
+            <h1 class="glow-dashboard-title">
+              Mon Glow Score
+            </h1>
 
-                ${[
-                    ["💧 Hydratation", score.detail.eau, 20],
-                    ["🏃 Activité", score.detail.activite, 20],
-                    ["🌙 Sommeil", score.detail.sommeil, 20],
-                    ["🍽️ Nutrition", score.detail.nutrition, 20],
-                    ["📖 Lecture", score.detail.lecture, 10]
-                ].map(l => `
+            <p class="glow-dashboard-subtitle">
+              Ton équilibre du jour en un coup d’œil.
+            </p>
 
-                    <div style="
-                        display:flex;
-                        justify-content:space-between;
-                        font-size:13px;
-                    ">
-                        <span>${l[0]}</span>
-                        <b style="color:var(--acc)">
-                            ${l[1]} / ${l[2]}
-                        </b>
-                    </div>
-
-                `).join("")}
-
-            </div>
-
-            <div style="margin-top:22px">
-
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    font-size:13px;
-                    margin-bottom:8px;
-                ">
-                    <span>Progression du jour</span>
-                    <b>${glowScore}%</b>
-                </div>
-
-                <div style="
-                    height:12px;
-                    background:#F4EEF1;
-                    border-radius:999px;
-                    overflow:hidden;
-                ">
-                    <div style="
-                        width:${glowScore}%;
-                        height:100%;
-                        background:linear-gradient(90deg,#F8B7C8,#D9798C);
-                        border-radius:999px;
-                        transition:.4s;
-                    "></div>
-                </div>
-
-            </div>
+          </div>
 
         </div>
 
-        <!-- SOMMEIL -->
-        <div style="
-            background:rgba(255,255,255,.60);
-            border:1px solid rgba(255,255,255,.85);
-            border-radius:26px;
-            padding:24px;
-            box-shadow:var(--shadow);
-            margin-bottom:18px;
-        ">
+        <div class="glow-dashboard-details">
 
-            <h2 style="
-                font-family:'Cormorant Garamond',serif;
-                font-size:22px;
-                margin-bottom:18px;
-            ">
-                🌙 Sommeil
-            </h2>
+          <div
+            class="glow-dashboard-detail"
+            onclick="renderGlowHydratation()"
+            style="cursor:pointer"
+          >
+            <small>💧 Eau</small>
+            <strong>
+              ${score.detail.eau}/20
+            </strong>
+          </div>
 
-            <div style="
-                display:flex;
-                gap:8px;
-                flex-wrap:wrap;
-            ">
+          <div
+            class="glow-dashboard-detail"
+            onclick="renderGlowSport()"
+            style="cursor:pointer"
+          >
+            <small>🏃 Sport</small>
+            <strong>
+              ${score.detail.activite}/20
+            </strong>
+          </div>
 
-                ${[4,5,6,7,8,9].map(h => `
+          <div
+            class="glow-dashboard-detail"
+            onclick="renderGlowSommeil()"
+            style="cursor:pointer"
+          >
+            <small>🌙 Sommeil</small>
+            <strong>
+              ${score.detail.sommeil}/20
+            </strong>
+          </div>
 
-                    <button
-                        onclick="setSommeil(${h})"
-                        class="btn bg"
-                        style="
-                            min-width:60px;
-                            border-radius:16px;
-                            ${DB.glow.sommeil === h ? "background:#FFE5EF;" : ""}
-                        "
-                    >
-                        ${h} h
-                    </button>
+          <div
+            class="glow-dashboard-detail"
+            onclick="renderGlowNutrition()"
+            style="cursor:pointer"
+          >
+            <small>🍽️ Nutrition</small>
+            <strong>
+              ${score.detail.nutrition}/20
+            </strong>
+          </div>
 
-                `).join("")}
-
-            </div>
+          <div
+            class="glow-dashboard-detail"
+            onclick="goModule('lecture')"
+            style="cursor:pointer"
+          >
+            <small>📚 Lecture</small>
+            <strong>
+              ${score.detail.lecture}/10
+            </strong>
+          </div>
 
         </div>
 
+      </section>
 
 
-<!-- PROGRAMME RECOMMANDÉ -->
-<div style="
-    background:linear-gradient(135deg,#FFF0F5,#FFF9F7);
-    border:1px solid rgba(255,255,255,.90);
-    border-radius:26px;
-    padding:24px;
-    box-shadow:var(--shadow);
-    margin-bottom:18px;
-">
+      <!-- =====================
+           CARTES DU JOUR
+      ====================== -->
 
-    <div style="
-        font-size:11px;
-        text-transform:uppercase;
-        letter-spacing:.12em;
-        color:var(--acc);
-        font-weight:800;
-        margin-bottom:10px;
-    ">
-        🌸 Programme recommandé
-    </div>
+      <div class="glow-dashboard-grid">
 
-    <h2 style="
-        font-family:'Cormorant Garamond',serif;
-        font-size:26px;
-        margin-bottom:8px;
-    ">
-        ${recommandation.label}
-    </h2>
-
-    <div style="
-        font-size:13px;
-        color:var(--mut);
-        margin-bottom:18px;
-    ">
-        ${recommandation.raison}
-    </div>
-
-    <div style="margin-bottom:18px">
-
-    <div style="
-        font-size:12px;
-        font-weight:800;
-        color:var(--mut);
-        margin-bottom:9px;
-    ">
-        Quelle zone veux-tu travailler ?
-    </div>
-
-    <div style="
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-    ">
+        <!-- SPORT -->
 
         <button
-            class="btn bg"
-            onclick="setObjectifGlow('')"
-            style="
-                ${
-                    !DB.glow.activite?.objectifForce
-                        ? "background:#FFE5EF !important;color:var(--acc);"
-                        : ""
-                }
-            "
+          class="glow-dashboard-card"
+          onclick="renderGlowSport()"
         >
-            ✨ Automatique
+
+          <div class="glow-dashboard-card-top">
+
+            <div class="glow-dashboard-card-icon">
+              🏃
+            </div>
+
+            <span class="glow-dashboard-card-arrow">
+              →
+            </span>
+
+          </div>
+
+          <h3>Sport</h3>
+
+          <div class="glow-dashboard-card-value">
+            ${echapperTexteRepasGlow(
+              sportValeur
+            )}
+          </div>
+
+          <small class="glow-dashboard-card-sub">
+            ${echapperTexteRepasGlow(
+              sportSousTitre
+            )}
+          </small>
+
         </button>
 
-        ${[
-            ["taille", "🔥 Taille"],
-            ["fessiers", "🍑 Fessiers"],
-            ["posture", "🤍 Posture"],
-            ["jambes", "🦵 Jambes"]
-        ].map(zone => `
 
-            <button
-                class="btn bg"
-                onclick="setObjectifGlow('${zone[0]}')"
-                style="
-                    ${
-                        DB.glow.activite?.objectifForce === zone[0]
-                            ? "background:#FFE5EF !important;color:var(--acc);"
-                            : ""
-                    }
-                "
-            >
-                ${zone[1]}
-            </button>
+        <!-- NUTRITION -->
 
-        `).join("")}
+        <button
+          class="glow-dashboard-card"
+          onclick="renderGlowNutrition()"
+        >
 
-    </div>
+          <div class="glow-dashboard-card-top">
 
-</div>
-
-    <div style="
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-        margin-bottom:16px;
-    ">
-<div style="margin-bottom:18px">
-
-    <div style="
-        font-size:12px;
-        font-weight:800;
-        color:var(--mut);
-        margin-bottom:9px;
-    ">
-        Combien de temps as-tu aujourd’hui ?
-    </div>
-
-    <div style="
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-    ">
-
-        ${[10,15,20,30].map(minutes => `
-
-            <button
-                class="btn bg"
-                onclick="setTempsDisponibleGlow(${minutes})"
-                style="
-                    min-width:68px;
-                    justify-content:center;
-                    ${
-                        DB.glow.activite?.tempsDisponible === minutes
-                            ? "background:#FFE5EF !important;color:var(--acc);"
-                            : ""
-                    }
-                "
-            >
-                ${minutes} min
-            </button>
-
-        `).join("")}
-
-    </div>
-
-</div>
-        ${seanceRecommandee ? `
-
-    <div style="
-        background:rgba(255,255,255,.55);
-        border-radius:18px;
-        padding:14px 16px;
-        margin-bottom:16px;
-    ">
-
-        <div style="
-            font-size:16px;
-            font-weight:800;
-            margin-bottom:5px;
-        ">
-            ${seanceRecommandee.nom}
-        </div>
-
-        <div style="
-            font-size:12px;
-            color:var(--mut);
-            line-height:1.6;
-        ">
-            ⏱️ ${seanceRecommandee.duree} minutes<br>
-            ⭐ Niveau ${seanceRecommandee.niveau}<br>
-            🧰 ${
-                seanceRecommandee.materiel.length
-                    ? seanceRecommandee.materiel.join(", ")
-                    : "Sans matériel"
-            }
-        </div>
-
-    </div>
-
-   <button
-    class="btn"
-    onclick="commencerSeance('${seanceRecommandee.id}')"
->
-    ▶ Commencer la séance
-</button>
-
-` : `
-
-    <div style="font-size:13px;color:var(--mut)">
-        Aucune séance disponible pour le moment.
-    </div>
-
-`}
-
-</div>
-
-        <!-- HYDRATATION -->
-        <div style="
-            background:rgba(255,255,255,.60);
-            border:1px solid rgba(255,255,255,.85);
-            border-radius:26px;
-            padding:24px;
-            box-shadow:var(--shadow);
-        ">
-
-            <div style="
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                margin-bottom:20px;
-            ">
-
-                <h2 style="
-                    font-family:'Cormorant Garamond',serif;
-                    color:var(--txt);
-                    font-size:22px;
-                ">
-                    💧 Hydratation
-                </h2>
-
-                <div style="
-                    background:var(--bg2);
-                    color:var(--acc);
-                    padding:6px 12px;
-                    border-radius:20px;
-                    font-size:12px;
-                    font-weight:800;
-                ">
-                    ${eau * 250} mL / 2 L
-                </div>
-
+            <div class="glow-dashboard-card-icon">
+              🍽️
             </div>
 
-            <div style="
-                display:flex;
-                flex-wrap:wrap;
-                gap:4px;
-                margin-bottom:16px;
-            ">
-                ${ronds}
+            <span class="glow-dashboard-card-arrow">
+              →
+            </span>
+
+          </div>
+
+          <h3>Nutrition</h3>
+
+          <div class="glow-dashboard-card-value">
+            ${nutritionValeur}
+          </div>
+
+          <small class="glow-dashboard-card-sub">
+            ${echapperTexteRepasGlow(
+              nutritionSousTitre
+            )}
+          </small>
+
+        </button>
+
+
+        <!-- SOINS -->
+
+        <button
+          class="glow-dashboard-card"
+          onclick="renderGlowSoins()"
+        >
+
+          <div class="glow-dashboard-card-top">
+
+            <div class="glow-dashboard-card-icon">
+              🧖‍♀️
             </div>
 
-            <div style="font-size:13px;color:var(--mut)">
-                ${eau} / 8 verres
+            <span class="glow-dashboard-card-arrow">
+              →
+            </span>
+
+          </div>
+
+          <h3>Soins</h3>
+
+          <div class="glow-dashboard-card-value">
+            ${echapperTexteRepasGlow(
+              soinsValeur
+            )}
+          </div>
+
+          <small class="glow-dashboard-card-sub">
+            ${echapperTexteRepasGlow(
+              soinsSousTitre
+            )}
+          </small>
+
+        </button>
+
+
+        <!-- DRESSING -->
+
+        <button
+          class="glow-dashboard-card"
+          onclick="renderGlowDressing()"
+        >
+
+          <div class="glow-dashboard-card-top">
+
+            <div class="glow-dashboard-card-icon">
+              👗
             </div>
 
-        </div>
-    `;
+            <span class="glow-dashboard-card-arrow">
+              →
+            </span>
+
+          </div>
+
+          <h3>Dressing</h3>
+
+          <div class="glow-dashboard-card-value">
+            ${dressingValeur}
+          </div>
+
+          <small class="glow-dashboard-card-sub">
+            ${echapperTexteRepasGlow(
+              dressingSousTitre
+            )}
+          </small>
+
+        </button>
+
+
+        <!-- SOMMEIL -->
+
+        <button
+          class="glow-dashboard-card"
+          onclick="renderGlowSommeil()"
+        >
+
+          <div class="glow-dashboard-card-top">
+
+            <div class="glow-dashboard-card-icon">
+              🌙
+            </div>
+
+            <span class="glow-dashboard-card-arrow">
+              →
+            </span>
+
+          </div>
+
+          <h3>Sommeil</h3>
+
+          <div class="glow-dashboard-card-value">
+            ${echapperTexteRepasGlow(
+              sommeilValeur
+            )}
+          </div>
+
+          <small class="glow-dashboard-card-sub">
+            ${echapperTexteRepasGlow(
+              sommeilSousTitre
+            )}
+          </small>
+
+        </button>
+
+
+        <!-- EVOLUTION -->
+
+        <button
+          class="glow-dashboard-card"
+          onclick="renderGlowEvolution()"
+        >
+
+          <div class="glow-dashboard-card-top">
+
+            <div class="glow-dashboard-card-icon">
+              📈
+            </div>
+
+            <span class="glow-dashboard-card-arrow">
+              →
+            </span>
+
+          </div>
+
+          <h3>Évolution</h3>
+
+          <div class="glow-dashboard-card-value">
+            ${glowScore}%
+          </div>
+
+          <small class="glow-dashboard-card-sub">
+            ${echapperTexteRepasGlow(
+              evolutionSousTitre
+            )}
+          </small>
+
+        </button>
+
+      </div>
+
+
+      <!-- =====================
+           RACCOURCIS
+      ====================== -->
+
+      <div class="glow-dashboard-shortcuts">
+
+        <button
+          class="btn bg"
+          onclick="renderGlowHydratation()"
+        >
+          💧 ${eau}/8 verres
+        </button>
+
+        <button
+          class="btn bg"
+          onclick="renderPlanificationRepasGlow()"
+        >
+          🍽️ Planifier mes repas
+        </button>
+
+        <button
+          class="btn bg"
+          onclick="renderGlowIngredients()"
+        >
+          ❤️ Mes ingrédients
+        </button>
+
+      </div>
+
+    </div>
+  `;
 }
 
 async function renderGlowHydratation(){
