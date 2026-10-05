@@ -565,6 +565,246 @@ textarea:focus {
   .view { padding: 16px 14px 104px; }
 }
 
+/* ===== GLOW DASHBOARD ===== */
+
+.glow-dashboard{
+  max-width:1100px;
+  margin:0 auto;
+}
+
+.glow-dashboard-score{
+  position:relative;
+  overflow:hidden;
+  padding:26px;
+  margin-bottom:16px;
+  border-radius:30px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(238,249,243,.78),
+      rgba(244,248,255,.72),
+      rgba(255,250,248,.74)
+    );
+  border:1px solid var(--emma-border);
+  box-shadow:var(--emma-shadow);
+  backdrop-filter:blur(25px);
+}
+
+.glow-dashboard-score::after{
+  content:"";
+  position:absolute;
+  width:280px;
+  height:280px;
+  right:-90px;
+  top:-120px;
+  border-radius:50%;
+  background:
+    radial-gradient(
+      circle,
+      rgba(159,202,178,.32),
+      transparent 70%
+    );
+  pointer-events:none;
+}
+
+.glow-dashboard-score-main{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:24px;
+}
+
+.glow-dashboard-circle{
+  --score:0%;
+  width:120px;
+  height:120px;
+  min-width:120px;
+  padding:8px;
+  border-radius:50%;
+  background:
+    conic-gradient(
+      #9fcab2 var(--score),
+      rgba(255,255,255,.55) var(--score)
+    );
+  box-shadow:
+    0 12px 30px rgba(120,165,140,.13);
+}
+
+.glow-dashboard-circle-inner{
+  width:100%;
+  height:100%;
+  border-radius:50%;
+  background:rgba(255,255,255,.90);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+.glow-dashboard-circle-value{
+  font-size:29px;
+  font-weight:800;
+  line-height:1;
+  color:#759f89;
+}
+
+.glow-dashboard-circle-label{
+  margin-top:4px;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.12em;
+  color:var(--emma-muted);
+}
+
+.glow-dashboard-title{
+  font-family:'Cormorant Garamond',serif;
+  font-size:34px;
+  line-height:1;
+  margin:4px 0 7px;
+}
+
+.glow-dashboard-subtitle{
+  font-size:12px;
+  color:var(--emma-muted);
+}
+
+.glow-dashboard-details{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:8px;
+  margin-top:20px;
+}
+
+.glow-dashboard-detail{
+  padding:10px 8px;
+  border-radius:15px;
+  background:rgba(255,255,255,.48);
+  border:1px solid rgba(255,255,255,.84);
+  text-align:center;
+}
+
+.glow-dashboard-detail small{
+  display:block;
+  color:var(--emma-muted);
+  font-size:10px;
+}
+
+.glow-dashboard-detail strong{
+  display:block;
+  margin-top:3px;
+  font-size:15px;
+}
+
+.glow-dashboard-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:13px;
+}
+
+.glow-dashboard-card{
+  appearance:none;
+  width:100%;
+  min-height:155px;
+  padding:19px;
+  text-align:left;
+  cursor:pointer;
+  color:var(--emma-text);
+  border-radius:24px;
+  border:1px solid var(--emma-border);
+  background:rgba(255,255,255,.52);
+  box-shadow:var(--emma-shadow);
+  backdrop-filter:blur(22px);
+  position:relative;
+  overflow:hidden;
+}
+
+.glow-dashboard-card:hover{
+  transform:translateY(-3px);
+  box-shadow:var(--emma-shadow-hover);
+}
+
+.glow-dashboard-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+}
+
+.glow-dashboard-card-icon{
+  width:43px;
+  height:43px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+  background:rgba(255,255,255,.65);
+  border:1px solid rgba(255,255,255,.9);
+  font-size:20px;
+}
+
+.glow-dashboard-card-arrow{
+  color:var(--emma-muted);
+  font-size:17px;
+}
+
+.glow-dashboard-card h3{
+  margin:13px 0 4px;
+  font-size:14px;
+  font-weight:800;
+}
+
+.glow-dashboard-card-value{
+  font-family:'Cormorant Garamond',serif;
+  font-size:25px;
+  font-weight:700;
+  line-height:1.1;
+}
+
+.glow-dashboard-card-sub{
+  display:block;
+  margin-top:6px;
+  color:var(--emma-muted);
+  font-size:11px;
+  line-height:1.4;
+}
+
+.glow-dashboard-shortcuts{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:15px;
+}
+
+.glow-dashboard-shortcuts .btn{
+  background:rgba(255,255,255,.52) !important;
+}
+
+@media(max-width:700px){
+
+  .glow-dashboard-score-main{
+    align-items:flex-start;
+  }
+
+  .glow-dashboard-circle{
+    width:96px;
+    height:96px;
+    min-width:96px;
+  }
+
+  .glow-dashboard-details{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .glow-dashboard-grid{
+    grid-template-columns:1fr;
+  }
+
+  .glow-dashboard-title{
+    font-size:29px;
+  }
+}
 
 /* ===== GLOW CARD ===== */
 
