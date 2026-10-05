@@ -56735,7 +56735,7 @@ function alimentsRepasPlanGlow(repas){
 function repasPlanifieVersNutritionGlow(repas){
   if(!repas)return null;
   const aliments=alimentsRepasPlanGlow(repas);
-  return {nom:repas.nom||aliments.join(" · "),aliments,date:new Date(`${repas.date}T12:00:00`).toISOString(),sourcePlanId:repas.sourcePlanId||repas.resteDeId||repas.id,choixPlanId:repas.choixPlanId||repas.id,tempsPreparation:repas.tempsPreparation||20,tempsCuisson:0};
+  return {nom:repas.nom||aliments.join(" · "),aliments,date:new Date(`${repas.date}T12:00:00`).toISOString(),sourcePlanId:repas.sourcePlanId||repas.resteDeId||repas.id,choixPlanId:repas.choixPlanId||repas.id,tempsPreparation:repas.tempsPreparation??20,tempsCuisson:repas.tempsCuisson||0};
 }
 
 function choixRepasPlanifieDuJourGlow(type,date=dateLocaleISO()){
@@ -57563,6 +57563,7 @@ function normaliserRepasV2Glow(r){
   const recette=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId)||recettesDisponiblesPlanGlow().find(x=>cleAlimentGlow(x.nom)===cleAlimentGlow(r.nom));
   if(recette&&r.typeAliment!=='prepare'){
     r.recetteId=recette.id;r.nom=recette.nom;r.typeAliment='recette';r.ingredients=(recette.ingredients||[]).map(i=>typeof i==='string'?{nom:i,quantite:'',unite:''}:{...i});r.portionsBase=Number(recette.portions)||2;
+    for(const cle of ['tempsPreparation','tempsCuisson'])if(recette[cle]!==undefined&&Number.isFinite(Number(recette[cle])))r[cle]=Math.max(0,Number(recette[cle]));
   }
   if(r.typeAliment==='prepare'){
     r.recetteId=null;r.ingredients=[{nom:r.nom,quantite:Math.max(1,Number(r.portionsBase)||2),unite:'portion'}];r.assiette={};
@@ -57991,7 +57992,8 @@ Propose pour ${
                   } de ${r.personnes || 2} personne(s).
 
 Assiette refusée :
-${JSON.stringify(r.assiette || r.nom)}.
+${JSON.stringify({nom:r.nom,recetteId:r.recetteId,assiette:r.assiette||{},ingredients:r.ingredients||[]})}.
+Pour le mode 15min, préparation + cuisson doivent durer au maximum 15 minutes au total. Donne tempsPreparation et tempsCuisson comme nombres de minutes.
 
 Ingrédients déjà utilisés dans les autres repas et à privilégier :
 ${JSON.stringify(autres)}.
@@ -58014,6 +58016,7 @@ Réponds uniquement en JSON valide sans backticks :
   "typeAliment":"recette|prepare|repas",
   "recetteId":null,
   "tempsPreparation":20,
+  "tempsCuisson":0,
   "assiette":{
     "proteine":"",
     "legumes":"",
@@ -58060,6 +58063,9 @@ Réponds uniquement en JSON valide sans backticks :
     const proposition = JSON.parse(match[0]);
     if(signatureRepasGlow(r)!==signatureAvant)throw new Error('Ce repas a changé pendant la recherche. Réessaie.');
     const candidat=normaliserRepasV2Glow({...proposition,personnes:r.personnes,portionsBase:r.personnes||2,typeAliment:proposition.typeAliment||'repas'});
+    const tempsTotal=Number(candidat.tempsPreparation)+Number(candidat.tempsCuisson||0);
+    if(mode==='15min'&&(!Number.isFinite(tempsTotal)||tempsTotal>15))throw new Error('Cette proposition dépasse 15 minutes. Le repas actuel est conservé.');
+    if(mode==='accompagnement'&&r.assiette?.proteine&&cleAlimentGlow(candidat.assiette?.proteine)!==cleAlimentGlow(r.assiette.proteine))throw new Error('Le plat principal a changé. Le repas actuel est conservé.');
     const ancienneSource=trouverRepasPlanGlow(r.resteDeId);
 
     r.nom = String(
@@ -58101,7 +58107,7 @@ Réponds uniquement en JSON valide sans backticks :
     delete r.resteDeId;
 
     r.recetteId = candidat.recetteId||null;
-    r.typeAliment=candidat.typeAliment;r.portionsBase=candidat.portionsBase;r.tempsPreparation=Number(candidat.tempsPreparation)||20;
+    r.typeAliment=candidat.typeAliment;r.portionsBase=candidat.portionsBase;r.tempsPreparation=Number(candidat.tempsPreparation)||20;r.tempsCuisson=Number(candidat.tempsCuisson)||0;
     actualiserDependancesRepasGlow(r);if(ancienneSource)delete ancienneSource.recetteGeneree;
 
     await sauvegarderExtensionGlow(

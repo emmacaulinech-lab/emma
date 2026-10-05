@@ -159,6 +159,12 @@ await test('Actual session completion writes shared occurrence IDs and prevents 
   context.DB.glow.entrainement={actif:true};await context.validerFinSeanceGlow();assert.equal(context.DB.glow.historiqueSeances.length,2);assert.equal(context.DB.historiqueGlow.length,2);assert.equal(context.bilanSportJourGlow().minutes,30);
   assert.equal(context.DB.glow.historiqueSeances[0].realisationId,context.DB.historiqueGlow[0].realisationId);assert.notEqual(context.DB.glow.historiqueSeances[0].realisationId,context.DB.glow.historiqueSeances[1].realisationId);
 });
+await test('15-minute option rejects a slower recipe without changing the meal',async()=>{
+  plan();const avant=JSON.stringify(d().planActif.repas[0]);context.fetch=async()=>response({nom:'Poulet',typeAliment:'recette',tempsPreparation:10,tempsCuisson:20,ingredients:[{nom:'Poulet',quantite:300,unite:'g'}]});await context.proposerNouvelleAssietteGlow('a',node(),'15min');assert.equal(JSON.stringify(d().planActif.repas[0]),avant);assert.equal(vm.runInContext('operationsEmmaEnCours',context),0);
+});
+await test('Alternative accompaniment keeps the existing main protein',async()=>{
+  plan();d().planActif.repas[0].assiette={proteine:'Blanc de poulet'};const avant=JSON.stringify(d().planActif.repas[0]);context.fetch=async()=>response({nom:'Saumon',assiette:{proteine:'Saumon'},ingredients:[{nom:'Saumon',quantite:2,unite:'pièce'}]});await context.proposerNouvelleAssietteGlow('a',node(),'accompagnement');assert.equal(JSON.stringify(d().planActif.repas[0]),avant);
+});
 console.log(`${passed} passed, ${failed} failed. Firebase is mocked; no production writes.`);
 if(process.env.BUNDLE_OUTPUT)fs.writeFileSync(process.env.BUNDLE_OUTPUT,declarations);
 process.exitCode=failed?1:0;
