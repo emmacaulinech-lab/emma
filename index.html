@@ -24834,22 +24834,10 @@ function getContexteSportGlow(){
     if(etat === "courbaturee") objectif = "posture";
     if(etat !== "forme") temps = Math.min(temps,10);
 
-    const disponibles = (DB.glowSeances || []).filter(s => s.objectif === objectif);
-    let seance = disponibles.find(s => Number(s.duree) === temps);
-    if(!seance){
-        seance = [...disponibles].sort((a,b) =>
-            Math.abs(Number(a.duree)-temps) - Math.abs(Number(b.duree)-temps)
-        )[0] || null;
-    }
-
-    // Posture et Jambes n'ont pas encore de séances fixes : on prévisualise
-    // alors la séance dynamique au lieu d'afficher « aucune séance ».
-    if(!seance){
-        seance = genererSeanceGlow(objectif,temps);
-        glowSeancePreview = seance;
-    }else{
-        glowSeancePreview = null;
-    }
+    // Chaque proposition est maintenant construite depuis toute la bibliothèque
+    // afin de varier les mouvements, plutôt que de recycler la même séance fixe.
+    const seance = genererSeanceGlow(objectif,temps);
+    glowSeancePreview = seance;
 
     const labels = {taille:"la taille",fessiers:"les fessiers",posture:"la posture",jambes:"les jambes"};
     let raison = recommandation.raison;
@@ -30799,22 +30787,30 @@ function calculerPlanTempsSeanceGlow(seance){
 
     const totalSecondes = Number(seance.duree || 0) * 60;
 
-    const echauffements = seance.exercices.filter(ex =>
+    // Les séances stockent des références {exerciceId}. On résout leur type
+    // avant la répartition, sinon l'étirement était traité comme exercice normal.
+    const exercicesResolus = seance.exercices.map((reference,index) => ({
+        ...reference,
+        ...(getExerciceGlow(reference.exerciceId || reference.id) || {}),
+        exerciceIndex:index
+    }));
+
+    const echauffements = exercicesResolus.filter(ex =>
         ex.type === "echauffement"
     );
 
-    const etirements = seance.exercices.filter(ex =>
+    const etirements = exercicesResolus.filter(ex =>
         ex.type === "etirement"
     );
 
-    const exercicesPrincipaux = seance.exercices.filter(ex =>
+    const exercicesPrincipaux = exercicesResolus.filter(ex =>
         ex.type !== "echauffement" &&
         ex.type !== "etirement"
     );
 
-    // Répartition du temps total
-    const tempsEchauffement = Math.round(totalSecondes * 0.12);
-    const tempsEtirement = Math.round(totalSecondes * 0.10);
+    // L'étirement final dure au maximum 2 minutes, quelle que soit la séance.
+    const tempsEchauffement = echauffements.length ? Math.min(120,Math.round(totalSecondes * 0.10)) : 0;
+    const tempsEtirement = etirements.length ? Math.min(120,Math.round(totalSecondes * 0.06)) : 0;
     const tempsPrincipal =
         totalSecondes -
         tempsEchauffement -
@@ -30845,7 +30841,7 @@ function calculerPlanTempsSeanceGlow(seance){
 
     let tempsDistribue = 0;
 
-    const plan = seance.exercices.map((exercice, index) => {
+    const plan = exercicesResolus.map((exercice, index) => {
 
         let dureeSecondes = 0;
         let reposSecondes = 0;
@@ -30886,7 +30882,10 @@ function calculerPlanTempsSeanceGlow(seance){
     const difference = totalSecondes - tempsDistribue;
 
     if(plan.length && difference !== 0){
-        plan[plan.length - 1].dureeSecondes += difference;
+        // Les arrondis sont absorbés par un exercice principal, jamais par
+        // l'étirement final afin de préserver son plafond de deux minutes.
+        const cible=[...plan].reverse().find(item=>exercicesResolus[item.exerciceIndex]?.type==="exercice")||plan[0];
+        cible.dureeSecondes=Math.max(1,cible.dureeSecondes+difference);
     }
 
     return plan;
