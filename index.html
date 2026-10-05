@@ -56830,9 +56830,168 @@ function trouverRepasPlanGlow(id){return DB.glowNutritionPlans?.planActif?.repas
 async function modifierPersonnesRepasGlow(id,nombre){const r=trouverRepasPlanGlow(id);if(!r)return;r.personnes=Math.max(1,Number(nombre||1));await sauvegarderExtensionGlow("glowNutritionPlans")}
 async function changerStatutRepasGlow(id,statut){const r=trouverRepasPlanGlow(id);if(!r)return;r.statut=statut;if(statut==='restes'){const repas=DB.glowNutritionPlans.planActif?.repas||[],index=repas.findIndex(x=>x.id===id),source=[...repas.slice(0,index)].reverse().find(x=>!['restes','absent'].includes(x.statut));if(!source){toast("Aucun repas précédent disponible pour les restes");r.statut="garder";return}r.resteDeId=source.id;r.nom=`Restes de ${source.nom}`;r.ingredients=[];r.assiette={}}else if(statut==='absent'){delete r.resteDeId;r.nom="Je ne mange pas à la maison"}else{delete r.resteDeId;const recette=recettesDisponiblesPlanGlow().find(x=>x.id===r.recetteId);if(recette)r.nom=recette.nom}await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
 
-function choixAssietteGlowHTML(champ,valeur){
+function choixAssietteGlowHTML(champ, valeur){
+
   const options = optionsAssietteDisponiblesGlow(champ);
-  return `<input id="assiette-${champ}" type="hidden" value="${echapperTexteRepasGlow(valeur||'')}"><div style="display:flex;gap:7px;flex-wrap:wrap">${options.map(option=>`<button type="button" class="btn ${(valeur||'')===option?'bd':'bg'} bsm" onclick="selectionnerChoixAssietteGlow('${champ}',${JSON.stringify(option)},this)">${echapperTexteRepasGlow(option)}</button>`).join('')}</div>`;
+
+  const normaliser = texte =>
+    String(texte || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const valeurNormalisee = normaliser(valeur);
+
+  let optionSelectionnee = options.find(
+    option =>
+      normaliser(option) === valeurNormalisee
+  );
+
+  /*
+    Si l'IA a utilisé une formulation légèrement différente,
+    on essaie de retrouver automatiquement l'option correspondante.
+  */
+  if(!optionSelectionnee && valeurNormalisee){
+
+    optionSelectionnee = options.find(option => {
+
+      const o = normaliser(option);
+
+      if(!o || o === "aucun"){
+        return false;
+      }
+
+      return (
+        valeurNormalisee.includes(o) ||
+        o.includes(valeurNormalisee)
+      );
+    });
+  }
+
+  /*
+    Correspondances fréquentes entre ce que l'IA peut écrire
+    et les boutons disponibles dans EMMA.
+  */
+  if(!optionSelectionnee && valeurNormalisee){
+
+    const correspondances = {
+
+      proteine: {
+        "poulet": "Blanc de poulet",
+        "filet de poulet": "Blanc de poulet",
+        "escalope de poulet": "Blanc de poulet",
+        "steak": "Steak haché",
+        "oeuf": "Œufs",
+        "oeufs": "Œufs",
+        "filet de poisson": "Poisson blanc"
+      },
+
+      legumes: {
+        "courgette": "Courgettes",
+        "haricot vert": "Haricots verts",
+        "haricots vert": "Haricots verts",
+        "carotte": "Carottes",
+        "tomate": "Tomates",
+        "epinard": "Épinards",
+        "champignon": "Champignons"
+      },
+
+      feculent: {
+        "pomme de terre": "Pommes de terre",
+        "pommes de terre": "Pommes de terre",
+        "patates": "Pommes de terre",
+        "patate douce": "Patate douce",
+        "pate": "Pâtes",
+        "pates": "Pâtes"
+      },
+
+      complement: {
+        "yaourt": "Sauce yaourt",
+        "sauce au yaourt": "Sauce yaourt",
+        "creme": "Crème",
+        "fromage": "Fromage râpé",
+        "fromage rape": "Fromage râpé"
+      },
+
+      plaisirSucre: {
+        "chocolat": "Carrés de chocolat",
+        "carres de chocolat": "Carrés de chocolat",
+        "yaourt": "Yaourt sucré",
+        "yaourt sucre": "Yaourt sucré",
+        "glace": "Glace",
+        "dessert": "Dessert maison",
+        "dessert maison": "Dessert maison"
+      }
+    };
+
+    const correspondancesChamp =
+      correspondances[champ] || {};
+
+    for(const [mot, option] of Object.entries(
+      correspondancesChamp
+    )){
+
+      if(valeurNormalisee.includes(mot)){
+
+        const existe = options.find(
+          o => normaliser(o) === normaliser(option)
+        );
+
+        if(existe){
+          optionSelectionnee = existe;
+          break;
+        }
+      }
+    }
+  }
+
+  /*
+    IMPORTANT :
+    le champ caché contient l'option reconnue si elle existe,
+    sinon la valeur originale.
+  */
+  const valeurFinale =
+    optionSelectionnee || valeur || "";
+
+  return `
+    <input
+      id="assiette-${champ}"
+      type="hidden"
+      value="${echapperTexteRepasGlow(valeurFinale)}"
+    >
+
+    <div
+      style="
+        display:flex;
+        gap:7px;
+        flex-wrap:wrap
+      "
+    >
+
+      ${options.map(option => {
+
+        const selectionne =
+          option === optionSelectionnee;
+
+        return `
+          <button
+            type="button"
+            class="btn ${selectionne ? "bd" : "bg"} bsm"
+            onclick='selectionnerChoixAssietteGlow(
+              ${JSON.stringify(champ)},
+              ${JSON.stringify(option)},
+              this
+            )'
+          >
+            ${echapperTexteRepasGlow(option)}
+          </button>
+        `;
+
+      }).join("")}
+
+    </div>
+  `;
 }
 function selectionnerChoixAssietteGlow(champ,valeur,bouton){const input=document.getElementById(`assiette-${champ}`);if(input)input.value=valeur;bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.remove('bd'));bouton?.parentElement?.querySelectorAll('button').forEach(b=>b.classList.add('bg'));bouton?.classList.remove('bg');bouton?.classList.add('bd')}
 function ouvrirCompositionRepasGlow(id){
