@@ -32,6 +32,21 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('Journal: automatic recollage leaves planned hours and data unchanged',async()=>{
+  context.DB.journal={planning:{},faitAujourdhui:{}};const date='2026-10-05';
+  context.DB.journal.planning[date]=[{id:'maison',nom:'Maison',heureDebut:'08:00',heureFin:'08:15',duree:15,flexible:true},{id:'travail',type:'pro',heureDebut:'09:00',heureFin:'18:00'}];
+  const avant=JSON.stringify(context.DB.journal),nb=writes.length;
+  assert.equal(await context.decalerTachesEnRetardAutomatiquementEmma(),false);
+  assert.equal(await context.recollerTachesMaisonJournal({automatique:true,date}),false);
+  assert.equal(JSON.stringify(context.DB.journal),avant);assert.equal(writes.length,nb);
+});
+await test('Journal: completed early task moves before now without moving pending tasks',()=>{
+  const date='2026-10-05',pending={id:'pending',heureDebut:'19:00',heureFin:'19:15',duree:15};
+  const done={id:'done',heureDebut:'20:00',heureFin:'20:10',heurePrevueDebut:'20:00',realiseTimestamp:1,duree:10};
+  context.DB.journal.planning[date]=[pending,done];
+  context.repositionnerTachesFaitesAvantMaintenant(date,12*60);
+  assert.equal(done.heureDebut,'11:50');assert.equal(done.heureFin,'12:00');assert.equal(pending.heureDebut,'19:00');assert.equal(pending.heureFin,'19:15');
+});
 await test('Full monolith parses; no data/main mutation call',()=>{
   let forbidden=[];
   function walk(n){if(!n||typeof n!=='object')return;if(n.type==='CallExpression'&&n.callee?.type==='MemberExpression'&&['set','update','delete','add'].includes(n.callee.property.name)&&/collection\(['"]data['"]\)\s*\.doc\(['"]main['"]\)/.test(script.slice(n.callee.start,n.callee.end)))forbidden.push(n.start);for(const v of Object.values(n)){if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object')walk(v);}}

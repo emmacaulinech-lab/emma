@@ -45498,6 +45498,8 @@ let recalageAutomatiqueEmmaASauvegarder=false;
 async function recollerTachesMaisonJournal(options={}){
 
     const automatique=options.automatique===true;
+    // Les horaires validés ne changent que sur demande explicite.
+    if(automatique)return false;
     const silencieux=options.silencieux===true;
     const date=options.date||getJournalJour();
 
@@ -45951,23 +45953,8 @@ async function recollerTachesMaisonJournal(options={}){
 let recalageAutomatiqueEmmaEnCours=false;
 
 async function decalerTachesEnRetardAutomatiquementEmma(){
-    if(recalageAutomatiqueEmmaEnCours||document.hidden||!chargementReussi||!firebase.auth().currentUser){
-        return false;
-    }
-
-    recalageAutomatiqueEmmaEnCours=true;
-    try{
-        return await recollerTachesMaisonJournal({
-            automatique:true,
-            silencieux:true,
-            date:new Date().toLocaleDateString('fr-CA')
-        });
-    }catch(error){
-        console.error('Décalage automatique du planning impossible',error);
-        return false;
-    }finally{
-        recalageAutomatiqueEmmaEnCours=false;
-    }
+    // Point d'entrée conservé pour les anciens appels au chargement/reprise.
+    return false;
 }
 
 window.addEventListener('load',()=>{
