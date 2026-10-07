@@ -32,6 +32,26 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('Nutrition history groups actual meals by date, newest first, without duplicates from sport records',()=>{
+  const old=context.DB.historiqueGlow,current=context.DB.glow;
+  context.DB.historiqueGlow=[{date:'2026-10-03',nutrition:{repas:[{type:'diner',aliments:[{nom:'Lasagnes'}]}]}},{date:'2026-10-04',nutrition:{repas:[{type:'dejeuner',aliments:[{nom:'Poulet'}]}]}},{date:'2026-10-04',seanceId:'sport',minutes:15}];
+  context.DB.glow={date:'2026-10-05',nutrition:{repas:[{type:'diner',aliments:[{nom:'Riz'}]}]}};
+  const avant=JSON.stringify(context.DB.historiqueGlow),jours=context.joursHistoriqueNutritionGlow();
+  assert.deepEqual(Array.from(jours,j=>j.date),['2026-10-05','2026-10-04','2026-10-03']);assert.equal(jours[1].repas.length,1);assert.equal(JSON.stringify(context.DB.historiqueGlow),avant);
+  context.DB.historiqueGlow=old;context.DB.glow=current;
+});
+await test('Nutrition history uses current day truth and ignores plans and empty days',()=>{
+  const old=context.DB.historiqueGlow,current=context.DB.glow;
+  context.DB.historiqueGlow=[{date:'2026-10-05',nutrition:{repas:[{nom:'Ancien repas'}]}},{date:'2026-10-04',nutrition:{repas:[]}}];
+  context.DB.glow={date:'2026-10-05',nutrition:{repas:[{nom:'Repas corrigé'}]}};
+  const jours=context.joursHistoriqueNutritionGlow();assert.equal(jours.length,1);assert.equal(jours[0].repas[0].nom,'Repas corrigé');
+  context.DB.historiqueGlow=old;context.DB.glow=current;
+});
+await test('Saving current Glow also persists archived meals in the same module write',async()=>{
+  const old=context.DB.historiqueGlow;context.DB.historiqueGlow=[{date:'2026-10-04',nutrition:{repas:[{type:'diner',aliments:[{nom:'Lasagnes',quantite:1}]}]},unknown:'preserved'}];
+  assert.equal(await context.sauvegarderChampSeul('glow',JSON.stringify(context.DB.glow)),true);
+  const saved=storage.get('modules/glow');assert.equal(JSON.parse(saved.historique)[0].nutrition.repas[0].aliments[0].nom,'Lasagnes');assert.equal(JSON.parse(saved.historique)[0].unknown,'preserved');context.DB.historiqueGlow=old;
+});
 await test('Week layout handles overlaps and missing hours without mutating planning',()=>{
   const blocs=[{id:'a',heureDebut:'09:00',heureFin:'10:00'},{id:'b',heureDebut:'09:30',heureFin:'11:00'},{id:'c',heureDebut:'12:00',heureFin:'13:00'},{id:'sans-heure'}];
   const avant=JSON.stringify(blocs),r=context.assignerColonnesPlanning(blocs);

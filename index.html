@@ -9130,6 +9130,8 @@ async function sauvegarderChampSeul(nomChamp, valeur){
     if(nomChamp === 'glow'){
       await userRef.collection('modules').doc('glow').set({
         data: valeur,
+        // Conserve aussi la journée archivée lors du passage au jour suivant.
+        ...(chargementReussi?{historique:JSON.stringify(DB.historiqueGlow||[])}:{}),
         updatedAt
       }, {merge:true});
 
@@ -27983,6 +27985,29 @@ function renderGlowEvolution(){
   document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total}%</h1><p style="color:var(--mut)">Hydratation, sommeil, sport, repas renseignés et lecture composent maintenant ton score. Humeur et photo n’entrent plus dans le calcul.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
 }
 
+function joursHistoriqueNutritionGlow(){
+    const parDate=new Map();
+    for(const jour of DB.historiqueGlow||[]){
+        if(/^\d{4}-\d{2}-\d{2}$/.test(jour?.date||'')&&Array.isArray(jour.nutrition?.repas)){
+            parDate.set(jour.date,{date:jour.date,repas:jour.nutrition.repas});
+        }
+    }
+    if(DB.glow?.date&&Array.isArray(DB.glow.nutrition?.repas)){
+        parDate.set(DB.glow.date,{date:DB.glow.date,repas:DB.glow.nutrition.repas});
+    }
+    return [...parDate.values()].filter(j=>j.repas.length).sort((a,b)=>b.date.localeCompare(a.date));
+}
+
+function renderHistoriqueNutritionGlow(date=''){
+    initialiserGlowDuJour();
+    const jours=joursHistoriqueNutritionGlow().filter(j=>!date||j.date===date);
+    document.getElementById('glow-content').innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px"><button class="btn bg" onclick="renderGlowNutrition()">← Nutrition</button><button class="btn bg" onclick="renderPlanificationRepasGlow()">Planning</button></div><h2>Historique des repas</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px 0"><label for="nutrition-historique-date">Date</label><input id="nutrition-historique-date" type="date" value="${echapperTexteRepasGlow(date)}" onchange="renderHistoriqueNutritionGlow(this.value)"><button class="btn bg" onclick="renderHistoriqueNutritionGlow()">Toutes les dates</button></div>${jours.length?jours.map(j=>`<section style="padding:16px 0;border-bottom:1px solid var(--brd2)"><h3 style="margin-bottom:10px">${echapperTexteRepasGlow(new Date(j.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}))}</h3>${j.repas.map(r=>{
+        const instant=r.heure?new Date(r.heure):null;
+        const heure=instant&&!Number.isNaN(instant.getTime())?instant.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
+        return `<div style="padding:10px 0"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${echapperTexteRepasGlow(getNomTypeRepasGlow(r.type)||r.type||'Repas')}</strong><small style="color:var(--mut)">${echapperTexteRepasGlow(heure)}</small></div>${r.nom?`<div>${echapperTexteRepasGlow(r.nom)}</div>`:''}<ul style="padding-left:20px;margin:6px 0">${(r.aliments||[]).map(a=>`<li style="margin:3px 0;overflow-wrap:anywhere">${echapperTexteRepasGlow(typeof a==='string'?a:[a.nom,a.quantite,a.unite].filter(x=>x!==undefined&&x!==null&&x!=='').join(' · '))}</li>`).join('')}</ul></div>`;
+    }).join('')}</section>`).join(''):'<div class="empty">Aucun repas enregistré pour cette période.</div>'}`;
+}
+
 function renderGlowNutrition(){
 
     initialiserGlowDuJour();
@@ -28067,6 +28092,8 @@ function renderGlowNutrition(){
   >
     🥕 Bibliothèque alimentaire
   </button>
+
+  <button class="btn bg" onclick="renderHistoriqueNutritionGlow()" style="justify-content:center;min-height:52px">Historique des repas</button>
 
 </div>
 
