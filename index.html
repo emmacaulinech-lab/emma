@@ -31518,9 +31518,8 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
     const minutesEcoulees = entrainement.demarreeA
         ? Math.max(1,Math.round((Date.now()-Number(entrainement.demarreeA))/60000))
         : Number(seance.duree || 0);
-    const minutesRetenues = partielle
-        ? Math.min(Number(seance.duree || minutesEcoulees),minutesEcoulees)
-        : Number(seance.duree || minutesEcoulees);
+    const minutesPlanRealise=Array.isArray(entrainement.indicesRealises)?(entrainement.planTemps||calculerPlanTempsSeanceGlow(seance)).filter(p=>entrainement.indicesRealises.includes(p.exerciceIndex)).reduce((n,p)=>n+p.dureeSecondes+p.reposSecondes,0)/60:Number(seance.duree||minutesEcoulees);
+    const minutesRetenues=partielle?Math.min(minutesPlanRealise,minutesEcoulees):minutesPlanRealise;
     const referencesRealisees=(seance.exercices||[]).filter((ref,i)=>entrainement.indicesRealises?.includes(i)||(!entrainement.indicesRealises&&!partielle));
     const ancienNiveau = Number(DB.glow.activite?.niveau || 1);
     const semaineRecente=historiqueSportV2Glow().filter(e=>e.date>=dateLocaleISO(new Date(Date.now()-7*86400000))&&e.objectif===seance.objectif);
@@ -56363,7 +56362,7 @@ async function validerConsommationV2Glow(bouton){
         const choisi=repasPrevuExpliciteGlow(d.type);
         const cle=choisi?.choixRepasId||d.planId&&`consomme_${dateLocaleISO()}_${d.planId}`;
         if(cle&&DB.glow.nutrition.repas.some(r=>r.choixRepasId===cle))throw Error('Ce repas est déjà enregistré.');
-        const entree={id:`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients,ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:dateLocaleISO(),heure:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2'};
+        const entree={id:`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients.map(i=>({...i,quantite:Math.round(Number(i.quantite)*d.portion/d.portions*100)/100})),ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:dateLocaleISO(),heure:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2'};
         DB.glow.nutrition.repas.push(entree);
         if(choisi){choisi.consomme=true;choisi.choixRepasId=cle;}
         if(['dejeuner','diner'].includes(d.type)&&DB.journal){const date=dateLocaleISO();const bloc=(DB.journal.planning?.[date]||[]).find(b=>b.id===`glow_${d.type}_${date}`);if(bloc){DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;}}
