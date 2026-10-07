@@ -38397,6 +38397,7 @@ async function validerAjoutRdvRapide(){
 
   DB.journal.planning[date].push({
     id:genId(),customNom:nom,aClasser:true,
+    rendezVous:true,flexible:false,verrouille:true,
     heureDebut:place.heureDebut,heureFin:place.heureFin,duree,
     iconOverride:'📌',couleurOverride:'#993556'
   });
@@ -42502,11 +42503,13 @@ function trouverSousTacheParNomRoutineEmma(nom){
     return null;
 }
 
-function placerRoutineSansConflitEmma(date,heure,duree,ignorerId=null){
+function placerRoutineSansConflitEmma(date,heure,duree,ignorerId=null,maison=false){
     const occupes=(DB.journal?.planning?.[date]||[])
         .filter(bloc=>bloc.id!==ignorerId&&bloc.heureDebut&&bloc.heureFin)
         .map(bloc=>({debut:strToMin(bloc.heureDebut),fin:strToMin(bloc.heureFin)}))
         .sort((a,b)=>a.debut-b.debut);
+    const plage=maison?plageClientesMaisonEmma(date):null;
+    if(plage)occupes.push(plage);
     const maintenant=new Date();
     const aujourdHui=maintenant.toLocaleDateString('fr-CA');
     let debut=strToMin(heure);
@@ -42556,7 +42559,7 @@ function appliquerRoutinesFixesEmma(date){
         const doitRepositionner=!existant||!existant.routineFixe||
             existant.heureCible!==config.heure||conflitExistant;
         const place=doitRepositionner
-            ? placerRoutineSansConflitEmma(date,config.heure,config.duree,existant?.id||null)
+            ? placerRoutineSansConflitEmma(date,config.heure,config.duree,existant?.id||null,zone.typeDefaut!=='pro')
             : {heureDebut:existant.heureDebut,heureFin:existant.heureFin};
         const bloc=existant||{id:`routine_${st.id}_${date}`};
         Object.assign(bloc,{
@@ -42892,6 +42895,8 @@ if(plagesTaches.length){
 
         const finElement =
             debut + element.duree;
+
+        if(estTacheMaisonPlanningEmma(element)&&chevaucheClientesMaisonEmma(date,debut,finElement))return -9999;
 
         let score = 0;
 
@@ -45706,6 +45711,9 @@ async function recollerTachesMaisonJournal(options={}){
 
     const estBlocFixe = bloc => {
 
+        if(estRendezVousPlanningEmma(bloc)||bloc.enCoursEmma===true)return true;
+        if(estTacheMaisonPlanningEmma(bloc)&&bloc.heureDebut&&bloc.heureFin&&chevaucheClientesMaisonEmma(date,heureVersMinutes(bloc.heureDebut),heureVersMinutes(bloc.heureFin)))return false;
+
         return !!(
 
             bloc.routineFixe ||
@@ -45993,7 +46001,8 @@ async function recollerTachesMaisonJournal(options={}){
             placerSansChevauchement(
                 date,
                 curseur,
-                duree
+                duree,
+                bloc
             );
 
 
@@ -49444,10 +49453,39 @@ function minutesToHeureStr(minutes){
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
-function placerSansChevauchement(jour,heureDebutSouhaite,duree){
+function estRendezVousPlanningEmma(bloc){
+  return !!bloc&&(bloc.rendezVous===true||bloc.source==='planity'||bloc.typeElement==='planity'||['rdv','rendezVous','evenement'].includes(bloc.categorie)||bloc.iconOverride==='📌'&&bloc.aClasser===true);
+}
+
+function estTacheMaisonPlanningEmma(bloc){
+  if(!bloc)return false;
+  if(bloc.categorie==='maison')return true;
+  const reference=trouverSousTacheJournalEmma(cleTachePlanningEmma(bloc));
+  return !!reference&&reference.zone.typeDefaut!=='pro'&&!['pro','travail'].includes(bloc.type)&&bloc.categorie!=='proAdmin';
+}
+
+function plageClientesMaisonEmma(date){
+  const rdv=(DB.journal?.planning?.[date]||[]).filter(b=>(b.source==='planity'||b.typeElement==='planity')&&b.heureDebut&&b.heureFin);
+  if(!rdv.length)return null;
+  return {debut:Math.min(...rdv.map(b=>strToMin(b.heureDebut))),fin:Math.max(...rdv.map(b=>strToMin(b.heureFin)))};
+}
+
+function chevaucheClientesMaisonEmma(date,debut,fin){
+  const plage=plageClientesMaisonEmma(date);
+  return !!plage&&debut<plage.fin&&fin>plage.debut;
+}
+
+function tacheDejaPlanifieeJourEmma(tache,date){
+  const cle=cleTachePlanningEmma(tache);
+  return !!cle&&(DB.journal?.planning?.[date]||[]).some(b=>cleTachePlanningEmma(b)===cle);
+}
+
+function placerSansChevauchement(jour,heureDebutSouhaite,duree,bloc=null){
   const existants=(DB.journal.planning[jour]||[]).map(p=>({
     debut:strToMin(p.heureDebut),fin:strToMin(p.heureFin)
   })).sort((a,b)=>a.debut-b.debut);
+  const plage=estTacheMaisonPlanningEmma(bloc)?plageClientesMaisonEmma(jour):null;
+  if(plage)existants.push(plage);
 
   let debut=strToMin(heureDebutSouhaite);
   let placed=false;
@@ -49680,7 +49718,7 @@ function ouvrirChoixTacheProEmma(module){
 
     const taches =
         toutesLesTaches.filter(
-            t => t.module === module
+            t => t.module === module&&!tacheDejaPlanifieeJourEmma(t,date)
         );
 
 
@@ -49878,6 +49916,8 @@ function selectionnerTacheProEmma(index){
         toast("⚠ Tâche introuvable");
         return;
     }
+
+    if(tacheDejaPlanifieeJourEmma(tache,getJournalJour()))return toast('Cette tâche est déjà dans la journée.');
 
 
     window._typeAjoutTacheEmma = {
@@ -50358,7 +50398,8 @@ function replacerTachesFlexiblesAutourBlocEmma(
             placerSansChevauchement(
                 date,
                 bloc.heureDebut,
-                duree
+                duree,
+                bloc
             );
 
 
@@ -50978,6 +51019,8 @@ async function validerNouvelleTacheEmma(){
         return;
     }
 
+    if(config.tacheOriginale&&tacheDejaPlanifieeJourEmma(config.tacheOriginale,date))return toast('Cette tâche est déjà dans la journée.');
+
 
     // =========================
     // NOM
@@ -51234,7 +51277,8 @@ async function validerAjoutTacheHeure(){
     item.aClasser=true;
   }
 
-  const place=placerSansChevauchement(today,heureDebut,duree);
+  if(tacheDejaPlanifieeJourEmma(item,today)&&item.stId)return toast('Cette tâche est déjà dans la journée.');
+  const place=placerSansChevauchement(today,heureDebut,duree,item);
   item.heureDebut=place.heureDebut;
   item.heureFin=place.heureFin;
   item.duree=duree;
@@ -51440,7 +51484,7 @@ async function togglePlanningFait(planningId){
     delete faitMap[planningId];
     delete faitMap[sousTacheId];
 
-    if(item.heurePrevueDebut){
+    if(item.heurePrevueDebut&&!estRendezVousPlanningEmma(item)){
       item.heureDebut=item.heurePrevueDebut;
       item.heureFin=item.heurePrevueFin;
     }
@@ -51479,8 +51523,7 @@ async function togglePlanningFait(planningId){
         );
     }
 
-    const finPrevue=strToMin(item.heureFin);
-    if(finPrevue>minuteActuelle){
+    if(estTacheMaisonPlanningEmma(item)&&!estRendezVousPlanningEmma(item)){
       item.heurePrevueDebut=item.heureDebut;
       item.heurePrevueFin=item.heureFin;
     }
@@ -51537,7 +51580,7 @@ async function togglePlanningFait(planningId){
 
 function repositionnerTachesFaitesAvantMaintenant(date,minuteActuelle){
   const faitesEnAvance=(DB.journal.planning?.[date]||[])
-    .filter(bloc=>bloc.heurePrevueDebut&&bloc.realiseTimestamp)
+    .filter(bloc=>!estRendezVousPlanningEmma(bloc)&&estTacheMaisonPlanningEmma(bloc)&&bloc.realiseTimestamp)
     .sort((a,b)=>Number(a.realiseTimestamp)-Number(b.realiseTimestamp));
 
   const dureeTotale=faitesEnAvance.reduce((total,bloc)=>total+Number(bloc.duree||5),0);

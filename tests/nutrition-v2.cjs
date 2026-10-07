@@ -32,6 +32,59 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('Real check/uncheck preserves RDV hours and restores Maison planned hours',async()=>{
+  const noms=['dedupliquerPlanningEmma','nettoyerCopiesTachesFaitesEmma','marquerEquivalentsCatalogueFaitsEmma','mettreAJourBilanAutoEmma','recalculerResteJourneeEmma','renderPlanningTimeline','saveAll','getJournalJour'];
+  const avant=new Map(noms.map(n=>[n,context[n]]));noms.forEach(n=>context[n]=()=>{});context.getJournalJour=()=> '2026-10-05';
+  const rdv={id:'client',source:'planity',heureDebut:'19:00',heureFin:'20:00',duree:60},perso={id:'perso',rendezVous:true,heureDebut:'21:00',heureFin:'21:30',duree:30},maison={id:'maison',categorie:'maison',heureDebut:'22:00',heureFin:'22:10',duree:10};
+  context.DB.journal={zones:[],planning:{'2026-10-05':[rdv,perso,maison]},faitAujourdhui:{}};
+  await context.togglePlanningFait('client');await context.togglePlanningFait('perso');
+  assert.equal(rdv.heureDebut,'19:00');assert.equal(perso.heureDebut,'21:00');
+  await context.togglePlanningFait('maison');assert.notEqual(maison.heureDebut,'22:00');assert.equal(maison.heurePrevueDebut,'22:00');
+  await context.togglePlanningFait('maison');assert.equal(maison.heureDebut,'22:00');assert.equal(maison.heureFin,'22:10');
+  noms.forEach(n=>context[n]=avant.get(n));
+});
+await test('Manual Recoller keeps appointments fixed and moves pending Maison after last client',async()=>{
+  vm.runInContext('let dernierEnregistrementRecalageEmma=0;let recalageAutomatiqueEmmaASauvegarder=false;',context);
+  const ensure=context.ensureJournalData,sync=context.synchroniserNotificationsPlanningEmma,render=context.renderJAujourdhui;context.ensureJournalData=()=>{};context.synchroniserNotificationsPlanningEmma=async()=>{};context.renderJAujourdhui=()=>{};
+  const date='2026-10-05',c1={id:'c1',source:'planity',heureDebut:'09:00',heureFin:'10:00',duree:60},c2={id:'c2',source:'planity',heureDebut:'14:00',heureFin:'15:00',duree:60},perso={id:'perso',categorie:'evenement',heureDebut:'16:00',heureFin:'17:00',duree:60},maison={id:'maison',categorie:'maison',heureDebut:'11:00',heureFin:'11:15',duree:15,flexible:true};
+  context.DB.journal={zones:[],planning:{[date]:[c1,c2,perso,maison]},faitAujourdhui:{[date]:{}}};
+  const avant=JSON.stringify([c1,c2,perso]);assert.equal(await context.recollerTachesMaisonJournal({date}),true);
+  assert.equal(JSON.stringify([c1,c2,perso]),avant);assert.ok(context.strToMin(maison.heureDebut)>=15*60);assert.equal(context.DB.journal.planning[date].length,4);
+  context.ensureJournalData=ensure;context.synchroniserNotificationsPlanningEmma=sync;context.renderJAujourdhui=render;
+});
+await test('Formation selector hides a planned action and rejects a stale duplicate submission',async()=>{
+  const get=context.getJournalJour,taches=context.getTachesProDepuisNotifications,ensure=context.ensureJournalData;
+  context.getJournalJour=()=> '2026-10-05';context.ensureJournalData=()=>{};
+  const lea={id:'appel-lea',nom:'Appeler Léa',module:'formations'},julie={id:'appel-julie',nom:'Appeler Julie',module:'formations'};
+  context.getTachesProDepuisNotifications=()=>[lea,julie];context.DB.journal={zones:[],planning:{'2026-10-05':[{id:'bloc',sourceId:lea.id,realiseTimestamp:1}]}};
+  nodes.set('mTitle',node());nodes.set('mBody',node());context.ouvrirChoixTacheProEmma('formations');
+  assert.deepEqual(Array.from(context.window._tachesProAjoutEmma,t=>t.id),['appel-julie']);
+  context.window._typeAjoutTacheEmma={tacheOriginale:lea};const avant=JSON.stringify(context.DB.journal),n=writes.length;
+  await context.validerNouvelleTacheEmma();assert.equal(JSON.stringify(context.DB.journal),avant);assert.equal(writes.length,n);
+  context.getJournalJour=get;context.getTachesProDepuisNotifications=taches;context.ensureJournalData=ensure;
+});
+await test('Maison placement blocks the entire client span, including gaps and completed clients',()=>{
+  const date='2026-10-05';context.DB.journal={zones:[],planning:{[date]:[{id:'c1',source:'planity',heureDebut:'09:00',heureFin:'10:00',realiseTimestamp:1},{id:'c2',source:'planity',heureDebut:'14:00',heureFin:'15:00'}]},faitAujourdhui:{}};
+  assert.equal(context.placerSansChevauchement(date,'11:00',15,{categorie:'maison'}).heureDebut,'15:00');
+  assert.equal(context.placerSansChevauchement(date,'08:30',15,{categorie:'maison'}).heureDebut,'08:30');
+  assert.equal(context.placerSansChevauchement(date,'08:50',15,{categorie:'maison'}).heureDebut,'15:00');
+  assert.equal(context.placerSansChevauchement(date,'11:00',15,{categorie:'proAdmin'}).heureDebut,'11:00');
+  assert.equal(context.chevaucheClientesMaisonEmma(date,11*60,12*60),true);
+});
+await test('Completed appointments remain fixed while completed Maison moves before now',()=>{
+  const date='2026-10-05';const rdv={id:'rdv',source:'planity',heureDebut:'15:00',heureFin:'16:00',heurePrevueDebut:'15:00',realiseTimestamp:1,duree:60};
+  const perso={id:'perso',categorie:'evenement',heureDebut:'18:00',heureFin:'19:00',heurePrevueDebut:'18:00',realiseTimestamp:2,duree:60};
+  const maison={id:'maison',categorie:'maison',heureDebut:'20:00',heureFin:'20:10',realiseTimestamp:3,duree:10};
+  context.DB.journal={zones:[],planning:{[date]:[rdv,perso,maison]}};
+  context.repositionnerTachesFaitesAvantMaintenant(date,12*60);
+  assert.equal(rdv.heureDebut,'15:00');assert.equal(perso.heureDebut,'18:00');assert.equal(maison.heureDebut,'11:50');
+});
+await test('Exact formation action already planned stays excluded even completed; other student remains available',()=>{
+  const date='2026-10-05';context.DB.journal={zones:[],planning:{[date]:[{id:'bloc1',sourceId:'appel-lea',realiseTimestamp:1}]}};
+  assert.equal(context.tacheDejaPlanifieeJourEmma({id:'appel-lea'},date),true);
+  assert.equal(context.tacheDejaPlanifieeJourEmma({id:'appel-julie'},date),false);
+  assert.equal(context.tacheDejaPlanifieeJourEmma({id:'appel-lea'},'2026-10-06'),false);
+});
 await test('Nutrition history groups actual meals by date, newest first, without duplicates from sport records',()=>{
   const old=context.DB.historiqueGlow,current=context.DB.glow;
   context.DB.historiqueGlow=[{date:'2026-10-03',nutrition:{repas:[{type:'diner',aliments:[{nom:'Lasagnes'}]}]}},{date:'2026-10-04',nutrition:{repas:[{type:'dejeuner',aliments:[{nom:'Poulet'}]}]}},{date:'2026-10-04',seanceId:'sport',minutes:15}];
@@ -99,7 +152,7 @@ await test('Journal: automatic recollage leaves planned hours and data unchanged
 });
 await test('Journal: completed early task moves before now without moving pending tasks',()=>{
   const date='2026-10-05',pending={id:'pending',heureDebut:'19:00',heureFin:'19:15',duree:15};
-  const done={id:'done',heureDebut:'20:00',heureFin:'20:10',heurePrevueDebut:'20:00',realiseTimestamp:1,duree:10};
+  const done={id:'done',categorie:'maison',heureDebut:'20:00',heureFin:'20:10',heurePrevueDebut:'20:00',realiseTimestamp:1,duree:10};
   context.DB.journal.planning[date]=[pending,done];
   context.repositionnerTachesFaitesAvantMaintenant(date,12*60);
   assert.equal(done.heureDebut,'11:50');assert.equal(done.heureFin,'12:00');assert.equal(pending.heureDebut,'19:00');assert.equal(pending.heureFin,'19:15');
