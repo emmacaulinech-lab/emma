@@ -13,3 +13,9 @@ La preview sur `http://127.0.0.1:8765` exécute le fichier HTML complet avec une
 Scénarios visuels vérifiés dans le navigateur : bibliothèque et recherche, ajout manuel, analyse d'un plat et correction de sa fiche, recette enregistrée et adaptation pour les restes, changement vers un préparé, actualisation des courses, provenance des achats, choix du Journal, refresh, dashboard et raccourcis. Affichage contrôlé sur desktop et mobile.
 
 Les tests simulés ne prouvent ni la qualité des réponses du modèle réel, ni les permissions ou la persistance du compte Firebase de production. Avant fusion/déploiement, vérifier sur une session authentifiée : export de sécurité, lecture des documents existants, modification Nutrition, confirmation de sauvegarde et refresh. Contrôler les tailles réelles et les journaux d'écriture. Les autres modules doivent également faire l'objet d'un parcours utilisateur sur les données réelles.
+
+## GLOW 2.0
+
+La suite compte désormais 62 scénarios. Les nouveaux contrôles couvrent les quantités réellement préparées et les portions consommées, le refus des analyses invalides, les quantités d’huile, les durées textuelles sans NaN, les intervalles Sport de 10/15/20/30 minutes et le matériel autorisé. Le cas burger/frites, veau aux olives, pancakes et Jambes 10 min + Posture 20 min utilise des valeurs nutritionnelles simulées : bilan de 30 minutes, recommandation Fessiers le lendemain en forme, Posture si courbaturée. Ces valeurs ne sont pas une mesure de la journée réelle.
+
+Parcours GLOW 2 vérifiés dans la preview isolée sur mobile et desktop : Nutrition, plaisir du soir avec ajout d’ingrédient, analyse, sauvegarde puis actualisation, Sport, objectif Haut du corps et cartes illustrées avec remplacement. Firebase et IA restent simulés ; aucune donnée personnelle de production n’est modifiée par cette validation.

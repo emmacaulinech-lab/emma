@@ -32,6 +32,35 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('GLOW 2: consumption stores actual ingredients and eaten portion, survives save, rejects invalid analysis',async()=>{
+ const before=context.DB,analyse=context.demanderJSONNutritionGlow,init=context.initialiserGlowDuJour,render=context.renderGlowNutrition;
+ context.DB={glow:{date:'2026-10-05',activite:{},nutrition:{repas:[]}},historiqueGlow:[]};context.initialiserGlowDuJour=()=>{};context.renderGlowNutrition=()=>{};
+ let prompt='';context.demanderJSONNutritionGlow=async p=>{prompt=p;return {calories:450,proteines:35,conseil:'Selon ta faim.'}};
+ context.window.glowConsommationDraft={type:'diner',nom:'Veau aux olives',portions:4,portion:1,ingredients:[{nom:'Veau',quantite:600,unite:'g'},{nom:'Olives',quantite:80,unite:'g'},{nom:'Huile',quantite:20,unite:'ml'}]};
+ const button=node();await context.validerConsommationV2Glow(button);assert.equal(context.DB.glow.nutrition.repas.length,1);assert.equal(context.DB.glow.nutrition.repas[0].portionMangee,1);assert.equal(context.DB.glow.nutrition.repas[0].ingredientsUtilises[0].quantite,600);assert.ok(prompt.includes('portion/portions'));assert.equal(JSON.parse(storage.get('modules/glow').data).nutrition.repas.length,1);assert.equal(button.disabled,false);
+ context.demanderJSONNutritionGlow=async()=>({calories:null,proteines:NaN});await context.validerConsommationV2Glow(button);assert.equal(context.DB.glow.nutrition.repas.length,1);
+ context.DB=before;context.demanderJSONNutritionGlow=analyse;context.initialiserGlowDuJour=init;context.renderGlowNutrition=render;
+});
+
+await test('GLOW 2: duration text never renders NaN',()=>{assert.equal(context.minutesRecetteV2Glow('20 min'),20);assert.equal(context.minutesRecetteV2Glow('indéfini'),0);});
+await test('GLOW 2: actual portions and oil must be valid',()=>{
+ const d={nom:'Veau aux olives',portions:2,portion:1,ingredients:[{nom:'Huile',quantite:20,unite:'ml'}]};assert.ok(context.validerQuantitesConsommationV2Glow(d));
+ assert.throws(()=>context.validerQuantitesConsommationV2Glow({...d,portion:3}));assert.throws(()=>context.validerQuantitesConsommationV2Glow({...d,ingredients:[{nom:'Huile',quantite:200,unite:'ml'}]}));
+});
+await test('GLOW 2: real day totals and tomorrow recovery recommendation',()=>{
+ const before=context.DB;
+ context.DB={glow:{activite:{etatSport:'forme'},nutrition:{repas:[{nom:'Burger + quelques frites',calories:700,proteines:30},{nom:'Veau aux olives',calories:450,proteines:35},{type:'plaisir-soir',nom:'Pancakes',calories:250,proteines:8}]}},historiqueGlow:[{date:'2026-10-05',realisationId:'legs',objectif:'jambes',minutes:10,terminee:true,muscles:['Quadriceps','Fessiers']},{date:'2026-10-05',realisationId:'posture',objectif:'posture',minutes:20,terminee:true,muscles:['Dos','Épaules']}]};
+ assert.equal(context.bilanSportJourGlow('2026-10-05').minutes,30);assert.ok(context.renderBilanV2Glow().includes('73 g'));assert.ok(context.renderBilanV2Glow().includes('1400 kcal'));
+ assert.equal(context.recommanderProgrammeGlow('2026-10-06').id,'fessiers');context.DB.glow.activite.etatSport='courbaturee';assert.equal(context.recommanderProgrammeGlow('2026-10-06').id,'posture');context.DB=before;
+});
+await test('GLOW 2: all target times use short intervals and permitted equipment',()=>{
+ const before=context.DB.glow;const lib=context.getExercicesGlowComplets;
+ context.DB.glow={activite:{niveau:1,materielsChoisis:[]}};
+ context.getExercicesGlowComplets=()=>[{id:'warm',objectif:['taille'],type:'echauffement',materiel:['tapis']},{id:'a',objectif:['taille'],type:'exercice',materiel:[]},{id:'machine',objectif:['taille'],type:'exercice',materiel:['elliptique']},{id:'cool',objectif:['taille'],type:'etirement',materiel:[]}];
+ for(const minutes of [10,15,20,30]){const seance=context.genererSeanceGlow('taille',minutes);const plan=context.calculerPlanTempsSeanceGlow(seance);assert.equal(plan.reduce((n,p)=>n+p.dureeSecondes+p.reposSecondes,0),minutes*60);assert.ok(plan.slice(1,-1).every(p=>p.dureeSecondes<=40));assert.ok(seance.exercices.every(e=>e.exerciceId!=='machine'));assert.ok(seance.tours>1);}
+ context.getExercicesGlowComplets=lib;context.DB.glow=before;
+});
+
 await test('Choosing lunch adds its Journal block without pretending it was eaten; consumption records exactly once',async()=>{
   const ensure=context.ensureJournalData,init=context.initialiserGlowDuJour,render=context.renderGlowNutrition;context.ensureJournalData=()=>{};context.initialiserGlowDuJour=()=>{};context.renderGlowNutrition=()=>{};
   context.DB.journal={zones:[],planning:{'2026-10-05':[]},faitAujourdhui:{}};context.DB.glow={date:'2026-10-05',nutrition:{repas:[],repasPrevus:{}}};

@@ -26,7 +26,7 @@ const server=http.createServer(async(req,res)=>{
      const texte=typeof contenu==='string'?contenu:contenu.map(x=>x.text||'').join('');
      if(texte.includes('Erreur test')){res.statusCode=500;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({error:{message:'Erreur IA simulée'}}));return;}
      const nom=texte.match(/Analyse cet aliment : "([^"]+)"/)?.[1]||texte.match(/Nom :\n([^\n]+)/)?.[1]||'Lasagnes maison test';
-     const resultat={nom,type:'recette',typeAliment:'recette',categorie:'proteine',portions:2,portionsBase:2,tempsPreparation:15,tempsCuisson:20,temperature:'180 °C',modeCuisson:'Four',ingredients:[{nom:'Escalope de veau',quantite:2,unite:'pièce'},{nom:'Olives',quantite:50,unite:'g'}],etapes:['Dorer la viande puis ajouter les olives.','Cuire doucement 20 minutes.'],materiel:['Poêle']};
+     const resultat=texte.includes('Estime la nutrition de la portion')?{calories:450,proteines:30,conseil:'Complète la journée selon ta faim et tes envies.'}:{nom,type:'recette',typeAliment:'recette',categorie:'proteine',portions:2,portionsBase:2,tempsPreparation:15,tempsCuisson:20,temperature:'180 °C',modeCuisson:'Four',ingredients:[{nom:'Escalope de veau',quantite:2,unite:'pièce'},{nom:'Olives',quantite:50,unite:'g'}],etapes:['Dorer la viande puis ajouter les olives.','Cuire doucement 20 minutes.'],materiel:['Poêle']};
      res.setHeader('Content-Type','application/json');res.end(JSON.stringify({content:[{text:JSON.stringify(resultat)}]}));return;
    }
    if(req.url==='/qa-save'){const value=JSON.parse(body);writes.push(value);docs[value.key]={...(docs[value.key]||{}),...value.data};}

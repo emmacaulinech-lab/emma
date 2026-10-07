@@ -4593,6 +4593,10 @@ button.emma-card-row{
 #mailFormationModal input:not([type=checkbox]),#mailFormationModal textarea{width:100%;box-sizing:border-box;font-size:16px}
 @media(max-width:600px){#mailFormationModal{padding:16px;max-height:94dvh}#mailFormationModal .f-mail-documents{grid-template-columns:1fr}#mailFormationModal .f-mail-actions .btn{flex:1 1 100%;min-height:44px}}
 
+#consommation-v2-glow label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}
+#consommation-v2-glow input,#consommation-v2-glow select{box-sizing:border-box;max-width:100%;padding:10px;border:1px solid var(--brd);border-radius:10px;background:white;color:var(--txt);font:inherit}
+#consommation-v2-glow select,#consommation-v2-glow .g2 input{width:100%}
+#consommation-v2-glow .ma{flex-wrap:wrap}
 </style>
    
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -23763,7 +23767,9 @@ async function copyEmailToClipboard(){
             minutes: 0,
             terminee: false,
             tempsDisponible: Number(anciennesPreferencesSport.tempsDisponible || 15),
-            objectifForce: anciennesPreferencesSport.objectifForce || "",
+            objectifForce: "",
+            materielsChoisis:anciennesPreferencesSport.materielsChoisis||[],
+            progressionLe:anciennesPreferencesSport.progressionLe||null,
             etatSport: "forme",
             tempsSportAuto: anciennesPreferencesSport.tempsSportAuto === true,
             niveau: Number(anciennesPreferencesSport.niveau || 1)
@@ -24295,93 +24301,30 @@ function ouvrirVueMinuteEmma(){
     );
 }
 
-function recommanderProgrammeGlow(){
-
-    const objectifs = [
-        {
-            id: "taille",
-            label: "🔥 Taille marquée",
-            frequence: 3
-        },
-        {
-            id: "fessiers",
-            label: "🍑 Fesses galbées",
-            frequence: 2
-        },
-        {
-            id: "posture",
-            label: "🤍 Posture élégante",
-            frequence: 2
-        },
-        {
-            id: "jambes",
-            label: "🦵 Jambes fines",
-            frequence: 1
-        }
-    ];
-
-    const historique = DB.historiqueGlow || [];
-
-    const debutPeriode = new Date();
-    debutPeriode.setDate(debutPeriode.getDate() - 6);
-
-    const historiqueRecent = historique.filter(entree =>
-        entree.terminee &&
-        new Date(entree.date) >= debutPeriode
-    );
-
-    const scores = objectifs.map(objectif => {
-
-        const nombreFait = historiqueRecent.filter(entree =>
-            entree.objectif === objectif.id
-        ).length;
-
-        const dernier = [...historique]
-            .reverse()
-            .find(entree =>
-                entree.terminee &&
-                entree.objectif === objectif.id
-            );
-
-        const joursDepuis = dernier
-            ? Math.floor(
-                (new Date() - new Date(dernier.date)) / 86400000
-            )
-            : 99;
-
-        const manqueHebdomadaire =
-            Math.max(0, objectif.frequence - nombreFait);
-
-        const priorite =
-            manqueHebdomadaire * 10 +
-            joursDepuis;
-
-        return {
-            ...objectif,
-            nombreFait,
-            joursDepuis,
-            priorite
-        };
-
-    });
-
-    scores.sort((a,b) => b.priorite - a.priorite);
-
-    const recommandation = scores[0];
-
-    let raison = "";
-
-    if(recommandation.nombreFait === 0){
-        raison = "Tu ne l’as pas encore travaillé cette semaine.";
-    }else{
-        raison =
-            `Tu l’as travaillé ${recommandation.nombreFait} fois cette semaine.`;
+function groupesMusclesV2Glow(muscles=[]){return [...new Set(muscles.flatMap(m=>/fessier/i.test(m)?['Fessiers']:/quadriceps|ischio|mollet|jambe/i.test(m)?['Jambes']:/abdomin|oblique|transverse/i.test(m)?['Abdominaux']:/dos|dors|trapez|trapèz/i.test(m)?['Dos']:/épaule|epaule|delto/i.test(m)?['Épaules']:/bras|biceps|triceps/i.test(m)?['Bras']:[]))];}
+function historiqueSportV2Glow(){
+    const uniques=new Map();
+    for(const e of [...(DB.glow?.historiqueSeances||[]),...(DB.historiqueSeances||[]),...(DB.historiqueGlow||[])]){
+        if(!e?.objectif||e.terminee===false||!Number.isFinite(Number(e.minutes??e.duree))||Number(e.minutes??e.duree)<=0)continue;
+        const cle=e.realisationId||`${e.date}|${e.seanceId}|${e.minutes??e.duree}`;
+        uniques.set(cle,e);
     }
-
-    return {
-        ...recommandation,
-        raison
-    };
+    return [...uniques.values()];
+}
+function recommanderProgrammeGlow(date=dateLocaleISO()){
+    const cibles={fessiers:2,taille:2,jambes:1,haut:1,posture:2};
+    const labels={fessiers:'🍑 Fessiers',taille:'🔥 Taille & ventre',jambes:'🦵 Jambes',haut:'💪 Haut du corps',posture:'🤍 Posture'};
+    const muscles={fessiers:['Fessiers'],taille:['Abdominaux'],jambes:['Jambes','Fessiers'],haut:['Dos','Épaules','Bras'],posture:['Dos','Épaules']};
+    const jour=new Date(date+'T12:00:00');
+    const historique=historiqueSportV2Glow().map(e=>({...e,age:Math.round((jour-new Date(e.date+'T12:00:00'))/86400000)})).filter(e=>e.age>=0);
+    const scores=Object.entries(cibles).map(([id,frequence])=>{
+        const semaine=historique.filter(e=>e.age<7&&e.objectif===id);
+        const minutes=semaine.reduce((n,e)=>n+Number(e.minutes??e.duree),0);
+        const charge=historique.filter(e=>e.age<2&&(groupesMusclesV2Glow(e.muscles).length?groupesMusclesV2Glow(e.muscles):muscles[e.objectif]||[]).some(m=>muscles[id].includes(m))).reduce((n,e)=>n+Number(e.minutes??e.duree)*(e.feedback==='difficile'?1.3:1),0);
+        return {id,label:labels[id],frequence,nombreFait:semaine.length,minutes,charge,priorite:Math.max(0,frequence-minutes/20)*10+(id==='fessiers'?12:0)-(id==='posture'?0:charge)};
+    }).sort((a,b)=>b.priorite-a.priorite);
+    const choix=DB.glow?.activite?.etatSport==='courbaturee'?scores.find(e=>e.id==='posture'):scores[0];
+    return {...choix,progression:scores,raison:`Priorité : ${choix.label}. ${choix.minutes} min cette semaine, cible flexible ${choix.frequence} fois. Les muscles récemment sollicités récupèrent.`};
 }
 
 function getSeanceGlowRecommandee(){
@@ -24433,182 +24376,28 @@ function getSeanceGlowRecommandee(){
         )[0];
 }
 
-function genererSeanceGlow(objectifOverride = null, tempsOverride = null){
-
-    const objectif =
-        objectifOverride ||
-        DB.glow.activite?.objectifForce ||
-        recommanderProgrammeGlow().id;
-
-    const tempsMinutes =
-        Number(tempsOverride || DB.glow.activite?.tempsDisponible || 15);
-
-    const tempsCible = tempsMinutes * 60;
-
-    const materielsChoisis=Array.isArray(DB.glow.activite?.materielsChoisis)?DB.glow.activite.materielsChoisis:[];
-    const materielsSpeciaux=["elastique","élastique","tapis_course","elliptique"];
-    const tous = getExercicesGlowComplets().filter(exercice => {
-        if(!exercice.objectif?.includes(objectif))return false;
-        if(materielsChoisis.includes('aucun'))return exerciceSansMaterielGlow(exercice);
-        if(!materielsChoisis.length)return true;
-        const materiels=exercice.materiel||[];
-        const special=materiels.find(m=>materielsSpeciaux.includes(m));
-        return !special||materielsChoisis.includes(special==='élastique'?'elastique':special);
-    });
-
-    // 1. On sépare les différents types
-    const echauffements = tous.filter(exercice =>
-        exercice.type === "echauffement"
-    );
-
-    const etirements = tous.filter(exercice =>
-        exercice.type === "etirement"
-    );
-
-    const niveauUtilisateur =
-    Number(DB.glow.activite?.niveau || 1);
-
-const principaux = tous.filter(exercice =>
-    exercice.type === "exercice" &&
-    Number(exercice.niveau || 1) <= niveauUtilisateur
-);
-
-// Exercices réalisés récemment
-const exercicesRecents = new Set(
-    (DB.historiqueGlow || [])
-        .slice(-3)
-        .flatMap(seance =>
-            (seance.exercices || []).map(exercice =>
-                exercice.exerciceId || exercice.id
-            )
-        )
-);
-
-// Priorité aux exercices non réalisés récemment
-const principauxPrioritaires = principaux.filter(exercice =>
-    !exercicesRecents.has(exercice.id)
-);
-
-// Si on n'a pas assez d'exercices disponibles,
-// on réautorise toute la bibliothèque
-const poolExercices =
-    principauxPrioritaires.length >= 4
-        ? principauxPrioritaires
-        : principaux;
-
-    // 2. Choix aléatoire dans une liste
-    function choisirAleatoire(liste){
-        if(!liste.length) return null;
-
-        return liste[
-            Math.floor(Math.random() * liste.length)
-        ];
-    }
-
-    const echauffement = choisirAleatoire(echauffements);
-    const etirement = choisirAleatoire(etirements);
-
-    // 3. Temps déjà réservé
-    let tempsUtilise = 0;
-
-    if(echauffement){
-        tempsUtilise +=
-            Number(echauffement.dureeParDefaut || 0);
-    }
-
-    if(etirement){
-        tempsUtilise +=
-            Number(etirement.dureeParDefaut || 0);
-    }
-
-    // 4. Nombre d'exercices principaux souhaité
-    let nombreCible;
-
-    if(tempsMinutes <= 10){
-        nombreCible = 4;
-    }else if(tempsMinutes <= 15){
-        nombreCible = 6;
-    }else if(tempsMinutes <= 20){
-        nombreCible = 8;
-    }else{
-        nombreCible = 10;
-    }
-
-    // 5. Mélange des exercices principaux
-    const melanges = [...poolExercices]
-        .sort((a,b) => {
-            const aChoisi=(a.materiel||[]).some(m=>materielsChoisis.includes(m));
-            const bChoisi=(b.materiel||[]).some(m=>materielsChoisis.includes(m));
-            return Number(bChoisi)-Number(aChoisi)||(Math.random()-.5);
-        });
-
-    const selection = [];
-
-    let derniereCategorie = null;
-
-    for(const exercice of melanges){
-
-        if(selection.length >= nombreCible){
-            break;
-        }
-
-        // On évite autant que possible
-        // deux catégories identiques à la suite
-        if(
-            exercice.categorie === derniereCategorie &&
-            principaux.length > nombreCible
-        ){
-            continue;
-        }
-
-        const duree =
-            Number(exercice.dureeParDefaut || 0);
-
-        const repos =
-            Number(exercice.reposParDefaut || 0);
-
-        const cout = duree + repos;
-
-        // On garde de la place pour la fin
-        if(tempsUtilise + cout > tempsCible){
-            continue;
-        }
-
-        selection.push(exercice);
-
-        tempsUtilise += cout;
-
-        derniereCategorie = exercice.categorie;
-    }
-
-    // 6. Construction de la séance finale
-    const exercicesFinal = [];
-
-    if(echauffement){
-        exercicesFinal.push({
-            exerciceId: echauffement.id
-        });
-    }
-
-    selection.forEach(exercice => {
-        exercicesFinal.push({
-            exerciceId: exercice.id
-        });
-    });
-
-    if(etirement){
-        exercicesFinal.push({
-            exerciceId: etirement.id
-        });
-    }
-
-    return {
-        id: `ia_${Date.now()}`,
-        nom: "Séance personnalisée",
-        objectif: objectif,
-        duree: tempsMinutes,
-        exercices: exercicesFinal
-    };
+function materielAutoriseGlow(ex){
+    const autorises=DB.glow.activite?.materielsChoisis||[];
+    return (ex.materiel||[]).every(m=>['aucun','sans materiel','sans matériel','tapis'].includes(m)||autorises.includes(m==='élastique'?'elastique':m));
+}
+function genererSeanceGlow(objectifOverride=null,tempsOverride=null){
+    const objectif=objectifOverride||DB.glow.activite?.objectifForce||recommanderProgrammeGlow().id;
+    const minutes=[10,15,20,30].includes(Number(tempsOverride))?Number(tempsOverride):15;
+    const pool=getExercicesGlowComplets().filter(ex=>ex.objectif?.includes(objectif)&&materielAutoriseGlow(ex)&&Number(ex.niveau||1)<=Number(DB.glow.activite?.niveau||1));
+    const principaux=pool.filter(ex=>ex.type==='exercice');
+    if(!principaux.length)return null;
+    const refs=[],plan=[];
+    function ajouter(ex,effort,repos,tour){refs.push({exerciceId:ex.id,tour});plan.push({exerciceIndex:refs.length-1,dureeSecondes:effort,reposSecondes:repos});}
+    const warm=pool.find(ex=>ex.type==='echauffement')||getExercicesGlowComplets().find(ex=>ex.type==='echauffement'&&materielAutoriseGlow(ex));
+    const cool=pool.find(ex=>ex.type==='etirement')||getExercicesGlowComplets().find(ex=>ex.type==='etirement'&&materielAutoriseGlow(ex));
+    if(warm)ajouter(warm,60,0,0);
+    const fin=cool?60:0;
+    let restant=minutes*60-(warm?60:0)-fin;
+    const selection=principaux.slice(0,Math.min(6,principaux.length));
+    let n=0;
+    while(restant>0){const cout=Math.min(60,restant);ajouter(selection[n%selection.length],Math.min(40,cout),Math.max(0,cout-40),1+Math.floor(n/selection.length));restant-=cout;n++;}
+    if(cool)ajouter(cool,fin,0,0);
+    return {id:`ia_${Date.now()}`,nom:'Séance personnalisée',objectif,duree:minutes,exercices:refs,planTempsPersonnalise:plan,tours:Math.ceil(n/selection.length)};
 }
 
 function getExerciceGlow(id){
@@ -24626,7 +24415,7 @@ function getExercicesGlowComplets(){
         {id:"elliptique_regulier",nom:"Elliptique rythme régulier",materiel:["elliptique"],description:"Pédalage fluide et continu, sans impact.",conseils:["Pousse et tire avec les bras","Garde les talons posés"]},
         {id:"elliptique_intervalles",nom:"Elliptique en intervalles",materiel:["elliptique"],description:"Alterne une allure douce et une allure soutenue.",conseils:["Accélère sans perdre ta posture","Ralentis si tu ne peux plus parler"]}
     ].map((x,index)=>({...x,objectif:objectifs,type:"exercice",categorie:"cardio",illustration:"",dureeParDefaut:index%2?120:180,reposParDefaut:20,niveau:index%2?2:1,muscles:["Jambes","Fessiers","Cardio"],media:{type:"image",fichier:""},erreurs:["Ne bloque pas ta respiration"]}));
-    const existants=DB.glowExercices||[];
+    const existants=(DB.glowExercices||[]).map(ex=>({...ex,objectif:[...(ex.objectif||[]),...((ex.muscles||[]).some(m=>/dos|bras|épaule/i.test(m))?['haut']:[])]}));
     const ids=new Set(existants.map(x=>x.id));
     return [...existants,...machines.filter(x=>!ids.has(x.id))];
 }
@@ -25143,7 +24932,7 @@ function getContexteSportGlow(){
         ? (etat === "forme" ? 20 : 10)
         : Number(activite.tempsDisponible || 15);
 
-    if(etat === "courbaturee") objectif = "posture";
+    if(etat === "courbaturee" && !activite.objectifForce) objectif = "posture";
     if(etat !== "forme") temps = Math.min(temps,10);
 
     // Chaque proposition est maintenant construite depuis toute la bibliothèque
@@ -25153,7 +24942,7 @@ function getContexteSportGlow(){
     const seance = preparation?.signature===signature ? preparation.seance : genererSeanceGlow(objectif,temps);
     glowSeancePreview = seance;
 
-    const labels = {taille:"la taille",fessiers:"les fessiers",posture:"la posture",jambes:"les jambes"};
+    const labels = {taille:"la taille",fessiers:"les fessiers",posture:"la posture",jambes:"les jambes",haut:"le haut du corps"};
     let raison = recommandation.raison;
     if(etat === "fatiguee") raison = "Une séance courte et douce : assez pour bouger sans t’épuiser.";
     if(etat === "courbaturee") raison = "On privilégie la mobilité et la posture pour récupérer en douceur.";
@@ -25225,7 +25014,7 @@ function alternativesExerciceSportGlow(reference,seance){
     const actuel=getExerciceGlow(reference.exerciceId||reference.id);
     const materiels=DB.glow.activite?.materielsChoisis||[];
     return getExercicesGlowComplets().filter(ex=>
-        ex.type===actuel?.type&&ex.objectif?.includes(seance.objectif)&&
+        ex.type===actuel?.type&&ex.objectif?.includes(seance.objectif)&&materielAutoriseGlow(ex)&&
         Number(ex.niveau||1)<=Number(DB.glow.activite?.niveau||1)&&
         (!materiels.includes('aucun')||exerciceSansMaterielGlow(ex))&&
         (!materiels.length||!(ex.materiel||[]).some(m=>['elastique','élastique','tapis_course','elliptique'].includes(m)&&!materiels.includes(m==='élastique'?'elastique':m)))
@@ -25242,7 +25031,7 @@ function ouvrirResumeSeanceSportGlow(){
         const ex=getExerciceGlow(ref.exerciceId||ref.id);
         const choix=alternativesExerciceSportGlow(ref,seance);
         if(ex&&!choix.some(x=>x.id===ex.id))choix.unshift(ex);
-        return `<div style="padding:12px 0;border-bottom:1px solid var(--brd2)"><label for="sport-ex-${index}">${index+1}. ${echapperTexteRepasGlow(ex?.type==='echauffement'?'Échauffement':ex?.type==='etirement'?'Étirement':'Exercice')}</label><select id="sport-ex-${index}" style="width:100%;margin:6px 0">${choix.map(x=>`<option value="${echapperTexteRepasGlow(x.id)}" ${x.id===(ref.exerciceId||ref.id)?'selected':''}>${echapperTexteRepasGlow(x.nom)}</option>`).join('')}</select><div class="g2"><div class="fr"><label for="sport-effort-${index}">Effort (secondes)</label><input id="sport-effort-${index}" type="number" min="5" max="3600" value="${plan[index].dureeSecondes}"></div><div class="fr"><label for="sport-repos-${index}">Repos (secondes)</label><input id="sport-repos-${index}" type="number" min="0" max="600" value="${plan[index].reposSecondes}"></div></div></div>`;
+        return `<div style="padding:12px 0;border-bottom:1px solid var(--brd2)">${getIllustrationGlow(ex?.id)?.frames?.[0]?`<img src="${echapperTexteRepasGlow(getIllustrationGlow(ex.id).frames[0])}" alt="${echapperTexteRepasGlow(ex.nom)}" style="width:120px;max-width:100%;border-radius:12px">`:""}<p>${echapperTexteRepasGlow(ex?.description||"")}</p><small>${echapperTexteRepasGlow((ex?.muscles||[]).join(" · "))} · Tour ${ref.tour||1}</small><label for="sport-ex-${index}">${index+1}. ${echapperTexteRepasGlow(ex?.type==='echauffement'?'Échauffement':ex?.type==='etirement'?'Étirement':'Exercice')}</label><select id="sport-ex-${index}" style="width:100%;margin:6px 0">${choix.map(x=>`<option value="${echapperTexteRepasGlow(x.id)}" ${x.id===(ref.exerciceId||ref.id)?'selected':''}>${echapperTexteRepasGlow(x.nom)}</option>`).join('')}</select><label for="sport-motif-${index}">Motif du remplacement</label><select id="sport-motif-${index}"><option>Préférence</option><option>Inconfort</option><option>Matériel indisponible</option><option>Trop difficile</option></select><div class="g2"><div class="fr"><label for="sport-effort-${index}">Effort (secondes)</label><input id="sport-effort-${index}" type="number" min="5" max="3600" value="${plan[index].dureeSecondes}"></div><div class="fr"><label for="sport-repos-${index}">Repos (secondes)</label><input id="sport-repos-${index}" type="number" min="0" max="600" value="${plan[index].reposSecondes}"></div></div></div>`;
     }).join('')}<div class="ma"><button class="btn bg" onclick="document.getElementById('resume-sport-glow').remove()">Annuler</button><button class="btn bd" onclick="enregistrerResumeSeanceSportGlow(this)">Enregistrer</button></div></div></div>`);
 }
 
@@ -25257,7 +25046,7 @@ async function enregistrerResumeSeanceSportGlow(bouton){
         const reposSecondes=Number(document.getElementById(`sport-repos-${index}`)?.value);
         if(!alternativesExerciceSportGlow(origine.exercices[index],origine).some(x=>x.id===id)&&id!==(origine.exercices[index].exerciceId||origine.exercices[index].id))return toast('Choisis un exercice compatible.');
         if(!Number.isFinite(dureeSecondes)||dureeSecondes<5||dureeSecondes>3600||!Number.isFinite(reposSecondes)||reposSecondes<0||reposSecondes>600)return toast('Vérifie les durées d’effort et de repos.');
-        copie.exercices[index]={...copie.exercices[index],exerciceId:id};
+        copie.exercices[index]={...copie.exercices[index],exerciceId:id,motifRemplacement:id!==(origine.exercices[index].exerciceId||origine.exercices[index].id)?document.getElementById(`sport-motif-${index}`)?.value:null};
         plan.push({exerciceIndex:index,dureeSecondes,reposSecondes});
     }
     copie.planTempsPersonnalise=plan;
@@ -25289,7 +25078,8 @@ function renderGlowSport(){
         ["courbaturee","🌿 Courbaturée"]
     ];
     const objectifs = [
-        ["taille","🔥 Taille"],
+        ["taille","🔥 Taille & ventre"],
+        ["haut","💪 Haut du corps"],
         ["fessiers","🍑 Fessiers"],
         ["posture","🤍 Posture"],
         ["jambes","🦵 Jambes"]
@@ -25324,14 +25114,14 @@ function renderGlowSport(){
 
             <div style="font-size:12px;font-weight:800;margin-bottom:8px">Combien de temps ?</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
-                ${[10,20,30].map(v => `<button class="btn ${!DB.glow.activite.tempsSportAuto&&Number(DB.glow.activite.tempsDisponible)===v?"bd":"bg"}" onclick="setTempsSportGlow(${v})">${v} min</button>`).join("")}
+                ${[10,15,20,30].map(v => `<button class="btn ${!DB.glow.activite.tempsSportAuto&&Number(DB.glow.activite.tempsDisponible)===v?"bd":"bg"}" onclick="setTempsSportGlow(${v})">${v} min</button>`).join("")}
                 <button class="btn ${DB.glow.activite.tempsSportAuto?"bd":"bg"}" onclick="setTempsSportGlow('auto')">✦ EMMA choisit</button>
             </div>
 
-            <div style="font-size:12px;font-weight:800;margin-bottom:8px">Matériel que tu veux utiliser aujourd’hui</div>
+            <div style="font-size:12px;font-weight:800;margin-bottom:8px">Matériel autorisé aujourd’hui</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
                 ${materiels.map(([id,label])=>`<button class="btn ${materielsChoisis.has(id)?"bd":"bg"}" onclick="toggleMaterielSportGlow('${id}')">${label}</button>`).join("")}
-                <span style="font-size:11px;color:var(--mut);align-self:center">Sans choix, EMMA utilise toute la bibliothèque.</span>
+                <span style="font-size:11px;color:var(--mut);align-self:center">Les mouvements sans matériel restent possibles.</span>
             </div>
 
             ${seance ? `
@@ -25344,7 +25134,7 @@ function renderGlowSport(){
                     <span style="white-space:nowrap;background:var(--bg2);color:var(--acc);padding:7px 11px;border-radius:999px;font-weight:800;font-size:12px">${seance.duree} min</span>
                 </div>
                 <div style="color:var(--mut);font-size:13px;line-height:1.55;margin:5px 0 17px">${contexte.raison}</div>
-                <div style="font-size:12px;margin-bottom:16px">${seance.exercices?.length || 0} mouvements · guidée pas à pas · pauses incluses</div>
+                <div style="font-size:12px;margin-bottom:16px">${seance.tours||1} tours · ${seance.exercices?.length || 0} étapes · effort 40 s / repos 20 s · échauffement et retour au calme inclus</div>
                 <button class="btn bg" onclick="ouvrirResumeSeanceSportGlow()" style="margin-bottom:12px">Voir / modifier les exercices</button>
                 <button class="btn bd" onclick="commencerSeance('${seance.id}')" style="width:100%;justify-content:center;padding:13px">▶ Commencer ma séance</button>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -25362,7 +25152,7 @@ function renderGlowSport(){
             <div style="background:rgba(255,255,255,.68);border:1px solid rgba(255,255,255,.9);border-radius:24px;padding:20px;box-shadow:var(--shadow)">
                 <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:800">Cette semaine</div>
                 <div style="font-family:'Cormorant Garamond',serif;font-size:30px;margin-top:7px">${stats.nombre} séance${stats.nombre>1?"s":""} · ${stats.minutes} min</div>
-                <div style="font-size:12px;color:var(--mut);margin-top:4px">${stats.partielles ? `${stats.partielles} séance${stats.partielles>1?"s":""} courte${stats.partielles>1?"s":""} comptée${stats.partielles>1?"s":""} aussi. `:""}Chaque mouvement compte 🤍</div>
+                <div style="font-size:12px;color:var(--mut);margin-top:4px">${stats.partielles ? `${stats.partielles} séance${stats.partielles>1?"s":""} courte${stats.partielles>1?"s":""} comptée${stats.partielles>1?"s":""} aussi. `:""}Chaque mouvement compte 🤍</div><div style="margin-top:12px">${contexte.recommandation.progression.map(p=>`<div>${p.label} : ${p.minutes} min · cible ${p.frequence}× / semaine</div>`).join('')}</div>
                 <div style="font-size:11px;color:var(--mut);margin-top:9px;padding-top:9px;border-top:1px solid var(--brd2)">Score du jour : 10 min = 5 pts · 15 min = 10 pts · 20 min = 15 pts · 30 min = 20 pts.</div>
             </div>
         </div>
@@ -27314,7 +27104,7 @@ function renderRepasPrevusConfirmationGlow(){
         const choisi=repasPrevuExpliciteGlow(type);if(!choisi)return '';
         const nom=choisi.nom||(choisi.aliments||[]).map(a=>typeof a==='string'?a:a.nom).join(' · ');
         const deja=choisi.consomme||(DB.glow.nutrition.repas||[]).some(r=>r.choixRepasId&&r.choixRepasId===choisi.choixRepasId);
-        return `<section style="padding:14px 0;border-bottom:1px solid var(--brd2)"><strong>${type==='dejeuner'?'Déjeuner prévu':'Dîner prévu'}</strong><div style="margin:6px 0">${echapperTexteRepasGlow(nom)}</div>${choisi.sauvegardeNonConfirmee?`<button class="btn bd bsm" onclick="reessayerSauvegardeRepasNutritionGlow('${type}')">Réessayer la sauvegarde</button>`:deja?'<small>✓ Repas mangé et enregistré</small>':`<button class="btn bd bsm" onclick="enregistrerRepasPrevuConsommeGlow('${type}')">J’ai mangé</button>`}</section>`;
+        return `<section style="padding:14px 0;border-bottom:1px solid var(--brd2)"><strong>${type==='dejeuner'?'Déjeuner prévu':'Dîner prévu'}</strong><div style="margin:6px 0">${echapperTexteRepasGlow(nom)}</div>${choisi.sauvegardeNonConfirmee?`<button class="btn bd bsm" onclick="reessayerSauvegardeRepasNutritionGlow('${type}')">Réessayer la sauvegarde</button>`:deja?'<small>✓ Repas mangé et enregistré</small>':`<button class="btn bd bsm" onclick="ouvrirConsommationV2Glow('${type}')">J’ai mangé ça</button>`}</section>`;
     }).join('');
 }
 
@@ -27458,7 +27248,7 @@ async function supprimerDinerPrevuGlow(){
 }
 
 async function validerDinerPrevuGlow(){
-    return enregistrerRepasPrevuConsommeGlow('diner');
+    return ouvrirConsommationV2Glow('diner');
 }
 
 async function validerDinerPrevuGlowLegacy(){
@@ -27582,8 +27372,8 @@ async function validerDinerPrevuGlowLegacy(){
                         color:var(--mut);
                         margin-top:3px;
                     ">
-                        👩‍🍳 ${Number(recette.tempsPreparation || 0)} min
-                        · 🔥 ${Number(recette.tempsCuisson || 0)} min
+                        👩‍🍳 ${minutesRecetteV2Glow(recette.tempsPreparation)} min
+                        · 🔥 ${minutesRecetteV2Glow(recette.tempsCuisson)} min
                     </div>
 
                 </div>
@@ -27678,11 +27468,11 @@ async function validerDinerPrevuGlowLegacy(){
                 ">
 
                     <span class="bdg ca">
-                        👩‍🍳 ${Number(recette.tempsPreparation || 0)} min
+                        👩‍🍳 ${minutesRecetteV2Glow(recette.tempsPreparation)} min
                     </span>
 
                     <span class="bdg planity">
-                        🔥 ${Number(recette.tempsCuisson || 0)} min
+                        🔥 ${minutesRecetteV2Glow(recette.tempsCuisson)} min
                     </span>
 
                     <span class="bdg esp">
@@ -28199,6 +27989,7 @@ function renderGlowNutrition(){
 </div>
 
 
+        ${renderBilanV2Glow()}
         <!-- RESUME JOURNEE -->
         <div style="
             background:linear-gradient(135deg,#FFF0F5,#FFF9F7);
@@ -28603,7 +28394,7 @@ const courses =
                     text-align:center;
                 ">
                     <div style="font-size:11px;color:var(--mut)">
-                        Calories
+                        Énergie estimée
                     </div>
 
                     <div style="
@@ -28611,7 +28402,7 @@ const courses =
                         font-weight:800;
                         color:var(--acc);
                     ">
-                        ${Math.round(totalCalories)}
+                        <details><summary style="font-size:12px">Voir</summary>${Math.round(totalCalories)} kcal</details>
                     </div>
                 </div>
 
@@ -28939,7 +28730,8 @@ function getNomTypeRepasGlow(type){
         "petit-dejeuner": "☕ Petit-déjeuner",
         "dejeuner": "🥗 Déjeuner",
         "diner": "🍽️ Dîner",
-        "collation": "🍓 Collation"
+        "collation": "🍓 Collation",
+        "plaisir-soir": "🥞 Mon plaisir du soir"
     };
 
     return noms[type] || "🍽️ Repas";
@@ -29717,11 +29509,11 @@ Réponds UNIQUEMENT en JSON valide, sans backticks :
                     margin-bottom:16px;
                 ">
                     <span class="bdg ca">
-                        👩‍🍳 ${Number(recette.tempsPreparation || 0)} min préparation
+                        👩‍🍳 ${minutesRecetteV2Glow(recette.tempsPreparation)} min préparation
                     </span>
 
                     <span class="bdg planity">
-                        🔥 ${Number(recette.tempsCuisson || 0)} min cuisson
+                        🔥 ${minutesRecetteV2Glow(recette.tempsCuisson)} min cuisson
                     </span>
 
                     <span class="bdg esp">
@@ -31725,12 +31517,15 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
         ? Math.min(Number(seance.duree || minutesEcoulees),minutesEcoulees)
         : Number(seance.duree || minutesEcoulees);
     const ancienNiveau = Number(DB.glow.activite?.niveau || 1);
-    const niveau = feedback === "facile"
-        ? Math.min(3,ancienNiveau+1)
-        : (["difficile","douleur"].includes(feedback) ? Math.max(1,ancienNiveau-1) : ancienNiveau);
+    const semaineRecente=historiqueSportV2Glow().filter(e=>e.date>=dateLocaleISO(new Date(Date.now()-7*86400000))&&e.objectif===seance.objectif);
+    const derniereProgression=DB.glow.activite?.progressionLe;
+    const progressionPossible=feedback==='facile'&&semaineRecente.length>=2&&semaineRecente.every(e=>['facile','parfait'].includes(e.feedback))&&(!derniereProgression||Date.now()-new Date(derniereProgression+'T12:00:00').getTime()>=7*86400000);
+    const niveau=["difficile","douleur"].includes(feedback)?Math.max(1,ancienNiveau-1):progressionPossible?Math.min(3,ancienNiveau+1):ancienNiveau;
+
 
     DB.glow.activite = {
         ...DB.glow.activite,
+        progressionLe:progressionPossible?dateLocaleISO():DB.glow.activite.progressionLe||null,
         objectif: seance.objectif,
         minutes: minutesRetenues,
         terminee: true,
@@ -31757,6 +31552,8 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
 
     partielle,
 
+    muscles:[...new Set((seance.exercices||[]).flatMap(ref=>getExerciceGlow(ref.exerciceId||ref.id)?.muscles||[]))],
+    intensite:feedback,
     exercicesTermines: Number(entrainement.exercicesTermines || 0),
 
     exercicesPasses: Number(entrainement.exercicesPasses || 0),
@@ -56517,6 +56314,65 @@ function cleAlimentGlow(nom){
   const alias = {'courgette':'courgettes','carotte':'carottes','aubergine':'aubergines','pomme de terre':'pommes de terre','oeuf':'oeufs','blancs de poulet':'blanc de poulet','filet de poulet':'blanc de poulet','filets de poulet':'blanc de poulet','escalope de poulet':'blanc de poulet','pave de saumon':'saumon','paves de saumon':'saumon'};
   return alias[n] || n;
 }
+async function ouvrirConsommationV2Glow(type,planId=null){
+    const plan=planId?trouverRepasPlanGlow(planId):getRepasPlanifieGlow(dateLocaleISO(),type);
+    const choisi=repasPrevuExpliciteGlow(type);
+    if(plan&&!plan.recetteGeneree&&!recettesDisponiblesPlanGlow().some(r=>r.id===plan.recetteId)){await ouvrirRecetteRepasGlow(plan.id);if(!plan.recetteGeneree)return;}
+    const recette=plan?.recetteGeneree||recettesDisponiblesPlanGlow().find(r=>r.id===plan?.recetteId);
+    const ingredients=recette?.ingredients||plan?.ingredients||choisi?.aliments||[];
+    window.glowConsommationDraft={date:dateLocaleISO(),type,planId:plan?.id,nom:plan?.nom||choisi?.nom||(type==='plaisir-soir'?'Pancakes':''),portions:Number(recette?.portions||plan?.portionsBase||plan?.personnes||1),portion:1,ingredients:ingredients.map(i=>typeof i==='string'?{nom:i,quantite:100,unite:'g'}:{...i})};
+    afficherConsommationV2Glow();
+}
+function afficherConsommationV2Glow(){
+    const d=window.glowConsommationDraft;if(!d)return;
+    document.getElementById('consommation-v2-glow')?.remove();
+    const esc=echapperTexteRepasGlow;
+    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p>Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${Number(i.quantite)||0}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'g')}" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button><p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
+}
+function choisirRecetteConsommationV2Glow(id){
+    const recette=recettesDisponiblesPlanGlow().find(r=>r.id===id);if(!recette)return;
+    Object.assign(window.glowConsommationDraft,{recetteId:id,nom:recette.nom,portions:Number(recette.portions)||1,ingredients:(recette.ingredients||[]).map(i=>({...i}))});afficherConsommationV2Glow();
+}
+function validerQuantitesConsommationV2Glow(d){
+    if(!d.nom?.trim()||!Number.isFinite(d.portions)||d.portions<=0||!Number.isFinite(d.portion)||d.portion<=0||d.portion>d.portions)throw Error('Vérifie le plat et les portions préparées / mangées.');
+    if(!d.ingredients.length||d.ingredients.some(i=>!i.nom?.trim()||!Number.isFinite(Number(i.quantite))||Number(i.quantite)<=0||!i.unite?.trim()))throw Error('Chaque ingrédient doit avoir un nom, une quantité positive et une unité.');
+    for(const i of d.ingredients){
+        if(/huile/i.test(i.nom)){
+            const unite=cleAlimentGlow(i.unite),q=Number(i.quantite)/d.portions;
+            const grammes=unite==='g'?q:unite==='ml'?q*.92:/soupe|cas|c a s/.test(unite)?q*13.5:/cafe|cac|c a c/.test(unite)?q*4.5:null;
+            if(grammes===null||grammes>30)throw Error('Vérifie l’huile : précise g, ml, cuillère à soupe ou à café ; au-delà de 30 g par portion, corrige la quantité avant analyse.');
+        }
+    }
+    return true;
+}
+async function validerConsommationV2Glow(bouton){
+    const d=JSON.parse(JSON.stringify(window.glowConsommationDraft));
+    try{
+        validerQuantitesConsommationV2Glow(d);bouton.disabled=true;
+        const resultat=await demanderJSONNutritionGlow(`Estime la nutrition de la portion réellement mangée de ce plat : ${JSON.stringify(d)}. Repas déjà consommés aujourd’hui : ${JSON.stringify(DB.glow?.nutrition?.repas||[])}. Activité du jour : ${JSON.stringify(bilanSportJourGlow())}. Les ingrédients sont les quantités TOTALES utilisées : multiplie par portion/portions. Réponds {"calories":nombre,"proteines":nombre,"conseil":"conseil doux pour la suite de journée sans compensation ni restriction"}. Ne traite pas un plaisir du soir comme un repas incomplet.`,'EMMA analyse ta portion…');
+        if(!Number.isFinite(resultat.calories)||resultat.calories<0||!Number.isFinite(resultat.proteines)||resultat.proteines<0)throw Error('Analyse invalide. Réessaie.');
+        if(d.date&&d.date!==dateLocaleISO())throw Error('La journée a changé. Rouvre le repas pour confirmer sa date.');
+        initialiserGlowDuJour();
+        const choisi=repasPrevuExpliciteGlow(d.type);
+        const cle=choisi?.choixRepasId||d.planId&&`consomme_${dateLocaleISO()}_${d.planId}`;
+        if(cle&&DB.glow.nutrition.repas.some(r=>r.choixRepasId===cle))throw Error('Ce repas est déjà enregistré.');
+        const entree={id:`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients,ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:dateLocaleISO(),heure:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2'};
+        DB.glow.nutrition.repas.push(entree);
+        if(choisi){choisi.consomme=true;choisi.choixRepasId=cle;}
+        if(['dejeuner','diner'].includes(d.type)&&DB.journal){const date=dateLocaleISO();const bloc=(DB.journal.planning?.[date]||[]).find(b=>b.id===`glow_${d.type}_${date}`);if(bloc){DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;}}
+        try{await sauvegarderChoixRepasNutritionGlow(d.type,choisi||{});}catch(e){entree.sauvegardeNonConfirmee=true;document.getElementById('consommation-v2-glow')?.remove();renderGlowNutrition();throw e;}
+        document.getElementById('consommation-v2-glow')?.remove();renderGlowNutrition();toast('Repas analysé et enregistré ✓');
+    }catch(e){const n=document.getElementById('consommation-erreur-glow');if(n)n.textContent=e.message;else toast(e.message);}
+    finally{bouton.disabled=false;}
+}
+function minutesRecetteV2Glow(valeur){const n=parseFloat(String(valeur||'').replace(',','.'));return Number.isFinite(n)?Math.max(0,n):0;}
+async function reessayerConsommationV2Glow(id){const r=DB.glow.nutrition.repas.find(r=>r.id===id);if(!r)return;try{r.sauvegardeNonConfirmee=false;await sauvegarderChoixRepasNutritionGlow(r.type,repasPrevuExpliciteGlow(r.type)||{});renderGlowNutrition();toast('Sauvegarde confirmée ✓');}catch(e){r.sauvegardeNonConfirmee=true;toast(e.message);}}
+function renderBilanV2Glow(){
+    const repas=DB.glow?.nutrition?.repas||[];
+    const somme=champ=>repas.reduce((n,r)=>n+(Number.isFinite(Number(r[champ]))?Number(r[champ]):0),0);
+    return `<section class="glow-extension-card" style="margin-bottom:16px"><h3>Bilan de ma journée</h3><strong>${Math.round(somme('proteines'))} g de protéines</strong><details><summary style="font-size:12px;color:var(--mut)">Estimation énergétique</summary>${Math.round(somme('calories'))} kcal · valeurs estimées</details><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn bg" onclick="ouvrirConsommationV2Glow('collation')">Ajouter une collation</button><button class="btn bd" onclick="ouvrirConsommationV2Glow('plaisir-soir')">Mon plaisir du soir</button></div>${repas.filter(r=>r.sauvegardeNonConfirmee).map(r=>`<button class="btn bd" onclick="reessayerConsommationV2Glow('${echapperTexteRepasGlow(r.id)}')">Réessayer la sauvegarde de ${echapperTexteRepasGlow(r.nom)}</button>`).join('')}${repas.filter(r=>r.conseil).map(r=>`<p>${echapperTexteRepasGlow(r.nom)} : ${echapperTexteRepasGlow(r.conseil)}</p>`).join('')}</section>`;
+}
+
 function initialiserNutritionV2Glow(){
   initialiserPreferencesIngredientsGlow();
   const d = DB.glowNutritionPlans;
@@ -57137,7 +56993,7 @@ Ne propose JAMAIS un ingrédient interdit, ni comme ingrédient principal, ni da
 Règles :
 alterner plats maison gourmands et assiettes simples. Pour une assiette, indiquer protéine, vrais légumes, féculent et complément facultatifs.
 
-Chaque dîner comporte aussi un petit plaisir sucré.
+Le plaisir du soir est choisi séparément après le repas. Ne prescris aucun dessert à l’avance.
 
 Réutiliser les mêmes ingrédients, limiter les achats différents, prévoir 2 ou 3 repas restes sur 7 jours sans les enchaîner.
 
@@ -58089,7 +57945,7 @@ function ouvrirCompositionRepasGlow(id){
                 <label>🍫 Mon plaisir sucré du soir</label>
                 ${choixAssietteGlowHTML(
                   "plaisirSucre",
-                  a.plaisirSucre || "Carrés de chocolat"
+                  a.plaisirSucre || "Aucun"
                 )}
               </div>
             `
@@ -58158,7 +58014,7 @@ async function enregistrerCompositionRepasGlow(id){
     candidat={...candidat,nom:fiche.nom,typeAliment:'prepare',assiette:{},compositionLegumes:[]};
   }else{
     const assiette=Object.fromEntries(Object.keys(OPTIONS_ASSIETTE_GLOW).map(champ=>[champ,document.getElementById(`assiette-${champ}`)?.value.trim()||'']));
-    if(r.type!=='diner')assiette.plaisirSucre='';
+    assiette.plaisirSucre='';
     const legumes=[...document.querySelectorAll('.poelee-legume-v2:checked')].map(c=>c.value);
     if(legumes.length)assiette.legumes=`Poêlée : ${legumes.join(' + ')}`;
     const ingredients=Object.entries(assiette).filter(([k])=>k!=='legumes'||!legumes.length).map(([champ,nom])=>ingredientAssietteGlow(champ,nom)).filter(Boolean);
@@ -58250,7 +58106,7 @@ ${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
 Stock quantifié / à utiliser en priorité : ${JSON.stringify((DB.glowNutritionPlans.stockV2||[]).filter(s=>!s.archive))}.
 
 ${r.type === "diner"
-  ? "Ajoute un petit plaisir sucré."
+  ? "Ne prescris aucun dessert : le plaisir du soir est choisi séparément."
   : ""
 }
 
@@ -58572,6 +58428,7 @@ function afficherRecetteRepasGlow(repas, recette){
           "
         >
 
+          <button class="btn bd" onclick="ouvrirConsommationV2Glow('${echapperTexteRepasGlow(repas.type)}','${echapperTexteRepasGlow(repas.id)}')">J’ai mangé ça</button>
           <h3 style="margin-bottom:12px">
             🛒 Ingrédients
           </h3>
@@ -58924,6 +58781,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     if(trouverRepasPlanGlow(repasSource.id)!==repasSource||signatureAvant!==signatureRepasGlow(repasSource)||portions!==portionsNecessairesRecetteGlow(repasSource))throw new Error('Le repas ou ses portions ont changé. Relance la recette.');
     if(!Array.isArray(recette.ingredients)||!recette.ingredients.length||!Array.isArray(recette.etapes)||!recette.etapes.length)throw new Error('Recette incomplète. Réessaie.');
 
+    validerQuantitesConsommationV2Glow({nom:recette.nom||repasSource.nom,portions,portion:Math.min(1,portions),ingredients:recette.ingredients});
     recette.portions = portions;
 
     repasSource.recetteGeneree = {
