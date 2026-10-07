@@ -16,7 +16,7 @@ function mocks(){
  window.__testRef=ref('users/test');localStorage.setItem('anthropic_key','qa-placeholder');
  const fetchOriginal=window.fetch.bind(window);window.fetch=(url,options)=>fetchOriginal(url==='https://api.anthropic.com/v1/messages'?'/qa-ai':url,options);
 }
-const toolbar=`<div style="padding:8px;position:sticky;top:0;background:white;z-index:9999"><strong>Validation isolée</strong> <button onclick="renderIngredientsGlow()">Bibliothèque</button> <button onclick="renderPlanificationRepasGlow()">Planning</button> <button onclick="renderGlowModule()">Dashboard</button> <button onclick="ouvrirDecisionRepasEmma('diner')">Journal</button> <button onclick="location.reload()">Refresh</button></div>`;
+const toolbar=`<div style="padding:8px;position:sticky;top:0;background:white;z-index:9999"><strong>Validation isolée</strong> <button onclick="renderIngredientsGlow()">Bibliothèque</button> <button onclick="renderPlanificationRepasGlow()">Planning</button> <button onclick="renderGlowModule()">Dashboard</button> <button onclick="ouvrirDecisionRepasEmma('diner')">Journal</button> <button onclick="document.getElementById('module-glow').style.display='none';document.getElementById('module-journal').style.display='flex';renderJournalModule()">Planning du jour</button> <button onclick="document.getElementById('module-glow').style.display='none';document.getElementById('module-journal').style.display='none';document.getElementById('module-formations').style.display='flex';goFTab('kits')">Kits</button> <button onclick="location.reload()">Refresh</button></div>`;
 const bootstrap=`<script>(async()=>{userRef=window.__testRef;currentUser={uid:'test'};await loadAll();document.getElementById('loginPage').style.display='none';document.getElementById('app').style.display='none';document.getElementById('module-glow').style.display='flex';initialiserNutritionV2Glow();renderPlanificationRepasGlow();document.body.insertAdjacentHTML('afterbegin',${JSON.stringify(toolbar)});fetch('/qa-event',{method:'POST',body:JSON.stringify({loaded:chargementReussi,preferences:DB.glowNutritionPlans.preferencesIngredients,score:calculGlowScore(),sport:bilanSportJourGlow()})});})()</script>`;
 const server=http.createServer(async(req,res)=>{
  if(req.url.startsWith('/qa-')){
@@ -30,7 +30,7 @@ const server=http.createServer(async(req,res)=>{
      res.setHeader('Content-Type','application/json');res.end(JSON.stringify({content:[{text:JSON.stringify(resultat)}]}));return;
    }
    if(req.url==='/qa-save'){const value=JSON.parse(body);writes.push(value);docs[value.key]={...(docs[value.key]||{}),...value.data};}
-   if(req.url==='/qa-event')events.push(JSON.parse(body));
+   if(req.url==='/qa-event'&&body)events.push(JSON.parse(body));
    res.setHeader('Content-Type','application/json');res.end(JSON.stringify({events,writes,legacy:docs['users/test/data/main'].backupMarker}));return;
  }
  const pathname=new URL(req.url,'http://localhost').pathname;
