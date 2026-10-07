@@ -32,6 +32,43 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('Week layout handles overlaps and missing hours without mutating planning',()=>{
+  const blocs=[{id:'a',heureDebut:'09:00',heureFin:'10:00'},{id:'b',heureDebut:'09:30',heureFin:'11:00'},{id:'c',heureDebut:'12:00',heureFin:'13:00'},{id:'sans-heure'}];
+  const avant=JSON.stringify(blocs),r=context.assignerColonnesPlanning(blocs);
+  assert.equal(r.length,3);assert.equal(r[0]._maxCols,2);assert.equal(r[1]._col,1);assert.equal(r[2]._maxCols,1);assert.equal(JSON.stringify(blocs),avant);
+});
+await test('Week renderer displays dated tasks despite an unscheduled legacy entry',()=>{
+  const ensure=context.ensureJournalData,get=context.getJournalJour;
+  context.ensureJournalData=()=>{};context.getJournalJour=()=> '2026-10-05';
+  context.DB.journal={zones:[],faitAujourdhui:{},planning:{'2026-10-05':[{id:'dated',nom:'Rendez-vous test',heureDebut:'09:00',heureFin:'10:00'},{id:'legacy',nom:'Sans horaire'}]}};
+  const avant=JSON.stringify(context.DB.journal);const h=context.renderJSemaineApercu();
+  assert.ok(h.includes('Rendez-vous test'));assert.ok(!h.includes('NaN'));assert.equal(JSON.stringify(context.DB.journal),avant);
+  context.ensureJournalData=ensure;context.getJournalJour=get;
+});
+await test('Sport equipment: none is exclusive and replacements respect it',async()=>{
+  const ancienne=context.initialiserGlowDuJour;context.initialiserGlowDuJour=()=>{};
+  context.DB.glow.activite={materielsChoisis:['elliptique'],niveau:1};
+  context.DB.glowExercices=[{id:'libre',nom:'Libre',materiel:['aucun'],type:'exercice',objectif:['taille']},{id:'bande',nom:'Bande',materiel:['élastique'],type:'exercice',objectif:['taille']}];
+  await context.toggleMaterielSportGlow('aucun');assert.deepEqual([...context.DB.glow.activite.materielsChoisis],['aucun']);
+  const alternatives=context.alternativesExerciceSportGlow({exerciceId:'libre'},{objectif:'taille'});
+  assert.deepEqual(Array.from(alternatives,x=>x.id),['libre']);
+  await context.toggleMaterielSportGlow('elliptique');assert.deepEqual([...context.DB.glow.activite.materielsChoisis],['elliptique']);
+  context.initialiserGlowDuJour=ancienne;
+});
+await test('Sport custom effort/rest times are copied intact into timer plan',()=>{
+  const seance={duree:5,exercices:[{exerciceId:'libre'},{exerciceId:'bande'}],planTempsPersonnalise:[{dureeSecondes:75,reposSecondes:15},{dureeSecondes:90,reposSecondes:0}]};
+  const p=context.calculerPlanTempsSeanceGlow(seance);assert.equal(p[0].dureeSecondes,75);assert.equal(p[0].reposSecondes,15);p[0].dureeSecondes=999;assert.equal(seance.planTempsPersonnalise[0].dureeSecondes,75);
+});
+await test('Kit display is chronological while checkbox indexes and original array stay intact',()=>{
+  const ensure=context.ensureFormationsData;context.ensureFormationsData=()=>{};
+  context.DB.formations={etudiantes:[{nom:'Plus tard',dateFormation:'2026-11-12',kits:[] ,formation:'kit-cils'},{nom:'Avant',dateFormation:'2026-10-08',kits:[],formation:'kit-cils'},{nom:'Sans date',kits:[],formation:'kit-cils'}]};
+  nodes.set('fview-kits',node());const avant=JSON.stringify(context.DB.formations.etudiantes);
+  context.renderFKits();const h=nodes.get('fview-kits').innerHTML;
+  assert.ok(h.indexOf('Avant')<h.indexOf('Plus tard'));assert.ok(h.indexOf('Plus tard')<h.indexOf('Sans date'));assert.equal(JSON.stringify(context.DB.formations.etudiantes),avant);context.ensureFormationsData=ensure;
+});
+await test('Entering Journal no longer schedules the work/rest questionnaire',()=>{
+  const n=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='renderJournalModule');assert.ok(!script.slice(n.start,n.end).includes('ouvrirRoutineMatinEmma('));
+});
 await test('Journal: automatic recollage leaves planned hours and data unchanged',async()=>{
   context.DB.journal={planning:{},faitAujourdhui:{}};const date='2026-10-05';
   context.DB.journal.planning[date]=[{id:'maison',nom:'Maison',heureDebut:'08:00',heureFin:'08:15',duree:15,flexible:true},{id:'travail',type:'pro',heureDebut:'09:00',heureFin:'18:00'}];

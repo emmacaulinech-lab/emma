@@ -23161,7 +23161,8 @@ async function delEtudiante(id){
 // ── Kits ──
 function renderFKits(){
   ensureFormationsData();
-  const list=DB.formations.etudiantes.filter(e=>(e.kits||[]).length || e.formation==='kit-cils'||e.formation==='les-deux');
+  const list=DB.formations.etudiantes.filter(e=>(e.kits||[]).length || e.formation==='kit-cils'||e.formation==='les-deux')
+    .sort((a,b)=>(a.dateFormation||'9999-12-31').localeCompare(b.dateFormation||'9999-12-31'));
   let html='';
   if(!list.length){
     html=`<div class="empty">Aucune étudiante en formation extension de cils</div>`;
@@ -23170,7 +23171,7 @@ function renderFKits(){
       const idx=DB.formations.etudiantes.indexOf(e);
       const kits=e.kits||[];
       return`<div style="background:white;border:1.5px solid var(--brd);border-radius:16px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow)">
-        <div style="font-weight:700;font-size:14px;margin-bottom:10px">${e.nom}</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">${e.nom}${e.dateFormation?` <small style="font-weight:400;color:var(--mut)">· ${dlbl(e.dateFormation)}</small>`:''}</div>
         ${kits.map((kit,ki)=>{
           const contenu=kit.contenu||[];
           const nbFait=contenu.filter(k=>k.coche).length;
@@ -24443,13 +24444,14 @@ function genererSeanceGlow(objectifOverride = null, tempsOverride = null){
     const tempsCible = tempsMinutes * 60;
 
     const materielsChoisis=Array.isArray(DB.glow.activite?.materielsChoisis)?DB.glow.activite.materielsChoisis:[];
-    const materielsSpeciaux=["elastique","tapis_course","elliptique"];
+    const materielsSpeciaux=["elastique","élastique","tapis_course","elliptique"];
     const tous = getExercicesGlowComplets().filter(exercice => {
         if(!exercice.objectif?.includes(objectif))return false;
+        if(materielsChoisis.includes('aucun'))return exerciceSansMaterielGlow(exercice);
         if(!materielsChoisis.length)return true;
         const materiels=exercice.materiel||[];
         const special=materiels.find(m=>materielsSpeciaux.includes(m));
-        return !special||materielsChoisis.includes(special);
+        return !special||materielsChoisis.includes(special==='élastique'?'elastique':special);
     });
 
     // 1. On sépare les différents types
@@ -24745,8 +24747,7 @@ async function commencerSeance(id){
     initialiserGlowDuJour();
 
     const seanceCatalogue = (DB.glowSeances || []).find(item => item.id === id);
-    const seance = seanceCatalogue ||
-        (glowSeancePreview?.id === id ? glowSeancePreview : null) ||
+    const seance = (glowSeancePreview?.id === id ? glowSeancePreview : null) || seanceCatalogue ||
         genererSeanceGlow();
 
     // Toujours travailler sur une copie : une adaptation pendant la séance ne
@@ -25145,7 +25146,9 @@ function getContexteSportGlow(){
 
     // Chaque proposition est maintenant construite depuis toute la bibliothèque
     // afin de varier les mouvements, plutôt que de recycler la même séance fixe.
-    const seance = genererSeanceGlow(objectif,temps);
+    const signature=signaturePreparationSportGlow(objectif,temps);
+    const preparation=DB.glow.seancePreparation;
+    const seance = preparation?.signature===signature ? preparation.seance : genererSeanceGlow(objectif,temps);
     glowSeancePreview = seance;
 
     const labels = {taille:"la taille",fessiers:"les fessiers",posture:"la posture",jambes:"les jambes"};
@@ -25189,7 +25192,9 @@ async function setObjectifSportGlow(objectif){
 async function toggleMaterielSportGlow(materiel){
     initialiserGlowDuJour();
     const actuels=new Set(Array.isArray(DB.glow.activite.materielsChoisis)?DB.glow.activite.materielsChoisis:[]);
-    if(actuels.has(materiel))actuels.delete(materiel);else actuels.add(materiel);
+    if(actuels.has(materiel))actuels.delete(materiel);
+    else if(materiel==='aucun'){actuels.clear();actuels.add('aucun');}
+    else{actuels.delete('aucun');actuels.add(materiel);}
     DB.glow.activite.materielsChoisis=[...actuels];
     DB.glow.seanceGeneree=null;
     await enregistrerPreferencesSportGlow();
@@ -25204,6 +25209,66 @@ async function choisirSeancePlusCourteGlow(){
     DB.glow.activite.tempsDisponible = valeurs.length ? valeurs[valeurs.length-1] : 10;
     await enregistrerPreferencesSportGlow();
     renderGlowSport();
+}
+
+function exerciceSansMaterielGlow(exercice){
+    return (exercice.materiel||[]).every(m=>['aucun','sans materiel','sans matériel'].includes(String(m).toLowerCase()));
+}
+
+function signaturePreparationSportGlow(objectif,temps){
+    return JSON.stringify([objectif,temps,DB.glow.activite?.etatSport,DB.glow.activite?.niveau,[...(DB.glow.activite?.materielsChoisis||[])].sort()]);
+}
+
+function alternativesExerciceSportGlow(reference,seance){
+    const actuel=getExerciceGlow(reference.exerciceId||reference.id);
+    const materiels=DB.glow.activite?.materielsChoisis||[];
+    return getExercicesGlowComplets().filter(ex=>
+        ex.type===actuel?.type&&ex.objectif?.includes(seance.objectif)&&
+        Number(ex.niveau||1)<=Number(DB.glow.activite?.niveau||1)&&
+        (!materiels.includes('aucun')||exerciceSansMaterielGlow(ex))&&
+        (!materiels.length||!(ex.materiel||[]).some(m=>['elastique','élastique','tapis_course','elliptique'].includes(m)&&!materiels.includes(m==='élastique'?'elastique':m)))
+    );
+}
+
+function ouvrirResumeSeanceSportGlow(){
+    if(DB.glow.entrainement?.actif)return toast('Termine ou quitte la séance avant de la modifier.');
+    const seance=glowSeancePreview||getContexteSportGlow().seance;
+    if(!seance)return;
+    const plan=calculerPlanTempsSeanceGlow(seance);
+    document.getElementById('resume-sport-glow')?.remove();
+    document.body.insertAdjacentHTML('beforeend',`<div id="resume-sport-glow" class="mo open"><div class="mb" style="width:min(680px,95vw);max-height:90vh;overflow:auto"><h2>Ma séance · ${echapperTexteRepasGlow(seance.nom)}</h2>${seance.exercices.map((ref,index)=>{
+        const ex=getExerciceGlow(ref.exerciceId||ref.id);
+        const choix=alternativesExerciceSportGlow(ref,seance);
+        if(ex&&!choix.some(x=>x.id===ex.id))choix.unshift(ex);
+        return `<div style="padding:12px 0;border-bottom:1px solid var(--brd2)"><label for="sport-ex-${index}">${index+1}. ${echapperTexteRepasGlow(ex?.type==='echauffement'?'Échauffement':ex?.type==='etirement'?'Étirement':'Exercice')}</label><select id="sport-ex-${index}" style="width:100%;margin:6px 0">${choix.map(x=>`<option value="${echapperTexteRepasGlow(x.id)}" ${x.id===(ref.exerciceId||ref.id)?'selected':''}>${echapperTexteRepasGlow(x.nom)}</option>`).join('')}</select><div class="g2"><div class="fr"><label for="sport-effort-${index}">Effort (secondes)</label><input id="sport-effort-${index}" type="number" min="5" max="3600" value="${plan[index].dureeSecondes}"></div><div class="fr"><label for="sport-repos-${index}">Repos (secondes)</label><input id="sport-repos-${index}" type="number" min="0" max="600" value="${plan[index].reposSecondes}"></div></div></div>`;
+    }).join('')}<div class="ma"><button class="btn bg" onclick="document.getElementById('resume-sport-glow').remove()">Annuler</button><button class="btn bd" onclick="enregistrerResumeSeanceSportGlow(this)">Enregistrer</button></div></div></div>`);
+}
+
+async function enregistrerResumeSeanceSportGlow(bouton){
+    if(DB.glow.entrainement?.actif)return;
+    const origine=glowSeancePreview;if(!origine)return;
+    const copie=JSON.parse(JSON.stringify(origine));
+    const plan=[];
+    for(let index=0;index<copie.exercices.length;index++){
+        const id=document.getElementById(`sport-ex-${index}`)?.value;
+        const dureeSecondes=Number(document.getElementById(`sport-effort-${index}`)?.value);
+        const reposSecondes=Number(document.getElementById(`sport-repos-${index}`)?.value);
+        if(!alternativesExerciceSportGlow(origine.exercices[index],origine).some(x=>x.id===id)&&id!==(origine.exercices[index].exerciceId||origine.exercices[index].id))return toast('Choisis un exercice compatible.');
+        if(!Number.isFinite(dureeSecondes)||dureeSecondes<5||dureeSecondes>3600||!Number.isFinite(reposSecondes)||reposSecondes<0||reposSecondes>600)return toast('Vérifie les durées d’effort et de repos.');
+        copie.exercices[index]={...copie.exercices[index],exerciceId:id};
+        plan.push({exerciceIndex:index,dureeSecondes,reposSecondes});
+    }
+    copie.planTempsPersonnalise=plan;
+    copie.duree= Math.round(plan.reduce((total,p)=>total+p.dureeSecondes+p.reposSecondes,0)/60*100)/100;
+    bouton.disabled=true;
+    try{
+        const contexte=getContexteSportGlow();
+        DB.glow.seancePreparation={signature:signaturePreparationSportGlow(contexte.objectif,contexte.temps),seance:copie};
+        glowSeancePreview=copie;
+        await enregistrerPreferencesSportGlow();
+        document.getElementById('resume-sport-glow')?.remove();renderGlowSport();
+    }catch(error){toast('Impossible de sauvegarder la séance. Réessaie.');}
+    finally{bouton.disabled=false;}
 }
 
 function renderGlowSport(){
@@ -25228,6 +25293,7 @@ function renderGlowSport(){
         ["jambes","🦵 Jambes"]
     ];
     const materiels=[
+        ["aucun","Sans matériel"],
         ["tapis_course","🏃 Tapis de course"],
         ["elliptique","🚴 Elliptique"],
         ["elastique","🪢 Élastiques"]
@@ -25277,6 +25343,7 @@ function renderGlowSport(){
                 </div>
                 <div style="color:var(--mut);font-size:13px;line-height:1.55;margin:5px 0 17px">${contexte.raison}</div>
                 <div style="font-size:12px;margin-bottom:16px">${seance.exercices?.length || 0} mouvements · guidée pas à pas · pauses incluses</div>
+                <button class="btn bg" onclick="ouvrirResumeSeanceSportGlow()" style="margin-bottom:12px">Voir / modifier les exercices</button>
                 <button class="btn bd" onclick="commencerSeance('${seance.id}')" style="width:100%;justify-content:center;padding:13px">▶ Commencer ma séance</button>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
                     <button class="btn bg bsm" onclick="choisirSeancePlusCourteGlow()">Plus courte</button>
@@ -31228,6 +31295,9 @@ function renderExerciceGlow(){
 function calculerPlanTempsSeanceGlow(seance){
 
     if(!seance?.exercices?.length) return [];
+    if(Array.isArray(seance.planTempsPersonnalise)&&seance.planTempsPersonnalise.length===seance.exercices.length&&seance.planTempsPersonnalise.every(p=>Number.isFinite(p.dureeSecondes)&&p.dureeSecondes>0&&Number.isFinite(p.reposSecondes)&&p.reposSecondes>=0)){
+        return seance.planTempsPersonnalise.map((p,index)=>({...p,exerciceIndex:index}));
+    }
 
     const totalSecondes = Number(seance.duree || 0) * 60;
 
@@ -37883,9 +37953,7 @@ function renderJournalModule(){
         scrollVersMaintenant();
     }
 
-    setTimeout(() => {
-        ouvrirRoutineMatinEmma();
-    },250);
+    // L'entrée dans le planning n'ouvre plus le questionnaire travail/repos.
 
 }
 
@@ -38166,6 +38234,25 @@ async function delSousTache(zoneId,actionId,stId){
   renderJTaches();
 }
 
+function assignerColonnesPlanning(blocs){
+  const valides=blocs.filter(p=>/^\d{2}:\d{2}$/.test(p.heureDebut||'')&&/^\d{2}:\d{2}$/.test(p.heureFin||'')&&strToMin(p.heureFin)>strToMin(p.heureDebut))
+    .map(p=>({...p})).sort((a,b)=>a.heureDebut.localeCompare(b.heureDebut));
+  let groupe=[],fin=-1;
+  const finaliser=()=>{
+    const fins=[];
+    for(const p of groupe){
+      let col=fins.findIndex(f=>f<=strToMin(p.heureDebut));if(col<0)col=fins.length;
+      fins[col]=strToMin(p.heureFin);p._col=col;
+    }
+    groupe.forEach(p=>p._maxCols=Math.max(1,fins.length));
+  };
+  for(const p of valides){
+    if(strToMin(p.heureDebut)>=fin){finaliser();groupe=[];}
+    groupe.push(p);fin=Math.max(strToMin(p.heureFin),groupe.length===1?-1:fin);
+  }
+  finaliser();return valides;
+}
+
 function renderJSemaineApercu(){
   ensureJournalData();
   const centre=new Date(getJournalJour()+'T12:00:00');
@@ -38178,7 +38265,7 @@ function renderJSemaineApercu(){
   const reperesSet=new Set();
   let heureMin=8*60, heureMax=18*60;
   jours.forEach(j=>{
-    (DB.journal.planning[j]||[]).forEach(p=>{
+    assignerColonnesPlanning(DB.journal.planning[j]||[]).forEach(p=>{
       heureMin=Math.min(heureMin,toMin(p.heureDebut));
       heureMax=Math.max(heureMax,toMin(p.heureFin));
       reperesSet.add(toMin(p.heureDebut));
