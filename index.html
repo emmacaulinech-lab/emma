@@ -27222,6 +27222,103 @@ function variationStable(texte){
 }
 
 async function choisirDinerGlow(option){
+    return choisirRepasSuggereGlow('diner',option);
+}
+
+function synchroniserRepasChoisiJournalGlow(type,choisi,date){
+    ensureJournalData();
+    DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};
+    const planning=DB.journal.planning[date]||(DB.journal.planning[date]=[]);
+    const id=`glow_${type}_${date}`,existant=planning.find(b=>b.id===id||b.sourceId===id);
+    if(existant&&blocReellementFaitEmma(existant,date))return;
+    const duree=Math.max(5,Number(choisi.dureeRepas)||30);
+    let debut=strToMin(choisi.heureRepas||(type==='dejeuner'?'12:30':'19:30'));
+    let conflit;
+    while((conflit=planning.find(b=>b!==existant&&b.heureDebut&&b.heureFin&&debut<strToMin(b.heureFin)&&debut+duree>strToMin(b.heureDebut))))debut=strToMin(conflit.heureFin);
+    const bloc={id,sourceId:id,source:'glow',type:'perso',categorie:'repas',nom:type==='dejeuner'?'Déjeuner':'Dîner',customNom:choisi.nom,iconOverride:type==='dejeuner'?'🥗':'🌙',heureDebut:minToStr(debut),heureFin:minToStr(debut+duree),duree,flexible:false,verrouille:true,repasFixe:true,repas:{...choisi}};
+    if(existant)Object.assign(existant,bloc);else planning.push(bloc);
+    // Le rappel reste conservé, mais est désormais une confirmation faite.
+    const rappel=planning.find(b=>b.id===`glow_decider_${type}_${date}`);
+    if(rappel){
+        DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};
+        DB.journal.faitAujourdhui[date][rappel.id]=true;
+    }
+    planning.sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''));
+}
+
+async function choisirRepasSuggereGlow(type, option){
+    initialiserGlowDuJour();
+    if(!['dejeuner','diner','collation'].includes(type)||!Array.isArray(option)||!option.length)return;
+    try{
+        const date=dateLocaleISO(),n=DB.glow.nutrition||(DB.glow.nutrition={repas:[]});
+        n.repasPrevus=n.repasPrevus||{};
+        const options=option.map(x=>typeof x==='string'?x:String(x.nom||'')).filter(Boolean);
+        const plan=['dejeuner','diner'].includes(type)?choixSemaineNutritionGlow(date,type).find(r=>cleAlimentGlow(r.nom)===cleAlimentGlow(options.join(' · '))):null;
+        if(type!=='collation'&&planningNutritionDisponibleGlow(date)&&!plan)throw new Error('Choisis un repas de ta semaine ou utilise « Je veux autre chose » dans le Journal.');
+        validerAlimentsAutorisesGlow({ingredients:options.map(nom=>({nom}))});
+        const choisi={...(plan?repasPlanifieVersNutritionGlow(plan):{}),nom:plan?.nom||options.join(' · '),aliments:options,date:new Date().toISOString(),choixRepasId:`choix_${type}_${date}_${plan?.id||cleAlimentGlow(options.join(' · '))}`,heureRepas:type==='dejeuner'?'12:30':type==='diner'?'19:30':undefined,horsPlanning:!plan};
+        if(type==='diner')n.dinerPrevu=choisi;else n.repasPrevus[type]=choisi;
+        if(type!=='collation')synchroniserRepasChoisiJournalGlow(type,choisi,date);
+        await sauvegarderChoixRepasNutritionGlow(type,choisi);
+        renderGlowNutrition();toast(type==='collation'?'Collation prévue':'✓ Repas ajouté au planning du jour');
+    }catch(error){renderGlowNutrition();toast(`⚠️ ${error.message}`);}
+}
+
+async function sauvegarderChoixRepasNutritionGlow(type,choisi){
+    choisi.sauvegardeNonConfirmee=false;
+    try{
+        if(!await sauvegarderChampSeul('glow',JSON.stringify(DB.glow)))throw new Error('Sauvegarde du repas non confirmée.');
+        if(type!=='collation'&&DB.journal&&!await sauvegarderChampSeul('journal',JSON.stringify(DB.journal)))throw new Error('Sauvegarde du planning non confirmée.');
+    }catch(error){choisi.sauvegardeNonConfirmee=true;throw error;}
+}
+
+async function reessayerSauvegardeRepasNutritionGlow(type){
+    const choisi=repasPrevuExpliciteGlow(type);if(!choisi)return;
+    try{await sauvegarderChoixRepasNutritionGlow(type,choisi);toast('✓ Sauvegarde confirmée');}
+    catch(error){toast(`⚠️ ${error.message}`);}
+    renderGlowNutrition();
+}
+
+function repasPrevuExpliciteGlow(type){
+    const n=DB.glow?.nutrition||{};
+    const choisi=type==='diner'?n.dinerPrevu:n.repasPrevus?.[type];
+    return choisi&&(!choisi.date||dateLocaleISO(new Date(choisi.date))===dateLocaleISO())?choisi:null;
+}
+
+async function enregistrerRepasPrevuConsommeGlow(type){
+    initialiserGlowDuJour();
+    ensureJournalData();
+    DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};
+    const choisi=repasPrevuExpliciteGlow(type);if(!choisi)return;
+    const n=DB.glow.nutrition;
+    n.repas=n.repas||[];
+    const cle=choisi.choixRepasId||`choix_${type}_${DB.glow.date}_${cleAlimentGlow(choisi.nom||(choisi.aliments||[]).map(a=>typeof a==='string'?a:a.nom).join(' · '))}`;
+    if(n.repas.some(r=>r.choixRepasId===cle))return toast('Ce repas est déjà enregistré.');
+    const aliments=(choisi.aliments||[choisi.nom]).filter(Boolean).map(a=>typeof a==='string'?{nom:a}:{...a});
+    n.repas.push({id:`repas_${genId()}`,type,nom:choisi.nom,aliments,choixRepasId:cle,choixPlanId:choisi.choixPlanId,sourcePlanId:choisi.sourcePlanId,heure:new Date().toISOString(),date:dateLocaleISO(),source:'repas_prevu'});
+    DB.glow.glowScore=calculGlowScore().total;
+    choisi.consomme=true;choisi.choixRepasId=cle;
+    const bloc=(DB.journal?.planning?.[dateLocaleISO()]||[]).find(b=>b.id===`glow_${type}_${dateLocaleISO()}`);
+    if(bloc){
+        const date=dateLocaleISO();DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;
+        bloc.realiseA=minToStr(new Date().getHours()*60+new Date().getMinutes());bloc.realiseTimestamp=Date.now();
+    }
+    try{
+        await sauvegarderChoixRepasNutritionGlow(type,choisi);
+        renderGlowNutrition();toast('✓ Repas enregistré dans ta journée et ton historique');
+    }catch(error){renderGlowNutrition();toast(`⚠️ ${error.message}`);}
+}
+
+function renderRepasPrevusConfirmationGlow(){
+    return ['dejeuner','diner'].map(type=>{
+        const choisi=repasPrevuExpliciteGlow(type);if(!choisi)return '';
+        const nom=choisi.nom||(choisi.aliments||[]).map(a=>typeof a==='string'?a:a.nom).join(' · ');
+        const deja=choisi.consomme||(DB.glow.nutrition.repas||[]).some(r=>r.choixRepasId&&r.choixRepasId===choisi.choixRepasId);
+        return `<section style="padding:14px 0;border-bottom:1px solid var(--brd2)"><strong>${type==='dejeuner'?'Déjeuner prévu':'Dîner prévu'}</strong><div style="margin:6px 0">${echapperTexteRepasGlow(nom)}</div>${choisi.sauvegardeNonConfirmee?`<button class="btn bd bsm" onclick="reessayerSauvegardeRepasNutritionGlow('${type}')">Réessayer la sauvegarde</button>`:deja?'<small>✓ Repas mangé et enregistré</small>':`<button class="btn bd bsm" onclick="enregistrerRepasPrevuConsommeGlow('${type}')">J’ai mangé</button>`}</section>`;
+    }).join('');
+}
+
+async function choisirDinerGlowLegacy(option){
 
     initialiserGlowDuJour();
 
@@ -27247,7 +27344,7 @@ async function choisirDinerGlow(option){
     toast("Dîner prévu pour ce soir 🌙");
 }
 
-async function choisirRepasSuggereGlow(type, option){
+async function choisirRepasSuggereGlowLegacy(type, option){
 
     initialiserGlowDuJour();
 
@@ -27361,6 +27458,10 @@ async function supprimerDinerPrevuGlow(){
 }
 
 async function validerDinerPrevuGlow(){
+    return enregistrerRepasPrevuConsommeGlow('diner');
+}
+
+async function validerDinerPrevuGlowLegacy(){
 
     initialiserGlowDuJour();
 
@@ -28220,7 +28321,9 @@ function renderGlowNutrition(){
 
 </div>
 
-${dinerPrevu ? `
+${renderRepasPrevusConfirmationGlow()}
+
+${dinerPrevu&&!dinerPrevu.choixRepasId&&!dinerPrevu.consomme ? `
 
 <div style="
     background:linear-gradient(135deg,#FFF2F6,#FFF9F7);
@@ -28770,7 +28873,7 @@ const courses =
                 .map(a =>
                     typeof a === "string"
                         ? a
-                        : `${a.nom} · ${a.quantite || ""}`
+                        : `${a.nom}${a.quantite?` · ${a.quantite}`:''}`
                 )
                 .join("  •  ")
     }
@@ -49101,9 +49204,9 @@ function assurerRappelsRepasJournal(date){
     const repasPlanifieDiner=repasPlanifieVersNutritionGlow(getRepasPlanifieGlow(date,"diner"));
     const repasPrevus={
         ...(nutrition.repasPrevus||{}),
-        dejeuner:repasChoisiPourJournalGlow('dejeuner',date)
+        dejeuner:repasChoisiPourJournalGlow('dejeuner',date,false)
     };
-    const dinerPrevuJournal=repasChoisiPourJournalGlow('diner',date);
+    const dinerPrevuJournal=repasChoisiPourJournalGlow('diner',date,false);
 
 
     // =========================
@@ -56838,12 +56941,12 @@ async function enregistrerAlimentV2Glow(bouton){
 function ouvrirFicheRecetteV2Glow(id){const r=recettesDisponiblesPlanGlow().find(x=>x.id===id);if(r)previsualiserAlimentV2Glow({...r,recetteId:id,type:r.type||'recette'},true);}
 
 function planningNutritionDisponibleGlow(date){const p=DB.glowNutritionPlans?.planActif;return !!(p&&p.debut<=date&&p.fin>=date);}
-function repasChoisiPourJournalGlow(type,date){
+function repasChoisiPourJournalGlow(type,date,inclurePlanning=true){
   const n=DB.glow?.nutrition||{},choisi=type==='diner'?n.dinerPrevu:n.repasPrevus?.dejeuner;
   const memeDate=choisi?.date?dateLocaleISO(new Date(choisi.date))===date:DB.glow?.date===date;
   const lie=choisi?.choixPlanId?trouverRepasPlanGlow(choisi.choixPlanId):null;
   if(choisi&&memeDate&&!choisi.aRevoir&&(choisi.horsPlanning||lie&&lie.statut!=='absent'&&!lie.sourceIndisponible||!planningNutritionDisponibleGlow(date)))return choisi;
-  return repasPlanifieVersNutritionGlow(getRepasPlanifieGlow(date,type));
+  return inclurePlanning?repasPlanifieVersNutritionGlow(getRepasPlanifieGlow(date,type)):null;
 }
 function choixSemaineNutritionGlow(date,type){
   if(!planningNutritionDisponibleGlow(date))return [];
