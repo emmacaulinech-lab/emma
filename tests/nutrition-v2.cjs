@@ -32,6 +32,35 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('Choosing lunch adds its Journal block without pretending it was eaten; consumption records exactly once',async()=>{
+  const ensure=context.ensureJournalData,init=context.initialiserGlowDuJour,render=context.renderGlowNutrition;context.ensureJournalData=()=>{};context.initialiserGlowDuJour=()=>{};context.renderGlowNutrition=()=>{};
+  context.DB.journal={zones:[],planning:{'2026-10-05':[]},faitAujourdhui:{}};context.DB.glow={date:'2026-10-05',nutrition:{repas:[],repasPrevus:{}}};
+  plan();await context.choisirRepasSuggereGlow('dejeuner',['Poulet et courgettes']);
+  assert.equal(context.DB.glow.nutrition.repas.length,0);assert.ok(context.DB.journal.planning['2026-10-05'].some(b=>b.id==='glow_dejeuner_2026-10-05'));assert.equal(context.DB.glow.nutrition.repasPrevus.dejeuner.choixPlanId,'a');
+  delete context.DB.journal.faitAujourdhui;
+  await context.enregistrerRepasPrevuConsommeGlow('dejeuner');await context.enregistrerRepasPrevuConsommeGlow('dejeuner');
+  assert.equal(context.DB.glow.nutrition.repas.length,1);assert.equal(context.DB.glow.nutrition.repas[0].nom,'Poulet et courgettes');assert.equal(context.DB.glow.nutrition.repas[0].date,'2026-10-05');
+  const sauvegarde=JSON.parse(storage.get('modules/glow').data);assert.equal(sauvegarde.nutrition.repas.length,1);
+  context.ensureJournalData=ensure;context.initialiserGlowDuJour=init;context.renderGlowNutrition=render;
+});
+await test('A weekly meal alone is not an explicitly confirmed daily choice',()=>{
+  plan();context.DB.glow={date:'2026-10-05',nutrition:{repas:[],repasPrevus:{}}};
+  assert.ok(context.repasChoisiPourJournalGlow('diner','2026-10-05'));assert.equal(context.repasChoisiPourJournalGlow('diner','2026-10-05',false),null);
+});
+await test('Repeated meal selection keeps one Journal block and does not move existing appointments',async()=>{
+  const ensure=context.ensureJournalData,init=context.initialiserGlowDuJour,render=context.renderGlowNutrition;context.ensureJournalData=()=>{};context.initialiserGlowDuJour=()=>{};context.renderGlowNutrition=()=>{};
+  const rdv={id:'client',source:'planity',heureDebut:'12:00',heureFin:'13:00'};context.DB.journal={zones:[],planning:{'2026-10-05':[rdv]},faitAujourdhui:{}};context.DB.glow={date:'2026-10-05',nutrition:{repas:[],repasPrevus:{}}};plan();
+  await context.choisirRepasSuggereGlow('dejeuner',['Poulet et courgettes']);await context.choisirRepasSuggereGlow('dejeuner',['Poulet et courgettes']);
+  const blocs=context.DB.journal.planning['2026-10-05'];assert.equal(blocs.length,2);assert.equal(blocs.find(b=>b.source==='glow').heureDebut,'13:00');assert.equal(rdv.heureDebut,'12:00');
+  context.ensureJournalData=ensure;context.initialiserGlowDuJour=init;context.renderGlowNutrition=render;
+});
+await test('Failed meal save stays visible and can be retried without losing the meal',async()=>{
+  const ensure=context.ensureJournalData,init=context.initialiserGlowDuJour,render=context.renderGlowNutrition,save=context.sauvegarderChampSeul;context.ensureJournalData=()=>{};context.initialiserGlowDuJour=()=>{};context.renderGlowNutrition=()=>{};context.sauvegarderChampSeul=async()=>false;
+  context.DB.journal={zones:[],planning:{'2026-10-05':[]},faitAujourdhui:{}};context.DB.glow={date:'2026-10-05',nutrition:{repas:[],repasPrevus:{}}};plan();
+  await context.choisirRepasSuggereGlow('dejeuner',['Poulet et courgettes']);assert.equal(context.DB.glow.nutrition.repasPrevus.dejeuner.sauvegardeNonConfirmee,true);assert.ok(context.renderRepasPrevusConfirmationGlow().includes('Réessayer la sauvegarde'));
+  context.sauvegarderChampSeul=save;await context.reessayerSauvegardeRepasNutritionGlow('dejeuner');assert.equal(context.DB.glow.nutrition.repasPrevus.dejeuner.sauvegardeNonConfirmee,false);
+  context.ensureJournalData=ensure;context.initialiserGlowDuJour=init;context.renderGlowNutrition=render;
+});
 await test('Real check/uncheck preserves RDV hours and restores Maison planned hours',async()=>{
   const noms=['dedupliquerPlanningEmma','nettoyerCopiesTachesFaitesEmma','marquerEquivalentsCatalogueFaitsEmma','mettreAJourBilanAutoEmma','recalculerResteJourneeEmma','renderPlanningTimeline','saveAll','getJournalJour'];
   const avant=new Map(noms.map(n=>[n,context[n]]));noms.forEach(n=>context[n]=()=>{});context.getJournalJour=()=> '2026-10-05';
