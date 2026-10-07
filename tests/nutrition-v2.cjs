@@ -32,6 +32,14 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('GLOW 2: live timer uses planned rest and records only performed exercise indexes',()=>{
+ const before=context.DB,get=context.getSeanceEnCoursGlow,render=context.renderLecteurSeance,ex=context.getExerciceGlow,timer=context.setTimeout;
+ context.DB={glow:{entrainement:{exerciceIndex:0,chrono:0,enRepos:false,planTemps:[{exerciceIndex:0,dureeSecondes:40,reposSecondes:20}]}}};context.glowTimer=null;let tick;
+ context.setInterval=f=>{tick=f;return 1};context.clearInterval=()=>{};context.setTimeout=()=>{};context.getSeanceEnCoursGlow=()=>({exercices:[{exerciceId:'a'}]});context.getExerciceGlow=()=>({reposParDefaut:5});context.renderLecteurSeance=()=>{};
+ context.demarrerChronoGlow();tick();assert.equal(context.DB.glow.entrainement.chrono,20);assert.deepEqual(Array.from(context.DB.glow.entrainement.indicesRealises),[0]);
+ context.DB=before;context.getSeanceEnCoursGlow=get;context.getExerciceGlow=ex;context.renderLecteurSeance=render;context.setTimeout=timer;context.glowTimer=null;
+});
+
 await test('GLOW 2: consumption stores actual ingredients and eaten portion, survives save, rejects invalid analysis',async()=>{
  const before=context.DB,analyse=context.demanderJSONNutritionGlow,init=context.initialiserGlowDuJour,render=context.renderGlowNutrition;
  context.DB={glow:{date:'2026-10-05',activite:{},nutrition:{repas:[]}},historiqueGlow:[]};context.initialiserGlowDuJour=()=>{};context.renderGlowNutrition=()=>{};

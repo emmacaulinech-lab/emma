@@ -24483,9 +24483,9 @@ function demarrerChronoGlow(){
 
         // Fin de l’exercice : lancer le repos
         if(!entrainement.enRepos){
-
+            noterExerciceRealiseV2Glow();
             const repos =
-                Number(exercice?.reposParDefaut) || 0;
+                Number(entrainement.planTemps?.find(p=>p.exerciceIndex===entrainement.exerciceIndex)?.reposSecondes ?? exercice?.reposParDefaut) || 0;
 
             if(repos > 0){
 
@@ -25159,6 +25159,10 @@ function renderGlowSport(){
     `;
 }
 
+function noterExerciceRealiseV2Glow(){
+ const e=DB.glow?.entrainement;if(!e)return;
+ e.indicesRealises=[...new Set([...(e.indicesRealises||[]),e.exerciceIndex])];
+}
 function terminerExerciceSportGlow(){
     if(!DB.glow?.entrainement) return;
     DB.glow.entrainement.exercicesTermines = Number(DB.glow.entrainement.exercicesTermines || 0) + 1;
@@ -25168,7 +25172,7 @@ function terminerExerciceSportGlow(){
 function passerExerciceSportGlow(){
     if(!DB.glow?.entrainement) return;
     DB.glow.entrainement.exercicesPasses = Number(DB.glow.entrainement.exercicesPasses || 0) + 1;
-    exerciceGlowSuivant();
+    exerciceGlowSuivant(false,true);
 }
 
 function adapterExerciceSportGlow(){
@@ -25180,7 +25184,7 @@ function adapterExerciceSportGlow(){
     if(!entrainement || !seance || !actuel) return;
 
     const deja = new Set(seance.exercices.map(item => item.exerciceId));
-    const alternative = (DB.glowExercices || []).find(item =>
+    const alternative = alternativesExerciceSportGlow(reference,seance).find(item =>
         item.id !== actuel.id &&
         item.type === actuel.type &&
         item.objectif?.some(obj => actuel.objectif?.includes(obj)) &&
@@ -25194,7 +25198,7 @@ function adapterExerciceSportGlow(){
         return;
     }
 
-    seance.exercices[entrainement.exerciceIndex] = {exerciceId:alternative.id};
+    seance.exercices[entrainement.exerciceIndex] = {...reference,exerciceId:alternative.id,motifRemplacement:"Trop difficile"};
     entrainement.adaptations = Number(entrainement.adaptations || 0) + 1;
     entrainement.chrono = extraireSecondesExerciceGlow(alternative,entrainement.exerciceIndex);
     entrainement.enPause = false;
@@ -31378,7 +31382,8 @@ const seance = getSeanceEnCoursGlow();
     }
 }
 
-function exerciceGlowSuivant(demarrageAutomatique = false){
+function exerciceGlowSuivant(demarrageAutomatique = false,ignore=false){
+    if(!ignore)noterExerciceRealiseV2Glow();
 
     stopChronoGlow();
 
@@ -31516,6 +31521,7 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
     const minutesRetenues = partielle
         ? Math.min(Number(seance.duree || minutesEcoulees),minutesEcoulees)
         : Number(seance.duree || minutesEcoulees);
+    const referencesRealisees=(seance.exercices||[]).filter((ref,i)=>entrainement.indicesRealises?.includes(i)||(!entrainement.indicesRealises&&!partielle));
     const ancienNiveau = Number(DB.glow.activite?.niveau || 1);
     const semaineRecente=historiqueSportV2Glow().filter(e=>e.date>=dateLocaleISO(new Date(Date.now()-7*86400000))&&e.objectif===seance.objectif);
     const derniereProgression=DB.glow.activite?.progressionLe;
@@ -31552,14 +31558,15 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
 
     partielle,
 
-    muscles:[...new Set((seance.exercices||[]).flatMap(ref=>getExerciceGlow(ref.exerciceId||ref.id)?.muscles||[]))],
+    muscles:[...new Set(referencesRealisees.flatMap(ref=>getExerciceGlow(ref.exerciceId||ref.id)?.muscles||[]))],
     intensite:feedback,
     exercicesTermines: Number(entrainement.exercicesTermines || 0),
 
     exercicesPasses: Number(entrainement.exercicesPasses || 0),
 
-    exercices: (seance.exercices || []).map(exercice => ({
-        exerciceId: exercice.exerciceId || exercice.id
+    exercices: referencesRealisees.map(exercice => ({
+        exerciceId: exercice.exerciceId || exercice.id,
+        motifRemplacement:exercice.motifRemplacement||null
     }))
 };
     
