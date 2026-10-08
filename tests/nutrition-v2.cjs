@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const script = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m => m[1].trim())[1];
 const ast = acorn.parse(script, {ecmaVersion: 'latest'});
 new vm.Script(script);
-const constants = new Set(['SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
+const constants = new Set(['CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
 const declarations = ast.body.filter(n => n.type === 'FunctionDeclaration' || n.type === 'VariableDeclaration' && n.declarations.every(d => constants.has(d.id.name))).map(n => script.slice(n.start, n.end)).join('\n');
 const storage = new Map(), writes = [], messages = [], nodes = new Map();
 function node() {return {value:'', innerHTML:'', textContent:'', disabled:false, style:{}, classList:{add(){},remove(){},contains(){return false}}, remove(){}, insertAdjacentHTML(){}, focus(){}};}
@@ -32,6 +32,20 @@ function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stri
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
 (async()=>{
+await test('Contract: private coaching CPF 3 days proposes Coaching 2 days at 129 euros',()=>{
+ const e={prenom:'Test',formationTypeNormalise:'coaching-prive-3j',financement:{type:'cpf'},suiviFormation:{}};
+ const kit=context.regleKitsMailFormation(e);
+ assert.ok(kit.texte.includes('Kit Coaching Privé 2 Jours'));assert.ok(kit.texte.includes('129'));assert.ok(!kit.texte.includes('Starter'));
+ const message=vm.runInContext('EMAIL_TEMPLATES.contrat',context).corps(e,{prenom:'Test',formation:'Coaching privé 3j',debut:'08/10/2026',fin:'10/10/2026'},kit);
+ assert.ok(message.includes('Kit Coaching Privé 2 Jours'));assert.ok(message.includes('129'));assert.ok(!message.includes('Starter'));assert.ok(message.includes('RIB'));
+ assert.deepEqual(Array.from(context.construireKitsSelonFormation('coaching-prive-3j','cpf'),k=>k.type),['coaching2j']);
+});
+await test('Other training kits keep their existing rules and confirmed incompatible choices require review',()=>{
+ for(const [type,expected] of [['coaching-prive-1j','coaching1j'],['coaching-prive-2j','coaching2j'],['debutante-express-3j','starter']])assert.deepEqual(Array.from(context.construireKitsSelonFormation(type,'cpf'),k=>k.type),[expected]);
+ const e={formationTypeNormalise:'coaching-prive-3j',financement:{type:'cpf'},suiviFormation:{kit_choisi:true},kits:[{type:'starter',contenu:[{item:'Conservé',coche:true}]}]};const avant=JSON.stringify(e);assert.throws(()=>context.regleKitsMailFormation(e),/ne correspond pas/);assert.equal(JSON.stringify(e),avant);
+ const perso=context.regleKitsMailFormation({...e,financement:{type:'perso'},suiviFormation:{},kits:[]});assert.ok(perso.texte.includes('offert'));assert.equal(perso.payant,false);
+});
+
 await test('GLOW 2: live timer uses planned rest and records only performed exercise indexes',()=>{
  const before=context.DB,get=context.getSeanceEnCoursGlow,render=context.renderLecteurSeance,ex=context.getExerciceGlow,timer=context.setTimeout;
  context.DB={glow:{entrainement:{exerciceIndex:0,chrono:0,enRepos:false,planTemps:[{exerciceIndex:0,dureeSecondes:40,reposSecondes:20}]}}};context.glowTimer=null;let tick;
