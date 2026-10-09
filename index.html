@@ -42431,7 +42431,7 @@ function organiserPlanningAutomatiqueEmma(date=dateLocaleISO(),maintenant=new Da
         const zones=zonesSportAutomatiquesEmma(date);
         candidats.set('sport_du_jour',{...(candidats.get('sport_du_jour')||{}),id:`auto_sport_${date}`,iconOverride:'🏋️',source:'glow',sourceId:'sport_du_jour',categorie:'sport',type:'perso',nom:`GLOW · ${zones.map(z=>labels[z]).join(' + ')}`,duree:(DB.glow?.activite?.etatSport||'forme')==='forme'?20:10,priorite:0,data:{zones}});
     }
-    const signature=empreintePlanningAutoEmma(JSON.stringify([fixes,Array.from(candidats,([cle,b])=>[cle,b.nom,b.duree,b.data,b.reporteDe||null]).sort((a,b)=>a[0].localeCompare(b[0])),preparation,contexte,DB.journal.faitAujourdhui?.[date],refus.size]));
+    const signature=empreintePlanningAutoEmma(JSON.stringify(['maison-soir-v2',fixes,Array.from(candidats,([cle,b])=>[cle,b.nom,b.duree,b.data,b.reporteDe||null]).sort((a,b)=>a[0].localeCompare(b[0])),preparation,contexte,DB.journal.faitAujourdhui?.[date],refus.size]));
     if(DB.journal.signatureOrganisation?.[date]===signature&&!planning.some(b=>b.autoOrganisation&&!blocProtegeAutoEmma(b,date)&&b.heureFin&&strToMin(b.heureFin)<=minute))return false;
     const occupes=fixes.filter(b=>b.heureDebut&&b.heureFin).map(b=>({debut:strToMin(b.heureDebut),fin:strToMin(b.heureFin)}));
     if(rendezVous.length)occupes.push({debut:depart,fin:debutTravail},{debut:finTravail,fin:retour});
@@ -42450,7 +42450,7 @@ function organiserPlanningAutomatiqueEmma(date=dateLocaleISO(),maintenant=new Da
     for(const b of liste){
         const famille=famillePlanningAutoEmma(b);
         let duree=Math.min(180,Math.max(5,Number(b.duree)||10));
-        const plages=famille==='sport'?[[debut,matinFin]]:famille==='soin'?[[soirDebut,fin]]:famille==='formation'?(travail?[[debutTravail,finTravail]]:[]):famille==='mail'?[[debut,matinFin],...(travail?[[debutTravail,finTravail]]:[])]:travail?[[debut,depart],[retour,soirDebut]]:[[debut,soirDebut]];
+        const plages=famille==='sport'?[[debut,matinFin]]:famille==='soin'?[[soirDebut,fin]]:famille==='formation'?(travail?[[debutTravail,finTravail]]:[]):famille==='mail'?[[debut,matinFin],...(travail?[[debutTravail,finTravail]]:[])]:travail?[[debut,depart],[retour,fin]]:[[debut,fin]];
         let t=placer(duree,plages);
         if(famille==='sport'&&t===null){duree=10;t=placer(duree,plages);b.data={...b.data,zones:(b.data?.zones||[]).slice(0,1)};b.nom=`GLOW · ${labels[b.data.zones[0]]||'Sport'} · 10 min`;}
         const budget=famille==='maison'?budgetMaison:famille==='soin'?budgetSoins:['formation','mail'].includes(famille)?budgetFormation:Infinity;
@@ -42492,7 +42492,7 @@ async function commencerSportPlanningAutoEmma(bloc){
 }
 function resumePlanningAutomatiqueEmma(date){
     const reserve=DB.journal.reserveAutomatique?.[date]||[];
-    return `<div class="glow-extension-card" style="margin:12px 0"><strong>✨ EMMA organise ta journée</strong><p style="font-size:12px">Sport prioritaire le matin · formations au travail et mails possibles le matin · maison hors du travail · soins le soir.</p>${reserve.length?`<details><summary>${reserve.length} tâche(s) restent à replanifier</summary>${reserve.map(b=>`<p>${echapperTexteRepasGlow(b.nom)} · ${echapperTexteRepasGlow(b.raison)}</p>`).join('')}</details>`:''}</div>`;
+    return `<div class="glow-extension-card" style="margin:12px 0"><strong>✨ EMMA organise ta journée</strong><p style="font-size:12px">Sport prioritaire le matin · formations au travail et mails possibles le matin · maison hors du travail, y compris le soir · soins le soir.</p>${reserve.length?`<details><summary>${reserve.length} tâche(s) restent à replanifier</summary>${reserve.map(b=>`<p>${echapperTexteRepasGlow(b.nom)} · ${echapperTexteRepasGlow(b.raison)}</p>`).join('')}</details>`:''}</div>`;
 }
 
 async function recalculerResteJourneeEmma(date){
