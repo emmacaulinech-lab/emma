@@ -38,6 +38,16 @@ async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}
  try{return fn(context.DB.journal);}finally{context.DB=before;for(const n of names)context[n]=saved[n];}
 }
 
+
+await test('Sport recommendation names its zones and splits actual workout time consistently',()=>{
+ const old=context.DB,library=context.getExercicesGlowComplets,init=context.initialiserGlowDuJour;
+ context.DB={glow:{date:'2026-10-05',activite:{etatSport:'forme',tempsDisponible:20,niveau:1,materielsChoisis:[]},nutrition:{repas:[]}},historiqueGlow:[]};context.initialiserGlowDuJour=()=>{};
+ context.getExercicesGlowComplets=()=>['fessiers','taille'].flatMap(z=>[{id:z+'_warm',objectif:[z],type:'echauffement',materiel:[]},{id:z+'_main',objectif:[z],type:'exercice',materiel:[]},{id:z+'_cool',objectif:[z],type:'etirement',materiel:[]}]);
+ try{const c=context.getContexteSportGlow();assert.deepEqual(Array.from(c.zonesConseillees),['fessiers','taille']);assert.ok(c.seance.nom.includes('Fessiers'));assert.ok(c.seance.nom.includes('Taille & ventre'));assert.equal(c.seance.minutesParZone.fessiers,10);assert.equal(c.seance.minutesParZone.taille,10);assert.equal(context.calculerPlanTempsSeanceGlow(c.seance).reduce((n,p)=>n+p.dureeSecondes+p.reposSecondes,0),1200);assert.ok(c.seance.exercices.some(r=>r.objectifZone==='taille'));
+ context.DB.glow.activite.tempsDisponible=10;const court=context.getContexteSportGlow();assert.equal(court.zonesConseillees.length,1);assert.equal(court.seance.duree,10);
+ context.DB.glow.activite.tempsDisponible=20;context.DB.glow.activite.objectifForce='taille';const manuel=context.getContexteSportGlow();assert.deepEqual(Array.from(manuel.seance.objectifs),['taille']);assert.deepEqual(Array.from(manuel.zonesConseillees),['fessiers','taille']);assert.equal(manuel.seance.duree,20);
+ }finally{context.DB=old;context.getExercicesGlowComplets=library;context.initialiserGlowDuJour=init;}
+});
 await test('Auto persistence is blocked before load and retries an unconfirmed save',async()=>{
  const names=['organiserPlanningAutomatiqueEmma','sauvegarderChampSeul','synchroniserNotificationsPlanningEmma','renderPlanningTimeline','renderHubPlanningMini'],saved=Object.fromEntries(names.map(n=>[n,context[n]]));const loaded=context.chargementReussi;let calls=0,changed=true;
  context.organiserPlanningAutomatiqueEmma=()=>{const result=changed;changed=false;return result};context.sauvegarderChampSeul=async()=>{calls++;return calls>1};context.synchroniserNotificationsPlanningEmma=async()=>{};context.renderPlanningTimeline=()=>{};context.renderHubPlanningMini=()=>{};context.window.planningAutoASauvegarder=false;

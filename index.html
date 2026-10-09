@@ -24926,6 +24926,24 @@ function getStatsSemaineSportGlow(){
     };
 }
 
+function libelleZonesSportGlow(zones){
+    const labels={taille:'🔥 Taille & ventre',fessiers:'🍑 Fessiers',jambes:'🦵 Jambes',haut:'💪 Haut du corps',posture:'🤍 Posture'};
+    return zones.map(z=>labels[z]||z).join(' + ');
+}
+function genererSeanceZonesSportGlow(zones,minutes){
+    zones=[...new Set(zones)].slice(0,minutes>=20?2:1);
+    if(!zones.length)return null;
+    const seances=zones.map(z=>genererSeanceGlow(z,minutes/zones.length));
+    if(seances.some(s=>!s))return null;
+    const exercices=seances.flatMap((s,i)=>s.exercices.map(ref=>({...ref,objectifZone:zones[i]})));
+    const plan=seances.flatMap(s=>calculerPlanTempsSeanceGlow(s)).map((p,i)=>({...p,exerciceIndex:i}));
+    return {id:`zones_${Date.now()}`,nom:libelleZonesSportGlow(zones),objectif:zones[0],objectifs:zones,minutesParZone:Object.fromEntries(zones.map(z=>[z,minutes/zones.length])),duree:minutes,exercices,planTempsPersonnalise:plan,tours:seances.reduce((n,s)=>n+(s.tours||1),0)};
+}
+async function suivreConseilSportGlow(){
+    initialiserGlowDuJour();DB.glow.activite.objectifForce='';DB.glow.seancePreparation=null;
+    await enregistrerPreferencesSportGlow();renderGlowSport();
+}
+
 function getContexteSportGlow(){
     initialiserGlowDuJour();
     const activite = DB.glow.activite || (DB.glow.activite = {});
@@ -24941,9 +24959,11 @@ function getContexteSportGlow(){
 
     // Chaque proposition est maintenant construite depuis toute la bibliothèque
     // afin de varier les mouvements, plutôt que de recycler la même séance fixe.
+    const zonesConseillees=zonesSportAutomatiquesEmma(dateLocaleISO()).slice(0,temps>=20?2:1);
+    const zones=activite.objectifForce?[objectif]:zonesConseillees;
     const signature=signaturePreparationSportGlow(objectif,temps);
     const preparation=DB.glow.seancePreparation;
-    const seance = preparation?.signature===signature ? preparation.seance : genererSeanceGlow(objectif,temps);
+    const seance = preparation?.signature===signature ? preparation.seance : genererSeanceZonesSportGlow(zones,temps);
     glowSeancePreview = seance;
 
     const labels = {taille:"la taille",fessiers:"les fessiers",posture:"la posture",jambes:"les jambes",haut:"le haut du corps"};
@@ -24952,7 +24972,7 @@ function getContexteSportGlow(){
     if(etat === "courbaturee") raison = "On privilégie la mobilité et la posture pour récupérer en douceur.";
     if(etat === "forme" && objectif !== recommandation.id) raison = `Tu as choisi de travailler ${labels[objectif] || objectif}.`;
 
-    return {etat,objectif,temps,seance,raison,recommandation};
+    return {etat,objectif,temps,seance,raison,recommandation,zonesConseillees};
 }
 
 async function enregistrerPreferencesSportGlow(){
@@ -25011,7 +25031,7 @@ function exerciceSansMaterielGlow(exercice){
 }
 
 function signaturePreparationSportGlow(objectif,temps){
-    return JSON.stringify([objectif,temps,DB.glow.activite?.etatSport,DB.glow.activite?.niveau,[...(DB.glow.activite?.materielsChoisis||[])].sort()]);
+    return JSON.stringify([objectif,temps,DB.glow.activite?.etatSport,DB.glow.activite?.niveau,[...(DB.glow.activite?.materielsChoisis||[])].sort(),dateLocaleISO(),recommanderProgrammeGlow().progression.map(p=>[p.id,p.minutes,p.charge])]);
 }
 
 function alternativesExerciceSportGlow(reference,seance){
@@ -25122,6 +25142,13 @@ function renderGlowSport(){
                 <button class="btn ${DB.glow.activite.tempsSportAuto?"bd":"bg"}" onclick="setTempsSportGlow('auto')">✦ EMMA choisit</button>
             </div>
 
+            <section style="background:rgba(255,255,255,.8);border:1px solid var(--brd);border-radius:20px;padding:18px;margin-bottom:20px">
+                <strong>Aujourd’hui, je te conseille</strong>
+                <div style="font-size:23px;font-weight:800;margin:8px 0">${echapperTexteRepasGlow(libelleZonesSportGlow(contexte.zonesConseillees))}</div>
+                <p style="font-size:13px;color:var(--mut)">${echapperTexteRepasGlow(contexte.recommandation.raison)}</p>
+                <small>${contexte.zonesConseillees.length>1?`${contexte.temps/2} min par zone · ${contexte.temps} min au total`:`${contexte.temps} min sur cette zone`}</small>
+                ${DB.glow.activite.objectifForce?'<button class="btn bd" style="display:block;margin-top:12px" onclick="suivreConseilSportGlow()">Suivre le conseil d’EMMA</button>':''}
+            </section>
             <div style="font-size:12px;font-weight:800;margin-bottom:8px">Matériel autorisé aujourd’hui</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
                 ${materiels.map(([id,label])=>`<button class="btn ${materielsChoisis.has(id)?"bd":"bg"}" onclick="toggleMaterielSportGlow('${id}')">${label}</button>`).join("")}
@@ -25132,8 +25159,8 @@ function renderGlowSport(){
             <div style="background:rgba(255,255,255,.76);border:1px solid rgba(217,121,140,.14);border-radius:24px;padding:20px">
                 <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start">
                     <div>
-                        <div style="font-size:11px;color:var(--acc);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Séance recommandée</div>
-                        <h3 style="font-family:'Cormorant Garamond',serif;font-size:28px;margin:5px 0">${seance.nom}</h3>
+                        <div style="font-size:11px;color:var(--acc);font-weight:800;text-transform:uppercase;letter-spacing:.08em">${DB.glow.activite.objectifForce?'Ta séance choisie':'Aujourd’hui, EMMA te conseille'}</div>
+                        <h3 style="font-family:'Cormorant Garamond',serif;font-size:28px;margin:5px 0">${echapperTexteRepasGlow(libelleZonesSportGlow(seance.objectifs||[seance.objectif]))}</h3>
                     </div>
                     <span style="white-space:nowrap;background:var(--bg2);color:var(--acc);padding:7px 11px;border-radius:999px;font-weight:800;font-size:12px">${seance.duree} min</span>
                 </div>
@@ -42482,10 +42509,8 @@ async function commencerSportPlanningAutoEmma(bloc){
     initialiserGlowDuJour();
     const zones=(bloc.data?.zones||zonesSportAutomatiquesEmma(dateLocaleISO())).slice(0,Number(bloc.duree)>=20?2:1);
     const minutes=Number(bloc.duree)>=20?20:10;
-    const seances=zones.map(z=>genererSeanceGlow(z,minutes/zones.length));
-    if(seances.some(s=>!s))return toast('Vérifie ton matériel autorisé dans GLOW Sport.');
-    const exercices=seances.flatMap((s,i)=>s.exercices.map(ref=>({...ref,objectifZone:zones[i]}))),plan=seances.flatMap(s=>calculerPlanTempsSeanceGlow(s)).map((p,i)=>({...p,exerciceIndex:i}));
-    const seance={id:`auto_glow_${Date.now()}`,nom:bloc.nom,objectif:zones[0],objectifs:zones,minutesParZone:Object.fromEntries(zones.map(z=>[z,minutes/zones.length])),duree:minutes,exercices,planTempsPersonnalise:plan};
+    const seance=genererSeanceZonesSportGlow(zones,minutes);
+    if(!seance)return toast('Vérifie ton matériel autorisé dans GLOW Sport.');
     DB.glow.activite.tempsDisponible=minutes;DB.glow.activite.objectifForce=zones[0];
     DB.glow.seancePreparation={signature:signaturePreparationSportGlow(zones[0],minutes),seance};glowSeancePreview=seance;
     await enregistrerPreferencesSportGlow();goModule('glow');await commencerSeance(seance.id);
