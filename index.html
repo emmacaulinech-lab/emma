@@ -8772,6 +8772,7 @@ async function loadAll() {
     }
 
     chargementReussi = true;
+    await actualiserPlanningAutomatiqueEmma();
 
     await chargerPhotosJour();
 
@@ -19306,6 +19307,7 @@ function ouvrirTacheDepuisNotificationEmma(notificationId){
 }
    
    function renderHubOverview(){
+  actualiserPlanningAutomatiqueEmma();
   mettreAJourBoutonNotificationsEmma();
   renderEmmaAccueilIntelligent();
   renderTodos();
@@ -21075,6 +21077,7 @@ function enregistrerSuiviFormation(etudianteId,itemId,checked){
 
 async function toggleSuiviFormation(etudianteId,itemId,checked){
   const ok=await enregistrerSuiviFormation(etudianteId,itemId,checked);
+  if(ok)await actualiserPlanningAutomatiqueEmma();
   toast(ok ? (checked?'✓ Étape validée':'Étape réouverte')
     : '⚠ La modification n’a pas pu être enregistrée. Réessaie.');
 }
@@ -21084,6 +21087,7 @@ async function validerDocumentGenereFormation(etudianteId,itemId){
   try{
     const ok=await enregistrerSuiviFormation(etudianteId,itemId,true);
     if(!ok) toast('⚠ PDF généré, mais suivi non enregistré. Réessaie de cocher l’étape.');
+    if(ok)await actualiserPlanningAutomatiqueEmma();
     return ok;
   }catch(erreur){
     console.error('Suivi du document généré :',erreur);
@@ -24318,8 +24322,8 @@ function recommanderProgrammeGlow(date=dateLocaleISO()){
     const jour=new Date(date+'T12:00:00');
     const historique=historiqueSportV2Glow().map(e=>({...e,age:Math.round((jour-new Date(e.date+'T12:00:00'))/86400000)})).filter(e=>e.age>=0);
     const scores=Object.entries(cibles).map(([id,frequence])=>{
-        const semaine=historique.filter(e=>e.age<7&&e.objectif===id);
-        const minutes=semaine.reduce((n,e)=>n+Number(e.minutes??e.duree),0);
+        const semaine=historique.filter(e=>e.age<7&&(e.objectif===id||e.objectifs?.includes(id)));
+        const minutes=semaine.reduce((n,e)=>n+Number(e.minutesParZone?.[id]??e.minutes??e.duree),0);
         const charge=historique.filter(e=>e.age<2&&(groupesMusclesV2Glow(e.muscles).length?groupesMusclesV2Glow(e.muscles):muscles[e.objectif]||[]).some(m=>muscles[id].includes(m))).reduce((n,e)=>n+Number(e.minutes??e.duree)*(e.feedback==='difficile'?1.3:1),0);
         return {id,label:labels[id],frequence,nombreFait:semaine.length,minutes,charge,priorite:Math.max(0,frequence-minutes/20)*10+(id==='fessiers'?12:0)-(id==='posture'?0:charge)};
     }).sort((a,b)=>b.priorite-a.priorite);
@@ -31546,6 +31550,8 @@ async function validerFinSeanceGlow(feedback = "parfait", partielle = false){
     date: DB.glow.date,
 
     objectif: seance.objectif,
+    objectifs:seance.objectifs||[seance.objectif],
+    minutesParZone:seance.objectifs?Object.fromEntries(seance.objectifs.map(zone=>[zone,(seance.exercices||[]).reduce((n,ref,i)=>n+(ref.objectifZone===zone&&referencesRealisees.includes(ref)?Number((entrainement.planTemps||[])[i]?.dureeSecondes||0)+Number((entrainement.planTemps||[])[i]?.reposSecondes||0):0),0)/60])):null,
 
     seanceId: seance.id,
 
@@ -37633,7 +37639,7 @@ function goJTab(i){
       btn.style.boxShadow=j===i?'var(--shadow)':'none';
     }
   });
-  if(i===0){ journalJourAffiche=new Date().toISOString().split('T')[0]; renderJAujourdhui(); scrollVersMaintenant(); }
+  if(i===0){ journalJourAffiche=dateLocaleISO(); renderJAujourdhui(); scrollVersMaintenant(); }
   if(i===1) renderJTaches();
   if(i===2) renderJHistorique();
 }
@@ -38317,7 +38323,7 @@ async function validerAjoutRdvRapide(){
 
 // ── Aujourd'hui ──
 function renderJAujourdhui(){
-
+    actualiserPlanningAutomatiqueEmma();
     ensureJournalData();
 
     const today =
@@ -38370,6 +38376,7 @@ function renderJAujourdhui(){
 
     let html = `
 
+        ${resumePlanningAutomatiqueEmma(today)}
         <!-- NAVIGATION DATE -->
 
         <div style="
@@ -39492,6 +39499,7 @@ function sauverEditionBlocPropositionJournal(date,blocId){
         return;
     }
 
+    bloc.placementManuel="fixe";
     bloc.heureDebut = debut;
     bloc.heureFin = fin;
 
@@ -39989,6 +39997,7 @@ if(chevauchePlanity){
     return;
 }
 
+    bloc.placementManuel="fixe";
     bloc.heureDebut = debut;
     bloc.heureFin = fin;
 
@@ -41158,7 +41167,8 @@ switch(charge.niveau){
 
 let budgetMaison = 0;
 
-if(minutesPersoLibres > 0){
+if(options.tousAutomatiques)budgetMaison=Infinity;
+if(minutesPersoLibres > 0&&!options.tousAutomatiques){
 
     budgetMaison =
         Math.round(
@@ -41325,7 +41335,7 @@ if(tache.score >= 110){
 
     if(
         !tache.forcee &&
-        minutesZone + tache.duree > maxMinutesZone
+        !options.tousAutomatiques && minutesZone + tache.duree > maxMinutesZone
     ){
         continue;
     }
@@ -42344,22 +42354,163 @@ function getCreneauxLibresIntelligents(date){
     );
 }
 
+function empreintePlanningAutoEmma(texte){let hash=2166136261;for(let i=0;i<texte.length;i++)hash=Math.imul(hash^texte.charCodeAt(i),16777619);return `${texte.length}:${hash>>>0}`;}
+function famillePlanningAutoEmma(bloc){
+    if(bloc.categorie==='sport')return 'sport';
+    if(bloc.source==='glow_soin'||bloc.categorie==='soin'||/prendre soin|soin de soi|bien.?être|beauté/i.test(bloc.data?.zoneNom||''))return 'soin';
+    if(bloc.source==='formations'||bloc.module==='formations'||bloc.data?.module==='formations'||bloc.type==='pro'||bloc.categorie==='proAdmin')return /mail|envoy|convocation|dossier.contractuel/i.test(`${bloc.nom||''} ${bloc.data?.actionId||''}`)?'mail':'formation';
+    if(bloc.categorie==='maison')return 'maison';
+    return null;
+}
+function clePlanningAutoEmma(bloc){return bloc.source==='glow_soin'?`soin_${bloc.data?.soinId||bloc.sourceId}`:bloc.categorie==='sport'?'sport_du_jour':cleTachePlanningEmma(bloc)||bloc.id;}
+function blocProtegeAutoEmma(bloc,date){
+    return estRendezVousPlanningEmma(bloc)||blocReellementFaitEmma(bloc,date)||bloc.enCoursEmma||(bloc.categorie==='sport'&&DB.glow?.date===date&&DB.glow?.entrainement?.actif)||bloc.placementManuel==='fixe'||bloc.heureImposee||bloc.flexible===false||bloc.verrouille||bloc.routineFixe;
+}
+function zonesSportAutomatiquesEmma(date){
+    const recommandation=recommanderProgrammeGlow(date);
+    const zones=[recommandation.id];
+    if((DB.glow?.activite?.etatSport||'forme')==='forme'){
+        const muscles={fessiers:['bas'],jambes:['bas'],taille:['centre'],haut:['haut'],posture:['haut']};
+        const autre=(recommandation.progression||[]).find(p=>p.id!==zones[0]&&p.charge<15&&p.minutes<p.frequence*20&&!muscles[p.id]?.some(m=>muscles[zones[0]]?.includes(m)));
+        if(autre)zones.push(autre.id);
+    }
+    return zones;
+}
+function organiserPlanningAutomatiqueEmma(date=dateLocaleISO(),maintenant=new Date()){
+    if(DB.journal?.planningAutomatique===false)return false;
+    ensureJournalData();
+    const avant=JSON.stringify([DB.journal.planning?.[date]||[],DB.journal.reserveAutomatique?.[date]||[]]);
+    const planning=DB.journal.planning[date]||(DB.journal.planning[date]=[]);
+    const minute=date===dateLocaleISO(maintenant)?maintenant.getHours()*60+maintenant.getMinutes():0;
+    const preparation=getPreparationJour(date);
+    const debut=Math.max(strToMin(preparation.heureLever||'07:30'),Math.ceil(minute/5)*5);
+    const fin=Math.min(1439,strToMin(preparation.heureFin||'22:30'));
+    const fixes=planning.filter(b=>blocProtegeAutoEmma(b,date)||!famillePlanningAutoEmma(b));
+    const formationsActuelles=getTachesWorkflowFormations(date);
+    const idsFormations=new Set(formationsActuelles.map(clePlanningAutoEmma));
+    const rendezVous=fixes.filter(b=>estRendezVousPlanningEmma(b)&&b.heureDebut&&b.heureFin);
+    const contexte=DB.journal.contexteJour?.[date]||{};
+    const travail=contexte.typeJournee!=='repos'&&(contexte.typeJournee==='travail'||rendezVous.length>0||fixes.some(b=>b.type==='pro'&&!b.routineFixe));
+    const debutTravail=rendezVous.length?Math.min(...rendezVous.map(b=>strToMin(b.heureDebut))):strToMin(contexte.heureDebutTravail||'09:00');
+    const finTravail=rendezVous.length?Math.max(...rendezVous.map(b=>strToMin(b.heureFin))):strToMin(contexte.heureFinTravail||'18:00');
+    const depart=debutTravail-(rendezVous.length?30:0),retour=finTravail+(rendezVous.length?30:0);
+    const matinFin=Math.min(12*60,travail?depart:12*60);
+    const soirDebut=Math.max(19*60,travail?retour:0);
+    const candidats=new Map();
+    const refus=new Set([...(DB.journal.refusPlanningJour?.[date]||[]),...(DB.journal.tachesDesactivees||[])]);
+    const clesFixes=new Set(fixes.map(clePlanningAutoEmma));
+    const ajoute=b=>{
+        const cle=clePlanningAutoEmma(b);
+        if(b.source==='glow_soin'&&DB.glowSoins?.taches?.[b.data?.soinId]&&!['retard','aujourdhui'].includes(etatSoinGlow(DB.glowSoins.taches[b.data.soinId]).statut))return;
+        if((b.source==='formations'||b.module==='formations')&&!idsFormations.has(cle))return;
+        if(!famillePlanningAutoEmma(b)||refus.has(cle)||refus.has(b.sourceId)||clesFixes.has(cle)||blocReellementFaitEmma(b,date)||estTacheOuEquivalentFaiteJourEmma(b,date))return;
+        if(!candidats.has(cle))candidats.set(cle,b);
+    };
+    planning.filter(b=>!fixes.includes(b)&&(!(b.source==='formations'||b.module==='formations')||idsFormations.has(clePlanningAutoEmma(b)))).forEach(ajoute);
+    (DB.journal.reserveAutomatique?.[date]||[]).filter(r=>r.bloc).forEach(r=>ajoute(r.bloc));
+    getElementsJourIntelligents(date,{tousAutomatiques:true}).filter(b=>b.source==='journal'&&b.categorie==='maison').forEach(ajoute);
+    formationsActuelles.forEach(b=>ajoute({...b,type:'pro',categorie:'proAdmin',flexible:true,verrouille:false}));
+    // Les anciens créneaux non terminés restent dans l'historique ; seule une copie liée revient aujourd'hui.
+    for(const jour of [...new Set([...Object.keys(DB.journal.planning),...Object.keys(DB.journal.reserveAutomatique||{})])].filter(j=>j<date).sort().reverse())for(const b of [...(DB.journal.planning[jour]||[]),...(DB.journal.reserveAutomatique?.[jour]||[]).filter(r=>r.bloc).map(r=>r.bloc)]){
+        if(!famillePlanningAutoEmma(b)||famillePlanningAutoEmma(b)==='sport'||blocReellementFaitEmma(b,jour)||b.source==='formations'||b.module==='formations'||refus.has(clePlanningAutoEmma(b)))continue;
+        const st=trouverSousTacheJournalEmma(cleTachePlanningEmma(b))?.sousTache;
+        if(st&&(estSousTacheProtegeeParFrequenceEmma(st,date)||estSousTacheFaiteJourEmma(st.id,date,st)))continue;
+        ajoute({...b,id:`auto_retard_${clePlanningAutoEmma(b)}_${date}`,reporteDe:b.reporteDe||jour,heureDebut:null,heureFin:null,placementManuel:null,heureImposee:false,flexible:true,verrouille:false});
+    }
+    if(etatsChargementExtensionsGlow.glowSoins===true)for(const soin of Object.values(DB.glowSoins?.taches||{})){
+        if(soin.actif===false||!['retard','aujourdhui'].includes(etatSoinGlow(soin).statut))continue;
+        ajoute({id:`auto_soin_${soin.id}_${date}`,source:'glow_soin',iconOverride:'✨',sourceId:soin.id,categorie:'soin',type:'perso',nom:`✨ ${soin.nom}`,duree:Number(soin.duree)||10,priorite:2,data:{soinId:soin.id,categorieSoin:soin.categorie}});
+    }
+    const labels={taille:'Taille & ventre',fessiers:'Fessiers',jambes:'Jambes',haut:'Haut du corps',posture:'Posture'};
+    if(bilanSportJourGlow(date).minutes>0){
+        for(const b of fixes.concat([...candidats.values()]).filter(b=>b.categorie==='sport'&&b.autoOrganisation)){
+            DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][b.id]=true;if(!fixes.includes(b))fixes.push(b);
+        }
+        candidats.delete('sport_du_jour');
+    }else if(!clesFixes.has('sport_du_jour')&&!refus.has('sport_du_jour')){
+        const zones=zonesSportAutomatiquesEmma(date);
+        candidats.set('sport_du_jour',{...(candidats.get('sport_du_jour')||{}),id:`auto_sport_${date}`,iconOverride:'🏋️',source:'glow',sourceId:'sport_du_jour',categorie:'sport',type:'perso',nom:`GLOW · ${zones.map(z=>labels[z]).join(' + ')}`,duree:(DB.glow?.activite?.etatSport||'forme')==='forme'?20:10,priorite:0,data:{zones}});
+    }
+    const signature=empreintePlanningAutoEmma(JSON.stringify([fixes,Array.from(candidats,([cle,b])=>[cle,b.nom,b.duree,b.data,b.reporteDe||null]).sort((a,b)=>a[0].localeCompare(b[0])),preparation,contexte,DB.journal.faitAujourdhui?.[date],refus.size]));
+    if(DB.journal.signatureOrganisation?.[date]===signature&&!planning.some(b=>b.autoOrganisation&&!blocProtegeAutoEmma(b,date)&&b.heureFin&&strToMin(b.heureFin)<=minute))return false;
+    const occupes=fixes.filter(b=>b.heureDebut&&b.heureFin).map(b=>({debut:strToMin(b.heureDebut),fin:strToMin(b.heureFin)}));
+    if(rendezVous.length)occupes.push({debut:depart,fin:debutTravail},{debut:finTravail,fin:retour});
+    for(const c of preparation.contraintes||[])if(c.heureDebut&&c.heureFin)occupes.push({debut:strToMin(c.heureDebut),fin:strToMin(c.heureFin)});
+    const placer=(duree,plages)=>{
+        for(const [a,z] of plages){let t=Math.max(debut,a);const limite=Math.min(fin,z);while(t+duree<=limite){const conflit=occupes.find(c=>t<c.fin&&t+duree>c.debut);if(!conflit)return t;t=Math.max(t+1,conflit.fin);}}
+        return null;
+    };
+    const reserve=[];
+    const blocs=[];
+    let budgetMaison=travail?60:120,budgetSoins=60,budgetFormation=travail?120:30;
+    const liste=[...candidats.values()].sort((a,b)=>{
+        const rang=b=>({sport:0,mail:1,formation:2,soin:3,maison:4}[famillePlanningAutoEmma(b)]??5);
+        return rang(a)-rang(b)||Number(a.priorite||3)-Number(b.priorite||3)||String(a.reporteDe||date).localeCompare(b.reporteDe||date)||String(a.id).localeCompare(String(b.id));
+    });
+    for(const b of liste){
+        const famille=famillePlanningAutoEmma(b);
+        let duree=Math.min(180,Math.max(5,Number(b.duree)||10));
+        const plages=famille==='sport'?[[debut,matinFin]]:famille==='soin'?[[soirDebut,fin]]:famille==='formation'?(travail?[[debutTravail,finTravail]]:[]):famille==='mail'?[[debut,matinFin],...(travail?[[debutTravail,finTravail]]:[])]:travail?[[debut,depart],[retour,soirDebut]]:[[debut,soirDebut]];
+        let t=placer(duree,plages);
+        if(famille==='sport'&&t===null){duree=10;t=placer(duree,plages);b.data={...b.data,zones:(b.data?.zones||[]).slice(0,1)};b.nom=`GLOW · ${labels[b.data.zones[0]]||'Sport'} · 10 min`;}
+        const budget=famille==='maison'?budgetMaison:famille==='soin'?budgetSoins:['formation','mail'].includes(famille)?budgetFormation:Infinity;
+        if(t===null||duree>budget){reserve.push({id:b.id,sourceId:b.sourceId,nom:b.nom,famille,duree,bloc:{...b},raison:t===null?'Aucun créneau compatible aujourd’hui':'À répartir sur les prochains jours'});continue;}
+        if(famille==='maison')budgetMaison-=duree;if(famille==='soin')budgetSoins-=duree;if(['formation','mail'].includes(famille))budgetFormation-=duree;
+        const bloc={...b,heureDebut:minToStr(t),heureFin:minToStr(t+duree),duree,autoOrganisation:true,autoPlanifie:true,flexible:true,verrouille:false};
+        blocs.push(bloc);occupes.push({debut:t,fin:t+duree+5});
+    }
+    DB.journal.planning[date]=[...fixes,...blocs].sort((a,b)=>(a.heureDebut||'').localeCompare(b.heureDebut||''));
+    DB.journal.signatureOrganisation=DB.journal.signatureOrganisation||{};DB.journal.signatureOrganisation[date]=signature;
+    DB.journal.reserveAutomatique=DB.journal.reserveAutomatique||{};DB.journal.reserveAutomatique[date]=reserve;
+    return avant!==JSON.stringify([DB.journal.planning[date],reserve]);
+}
+async function actualiserPlanningAutomatiqueEmma(date=dateLocaleISO()){
+    if(!chargementReussi||!userRef||date!==dateLocaleISO()||recalageAutomatiqueEmmaEnCours)return false;
+    recalageAutomatiqueEmmaEnCours=true;
+    try{
+        if(organiserPlanningAutomatiqueEmma(date))window.planningAutoASauvegarder=true;
+        if(!window.planningAutoASauvegarder)return false;
+        if(!await sauvegarderChampSeul('journal',JSON.stringify(DB.journal)))throw Error('Sauvegarde du planning non confirmée');
+        window.planningAutoASauvegarder=false;
+        await synchroniserNotificationsPlanningEmma(date);
+        renderPlanningTimeline();renderHubPlanningMini();
+        return true;
+    }catch(e){console.error('Planning automatique',e);toast('Le planning automatique n’a pas pu être sauvegardé. Recharge EMMA pour réessayer.');return false;}
+    finally{recalageAutomatiqueEmmaEnCours=false;}
+}
+async function commencerSportPlanningAutoEmma(bloc){
+    initialiserGlowDuJour();
+    const zones=(bloc.data?.zones||zonesSportAutomatiquesEmma(dateLocaleISO())).slice(0,Number(bloc.duree)>=20?2:1);
+    const minutes=Number(bloc.duree)>=20?20:10;
+    const seances=zones.map(z=>genererSeanceGlow(z,minutes/zones.length));
+    if(seances.some(s=>!s))return toast('Vérifie ton matériel autorisé dans GLOW Sport.');
+    const exercices=seances.flatMap((s,i)=>s.exercices.map(ref=>({...ref,objectifZone:zones[i]}))),plan=seances.flatMap(s=>calculerPlanTempsSeanceGlow(s)).map((p,i)=>({...p,exerciceIndex:i}));
+    const seance={id:`auto_glow_${Date.now()}`,nom:bloc.nom,objectif:zones[0],objectifs:zones,minutesParZone:Object.fromEntries(zones.map(z=>[z,minutes/zones.length])),duree:minutes,exercices,planTempsPersonnalise:plan};
+    DB.glow.activite.tempsDisponible=minutes;DB.glow.activite.objectifForce=zones[0];
+    DB.glow.seancePreparation={signature:signaturePreparationSportGlow(zones[0],minutes),seance};glowSeancePreview=seance;
+    await enregistrerPreferencesSportGlow();goModule('glow');await commencerSeance(seance.id);
+}
+function resumePlanningAutomatiqueEmma(date){
+    const reserve=DB.journal.reserveAutomatique?.[date]||[];
+    return `<div class="glow-extension-card" style="margin:12px 0"><strong>✨ EMMA organise ta journée</strong><p style="font-size:12px">Sport prioritaire le matin · formations au travail et mails possibles le matin · maison hors du travail · soins le soir.</p>${reserve.length?`<details><summary>${reserve.length} tâche(s) restent à replanifier</summary>${reserve.map(b=>`<p>${echapperTexteRepasGlow(b.nom)} · ${echapperTexteRepasGlow(b.raison)}</p>`).join('')}</details>`:''}</div>`;
+}
+
 async function recalculerResteJourneeEmma(date){
 
     ensureJournalData();
 
     const maintenant = new Date();
 
-    const aujourdHui =
-        maintenant.toISOString().split("T")[0];
+    const aujourdHui = dateLocaleISO(maintenant);
 
     if(date !== aujourdHui){
         return;
     }
 
+    organiserPlanningAutomatiqueEmma(date);
     dedupliquerPlanningEmma(date);
-    // Une actualisation ne crée jamais de nouvelles tâches. Elle conserve
-    // les choix validés, les rendez-vous et les réalisations tels quels.
+    // Le moteur complète et ajuste les tâches restantes ; les rendez-vous,
+    // déplacements manuels et réalisations restent protégés.
     DB.journal.planning[date].sort(
         (a,b) =>
             (a.heureDebut || "")
@@ -42381,7 +42532,7 @@ async function recalculerResteJourneeEmma(date){
 
     renderJAujourdhui();
 
-    console.log("Planning EMMA actualisé sans ajout automatique");
+    console.log("Planning EMMA actualisé automatiquement");
 }
 
 function estJourAvecClientesEmma(date){
@@ -45981,10 +46132,7 @@ async function recollerTachesMaisonJournal(options={}){
 
 let recalageAutomatiqueEmmaEnCours=false;
 
-async function decalerTachesEnRetardAutomatiquementEmma(){
-    // Point d'entrée conservé pour les anciens appels au chargement/reprise.
-    return false;
-}
+async function decalerTachesEnRetardAutomatiquementEmma(){return actualiserPlanningAutomatiqueEmma();}
 
 window.addEventListener('load',()=>{
     setTimeout(decalerTachesEnRetardAutomatiquementEmma,5000);
@@ -48384,6 +48532,7 @@ function supprimerBlocsSelectionnesJournal(){
     const date = getJournalJour();
     const planning = DB.journal.planning[date] || [];
 
+    DB.journal.refusPlanningJour=DB.journal.refusPlanningJour||{};DB.journal.refusPlanningJour[date]=[...new Set([...(DB.journal.refusPlanningJour[date]||[]),...planning.filter(b=>blocsSelectionnesJournal.has(b.id)).map(clePlanningAutoEmma)])];
     DB.journal.planning[date] = planning.filter(
         bloc => !blocsSelectionnesJournal.has(bloc.id)
     );
@@ -48579,6 +48728,7 @@ async function decalerBlocsJournal(minutes){
             return;
         }
 
+        bloc.placementManuel="fixe";
         bloc.heureDebut =
             toHeure(
                 toMin(bloc.heureDebut) +
@@ -48799,6 +48949,7 @@ async function decalerBlocsJournalDepuisHeure(){
 
     selection.forEach(bloc => {
 
+        bloc.placementManuel="fixe";
         bloc.heureDebut =
             toHeure(
                 toMin(bloc.heureDebut) +
@@ -49138,6 +49289,15 @@ verrouille:true,
 
     }
 
+    // Les rappels automatiques n'ont pas le droit de déplacer une cliente.
+    for(const id of [idDejeuner,idDiner]){
+        const rappel=DB.journal.planning[date].find(b=>b.id===id);
+        if(!rappel?.rappelRepas||blocReellementFaitEmma(rappel,date)||rappel.placementManuel==='fixe')continue;
+        const autres=DB.journal.planning[date].filter(b=>b!==rappel&&b.heureDebut&&b.heureFin);
+        let t=strToMin(rappel.heureDebut),conflit;
+        while((conflit=autres.find(b=>t<strToMin(b.heureFin)&&t+Number(rappel.duree||10)>strToMin(b.heureDebut))))t=strToMin(conflit.heureFin);
+        if(t+Number(rappel.duree||10)<=strToMin(getPreparationJour(date).heureFin||'22:30')){rappel.heureDebut=minToStr(t);rappel.heureFin=minToStr(t+Number(rappel.duree||10));}
+    }
     replacerTachesFlexiblesAutourBlocEmma(date,idDejeuner);
     replacerTachesFlexiblesAutourBlocEmma(date,idDiner);
 
@@ -50222,7 +50382,7 @@ function replacerTachesFlexiblesAutourBlocEmma(
         planning
         .filter(bloc => {
 
-            if(bloc.id === blocFixeId || blocReellementFaitEmma(bloc,date)){
+            if(bloc.id === blocFixeId || estRendezVousPlanningEmma(bloc) || bloc.autoOrganisation || blocReellementFaitEmma(bloc,date)){
                 return false;
             }
 
@@ -51458,6 +51618,9 @@ async function togglePlanningFait(planningId){
     nettoyerCopiesTachesFaitesEmma(today);
   }
 
+  if((item.source==='formations'||item.module==='formations')&&item.data?.etudianteId&&item.data?.actionId){
+    if(!await enregistrerSuiviFormation(item.data.etudianteId,item.data.actionId,cocheMaintenant))toast('La tâche est cochée dans le Journal, mais son suivi Formation reste à confirmer.');
+  }
   // Un soin Glow n'est réalisé qu'au clic sur sa case dans le vrai Journal.
   // L'ajout au planning seul ne modifie jamais sa fréquence ni son historique.
   if(item.source==="glow_soin"&&item.data?.soinId){
@@ -51621,6 +51784,7 @@ async function validerAjustementHoraire(planningId){
   const nouveauFin=document.getElementById('ajust-fin')?.value;
   if(!nouveauDebut||!nouveauFin||nouveauDebut>=nouveauFin){toast('⚠ Vérifie les horaires');return;}
 
+  item.placementManuel="fixe";
   item.heureDebut=nouveauDebut;
   item.heureFin=nouveauFin;
   item.duree=strToMin(nouveauFin)-strToMin(nouveauDebut);
@@ -51661,6 +51825,7 @@ async function validerReport(planningId){
   if(!item) return;
 
   if(type==='prochaine'){
+    DB.journal.refusPlanningJour=DB.journal.refusPlanningJour||{};DB.journal.refusPlanningJour[today]=[...new Set([...(DB.journal.refusPlanningJour[today]||[]),clePlanningAutoEmma(item)])];
     DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==planningId);
     toast('✓ Reporté à la prochaine fois');
   } else {
@@ -51669,6 +51834,7 @@ async function validerReport(planningId){
     const nouveauDebutMin=strToMin(nouvelleHeure);
     const delta=nouveauDebutMin-ancienDebutMin;
 
+    item.placementManuel='fixe';
     item.heureDebut=nouvelleHeure;
     item.heureFin=minToStr(nouveauDebutMin+item.duree);
 
@@ -51746,7 +51912,7 @@ let historiqueJourAffiche=null;
 let journalJourAffiche=null;
 window.journalVue=window.journalVue||'jour';
 function getJournalJour(){
-  if(!journalJourAffiche) journalJourAffiche=new Date().toISOString().split('T')[0];
+  if(!journalJourAffiche) journalJourAffiche=dateLocaleISO();
   return journalJourAffiche;
 }
 function journalJourNav(delta){
@@ -51761,7 +51927,7 @@ function changerVueJournal(vue){
   renderJAujourdhui();
 }
 function journalJourAujourdhui(){
-  journalJourAffiche=new Date().toISOString().split('T')[0];
+  journalJourAffiche=dateLocaleISO();
   renderJAujourdhui();
 }
 let historiqueSemaineOffset=0;
@@ -51868,6 +52034,8 @@ function renderAgendaSemaineHistorique(jours){
 
 async function delPlanningItem(id){
   const today=getJournalJour();
+  const bloc=DB.journal.planning[today].find(p=>p.id===id);
+  DB.journal.refusPlanningJour=DB.journal.refusPlanningJour||{};DB.journal.refusPlanningJour[today]=[...new Set([...(DB.journal.refusPlanningJour[today]||[]),...(bloc?[clePlanningAutoEmma(bloc)]:[])])];
   DB.journal.planning[today]=DB.journal.planning[today].filter(p=>p.id!==id);
   await sauvegarderChampSeul('journal', JSON.stringify(DB.journal));
   renderPlanningTimeline();
@@ -53381,6 +53549,7 @@ async function commencerAccompagnementEmma(planningId){
     const item=(DB.journal.planning?.[date]||[])
         .find(bloc=>bloc.id===planningId);
     if(!item) return;
+    if(item.categorie==='sport'&&item.autoOrganisation)return commencerSportPlanningAutoEmma(item);
 
     const faitMap=DB.journal.faitAujourdhui?.[date]||{};
     if(faitMap[item.id]){

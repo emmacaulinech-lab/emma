@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const script = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m => m[1].trim())[1];
 const ast = acorn.parse(script, {ecmaVersion: 'latest'});
 new vm.Script(script);
-const constants = new Set(['CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
+const constants = new Set(['recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
 const declarations = ast.body.filter(n => n.type === 'FunctionDeclaration' || n.type === 'VariableDeclaration' && n.declarations.every(d => constants.has(d.id.name))).map(n => script.slice(n.start, n.end)).join('\n');
 const storage = new Map(), writes = [], messages = [], nodes = new Map();
 function node() {return {value:'', innerHTML:'', textContent:'', disabled:false, style:{}, classList:{add(){},remove(){},contains(){return false}}, remove(){}, insertAdjacentHTML(){}, focus(){}};}
@@ -31,7 +31,55 @@ function plan(){d().planActif={id:'p',debut:'2026-10-05',fin:'2026-10-07',repas:
 function response(json){return {ok:true,json:async()=>({content:[{text:JSON.stringify(json)}]})};}
 let passed=0,failed=0;
 async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,error.stack);}}
-(async()=>{
+(async()=>{function autoFixture(fn){
+ const before=context.DB,names=['ensureJournalData','getElementsJourIntelligents','getTachesWorkflowFormations','zonesSportAutomatiquesEmma','bilanSportJourGlow','estTacheOuEquivalentFaiteJourEmma','trouverSousTacheJournalEmma','getPreparationJour'],saved=Object.fromEntries(names.map(n=>[n,context[n]]));
+ context.DB={journal:{zones:[],planning:{'2026-10-05':[]},faitAujourdhui:{},preparationJour:{},contexteJour:{}},glow:{activite:{},nutrition:{repas:[]}},historiqueGlow:[]};
+ context.ensureJournalData=()=>{};context.getElementsJourIntelligents=()=>[];context.getTachesWorkflowFormations=()=>[];context.zonesSportAutomatiquesEmma=()=>['fessiers','taille'];context.bilanSportJourGlow=()=>({minutes:0});context.estTacheOuEquivalentFaiteJourEmma=()=>false;context.trouverSousTacheJournalEmma=()=>null;context.getPreparationJour=()=>({heureLever:'07:30',heureFin:'22:30',contraintes:[]});
+ try{return fn(context.DB.journal);}finally{context.DB=before;for(const n of names)context[n]=saved[n];}
+}
+
+await test('Auto persistence is blocked before load and retries an unconfirmed save',async()=>{
+ const names=['organiserPlanningAutomatiqueEmma','sauvegarderChampSeul','synchroniserNotificationsPlanningEmma','renderPlanningTimeline','renderHubPlanningMini'],saved=Object.fromEntries(names.map(n=>[n,context[n]]));const loaded=context.chargementReussi;let calls=0,changed=true;
+ context.organiserPlanningAutomatiqueEmma=()=>{const result=changed;changed=false;return result};context.sauvegarderChampSeul=async()=>{calls++;return calls>1};context.synchroniserNotificationsPlanningEmma=async()=>{};context.renderPlanningTimeline=()=>{};context.renderHubPlanningMini=()=>{};context.window.planningAutoASauvegarder=false;
+ try{context.chargementReussi=false;assert.equal(await context.actualiserPlanningAutomatiqueEmma(),false);assert.equal(calls,0);context.chargementReussi=true;assert.equal(await context.actualiserPlanningAutomatiqueEmma(),false);assert.equal(context.window.planningAutoASauvegarder,true);assert.equal(await context.actualiserPlanningAutomatiqueEmma(),true);assert.equal(calls,2);assert.equal(context.window.planningAutoASauvegarder,false);}finally{for(const n of names)context[n]=saved[n];context.chargementReussi=loaded;}
+});
+await test('Meal conflict handling never moves an unlocked appointment or an automatic sport block',()=>{
+ const old=context.DB,ensure=context.ensureJournalData;context.ensureJournalData=()=>{};
+ const d='2026-10-05',rdv={id:'r',source:'planity',heureDebut:'11:00',heureFin:'18:00',duree:420},sport={id:'sport',categorie:'sport',autoOrganisation:true,heureDebut:'11:30',heureFin:'11:50',duree:20};context.DB={journal:{zones:[],faitAujourdhui:{},planning:{[d]:[rdv,sport,{id:'repas',heureDebut:'11:30',heureFin:'11:40'}]}}};
+ try{context.replacerTachesFlexiblesAutourBlocEmma(d,'repas');assert.equal(rdv.heureDebut,'11:00');assert.equal(rdv.heureFin,'18:00');assert.equal(sport.heureDebut,'11:30');}finally{context.DB=old;context.ensureJournalData=ensure;}
+});
+
+await test('Auto planning keeps all data of a task that cannot fit and carries it to the next day',()=>autoFixture(j=>{
+ const d='2026-10-05';j.planning[d]=[{id:'rdv',source:'planity',heureDebut:'07:30',heureFin:'22:30'},{id:'custom',sourceId:'custom',categorie:'maison',nom:'Action à garder',duree:20,notes:'Informations conservées',data:{reference:'originale'},heureDebut:'08:00',heureFin:'08:20'}];
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T08:00:00'));const reserve=j.reserveAutomatique[d].find(b=>b.sourceId==='custom');assert.equal(reserve.bloc.notes,'Informations conservées');assert.equal(reserve.bloc.data.reference,'originale');
+ context.organiserPlanningAutomatiqueEmma('2026-10-06',new Date('2026-10-06T08:00:00'));const bloc=j.planning['2026-10-06'].find(b=>b.sourceId==='custom');assert.ok(bloc);assert.equal(bloc.notes,'Informations conservées');assert.equal(bloc.reporteDe,d);
+}));
+await test('Auto planning reserves sport first, mails morning, formation at work, house outside clients, care evening',()=>autoFixture(j=>{
+ const d='2026-10-05',rdv=[{id:'r1',source:'planity',heureDebut:'09:00',heureFin:'10:00'},{id:'r2',source:'planity',heureDebut:'11:00',heureFin:'18:00'}];j.planning[d]=rdv.map(b=>({...b}));
+ context.getElementsJourIntelligents=()=>[{id:'h',source:'journal',sourceId:'h',nom:'Maison',categorie:'maison',duree:20},{id:'s',source:'journal',sourceId:'s',nom:'Soin',categorie:'maison',data:{zoneNom:'Prendre soin de soi'},duree:15}];
+ context.getTachesWorkflowFormations=()=>[{id:'m',source:'formations',nom:'Envoyer mail',duree:10},{id:'f',source:'formations',nom:'Préparer kit',duree:30}];
+ assert.equal(context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T07:30:00')),true);const p=j.planning[d];const find=id=>p.find(b=>b.id===id);const sport=p.find(b=>b.categorie==='sport');
+ assert.equal(sport.heureDebut,'07:30');assert.equal(sport.duree,20);assert.ok(find('m').heureFin<='09:00');assert.ok(find('f').heureDebut>='10:00'&&find('f').heureFin<='11:00');assert.ok(find('h').heureFin<='09:00'||find('h').heureDebut>='18:00');assert.ok(find('s').heureDebut>='19:00');for(const b of rdv)assert.deepEqual(JSON.parse(JSON.stringify(find(b.id))),b);
+ for(let i=1;i<p.length;i++)assert.ok(p[i-1].heureFin<=p[i].heureDebut,'No overlap');assert.equal(context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T07:31:00')),false);
+}));
+await test('Auto planning squeezes sport to 10 minutes before tasks and exposes incompatible tasks',()=>autoFixture(j=>{
+ const d='2026-10-05';j.planning[d]=[{id:'r',source:'planity',heureDebut:'08:45',heureFin:'22:30'}];context.getElementsJourIntelligents=()=>[{id:'h',source:'journal',nom:'Maison',categorie:'maison',duree:20}];
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T08:00:00'));const sport=j.planning[d].find(b=>b.categorie==='sport');assert.equal(sport.duree,10);assert.equal(sport.heureDebut,'08:00');assert.equal(sport.data.zones.length,1);assert.ok(j.reserveAutomatique[d].some(b=>b.id==='h'));assert.ok(j.planning[d].every(b=>b.heureFin<='22:30'));
+}));
+await test('Auto planning preserves manual and completed blocks and carries overdue tasks without modifying yesterday',()=>autoFixture(j=>{
+ const d='2026-10-05';const manual={id:'manual',categorie:'maison',placementManuel:'fixe',heureDebut:'13:00',heureFin:'13:10',duree:10},done={id:'done',categorie:'maison',heureDebut:'07:00',heureFin:'07:10',duree:10};j.planning[d]=[manual,done];j.faitAujourdhui[d]={done:true};j.planning['2026-10-04']=[{id:'old',sourceId:'old',categorie:'maison',nom:'Retard',heureDebut:'16:00',heureFin:'16:10',duree:10}];const old=JSON.stringify(j.planning['2026-10-04']);
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T08:00:00'));assert.deepEqual(JSON.parse(JSON.stringify(j.planning[d].find(b=>b.id==='manual'))),manual);assert.deepEqual(JSON.parse(JSON.stringify(j.planning[d].find(b=>b.id==='done'))),done);assert.ok(j.planning[d].some(b=>b.reporteDe==='2026-10-04'));assert.equal(JSON.stringify(j.planning['2026-10-04']),old);
+}));
+await test('Auto planning reacts to changed appointments, excludes waiting formation and respects daily refusals',()=>autoFixture(j=>{
+ const d='2026-10-05';j.planning[d]=[{id:'oldformation',source:'formations',categorie:'proAdmin',duree:10,heureDebut:'10:00',heureFin:'10:10'}];j.refusPlanningJour={[d]:['h']};context.getElementsJourIntelligents=()=>[{id:'h',sourceId:'h',source:'journal',categorie:'maison',duree:10}];
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T08:00:00'));assert.ok(!j.planning[d].some(b=>b.id==='h'||b.id==='oldformation'));
+ j.planning[d].push({id:'newrdv',source:'planity',heureDebut:'08:00',heureFin:'08:30'});context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T08:00:00'));assert.ok(j.planning[d].find(b=>b.categorie==='sport')?.heureDebut>='08:30'||j.reserveAutomatique[d].some(b=>b.famille==='sport'));
+}));
+await test('Auto planning does not invent an afternoon morning-sport slot or repeat completed sport',()=>autoFixture(j=>{
+ const d='2026-10-05';context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T14:00:00'));assert.ok(!j.planning[d].some(b=>b.categorie==='sport'));assert.ok(j.reserveAutomatique[d].some(b=>b.famille==='sport'));
+ context.bilanSportJourGlow=()=>({minutes:10});context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T14:00:00'));assert.ok(!j.reserveAutomatique[d].some(b=>b.famille==='sport'));
+}));
+
 await test('Contract: private coaching CPF 3 days proposes Coaching 2 days at 129 euros',()=>{
  const e={prenom:'Test',formationTypeNormalise:'coaching-prive-3j',financement:{type:'cpf'},suiviFormation:{}};
  const kit=context.regleKitsMailFormation(e);
@@ -222,8 +270,8 @@ await test('Kit display is chronological while checkbox indexes and original arr
 await test('Entering Journal no longer schedules the work/rest questionnaire',()=>{
   const n=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='renderJournalModule');assert.ok(!script.slice(n.start,n.end).includes('ouvrirRoutineMatinEmma('));
 });
-await test('Journal: automatic recollage leaves planned hours and data unchanged',async()=>{
-  context.DB.journal={planning:{},faitAujourdhui:{}};const date='2026-10-05';
+await test('Journal: disabled automatic scheduling preserves planned data',async()=>{
+  context.DB.journal={planningAutomatique:false,planning:{},faitAujourdhui:{}};const date='2026-10-05';
   context.DB.journal.planning[date]=[{id:'maison',nom:'Maison',heureDebut:'08:00',heureFin:'08:15',duree:15,flexible:true},{id:'travail',type:'pro',heureDebut:'09:00',heureFin:'18:00'}];
   const avant=JSON.stringify(context.DB.journal),nb=writes.length;
   assert.equal(await context.decalerTachesEnRetardAutomatiquementEmma(),false);

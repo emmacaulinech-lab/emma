@@ -3,6 +3,13 @@ const root=path.resolve(__dirname,'..');
 const initial={date:'2026-10-05',eau:4,sommeil:7,activite:{minutes:10,terminee:true},nutrition:{repas:[{type:'dejeuner',heure:'2026-10-05T10:30:00Z',aliments:[{nom:'Lasagnes maison',quantite:'1 portion'}]},{type:'diner',heure:'2026-10-05T17:30:00Z',aliments:[{nom:'Poulet crème',quantite:'1 portion'},{nom:'Courgettes',quantite:'200 g'}]}],recettes:[]},historiqueSeances:[{date:'2026-10-05',seanceId:'tapis',realisationId:'x',minutes:15,terminee:true},{date:'2026-10-05',seanceId:'fessiers',realisationId:'y',minutes:10,terminee:true}]};
 const initialPlan={version:1,preferencesIngredients:{courgettes:'aime',poivrons:'interdit'},ingredientsPersonnalises:[],planActif:{id:'qa-plan',debut:'2026-10-05',fin:'2026-10-11',repas:[{id:'a',date:'2026-10-05',type:'diner',nom:'Poulet crème',statut:'garder',personnes:2,portionsBase:2,typeAliment:'recette',assiette:{proteine:'Blanc de poulet',legumes:'Courgettes',complement:'Crème'},ingredients:[{nom:'Blanc de poulet',quantite:2,unite:'pièce'},{nom:'Courgettes',quantite:2,unite:'pièce'},{nom:'Crème',quantite:100,unite:'ml'}]},{id:'b',date:'2026-10-06',type:'dejeuner',nom:'Restes de Poulet crème',statut:'restes',personnes:2,resteDeId:'a'}]}};
 const docs={'users/test/data/main':{glow:JSON.stringify(initial),backupMarker:'LEGACY_PRESERVED'},'users/test/modules/glow':{data:JSON.stringify(initial),historique:'[]'},'users/test/modules/glow_nutrition':{data:JSON.stringify(initialPlan)}};
+if(process.env.QA_AUTO==='1'){
+ const date=new Date().toLocaleDateString('fr-CA');
+ docs['users/test/modules/glow'].data=JSON.stringify({...initial,date,activite:{niveau:1,materielsChoisis:[]},historiqueSeances:[]});
+ const rdv=[{id:'cliente-1',source:'planity',nom:'Cliente 1',heureDebut:'09:00',heureFin:'10:00',duree:60},{id:'cliente-2',source:'planity',nom:'Cliente 2',heureDebut:'11:00',heureFin:'18:00',duree:420}];
+ docs['users/test/modules/journal']={data:JSON.stringify({planning:{[date]:rdv},faitAujourdhui:{},zones:[],preparationJour:{[date]:{heureLever:'07:30',heureFin:'22:30',contraintes:[]}}})};
+ docs['users/test/modules/formations']={data:JSON.stringify({etudiantes:[{id:'test-eleve',prenom:'Élève',nom:'Élève test',formation:'coaching-prive-3j',formationTypeNormalise:'coaching-prive-3j',financement:{type:'cpf'},dateFormation:date,dateFinFormation:date,suiviFormation:{}}]})};
+}
 const events=[],writes=[];
 function mocks(){
  window.__docs=QA_DOCS;
@@ -43,4 +50,4 @@ const server=http.createServer(async(req,res)=>{
  }
  const file=path.join(root,decodeURIComponent(pathname));if(file.startsWith(root)&&fs.existsSync(file)&&fs.statSync(file).isFile()){res.end(fs.readFileSync(file));return;}
  res.statusCode=404;res.end();
-});server.listen(8765,'127.0.0.1',()=>console.log('Preview isolée : http://127.0.0.1:8765'));
+});server.listen(Number(process.env.PORT||8765),'127.0.0.1',()=>console.log(`Preview isolée : http://127.0.0.1:${process.env.PORT||8765}`));
