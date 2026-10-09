@@ -54,6 +54,18 @@ await test('Auto planning keeps all data of a task that cannot fit and carries i
  context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T08:00:00'));const reserve=j.reserveAutomatique[d].find(b=>b.sourceId==='custom');assert.equal(reserve.bloc.notes,'Informations conservées');assert.equal(reserve.bloc.data.reference,'originale');
  context.organiserPlanningAutomatiqueEmma('2026-10-06',new Date('2026-10-06T08:00:00'));const bloc=j.planning['2026-10-06'].find(b=>b.sourceId==='custom');assert.ok(bloc);assert.equal(bloc.notes,'Informations conservées');assert.equal(bloc.reporteDe,d);
 }));
+
+await test('Evening housework fits after a late working day around care and commute',()=>autoFixture(j=>{
+ const d='2026-10-05',rdv={id:'client',source:'planity',heureDebut:'08:00',heureFin:'19:30'};j.planning[d]=[rdv];
+ context.getElementsJourIntelligents=()=>[{id:'house',source:'journal',sourceId:'house',nom:'Ranger la cuisine',categorie:'maison',duree:20},{id:'care',source:'journal',sourceId:'care',nom:'Soin du soir',categorie:'maison',data:{zoneNom:'Prendre soin de soi'},duree:15}];
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T18:00:00'));const p=j.planning[d],house=p.find(b=>b.id==='house'),care=p.find(b=>b.id==='care');
+ assert.ok(house);assert.ok(care);assert.ok(house.heureDebut>='20:00');assert.ok(house.heureDebut>=care.heureFin);assert.ok(house.heureFin<='22:30');assert.equal(rdv.heureDebut,'08:00');assert.equal(rdv.heureFin,'19:30');assert.ok(!j.reserveAutomatique[d].some(b=>b.id==='house'));assert.equal(context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T18:01:00')),false);
+}));
+await test('Evening housework is allowed on a free day without moving manual plans or overrunning bedtime',()=>autoFixture(j=>{
+ const d='2026-10-05',manual={id:'manual',categorie:'soin',placementManuel:'fixe',heureDebut:'20:00',heureFin:'20:30'};j.planning[d]=[manual];
+ context.getElementsJourIntelligents=()=>[{id:'house',source:'journal',sourceId:'house',categorie:'maison',nom:'Ranger',duree:20},{id:'long',source:'journal',sourceId:'long',categorie:'maison',nom:'Tâche longue',duree:180}];
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T20:00:00'));const house=j.planning[d].find(b=>b.id==='house');assert.ok(house);assert.ok(house.heureDebut>='20:30');assert.ok(house.heureFin<='22:30');assert.equal(manual.heureDebut,'20:00');assert.equal(manual.heureFin,'20:30');assert.ok(j.reserveAutomatique[d].some(b=>b.id==='long'));
+}));
 await test('Auto planning reserves sport first, mails morning, formation at work, house outside clients, care evening',()=>autoFixture(j=>{
  const d='2026-10-05',rdv=[{id:'r1',source:'planity',heureDebut:'09:00',heureFin:'10:00'},{id:'r2',source:'planity',heureDebut:'11:00',heureFin:'18:00'}];j.planning[d]=rdv.map(b=>({...b}));
  context.getElementsJourIntelligents=()=>[{id:'h',source:'journal',sourceId:'h',nom:'Maison',categorie:'maison',duree:20},{id:'s',source:'journal',sourceId:'s',nom:'Soin',categorie:'maison',data:{zoneNom:'Prendre soin de soi'},duree:15}];
