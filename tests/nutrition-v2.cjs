@@ -546,6 +546,17 @@ await test('3/5/7 day generation, lunch/dinner, archive previous plans',async()=
   }
   assert.ok(d().historiquePlans.length>=3);
 });
+await test('Meal planning with excluded chocolate never injects an evening dessert',async()=>{
+  d().preferencesIngredients={'chocolat':'interdit'};
+  context.fetch=async(_,o)=>{const prompt=JSON.parse(o.body).messages[0].content[0].text;const dates=prompt.match(/Dates exactes :\n([^.]*)\./)[1].split(', ').map(x=>x.trim());return response({repas:dates.flatMap(date=>['dejeuner','diner'].map(type=>({date,type,nom:'Poulet et riz',statut:'garder',assiette:{proteine:'Poulet',plaisirSucre:'Carrés de chocolat'},ingredients:[{nom:'Poulet',quantite:2,unite:'pièce'},{nom:'Riz',quantite:150,unite:'g'}]})))});};
+  const avant=d().planActif;await context.creerPlanRepasGlow(3);
+  assert.notEqual(d().planActif,avant);assert.equal(d().planActif.repas.length,6);
+  for(const r of d().planActif.repas){assert.equal(r.assiette.plaisirSucre,'');context.validerAlimentsAutorisesGlow(r);}
+  assert.equal(d().preferencesIngredients.chocolat,'interdit');
+  assert.throws(()=>context.normaliserRepasV2Glow({nom:'Poulet au chocolat',typeAliment:'recette',ingredients:[{nom:'Chocolat',quantite:20,unite:'g'}]}));
+  d().preferencesIngredients={};
+});
+
 await test('Invalid AI plan preserves the previous plan and closes loader',async()=>{
   const before=JSON.stringify(d().planActif);context.fetch=async()=>response({repas:[]});await context.creerPlanRepasGlow(3);assert.equal(JSON.stringify(d().planActif),before);assert.equal(vm.runInContext('operationsEmmaEnCours',context),0);
 });
