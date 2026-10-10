@@ -496,7 +496,7 @@ await test('Courses include source + leftovers exactly once, with provenance',()
   const p=plan();d().stockV2=[];d().stockTexte='';d().courses=null;const a=context.calculerArticlesCoursesV2Glow(p).find(x=>x.nom==='Blanc de poulet');assert.equal(a.quantite,4);assert.equal(a.poidsTotal,600);assert.equal(a.provenance.length,2);assert.equal(a.provenance[0].quantite,2);assert.equal(a.provenance[1].quantite,2);
 });
 await test('Stock is subtracted by quantity; vague text never removes needs',()=>{
-  const p=plan();d().stockTexte='Blanc de poulet';d().stockV2=[{nom:'Blanc de poulet',quantite:1,unite:'pièce'}];const a=context.calculerArticlesCoursesV2Glow(p).find(x=>x.nom==='Blanc de poulet');assert.equal(a.besoin,4);assert.equal(a.quantite,3);assert.equal(a.stockAVerifier,true);
+  const p=plan();d().stockTexte='Blanc de poulet';d().stockV2=[{nom:'Blanc de poulet',quantite:1,unite:'pièce'}];const a=context.calculerArticlesCoursesV2Glow(p).find(x=>x.nom==='Blanc de poulet');assert.equal(a.besoin,4);assert.equal(a.quantite,3);assert.equal(a.stockAVerifier,false);
 });
 await test('Cached recipe ingredients become the shopping source',()=>{
   const p=plan(),r=p.repas[0];r.recetteGeneree={portions:4,signatureRepas:context.signatureRepasGlow(r),ingredients:[{nom:'Poulet',quantite:600,unite:'g'},{nom:'Crème',quantite:200,unite:'ml'}]};assert.equal(context.calculerArticlesCoursesV2Glow(p).find(x=>x.nom==='Crème').quantite,200);
@@ -633,6 +633,15 @@ await test('Accompaniment change supports legacy missing quantities and plural p
     assert.equal(r.ingredients[0].quantite,ingredients[0]?.quantite==='2 pièces'?2:'');
     assert.ok(!r.ingredients.some(i=>typeof i.quantite==='number'&&!Number.isFinite(i.quantite)));
   }
+});
+await test('Free-text stock quantities subtract once; sufficient stock and vague availability are separated from purchases',()=>{
+ const p=plan();d().courses=null;d().stockV2=[];d().stockTexte='4 blancs de poulet; Courgettes 2 pièces; Riz 0,5 kg; Crème';
+ const stock=context.stockTexteNutritionGlow();assert.equal(stock.find(s=>s.nom==='Riz').quantite,.5);
+ let articles=context.calculerArticlesCoursesV2Glow(p);assert.equal(articles.find(a=>a.nom==='Blanc de poulet').quantite,0);assert.equal(articles.find(a=>a.nom==='Courgettes').quantite,2);
+ p.repas[0].ingredients.push({nom:'Crème',quantite:100,unite:'ml'});articles=context.calculerArticlesCoursesV2Glow(p);assert.equal(articles.find(a=>a.nom==='Crème').stockAVerifier,true);
+ d().courses={articles};const html=context.renderListeCoursesGlowHTML();assert.ok(html.includes('Déjà à la maison'));assert.ok(html.includes('Vérifier la quantité à la maison'));assert.ok(!html.includes('glow-shopping-row"><input type="checkbox"  onchange="cocherArticleCoursesGlow(\''+articles.find(a=>a.nom==='Blanc de poulet').id));
+ d().stockV2=[{nom:'Blanc de poulet',quantite:1,unite:'pièce'}];assert.equal(context.calculerArticlesCoursesV2Glow(p).find(a=>a.nom==='Blanc de poulet').quantite,3);
+ assert.ok(context.consigneStockNutritionGlow().includes('PRIORITÉ AU STOCK'));d().stockTexte='';d().stockV2=[];
 });
 console.log(`${passed} passed, ${failed} failed. Firebase is mocked; no production writes.`);
 if(process.env.BUNDLE_OUTPUT)fs.writeFileSync(process.env.BUNDLE_OUTPUT,declarations);
