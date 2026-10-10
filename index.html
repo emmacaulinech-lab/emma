@@ -57428,6 +57428,7 @@ ${dates.join(", ")}.
 Ce qu'il reste à la maison :
 ${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
 Stock avec quantités et priorités : ${JSON.stringify(DB.glowNutritionPlans.stockV2.filter(s=>!s.archive))}.
+${consigneStockNutritionGlow()}
 
 Recettes déjà enregistrées (à privilégier si utile) :
 ${JSON.stringify(recettes)}.
@@ -58554,6 +58555,7 @@ ${JSON.stringify(autres)}.
 Ce qu'il reste à la maison :
 ${DB.glowNutritionPlans.stockTexte || "non renseigné"}.
 Stock quantifié / à utiliser en priorité : ${JSON.stringify((DB.glowNutritionPlans.stockV2||[]).filter(s=>!s.archive))}.
+${consigneStockNutritionGlow()}
 
 ${r.type === "diner"
   ? "Ne prescris aucun dessert : le plaisir du soir est choisi séparément."
@@ -59385,7 +59387,9 @@ function calculerArticlesCoursesV2Glow(plan){
       fusion.set(cle,a);
     }
   }
-  const stock=DB.glowNutritionPlans.stockV2.filter(s=>!s.archive);
+  const stockQuantifie=DB.glowNutritionPlans.stockV2.filter(s=>!s.archive);
+  const stockLibre=stockTexteNutritionGlow();
+  const stock=[...stockQuantifie,...stockLibre.filter(s=>s.quantite!==null&&!stockQuantifie.some(q=>cleAlimentGlow(q.nom)===cleAlimentGlow(s.nom)))];
   for(const a of fusion.values()){
     let disponible=0;
     stock.filter(s=>cleAlimentGlow(s.nom)===cleAlimentGlow(a.nom)).forEach(s=>{
@@ -59393,7 +59397,7 @@ function calculerArticlesCoursesV2Glow(plan){
       else if(a.unite==='g'&&q.poidsTotal)disponible+=q.poidsTotal;
     });
     a.stockDeduit=Math.min(a.besoin,disponible);a.quantite=Math.max(0,a.besoin-disponible);
-    a.stockAVerifier=String(DB.glowNutritionPlans.stockTexte||'').split(/[\n,;]/).some(n=>cleAlimentGlow(n)===cleAlimentGlow(a.nom));
+    a.stockAVerifier=stockLibre.some(s=>s.quantite===null&&cleAlimentGlow(s.nom)===cleAlimentGlow(a.nom))&&!stockQuantifie.some(s=>cleAlimentGlow(s.nom)===cleAlimentGlow(a.nom));
     const fiche=catalogueAlimentaireGlow().find(i=>cleAlimentGlow(i.nom)===cleAlimentGlow(a.nom));
     const pack=fiche?.conditionnement;
     if(pack&&Number(pack.quantite)>0&&pack.unite===a.unite)a.achatConseille=`${Math.ceil(a.quantite/Number(pack.quantite))} × ${pack.quantite} ${pack.unite}`;
@@ -59403,6 +59407,22 @@ function calculerArticlesCoursesV2Glow(plan){
     if(ancien){a.id=ancien.id;a.coche=ancien.quantite===a.quantite&&ancien.coche===true;}
   }
   return [...fusion.values(),...(DB.glowNutritionPlans.courses?.articles||[]).filter(a=>a.manuel).map(a=>({...a}))];
+}
+function stockTexteNutritionGlow(){
+  return String(DB.glowNutritionPlans.stockTexte||'').split(/[\n;]/).flatMap(l=>l.split(/,(?!\d)/)).map(l=>{
+    let texte=l.trim();if(!texte)return null;
+    const nombre='(\\d+(?:[.,]\\d+)?)',unites='(kg|g|ml|l|pièces?|pieces?|pots?|boîtes?|boites?|paquets?|portions?)';
+    let m=texte.match(new RegExp('^'+nombre+'\\s*'+unites+'\\s+(?:de\\s+)?(.+)$','i'));
+    if(m)return {nom:m[3],quantite:Number(m[1].replace(',','.')),unite:m[2].toLowerCase().replace(/s$/,'').replace('piece','pièce').replace('boite','boîte')};
+    m=texte.match(new RegExp('^(.+?)\\s*[:=-]?\\s+'+nombre+'\\s*'+unites+'$','i'));
+    if(m)return {nom:m[1],quantite:Number(m[2].replace(',','.')),unite:m[3].toLowerCase().replace(/s$/,'').replace('piece','pièce').replace('boite','boîte')};
+    m=texte.match(new RegExp('^'+nombre+'\\s+(.+)$','i'));
+    if(m)return {nom:m[2],quantite:Number(m[1].replace(',','.')),unite:'pièce'};
+    return {nom:texte,quantite:null,unite:''};
+  }).filter(Boolean);
+}
+function consigneStockNutritionGlow(){
+  return 'PRIORITÉ AU STOCK dans tous les modes : utilise d’abord les aliments disponibles, en priorité ceux marqués à utiliser rapidement, en respectant les exclusions. Pour changer un accompagnement, privilégie les légumes/féculents déjà à la maison en conservant la protéine. N’ajoute des achats que si nécessaire pour compléter. Les quantités de stock sont un total pour tout le planning, pas disponibles à nouveau pour chaque repas. Le texte sans quantité indique une disponibilité à vérifier, jamais une quantité illimitée. En mode stock, construis le repas autour de ce stock. Stock interprété : '+JSON.stringify(stockTexteNutritionGlow());
 }
 async function preparerCoursesGlow(){
   const plan=DB.glowNutritionPlans.planActif;if(!plan)return;
@@ -59414,8 +59434,8 @@ async function preparerCoursesGlow(){
   }catch(e){toast(`⚠️ ${e.message}`);}
 }
 function renderListeCoursesGlowHTML(){
-  const c=DB.glowNutritionPlans.courses,rayons=[...new Set(c.articles.map(a=>a.rayon))];
-  return `<section style="padding:20px 0;margin-top:14px;border-top:1px solid var(--brd2)"><h2 style="font-family:'Cormorant Garamond',serif;font-size:27px">🛒 Ma liste de courses</h2>${rayons.map(rayon=>`<h3 style="margin-top:16px">${echapperTexteRepasGlow(rayon)}</h3>${c.articles.filter(a=>a.rayon===rayon).map(a=>`<div style="border-bottom:1px solid var(--brd2);padding:9px 0"><label class="glow-shopping-row"><input type="checkbox" ${a.coche?'checked':''} onchange="cocherArticleCoursesGlow('${a.id}',this.checked)"><span style="overflow-wrap:anywhere;${a.coche?'text-decoration:line-through;opacity:.55':''}">${echapperTexteRepasGlow(a.nom)}</span><small>${echapperTexteRepasGlow(a.texteQuantite||`${Math.round(a.quantite*100)/100} ${a.unite}`)}</small></label>${a.provenance?.length?`<details><summary style="font-size:12px;color:var(--mut);cursor:pointer">Besoin : ${Math.round(a.besoin*100)/100} ${echapperTexteRepasGlow(a.unite)}${a.stockDeduit?` · Stock déduit : ${a.stockDeduit}`:''} · Pourquoi ?</summary>${a.provenance.map(p=>`<div style="font-size:12px;margin:6px 0">${echapperTexteRepasGlow(`${p.date} ${p.type==='diner'?'dîner':'déjeuner'} · ${p.nom} : ${p.texte}`)}</div>`).join('')}</details>`:''}${a.stockAVerifier?'<small>📦 Stock noté sans quantité : à vérifier</small>':''}${a.achatConseille?`<small style="display:block">Achat conseillé : ${echapperTexteRepasGlow(a.achatConseille)}</small>`:''}</div>`).join('')}`).join('')}<div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap"><button class="btn bg" onclick="ajouterArticleCoursesGlow()">＋ Ajouter un article</button><button class="btn bd" onclick="terminerCoursesGlow()">✅ Courses terminées</button></div></section>`;
+  const c=DB.glowNutritionPlans.courses,achats=c.articles.filter(a=>a.manuel||a.aPreciser||a.quantite>0&&!a.stockAVerifier),maison=c.articles.filter(a=>!a.manuel&&!a.aPreciser&&a.quantite===0),aVerifier=c.articles.filter(a=>!a.manuel&&a.stockAVerifier&&a.quantite>0),rayons=[...new Set(achats.map(a=>a.rayon))];
+  return `<section style="padding:20px 0;margin-top:14px;border-top:1px solid var(--brd2)"><h2 style="font-family:'Cormorant Garamond',serif;font-size:27px">🛒 Ma liste de courses</h2>${maison.length?`<details><summary>📦 Déjà à la maison · ${maison.length}</summary>${maison.map(a=>`<p>${echapperTexteRepasGlow(a.nom)} · stock suffisant</p>`).join('')}</details>`:''}${aVerifier.length?`<section><h3>📦 Vérifier la quantité à la maison</h3><p>Ces aliments sont dans ton stock sans quantité. Ils ne sont pas ajoutés aux achats : renseigne la quantité dans Placard / frigo, puis actualise les courses.</p>${aVerifier.map(a=>`<p>${echapperTexteRepasGlow(a.nom)} · besoin : ${Math.round(a.besoin*100)/100} ${echapperTexteRepasGlow(a.unite)}</p>`).join('')}</section>`:''}${rayons.map(rayon=>`<h3 style="margin-top:16px">${echapperTexteRepasGlow(rayon)}</h3>${achats.filter(a=>a.rayon===rayon).map(a=>`<div style="border-bottom:1px solid var(--brd2);padding:9px 0"><label class="glow-shopping-row"><input type="checkbox" ${a.coche?'checked':''} onchange="cocherArticleCoursesGlow('${a.id}',this.checked)"><span style="overflow-wrap:anywhere;${a.coche?'text-decoration:line-through;opacity:.55':''}">${echapperTexteRepasGlow(a.nom)}</span><small>${echapperTexteRepasGlow(a.texteQuantite||`${Math.round(a.quantite*100)/100} ${a.unite}`)}</small></label>${a.provenance?.length?`<details><summary style="font-size:12px;color:var(--mut);cursor:pointer">Besoin : ${Math.round(a.besoin*100)/100} ${echapperTexteRepasGlow(a.unite)}${a.stockDeduit?` · Stock déduit : ${a.stockDeduit}`:''} · Pourquoi ?</summary>${a.provenance.map(p=>`<div style="font-size:12px;margin:6px 0">${echapperTexteRepasGlow(`${p.date} ${p.type==='diner'?'dîner':'déjeuner'} · ${p.nom} : ${p.texte}`)}</div>`).join('')}</details>`:''}${a.stockAVerifier?'<small>📦 Stock noté sans quantité : à vérifier</small>':''}${a.achatConseille?`<small style="display:block">Achat conseillé : ${echapperTexteRepasGlow(a.achatConseille)}</small>`:''}</div>`).join('')}`).join('')}<div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap"><button class="btn bg" onclick="ajouterArticleCoursesGlow()">＋ Ajouter un article</button><button class="btn bd" onclick="terminerCoursesGlow()">✅ Courses terminées</button></div></section>`;
 }
 async function cocherArticleCoursesGlow(id,coche){const a=DB.glowNutritionPlans.courses?.articles?.find(x=>x.id===id);if(!a)return;a.coche=coche;await sauvegarderExtensionGlow("glowNutritionPlans")}
 async function ajouterArticleCoursesGlow(){const nom=prompt("Article à ajouter :");if(!nom?.trim())return;const q=prompt("Quantité (facultatif) :")||"";DB.glowNutritionPlans.courses.articles.push({id:`course_${genId()}`,nom:nom.trim(),unite:"",quantite:0,texteQuantite:q,rayon:"🧴 Maison / autres",coche:false,manuel:true});await sauvegarderExtensionGlow("glowNutritionPlans");renderPlanificationRepasGlow()}
