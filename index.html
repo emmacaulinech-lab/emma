@@ -29645,8 +29645,8 @@ Réponds UNIQUEMENT en JSON valide, sans backticks :
   "ingredients":[
     {
       "nom":"",
-      "quantite":"",
-      "unite":""
+      "quantite":100,
+      "unite":"g"
     }
   ],
   "etapes":[
@@ -56701,6 +56701,14 @@ function cleAlimentGlow(nom){
   const alias = {'courgette':'courgettes','carotte':'carottes','aubergine':'aubergines','pomme de terre':'pommes de terre','oeuf':'oeufs','blancs de poulet':'blanc de poulet','filet de poulet':'blanc de poulet','filets de poulet':'blanc de poulet','escalope de poulet':'blanc de poulet','pave de saumon':'saumon','paves de saumon':'saumon'};
   return alias[n] || n;
 }
+function normaliserIngredientConsommationGlow(ingredient,facteur=1){
+    const i=typeof ingredient==='string'?{nom:ingredient}:{...ingredient};
+    const brute=String(i.quantite??'').trim().replace(/½/g,'1/2').replace(/¼/g,'1/4').replace(/¾/g,'3/4').replace(/,/g,'.');
+    const match=brute.match(/^(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+(?:\.\d+)?))?\s*([^\d].*)?$/);
+    const valeur=typeof i.quantite==='number'?i.quantite:match?Number(match[1])/(match[2]?Number(match[2]):1):null;
+    const unite=String(i.unite||match?.[3]||'').trim();
+    return {...i,quantite:Number.isFinite(valeur)&&valeur>0?Math.round(valeur*facteur*1000)/1000:'',unite,quantiteOrigine:brute||null};
+}
 async function ouvrirConsommationV2Glow(type,planId=null,date=null,repasId=null){
     initialiserGlowDuJour();date=date||dateLocaleISO();
     try{verifierDateSaisieNutritionGlow(date);}catch(e){toast(e.message);return;}
@@ -56708,25 +56716,31 @@ async function ouvrirConsommationV2Glow(type,planId=null,date=null,repasId=null)
     if(repasId&&!existant){toast('Ce repas est introuvable.');return;}
     const plan=!existant?(planId?trouverRepasPlanGlow(planId):getRepasPlanifieGlow(date,type)):null;
     const choisi=date===dateLocaleISO()&&!existant?repasPrevuExpliciteGlow(type):null;
-    if(plan&&!plan.recetteGeneree&&!recettesDisponiblesPlanGlow().some(r=>r.id===plan.recetteId)){await ouvrirRecetteRepasGlow(plan.id);if(!plan.recetteGeneree)return;}
+    // Un repas déjà mangé peut être renseigné directement ; sa recette cuisinée reste modifiable.
     const recette=plan?.recetteGeneree||recettesDisponiblesPlanGlow().find(r=>r.id===plan?.recetteId);
     const ingredients=existant?.ingredientsUtilises||existant?.aliments||recette?.ingredients||plan?.ingredients||choisi?.aliments||[];
-    window.glowConsommationDraft={date,type,repasId:existant?repasId:null,planId:existant?.choixPlanId||plan?.id,recetteId:existant?.recetteId,nom:existant?.nom||plan?.nom||choisi?.nom||(type==='plaisir-soir'?'Pancakes':''),portions:Number(existant?.portionsPreparees||recette?.portions||plan?.portionsBase||plan?.personnes||1),portion:Number(existant?.portionMangee)||1,ingredients:ingredients.map(i=>typeof i==='string'?{nom:i,quantite:100,unite:'g'}:{...i})};
+    window.glowConsommationDraft={date,type,repasId:existant?repasId:null,planId:existant?.choixPlanId||plan?.id,recetteId:existant?.recetteId,nom:existant?.nom||(existant?(existant.aliments||[]).map(i=>typeof i==='string'?i:i.nom).filter(Boolean).join(' · '):'')||plan?.nom||choisi?.nom||(type==='plaisir-soir'?'Pancakes':''),portions:Number(existant?.portionsPreparees||recette?.portions||plan?.portionsBase||plan?.personnes||1),portion:Number(existant?.portionMangee)||1,ingredients:ingredients.map(i=>normaliserIngredientConsommationGlow(i,existant&&!existant.ingredientsUtilises?Number(existant.portionsPreparees||1)/Number(existant.portionMangee||1):1))};
     afficherConsommationV2Glow();
 }
 function afficherConsommationV2Glow(){
     const d=window.glowConsommationDraft;if(!d)return;
     document.getElementById('consommation-v2-glow')?.remove();
     const esc=echapperTexteRepasGlow;
-    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${Number(i.quantite)||0}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'g')}" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button><p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.repasId?'Modifier mon repas':d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${i.quantite===''||i.quantite==null?'':Number(i.quantite)}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'')}" placeholder="g, ml, portion…" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button>${d.ingredients.some(i=>!i.quantite||!i.unite)?'<p style="font-size:12px;color:var(--mut)">Certaines anciennes quantités sont incomplètes. Complète les cases vides ; EMMA ne les remplace pas par une quantité estimée.</p>':''}<p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
 }
 function choisirRecetteConsommationV2Glow(id){
     const recette=recettesDisponiblesPlanGlow().find(r=>r.id===id);if(!recette)return;
-    Object.assign(window.glowConsommationDraft,{recetteId:id,nom:recette.nom,portions:Number(recette.portions)||1,ingredients:(recette.ingredients||[]).map(i=>({...i}))});afficherConsommationV2Glow();
+    Object.assign(window.glowConsommationDraft,{recetteId:id,nom:recette.nom,portions:Number(recette.portions)||1,ingredients:(recette.ingredients||[]).map(i=>normaliserIngredientConsommationGlow(i))});afficherConsommationV2Glow();
 }
 function validerQuantitesConsommationV2Glow(d){
     if(!d.nom?.trim()||!Number.isFinite(d.portions)||d.portions<=0||!Number.isFinite(d.portion)||d.portion<=0||d.portion>d.portions)throw Error('Vérifie le plat et les portions préparées / mangées.');
-    if(!d.ingredients.length||d.ingredients.some(i=>!i.nom?.trim()||!Number.isFinite(Number(i.quantite))||Number(i.quantite)<=0||!i.unite?.trim()))throw Error('Chaque ingrédient doit avoir un nom, une quantité positive et une unité.');
+    if(!d.ingredients.length)throw Error('Ajoute au moins un aliment ou ingrédient avec sa quantité.');
+    for(const [index,i] of d.ingredients.entries()){
+        const ligne=`Ligne ${index+1}${i.nom?.trim()?' · '+i.nom.trim():''}`;
+        if(!i.nom?.trim())throw Error(ligne+' : complète le nom.');
+        if(!Number.isFinite(Number(i.quantite))||Number(i.quantite)<=0)throw Error(ligne+' : indique une quantité supérieure à 0, ou retire la ligne si cet ingrédient n’a pas été utilisé.');
+        if(!i.unite?.trim())throw Error(ligne+' : précise l’unité (g, ml, portion, pièce…).');
+    }
     for(const i of d.ingredients){
         if(/huile/i.test(i.nom)){
             const unite=cleAlimentGlow(i.unite),q=Number(i.quantite)/d.portions;
@@ -59107,7 +59121,7 @@ ${JSON.stringify(ingredientsInterdits)}
 
 N'ajoute jamais un ingrédient interdit.
 
-Donne des quantités concrètes et compréhensibles.
+Donne des quantités concrètes et compréhensibles. Le champ quantite doit être un nombre strictement positif, jamais "au goût" ou une quantité avec unité. Mets l’unité dans unite. Pour les assaisonnements optionnels sans quantité précise, mentionne-les seulement dans les étapes.
 Utilise les pièces quand c'est naturel : œufs, courgettes, steaks, blancs de poulet, etc.
 Utilise les grammes pour les pâtes, riz, semoule et ingrédients qui se mesurent réellement ainsi.
 
@@ -59133,8 +59147,8 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
   "ingredients":[
     {
       "nom":"",
-      "quantite":"",
-      "unite":""
+      "quantite":100,
+      "unite":"g"
     }
   ],
   "etapes":[
@@ -59179,6 +59193,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     if(trouverRepasPlanGlow(repasSource.id)!==repasSource||signatureAvant!==signatureRepasGlow(repasSource)||portions!==portionsNecessairesRecetteGlow(repasSource))throw new Error('Le repas ou ses portions ont changé. Relance la recette.');
     if(!Array.isArray(recette.ingredients)||!recette.ingredients.length||!Array.isArray(recette.etapes)||!recette.etapes.length)throw new Error('Recette incomplète. Réessaie.');
 
+    recette.ingredients=recette.ingredients.map(i=>normaliserIngredientConsommationGlow(i));
     validerQuantitesConsommationV2Glow({nom:recette.nom||repasSource.nom,portions,portion:Math.min(1,portions),ingredients:recette.ingredients});
     recette.portions = portions;
 

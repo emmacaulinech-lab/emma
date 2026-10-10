@@ -40,6 +40,35 @@ async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}
 }
 
 
+await test('Changed fish/beans/potatoes meal can be recorded directly without requiring an AI cooking recipe',async()=>{
+ const old=context.DB,render=context.afficherConsommationV2Glow,generate=context.ouvrirRecetteRepasGlow,get=context.getRepasPlanifieGlow;
+ try{
+ context.DB={glow:{date:'2026-10-05',nutrition:{repas:[]}},historiqueGlow:[],glowNutritionPlans:{recettesV2:[],alimentsV2:[]}};context.afficherConsommationV2Glow=()=>{};
+ context.ouvrirRecetteRepasGlow=()=>{throw Error('Recording an eaten plate must not generate a recipe');};
+ context.getRepasPlanifieGlow=()=>({id:'fish',nom:'Poisson blanc · Haricots verts · Pommes de terre',personnes:2,portionsBase:2,ingredients:[{nom:'Poisson blanc',quantite:2,unite:'filet'},{nom:'Haricots verts',quantite:'400 g'},{nom:'Pommes de terre',quantite:4,unite:'pièce'}]});
+ await context.ouvrirConsommationV2Glow('diner');const d=context.window.glowConsommationDraft;assert.equal(d.nom,'Poisson blanc · Haricots verts · Pommes de terre');assert.equal(d.ingredients[1].quantite,400);assert.equal(d.ingredients[1].unite,'g');assert.ok(context.validerQuantitesConsommationV2Glow(d));assert.equal(context.DB.glow.nutrition.repas.length,0);
+ }finally{context.DB=old;context.afficherConsommationV2Glow=render;context.ouvrirRecetteRepasGlow=generate;context.getRepasPlanifieGlow=get;}
+});
+
+await test('Editing legacy meal quantities recognises portions, grams, decimals and fractions without inventing amounts',async()=>{
+ const normal=context.normaliserIngredientConsommationGlow;
+ for(const [texte,q,u] of [['1 portion',1,'portion'],['200 g',200,'g'],['0,5 portion',.5,'portion'],['½ portion',.5,'portion'],['1/4 pièce',.25,'pièce'],['200g',200,'g']]){
+  const i=normal({nom:'Aliment',quantite:texte});assert.equal(i.quantite,q);assert.equal(i.unite,u);
+ }
+ assert.equal(normal({nom:'Frites',quantite:'quelques frites'}).quantite,'');assert.equal(normal('Pancakes').quantite,'');assert.equal(normal({nom:'Courgettes',quantite:200}).unite,'');
+ const old=context.DB,render=context.afficherConsommationV2Glow;
+ try{
+ context.DB={glow:{date:'2026-10-05',nutrition:{repas:[{id:'legacy',type:'diner',portionsPreparees:4,portionMangee:1,aliments:[{nom:'Veau',quantite:'150 g'}]}]}},historiqueGlow:[]};context.afficherConsommationV2Glow=()=>{};
+ const before=JSON.stringify(context.DB);await context.ouvrirConsommationV2Glow('diner',null,'2026-10-05','legacy');
+ assert.equal(context.window.glowConsommationDraft.nom,'Veau');assert.equal(context.window.glowConsommationDraft.ingredients[0].quantite,600);assert.equal(context.window.glowConsommationDraft.ingredients[0].unite,'g');assert.equal(JSON.stringify(context.DB),before);assert.ok(context.validerQuantitesConsommationV2Glow(context.window.glowConsommationDraft));
+ }finally{context.DB=old;context.afficherConsommationV2Glow=render;}
+});
+await test('Invalid ingredient reports its exact line and missing quantity or unit',()=>{
+ const d={nom:'Plat',portions:1,portion:1,ingredients:[{nom:'Veau',quantite:150,unite:'g'},{nom:'Olives',quantite:0,unite:'g'}]};
+ assert.throws(()=>context.validerQuantitesConsommationV2Glow(d),/Ligne 2 · Olives.*quantité/);
+ d.ingredients[1].quantite=20;d.ingredients[1].unite='';assert.throws(()=>context.validerQuantitesConsommationV2Glow(d),/Ligne 2 · Olives.*unité/);
+});
+
 await test('Retrospective nutrition includes previous Sunday, excludes future/older dates and keeps today intact',async()=>{
  const old=context.DB,names=['demanderJSONNutritionGlow','renderGlowNutrition'],saved=Object.fromEntries(names.map(n=>[n,context[n]])),selection=context.window.nutritionDateSaisieGlow;
  try{
