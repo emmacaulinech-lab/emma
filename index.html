@@ -57983,6 +57983,8 @@ function renderPlanificationRepasGlow(){
                                   : ""
                               }
 
+                              ${r.statut!=='absent'&&!r.sourceIndisponible&&r.typeAliment!=='prepare'?`<button class="btn bg bsm" title="Enregistrer dans mes recettes" onclick="enregistrerRecetteDirectementGlow('${r.id}',this)">💾 Mes recettes</button>`:''}
+
                               <button
                                 class="btn bd bsm"
                                 title="Composer ou remplacer"
@@ -59306,6 +59308,17 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
 
     cacherEmmaReflechit();
   }
+}
+async function enregistrerRecetteDirectementGlow(id,bouton){
+  const repas=trouverRepasPlanGlow(id);
+  const source=repas?.statut==='restes'?trouverRepasPlanGlow(repas.resteDeId):repas;
+  if(!source||source.statut==='absent'||repas.sourceIndisponible||source.typeAliment==='prepare')return toast('Choisis une recette maison disponible.');
+  if(bouton.disabled)return;
+  const texte=bouton.textContent;bouton.disabled=true;bouton.textContent='✨ Enregistrement…';
+  try{
+    if(!recetteEnregistreeRepasGlow(source)&&!recettesDisponiblesPlanGlow().some(r=>r.id===source.recetteId))await ouvrirRecetteRepasGlow(source.id);
+    if(recetteEnregistreeRepasGlow(source)||recettesDisponiblesPlanGlow().some(r=>r.id===source.recetteId))await enregistrerRecettePlanV2Glow(source.id,bouton);
+  }finally{bouton.disabled=false;bouton.textContent=texte;}
 }
 async function enregistrerRecettePlanV2Glow(id,bouton){
   const r=trouverRepasPlanGlow(id);if(!r)return;

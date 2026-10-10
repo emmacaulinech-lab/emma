@@ -566,6 +566,15 @@ await test('Recipe generation includes leftovers, is saved, then reused without 
   await context.enregistrerRecettePlanV2Glow('a',node());assert.equal(d().recettesV2.length,1);
   context.fetch=async()=>{throw Error('cache should avoid network');};await context.ouvrirRecetteRepasGlow('a');assert.equal(context.recetteEnregistreeRepasGlow(p.repas[0]).portions,4);
 });
+await test('Direct recipe shortcut generates once, saves without duplicates and restores button on failure',async()=>{
+  plan();d().recettesV2=[];
+  let appels=0;context.fetch=async()=>{appels++;return response({nom:'Poulet et courgettes',portions:4,ingredients:[{nom:'Blanc de poulet',quantite:4,unite:'pièce'},{nom:'Courgettes',quantite:4,unite:'pièce'}],etapes:['Cuire'],tempsPreparation:15,tempsCuisson:20});};
+  const b=node();b.textContent='💾 Mes recettes';
+  await context.enregistrerRecetteDirectementGlow('a',b);assert.equal(d().recettesV2.length,1);assert.equal(appels,1);assert.equal(b.disabled,false);assert.equal(b.textContent,'💾 Mes recettes');
+  await context.enregistrerRecetteDirectementGlow('a',b);assert.equal(d().recettesV2.length,1);assert.equal(appels,1);
+  plan();d().recettesV2=[];context.fetch=async()=>{throw Error('offline');};
+  await context.enregistrerRecetteDirectementGlow('a',b);assert.equal(d().recettesV2.length,0);assert.equal(b.disabled,false);assert.equal(b.textContent,'💾 Mes recettes');
+});
 await test('A recipe response arriving after a meal change is discarded',async()=>{
   const p=plan();d().recettesV2=[];let resolve;context.fetch=()=>new Promise(r=>resolve=r);
   const pending=context.ouvrirRecetteRepasGlow('a');p.repas[0].nom='Repas modifié';context.actualiserDependancesRepasGlow(p.repas[0]);resolve(response({nom:'Ancien plat',ingredients:[{nom:'Poulet',quantite:1,unite:'g'}],etapes:['Cuire']}));await pending;assert.equal(p.repas[0].recetteGeneree,undefined);assert.equal(vm.runInContext('operationsEmmaEnCours',context),0);
