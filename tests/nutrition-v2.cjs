@@ -624,6 +624,16 @@ await test('15-minute option rejects a slower recipe without changing the meal',
 await test('Alternative accompaniment keeps the existing main protein',async()=>{
   plan();d().planActif.repas[0].assiette={proteine:'Blanc de poulet'};context.fetch=async()=>response({nom:'Saumon et riz',assiette:{proteine:'Saumon',feculent:'Riz'},ingredients:[{nom:'Saumon',quantite:2,unite:'pièce'},{nom:'Riz',quantite:150,unite:'g'}]});await context.proposerNouvelleAssietteGlow('a',node(),'accompagnement');const r=d().planActif.repas[0];assert.equal(r.assiette.proteine,'Blanc de poulet');assert.ok(r.ingredients.some(i=>i.nom==='Blanc de poulet'));assert.ok(r.ingredients.some(i=>i.nom==='Riz'));assert.ok(!r.ingredients.some(i=>i.nom==='Saumon'));assert.equal(r.assiette.plaisirSucre,'');
 });
+await test('Accompaniment change supports legacy missing quantities and plural protein names without inventing amounts',async()=>{
+  for(const ingredients of [[{nom:'Steaks hachés',quantite:'2 pièces'}],[{nom:'Steak haché'}],[]]){
+    plan();const r=d().planActif.repas[0];r.assiette={proteine:'Steak haché'};r.ingredients=ingredients;r.portionsBase=2;
+    context.fetch=async()=>response({nom:'Saumon et riz',assiette:{proteine:'Saumon',feculent:'Riz'},ingredients:[{nom:'Saumon',quantite:2,unite:'pièce'},{nom:'Riz',quantite:150,unite:'g'}]});
+    await context.proposerNouvelleAssietteGlow('a',node(),'accompagnement');
+    assert.equal(r.assiette.proteine,'Steak haché');assert.equal(r.assiette.feculent,'Riz');assert.equal(r.ingredients.length,2);assert.ok(!r.ingredients.some(i=>i.nom==='Saumon'));
+    assert.equal(r.ingredients[0].quantite,ingredients[0]?.quantite==='2 pièces'?2:'');
+    assert.ok(!r.ingredients.some(i=>typeof i.quantite==='number'&&!Number.isFinite(i.quantite)));
+  }
+});
 console.log(`${passed} passed, ${failed} failed. Firebase is mocked; no production writes.`);
 if(process.env.BUNDLE_OUTPUT)fs.writeFileSync(process.env.BUNDLE_OUTPUT,declarations);
 process.exitCode=failed?1:0;
