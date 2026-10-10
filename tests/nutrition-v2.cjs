@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const script = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m => m[1].trim())[1];
 const ast = acorn.parse(script, {ecmaVersion: 'latest'});
 new vm.Script(script);
-const constants = new Set(['MOIS','MC','DOCUMENTS_FORMATION','FORMATIONS_PAR_FINANCEMENT','ETAPES_DOSSIER_FORMATION_CPF','ETAPES_DOSSIER_FORMATION_PERSO','ETAPES_DOSSIER_FORMATION','fileSuiviFormation','recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
+const constants = new Set(['repasGlowEnCours','typeRepasGlowEnCours','categorieGlowSelectionnee','GLOW_ALIMENTS','MOIS','MC','DOCUMENTS_FORMATION','FORMATIONS_PAR_FINANCEMENT','ETAPES_DOSSIER_FORMATION_CPF','ETAPES_DOSSIER_FORMATION_PERSO','ETAPES_DOSSIER_FORMATION','fileSuiviFormation','recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
 const declarations = ast.body.filter(n => n.type === 'FunctionDeclaration' || n.type === 'VariableDeclaration' && n.declarations.every(d => constants.has(d.id.name))).map(n => script.slice(n.start, n.end)).join('\n');
 const storage = new Map(), writes = [], messages = [], nodes = new Map();
 function node() {return {value:'', innerHTML:'', textContent:'', disabled:false, style:{}, classList:{add(){},remove(){},contains(){return false}}, remove(){}, insertAdjacentHTML(){}, focus(){}};}
@@ -39,6 +39,36 @@ async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}
  try{return fn(context.DB.journal);}finally{context.DB=before;for(const n of names)context[n]=saved[n];}
 }
 
+
+await test('Library pain au chocolat is available in breakfast pleasure filter and global search without duplicate or invented nutrition',()=>{
+ const old=context.DB;
+ try{
+ const food={id:'user-pain-chocolat',nom:'Pain au chocolat',type:'prepare',categorie:'plaisirSucre',unitePrincipale:'pièce',poidsMoyenPiece:70};const before=JSON.stringify(food);
+ context.DB={glow:{nutrition:{repas:[]}},glowNutritionPlans:{alimentsV2:[food],ingredientsPersonnalises:[]}};
+ const foods=context.getGlowAliments(),a=foods.find(a=>a.nom==='Pain au chocolat');assert.ok(a);assert.equal(a.categorie,'plaisir');assert.equal(a.uniteSaisie,'pièce');assert.equal(foods.filter(a=>a.nom==='Pain au chocolat').length,1);assert.equal(JSON.stringify(food),before);
+ nodes.set('glow-aliment-select',node());context.filtrerAlimentsGlow('plaisir');assert.ok(nodes.get('glow-aliment-select').innerHTML.includes('Pain au chocolat'));context.rechercherAlimentGlow('PAIN AU CHOCOLAT');assert.ok(nodes.get('glow-aliment-select').innerHTML.includes('Pain au chocolat'));
+ const portion=context.calculerAlimentGlow(a.id,1);assert.equal(portion.unite,'pièce');assert.equal(portion.quantite,1);assert.equal(portion.nutritionAEstimer,true);assert.ok(Number.isFinite(portion.calories));assert.equal(context.getQuantiteConseilleeGlow(a,'petit-dejeuner'),1);
+ const poulet=context.calculerAlimentGlow('poulet',100);assert.equal(poulet.calories,165);assert.equal(poulet.proteines,31);assert.equal(poulet.nutritionAEstimer,false);
+ }finally{context.DB=old;nodes.delete('glow-aliment-select');}
+});
+await test('Recording a breakfast with a library food estimates its consumed portion instead of storing missing nutrients as zero',async()=>{
+ const old=context.DB,analysis=context.demanderJSONNutritionGlow,render=context.renderGlowNutrition;
+ try{
+ context.DB={glow:{date:'2026-10-05',nutrition:{repas:[]}},historiqueGlow:[],glowNutritionPlans:{alimentsV2:[{id:'pain',nom:'Pain au chocolat',type:'prepare',categorie:'plaisirSucre',unitePrincipale:'pièce'}],ingredientsPersonnalises:[]}};
+ const a=context.getGlowAliments().find(a=>a.nom==='Pain au chocolat'),portion=context.calculerAlimentGlow(a.id,1);context.selectedTestFoods=[portion];vm.runInContext('repasGlowEnCours=selectedTestFoods',context);
+ let prompt='';context.demanderJSONNutritionGlow=async p=>{prompt=p;return {calories:280,proteines:5,conseil:'Petit-déjeuner enregistré.'}};context.renderGlowNutrition=()=>{};
+ await context.enregistrerRepasGlow('petit-dejeuner');assert.ok(prompt.includes('Pain au chocolat'));assert.ok(prompt.includes('pièce'));
+ const r=context.DB.glow.nutrition.repas[0];assert.equal(r.type,'petit-dejeuner');assert.equal(r.calories,280);assert.equal(r.proteines,5);assert.equal(r.aliments[0].quantite,1);assert.equal(r.aliments[0].unite,'pièce');assert.equal(JSON.parse(storage.get('modules/glow').data).nutrition.repas[0].nom,'Pain au chocolat');assert.equal(context.DB.glowNutritionPlans.alimentsV2.length,1);
+ }finally{context.DB=old;context.demanderJSONNutritionGlow=analysis;context.renderGlowNutrition=render;vm.runInContext('repasGlowEnCours=[]',context);}
+});
+await test('Backdated meal composer can add a saved library food while keeping its selected date',()=>{
+ const old=context.DB,render=context.afficherConsommationV2Glow;
+ try{
+ context.DB={glow:{nutrition:{repas:[]}},glowNutritionPlans:{alimentsV2:[{id:'pain',nom:'Pain au chocolat',type:'prepare',categorie:'plaisirSucre',unitePrincipale:'pièce'}],ingredientsPersonnalises:[]}};context.afficherConsommationV2Glow=()=>{};
+ const a=context.getGlowAliments().find(a=>a.nom==='Pain au chocolat');context.window.glowConsommationDraft={date:'2026-10-04',type:'petit-dejeuner',nom:'',ingredients:[]};context.ajouterBibliothequeConsommationGlow(a.id);const d=context.window.glowConsommationDraft;
+ assert.equal(d.date,'2026-10-04');assert.equal(d.nom,'Pain au chocolat');assert.equal(d.ingredients[0].quantite,1);assert.equal(d.ingredients[0].unite,'pièce');
+ }finally{context.DB=old;context.afficherConsommationV2Glow=render;}
+});
 
 await test('Cash deposits include prior deficit once and carry deposits across weeks',()=>{
  assert.deepEqual(Array.from(context.cumulEspADeposerEmma([20,30],[-50,-10],[90,70],-100)),[-130,-20]);
