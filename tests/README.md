@@ -35,3 +35,11 @@ Preview avec clientes et Formation fictives : `QA_AUTO=1 PORT=8768 npm --prefix 
 Les tâches automatiques remplissent les créneaux compatibles sans les anciens plafonds en minutes. Les copies en retard passent avant les tâches du jour de la même famille ; sport, rendez-vous, horaires travail/maison, soins du soir et pauses de cinq minutes restent respectés.
 
 Preview : `QA_AUTO=1 QA_SPORT=1 PORT=8775 npm --prefix tests run preview`. Le cas fictif Jambes 10 min + Posture 20 min affiche respectivement 10/20 et 20/40 min, et une seule séance de 30 minutes. Les cinq jauges et l'historique ont été contrôlés à 1280 et 390 px, sans débordement horizontal. Aucun compte Firebase réel n'est utilisé.
+
+## Certificat de réalisation et repas des 7 derniers jours
+
+82 scénarios passent. Le certificat est proposé pour toutes les formations configurées, à partir de la date de fin. Son formulaire reprend le nom, les dates, les heures et l'intitulé ; les compétences et la mention de certification sont modifiables avant téléchargement. Le modèle dérivé du PDF fourni conserve le logo, les mentions fixes, le pied de page et la signature ; les anciennes croix et le texte propre à une formation sont supprimés du contenu PDF. Les sorties Débutante CPF et Browlift ont été rendues et inspectées. Le générateur refuse les dates incohérentes, durées invalides et textes trop longs. Le mail de fin propose le PDF personnalisé, sans règle de kit et sans marquer l'envoi automatiquement.
+
+Nutrition propose aujourd'hui et les six jours précédents, y compris le dimanche précédent un lundi. Les repas passés sont sauvegardés dans la journée Nutrition de l'historique GLOW ; les autres champs d'archive, séances Sport et données du jour restent conservés. L'ajout et la correction partagent les contrôles de portions/ingrédients et l'analyse existante. Les sauvegardes non confirmées restent réessayables. L'historique plus ancien reste consultable.
+
+Preview isolée : `QA_AUTO=1 PORT=8781 npm --prefix tests run preview`. Saisie puis correction d'un pancake pour hier, rechargement avec récupération des 60 g de farine, formulaire certificat et téléchargement avec progression du suivi, mail de fin et pièce jointe proposée. Vérification mobile/desktop. Le SDK PDF-Lib local est servi uniquement dans cette preview ; Firebase et l'analyse IA sont simulés.

@@ -7,19 +7,20 @@ const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const script = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m => m[1].trim())[1];
 const ast = acorn.parse(script, {ecmaVersion: 'latest'});
 new vm.Script(script);
-const constants = new Set(['recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
+const constants = new Set(['DOCUMENTS_FORMATION','FORMATIONS_PAR_FINANCEMENT','ETAPES_DOSSIER_FORMATION_CPF','ETAPES_DOSSIER_FORMATION_PERSO','ETAPES_DOSSIER_FORMATION','fileSuiviFormation','recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
 const declarations = ast.body.filter(n => n.type === 'FunctionDeclaration' || n.type === 'VariableDeclaration' && n.declarations.every(d => constants.has(d.id.name))).map(n => script.slice(n.start, n.end)).join('\n');
 const storage = new Map(), writes = [], messages = [], nodes = new Map();
 function node() {return {value:'', innerHTML:'', textContent:'', disabled:false, style:{}, classList:{add(){},remove(){},contains(){return false}}, remove(){}, insertAdjacentHTML(){}, focus(){}};}
 const document = {activeElement:null, getElementById(id){return nodes.get(id)||null;}, querySelectorAll(){return [];}, querySelector(){return node();}, body:{insertAdjacentHTML(_, html){for(const m of html.matchAll(/id="([^"]+)"/g))nodes.set(m[1],node());}}};
 const userRef = {collection(collection){return {doc(id){return {
   async get(){const value=storage.get(`${collection}/${id}`);return {exists:!!value,data:()=>value};},
-  async set(data, options){assert.equal(collection,'modules');assert.ok(['glow_nutrition','glow_soins','glow_dressing','glow','journal'].includes(id));assert.equal(options.merge,true);writes.push({collection,id,data});storage.set(`${collection}/${id}`,data);}
+  async set(data, options){assert.equal(collection,'modules');assert.ok(['glow_nutrition','glow_soins','glow_dressing','glow','journal','formations'].includes(id));assert.equal(options.merge,true);writes.push({collection,id,data});storage.set(`${collection}/${id}`,data);}
 };}};}};
 class FixedDate extends Date {constructor(...args){super(...(args.length?args:['2026-10-05T12:00:00Z']));}}
 const local=new Map([['anthropic_key','test-key']]);
 const appConsole={...console,error(){},warn(){}};
-const context = vm.createContext({console:appConsole, Blob, AbortController, Date:FixedDate, setTimeout,clearTimeout,DB:{glow:{date:'2026-10-05',nutrition:{repas:[],recettes:[]}},historiqueGlow:[]}, currentUser:{uid:'test'},userRef, chargementReussi:true, window:{},document,localStorage:{getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v)},fetch:async()=>{throw Error('unexpected network');}});
+const PDFLib=require('pdf-lib');
+const context = vm.createContext({PDFLib,Uint8Array,console:appConsole, Blob, AbortController, Date:FixedDate, setTimeout,clearTimeout,DB:{glow:{date:'2026-10-05',nutrition:{repas:[],recettes:[]}},historiqueGlow:[]}, currentUser:{uid:'test'},userRef, chargementReussi:true, window:{},document,localStorage:{getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v)},fetch:async()=>{throw Error('unexpected network');}});
 vm.runInContext(declarations,context);
 context.toast = message => messages.push(message);
 for(const f of ['renderPlanificationRepasGlow','renderGlowAccueil','renderGlowSport','renderIngredientsGlow','programmerSynchronisationNotificationsEmma'])context[f]=()=>{};
@@ -38,6 +39,44 @@ async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}
  try{return fn(context.DB.journal);}finally{context.DB=before;for(const n of names)context[n]=saved[n];}
 }
 
+
+await test('Retrospective nutrition includes previous Sunday, excludes future/older dates and keeps today intact',async()=>{
+ const old=context.DB,names=['demanderJSONNutritionGlow','renderGlowNutrition'],saved=Object.fromEntries(names.map(n=>[n,context[n]])),selection=context.window.nutritionDateSaisieGlow;
+ try{
+ const today={id:'today',type:'diner',nom:'Aujourd’hui',calories:100,proteines:10};
+ context.DB={glow:{date:'2026-10-05',activite:{},nutrition:{repas:[today]}},historiqueGlow:[{date:'2026-10-04',objectif:'jambes',minutes:10,customSport:true},{date:'2026-10-04',nutrition:{repas:[]},customArchive:true}],journal:{planning:{'2026-10-05':[{id:'manual',custom:true}]},faitAujourdhui:{}}};
+ const protectedBefore=JSON.stringify([context.DB.glow,context.DB.journal,context.DB.historiqueGlow[0]]);
+ assert.equal(context.datesSaisieNutritionGlow().length,7);assert.ok(context.datesSaisieNutritionGlow().includes('2026-10-04'));assert.throws(()=>context.verifierDateSaisieNutritionGlow('2026-09-28'));assert.throws(()=>context.verifierDateSaisieNutritionGlow('2026-10-06'));
+ let prompt='';context.demanderJSONNutritionGlow=async p=>{prompt=p;return {calories:450,proteines:35,conseil:'Bilan de dimanche.'}};context.renderGlowNutrition=()=>{};
+ context.window.glowConsommationDraft={date:'2026-10-04',type:'diner',nom:'Veau',portions:4,portion:1,ingredients:[{nom:'Veau',quantite:600,unite:'g'}]};
+ await context.validerConsommationV2Glow(node());let r=context.nutritionJourSaisieGlow('2026-10-04').repas[0];assert.equal(r.date,'2026-10-04');assert.equal(r.aliments[0].quantite,150);assert.ok(prompt.includes('2026-10-04'));assert.ok(!prompt.includes('Aujourd’hui'));
+ assert.equal(JSON.stringify([context.DB.glow,context.DB.journal,context.DB.historiqueGlow[0]]),protectedBefore);assert.equal(context.DB.historiqueGlow[1].customArchive,true);
+ const savedData=JSON.parse(storage.get('modules/glow').historique);assert.equal(savedData[1].nutrition.repas[0].id,r.id);
+ context.window.glowConsommationDraft={...context.window.glowConsommationDraft,repasId:r.id,portion:2};await context.validerConsommationV2Glow(node());r=context.nutritionJourSaisieGlow('2026-10-04').repas[0];assert.equal(context.nutritionJourSaisieGlow('2026-10-04').repas.length,1);assert.equal(r.aliments[0].quantite,300);assert.ok(context.renderBilanV2Glow('2026-10-04').includes('35 g'));assert.ok(context.renderBilanV2Glow().includes('10 g'));
+ context.DB.historiqueGlow=JSON.parse(storage.get('modules/glow').historique);assert.equal(context.nutritionJourSaisieGlow('2026-10-04').repas[0].portionMangee,2);
+ }finally{context.DB=old;for(const n of names)context[n]=saved[n];context.window.nutritionDateSaisieGlow=selection;}
+});
+await test('Backdated save failure keeps a retryable meal and retry does not duplicate or write Journal',async()=>{
+ const old=context.DB,save=context.sauvegarderChampSeul,analysis=context.demanderJSONNutritionGlow,render=context.renderGlowNutrition;
+ try{
+ context.DB={glow:{date:'2026-10-05',nutrition:{repas:[]}},historiqueGlow:[]};context.demanderJSONNutritionGlow=async()=>({calories:200,proteines:10});context.renderGlowNutrition=()=>{};context.sauvegarderChampSeul=async()=>false;
+ context.window.glowConsommationDraft={date:'2026-10-04',type:'plaisir-soir',nom:'Pancakes',portions:1,portion:1,ingredients:[{nom:'Farine',quantite:50,unite:'g'}]};await context.validerConsommationV2Glow(node());const r=context.nutritionJourSaisieGlow('2026-10-04').repas[0];assert.equal(r.sauvegardeNonConfirmee,true);assert.equal(context.DB.glow.nutrition.repas.length,0);
+ const champs=[];context.sauvegarderChampSeul=async(n)=>{champs.push(n);return true;};await context.reessayerConsommationV2Glow(r.id,'2026-10-04');assert.equal(r.sauvegardeNonConfirmee,false);assert.deepEqual(champs,['historiqueGlow']);assert.equal(context.nutritionJourSaisieGlow('2026-10-04').repas.length,1);
+ }finally{context.DB=old;context.sauvegarderChampSeul=save;context.demanderJSONNutritionGlow=analysis;context.renderGlowNutrition=render;context.window.nutritionDateSaisieGlow=null;}
+});
+await test('Certificate covers every configured training, respects completion date and bypasses kit rules for final mail',async()=>{
+ for(const financement of ['cpf','perso'])for(const f of vm.runInContext('FORMATIONS_PAR_FINANCEMENT',context)[financement]){
+  const e={id:'certificate-'+f.id,prenom:'Anne',nomFamille:'Martin',formationTypeNormalise:f.id,financement:{type:financement},dateFormation:'2026-09-20',dateFinFormation:'2026-10-04',suiviFormation:{}};
+  const d=context.donneesCertificatRealisationEmma(e);assert.ok(d.heures>0);assert.equal(d.nomComplet,'Anne Martin');assert.ok(context.validerDonneesCertificatRealisationEmma(d));
+  if(financement==='perso')assert.equal(d.certification,'');assert.ok(context.formationTermineeCertificatEmma(e));assert.equal(context.formationTermineeCertificatEmma({...e,dateFinFormation:'2026-10-06'}),false);
+  const mail=context.construireMailFormation(e,'fin-formation');assert.ok(mail.corps.includes(f.label));assert.ok(mail.corps.includes('vous a plu'));assert.equal(mail.documents.length,1);assert.equal(mail.documents[0].action,'certificat');assert.equal(mail.etape,'certificat_realisation_envoye');assert.equal(mail.recuperer.length,0);assert.throws(()=>context.construireMailFormation({...e,dateFinFormation:'2026-10-06'},'fin-formation'));
+ }
+ const model=fs.readFileSync(path.join(__dirname,'../documents/certificat-realisation.pdf'));
+ const e={prenom:'Élodie',nomFamille:'Martin',formationTypeNormalise:'browlift',financement:{type:'perso'},dateFormation:'2026-10-04',dateFinFormation:'2026-10-04'};
+ const d=context.donneesCertificatRealisationEmma(e);const bytes=await context.remplirCertificatRealisationEmma(new Uint8Array(model),d);assert.equal((await PDFLib.PDFDocument.load(bytes)).getPageCount(),1);
+ assert.throws(()=>context.validerDonneesCertificatRealisationEmma({...d,heures:0}));assert.throws(()=>context.validerDonneesCertificatRealisationEmma({...d,dateDocument:'2026-10-03'}));
+ await assert.rejects(context.remplirCertificatRealisationEmma(new Uint8Array(model),{...d,competences:'Une compétence très longue. '.repeat(800)}));
+});
 
 await test('Weekly gauges use Monday boundary, actual zone minutes and deduplicate sessions',()=>{
  const old=context.DB;
