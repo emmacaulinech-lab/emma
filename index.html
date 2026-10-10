@@ -58617,11 +58617,12 @@ Réponds uniquement en JSON valide sans backticks :
     if(signatureRepasGlow(r)!==signatureAvant)throw new Error('Ce repas a changé pendant la recherche. Réessaie.');
     if(mode==='accompagnement'&&r.assiette?.proteine&&r.assiette.proteine!=='Aucun'){
       const principal=r.assiette.proteine,cle=cleAlimentGlow(principal);
-      const originaux=(r.ingredients||[]).filter(i=>cleAlimentGlow(i.nom)===cle).map(i=>normaliserIngredientConsommationGlow(i));
-      if(!originaux.length||originaux.some(i=>!Number.isFinite(Number(i.quantite))||Number(i.quantite)<=0||!i.unite))throw new Error('Le plat principal doit avoir une quantité renseignée avant de changer son accompagnement.');
+      const equivalence=n=>cleAlimentGlow(n).split(/\s+/).map(m=>m.length>3?m.replace(/s$/,''):m).join(' ');
+      const originaux=(r.ingredients||[]).filter(i=>equivalence(typeof i==='string'?i:i.nom)===equivalence(principal)).map(i=>normaliserIngredientConsommationGlow(typeof i==='string'?{nom:i}:i));
+      if(!originaux.length)originaux.push({nom:principal,quantite:'',unite:''});
       const proteines=new Set(catalogueAlimentaireGlow().filter(i=>i.categorie==='proteine').map(i=>cleAlimentGlow(i.nom)));
       proteines.add(cle);if(proposition.assiette?.proteine)proteines.add(cleAlimentGlow(proposition.assiette.proteine));
-      proposition.ingredients=[...originaux.map(i=>({...i,quantite:Number(i.quantite)*(r.personnes||2)/(r.portionsBase||r.personnes||2)})),...(proposition.ingredients||[]).filter(i=>!proteines.has(cleAlimentGlow(i.nom)))];
+      proposition.ingredients=[...originaux.map(i=>({...i,quantite:i.quantite===''?'':Number(i.quantite)*(r.personnes||2)/(r.portionsBase||r.personnes||2)})),...(proposition.ingredients||[]).filter(i=>![...proteines].some(n=>equivalence(n)===equivalence(i.nom)))];
       proposition.assiette={...(proposition.assiette||{}),proteine:principal,plaisirSucre:''};
       proposition.nom=[principal,proposition.assiette.legumes,proposition.assiette.feculent].filter(n=>n&&n!=='Aucun').join(' · ');
       proposition.recetteId=null;proposition.typeAliment='repas';
