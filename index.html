@@ -26618,14 +26618,17 @@ const GLOW_ALIMENTS = [
 
 ];
 function getGlowAliments(){
-
-    DB.glowAlimentsPerso =
-        DB.glowAlimentsPerso || [];
-
-    return [
-        ...GLOW_ALIMENTS,
-        ...DB.glowAlimentsPerso
-    ];
+    const aliments=new Map();
+    for(const a of [...GLOW_ALIMENTS,...(DB.glowAlimentsPerso||[])])aliments.set(cleAlimentGlow(a.nom),{...a,uniteSaisie:'g'});
+    const categories={proteine:'proteine',feculent:'feculent',legumes:'legume',legume:'legume',fruit:'fruit',plaisirSucre:'plaisir',plaisir:'plaisir',gras:'gras',complement:'autre'};
+    for(const fiche of catalogueAlimentaireGlow()){
+        const cle=cleAlimentGlow(fiche.nom),ancien=aliments.get(cle);
+        const unite=fiche.id?(['recette','composition','repas'].includes(fiche.type)?'portion':fiche.unitePrincipale||ancien?.uniteSaisie||'g'):ancien?.uniteSaisie||fiche.unitePrincipale||'g';
+        aliments.set(cle,{...(ancien||{}),...fiche,id:ancien?.id||`bibliotheque_${fiche.id||cle}`,categorie:fiche.id?(categories[fiche.categorie]||'autre'):ancien?.categorie||categories[fiche.categorie]||'autre',uniteSaisie:unite,
+            kcal:fiche.kcal??ancien?.kcal,proteines:fiche.proteines??ancien?.proteines,
+            portions:Array.isArray(ancien?.portions)?ancien.portions:[],bibliothequeId:fiche.id||null});
+    }
+    return [...aliments.values()];
 }
 
 function filtrerAlimentsGlow(categorie){
@@ -26646,8 +26649,8 @@ function filtrerAlimentsGlow(categorie){
         </option>
 
         ${aliments.map(a => `
-            <option value="${a.id}">
-                ${a.nom}
+            <option value="${echapperTexteRepasGlow(a.id)}">
+                ${echapperTexteRepasGlow(a.nom)}
             </option>
         `).join("")}
     `;
@@ -26689,7 +26692,7 @@ function rechercherAlimentGlow(recherche){
     // Recherche dans TOUTES les catégories
     const aliments =
         getGlowAliments().filter(a =>
-            a.nom.toLowerCase().includes(texte)
+            cleAlimentGlow(a.nom).includes(cleAlimentGlow(texte))
         );
 
     select.innerHTML = `
@@ -26702,8 +26705,8 @@ function rechercherAlimentGlow(recherche){
         </option>
 
         ${aliments.map(a => `
-            <option value="${a.id}">
-                ${a.nom}
+            <option value="${echapperTexteRepasGlow(a.id)}">
+                ${echapperTexteRepasGlow(a.nom)}
             </option>
         `).join("")}
     `;
@@ -26720,20 +26723,17 @@ function calculerAlimentGlow(id, quantite){
 
     const q = Number(quantite) || 0;
 
-    return {
-        ...aliment,
-        quantite: q,
-        calories: Math.round((aliment.kcal * q) / 100),
-        proteines: Math.round(
-            ((aliment.proteines * q) / 100) * 10
-        ) / 10
-    };
+    const unite=aliment.uniteSaisie||'g';
+    const grammes=unite==='g'?q:unite==='pièce'&&Number(aliment.poidsMoyenPiece)>0?q*Number(aliment.poidsMoyenPiece):null;
+    const connue=grammes!==null&&typeof aliment.kcal==='number'&&Number.isFinite(aliment.kcal)&&typeof aliment.proteines==='number'&&Number.isFinite(aliment.proteines);
+    return {...aliment,quantite:q,unite,calories:connue?Math.round(aliment.kcal*grammes/100):0,proteines:connue?Math.round(aliment.proteines*grammes/100*10)/10:0,nutritionAEstimer:!connue};
 }
 
 function getQuantiteConseilleeGlow(aliment, typeRepas){
 
     if(!aliment) return 100;
 
+    if(!['g','ml'].includes(aliment.uniteSaisie||'g'))return 1;
     const cat = aliment.categorie;
 
     const portions = {
@@ -28911,7 +28911,7 @@ const courses =
                 .map(a =>
                     typeof a === "string"
                         ? a
-                        : `${a.nom}${a.quantite?` · ${a.quantite}`:''}`
+                        : `${a.nom}${a.quantite?` · ${a.quantite}${a.unite?' '+a.unite:''}`:''}`
                 )
                 .join("  •  ")
     }
@@ -29066,7 +29066,7 @@ function afficherAlimentsRepasGlow(){
                             font-size:11px;
                             color:var(--mut);
                         ">
-                            ${a.quantite} g · ${a.calories} kcal · ${a.proteines} g protéines
+                            ${a.quantite} ${echapperTexteRepasGlow(a.unite||'g')} · ${a.nutritionAEstimer?'Analyse à l’enregistrement':`${a.proteines} g protéines`}
                         </div>
                     </div>
 
@@ -29092,8 +29092,7 @@ function afficherAlimentsRepasGlow(){
                 <span>Total</span>
 
                 <span style="color:var(--acc)">
-                    ${Math.round(calories)} kcal ·
-                    ${Math.round(proteines * 10) / 10} g prot.
+                    ${repasGlowEnCours.some(a=>a.nutritionAEstimer)?'Analyse nutritionnelle à l’enregistrement':`${Math.round(proteines*10)/10} g protéines`}
                 </span>
 
             </div>
@@ -30057,7 +30056,7 @@ function normaliserNomAlimentPhotoGlow(valeur){
 function trouverAlimentCataloguePhotoGlow(nom){
     const cible=normaliserNomAlimentPhotoGlow(nom);
     if(!cible) return null;
-    return getGlowAliments().find(aliment=>{
+    return getGlowAliments().filter(a=>(a.uniteSaisie||'g')==='g').find(aliment=>{
         const courant=normaliserNomAlimentPhotoGlow(aliment.nom);
         return courant===cible||courant.includes(cible)||cible.includes(courant);
     })||null;
@@ -30407,7 +30406,8 @@ repasGlowEnCours = [];
         ["legume","🥗 Légumes"],
         ["fruit","🍓 Fruits"],
         ["gras","🥑 Matières grasses"],
-        ["plaisir","💗 Plaisir"]
+        ["plaisir","💗 Plaisir"],
+        ["autre","🍽️ Plats / autres"]
     ].map(cat => `
 
         <button
@@ -30621,7 +30621,7 @@ function afficherPortionsAlimentGlow(){
             <input
                 id="glow-quantite-aliment"
                 type="number"
-                min="1"
+                min="0.1" step="0.1"
                 value="${getQuantiteConseilleeGlow(
     aliment,
     typeRepasGlowEnCours
@@ -30638,7 +30638,7 @@ function afficherPortionsAlimentGlow(){
                 color:var(--mut);
                 font-weight:700;
             ">
-                g
+                ${echapperTexteRepasGlow(aliment.uniteSaisie||'g')}
             </span>
 
         </div>
@@ -31102,6 +31102,16 @@ async function enregistrerRepasGlow(type){
         objectif: "equilibre"
     };
 
+    if(repasGlowEnCours.some(a=>a.nutritionAEstimer)){
+        if(window.sauvegardeRepasBibliothequeEnCours)return;
+        window.sauvegardeRepasBibliothequeEnCours=true;
+        try{
+            window.glowConsommationDraft={date:dateLocaleISO(),type,nom:repasGlowEnCours.map(a=>a.nom).join(' · '),portions:1,portion:1,ingredients:repasGlowEnCours.map(a=>({nom:a.nom,quantite:a.quantite,unite:a.unite||'g',bibliothequeId:a.bibliothequeId}))};
+            await validerConsommationV2Glow({disabled:false});
+        }finally{window.sauvegardeRepasBibliothequeEnCours=false;}
+        return;
+    }
+
     const calories = repasGlowEnCours.reduce(
         (total, aliment) => total + Number(aliment.calories || 0),
         0
@@ -31120,6 +31130,7 @@ async function enregistrerRepasGlow(type){
             nom: aliment.nom,
             categorie: aliment.categorie,
             quantite: aliment.quantite,
+            unite:aliment.unite||'g',
             calories: aliment.calories,
             proteines: aliment.proteines
         })),
@@ -56745,11 +56756,18 @@ async function ouvrirConsommationV2Glow(type,planId=null,date=null,repasId=null)
     window.glowConsommationDraft={date,type,repasId:existant?repasId:null,planId:existant?.choixPlanId||plan?.id,recetteId:existant?.recetteId,nom:existant?.nom||(existant?(existant.aliments||[]).map(i=>typeof i==='string'?i:i.nom).filter(Boolean).join(' · '):'')||plan?.nom||choisi?.nom||(type==='plaisir-soir'?'Pancakes':''),portions:Number(existant?.portionsPreparees||recette?.portions||plan?.portionsBase||plan?.personnes||1),portion:Number(existant?.portionMangee)||1,ingredients:ingredients.map(i=>normaliserIngredientConsommationGlow(i,existant&&!existant.ingredientsUtilises?Number(existant.portionsPreparees||1)/Number(existant.portionMangee||1):1))};
     afficherConsommationV2Glow();
 }
+function ajouterBibliothequeConsommationGlow(id){
+    const a=getGlowAliments().find(a=>a.id===id),d=window.glowConsommationDraft;if(!a||!d)return;
+    const unite=a.uniteSaisie||'g';
+    if(!d.ingredients.length&&(!d.nom||d.nom==='Pancakes'))d.nom=a.nom;
+    d.ingredients.push({nom:a.nom,quantite:['g','ml'].includes(unite)?'':1,unite,bibliothequeId:a.bibliothequeId});
+    afficherConsommationV2Glow();
+}
 function afficherConsommationV2Glow(){
     const d=window.glowConsommationDraft;if(!d)return;
     document.getElementById('consommation-v2-glow')?.remove();
     const esc=echapperTexteRepasGlow;
-    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.repasId?'Modifier mon repas':d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${i.quantite===''||i.quantite==null?'':Number(i.quantite)}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'')}" placeholder="g, ml, portion…" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button>${d.ingredients.some(i=>!i.quantite||!i.unite)?'<p style="font-size:12px;color:var(--mut)">Certaines anciennes quantités sont incomplètes. Complète les cases vides ; EMMA ne les remplace pas par une quantité estimée.</p>':''}<p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.repasId?'Modifier mon repas':d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label for="consommation-bibliotheque">Ajouter depuis ma bibliothèque</label><select id="consommation-bibliotheque" style="width:100%;margin-bottom:12px" onchange="ajouterBibliothequeConsommationGlow(this.value)"><option value="">Choisir un aliment ou un plat…</option>${getGlowAliments().map(a=>`<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('')}</select><label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${i.quantite===''||i.quantite==null?'':Number(i.quantite)}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'')}" placeholder="g, ml, portion…" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button>${d.ingredients.some(i=>!i.quantite||!i.unite)?'<p style="font-size:12px;color:var(--mut)">Certaines anciennes quantités sont incomplètes. Complète les cases vides ; EMMA ne les remplace pas par une quantité estimée.</p>':''}<p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
 }
 function choisirRecetteConsommationV2Glow(id){
     const recette=recettesDisponiblesPlanGlow().find(r=>r.id===id);if(!recette)return;

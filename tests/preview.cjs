@@ -21,6 +21,11 @@ if(process.env.QA_COMPTA==='1'){
  docs['users/test/modules/comptabilite']={caisse:JSON.stringify(caisse),banque:JSON.stringify([{id:'1791608258754-z',date:'2026-10-09',nom:'Débit test',montant:-13.34,categorie:'CH. Variable'},{id:'1791608258754-a',date:'2026-10-09',nom:'Crédit test',montant:50,categorie:'CA'}]),fixes:'[]',variables:'[]',chargesLissees:'[]',semainesPerso:'{}',prestations:JSON.stringify(['Pose complète']),salaires:'[]'};
  docs['users/test/data/main'].params=JSON.stringify({soldeInit:324.51,prixPrestations:{'Pose complète':85},correspondancesPrestations:{'Planity - pose':'Pose complète'}});
 }
+if(process.env.QA_LIBRARY==='1'){
+ const plans=JSON.parse(docs['users/test/modules/glow_nutrition'].data);
+ plans.alimentsV2=[{id:'qa-pain-chocolat',nom:'Pain au chocolat',type:'prepare',categorie:'plaisirSucre',unitePrincipale:'pièce',poidsMoyenPiece:70}];
+ docs['users/test/modules/glow_nutrition'].data=JSON.stringify(plans);
+}
 const events=[],writes=[];
 function mocks(){
  window.__docs=QA_DOCS;

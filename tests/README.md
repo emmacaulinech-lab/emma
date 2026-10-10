@@ -55,3 +55,9 @@ Preview isolée : `QA_AUTO=1 PORT=8781 npm --prefix tests run preview`. Saisie p
 Le bouton Agenda → Caisse résout la correspondance de prestation, reprend son nom canonique et son prix et conserve la date de l'agenda. Les encaissements historiques restent inchangés. Les tests vérifient ces valeurs via le vrai formulaire prérempli et l'absence de réécriture de la caisse.
 
 Le solde Banque reste inchangé : la sauvegarde fournie contient un écart égal au dernier débit, dont le statut doit être clarifié avant toute correction. Aucune donnée personnelle ou sauvegarde utilisateur n'est intégrée aux fixtures ou au dépôt. Preview : `QA_COMPTA=1 PORT=8793 npm --prefix tests run preview`.
+
+## Bibliothèque partagée avec la saisie des repas
+
+91 tests passent. Le formulaire Petit-déjeuner/Déjeuner/Dîner/Collation fusionne son ancien catalogue avec la bibliothèque Nutrition, sans doublon de nom et sans modifier les fiches sauvegardées. Les catégories de la bibliothèque sont adaptées aux filtres existants ; la recherche couvre toutes les catégories. Les nouvelles pièces, pots et portions utilisent leur unité réelle. Les aliments dont les valeurs nutritionnelles sont absentes sont analysés lors de l'enregistrement du repas, avec le même adaptateur et les mêmes contrôles que la saisie quantifiée. Les aliments historiques en grammes gardent leur calcul existant.
+
+Le formulaire quantifié des repas passés et plaisirs du soir propose aussi « Ajouter depuis ma bibliothèque ». Le test vérifie la conservation de la date sélectionnée. Preview isolée : `QA_LIBRARY=1 PORT=8796 npm --prefix tests run preview`. Un Pain au chocolat préparé ajouté dans Plaisirs sucrés est retrouvé dans Plaisir, sélectionné comme 1 pièce puis enregistré comme Petit-déjeuner. Firebase et estimation nutritionnelle sont simulés.
