@@ -27,3 +27,11 @@ Le Journal s’organise à l’ouverture, à la reprise de l’application et pe
 73 scénarios automatisés passent : contraintes horaires, priorité sport, durée courte, idempotence, retards, conservation des tâches en réserve, refus du jour, attentes Formation, blocage avant chargement et reprise d’une sauvegarde non confirmée. Les anciens conflits avec les rappels repas ne déplacent plus les rendez-vous, même sans verrou explicite.
 
 Preview avec clientes et Formation fictives : `QA_AUTO=1 PORT=8768 npm --prefix tests run preview`. Vérification mobile (390 px) et desktop, rechargement et séance GLOW combinée. Les rendez-vous fictifs restent à 09:00–10:00 et 11:00–18:00 après sauvegarde. Firebase est simulé ; les données personnelles de production n’ont pas été modifiées pendant les tests.
+
+## Jauges Sport et retards
+
+79 scénarios automatisés passent. Les cinq jauges et les recommandations partagent la semaine du lundi au dimanche ; la récupération conserve les séances des jours précédents, même avant le lundi. Les séances combinées sont ventilées par zone, les copies d'une même réalisation sont dédupliquées. La rotation garde un mouvement repère et privilégie les autres mouvements les moins récemment réalisés, avec ordre stable au rafraîchissement.
+
+Les tâches automatiques remplissent les créneaux compatibles sans les anciens plafonds en minutes. Les copies en retard passent avant les tâches du jour de la même famille ; sport, rendez-vous, horaires travail/maison, soins du soir et pauses de cinq minutes restent respectés.
+
+Preview : `QA_AUTO=1 QA_SPORT=1 PORT=8775 npm --prefix tests run preview`. Le cas fictif Jambes 10 min + Posture 20 min affiche respectivement 10/20 et 20/40 min, et une seule séance de 30 minutes. Les cinq jauges et l'historique ont été contrôlés à 1280 et 390 px, sans débordement horizontal. Aucun compte Firebase réel n'est utilisé.

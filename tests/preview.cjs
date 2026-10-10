@@ -10,6 +10,12 @@ if(process.env.QA_AUTO==='1'){
  docs['users/test/modules/journal']={data:JSON.stringify({planning:{[date]:rdv},faitAujourdhui:{},zones:[],preparationJour:{[date]:{heureLever:'07:30',heureFin:'22:30',contraintes:[]}}})};
  docs['users/test/modules/formations']={data:JSON.stringify({etudiantes:[{id:'test-eleve',prenom:'Élève',nom:'Élève test',formation:'coaching-prive-3j',formationTypeNormalise:'coaching-prive-3j',financement:{type:'cpf'},dateFormation:date,dateFinFormation:date,suiviFormation:{}}]})};
 }
+if(process.env.QA_SPORT==='1'){
+ const date=new Date().toLocaleDateString('fr-CA');
+ const workout={date,realisationId:'qa-combo',objectif:'jambes',objectifs:['jambes','posture'],minutes:30,minutesParZone:{jambes:10,posture:20},terminee:true,exercices:[]};
+ const glow=JSON.parse(docs['users/test/modules/glow'].data);glow.date=date;glow.historiqueSeances=[workout];
+ docs['users/test/modules/glow'].data=JSON.stringify(glow);docs['users/test/modules/glow'].historique=JSON.stringify([workout]);
+}
 const events=[],writes=[];
 function mocks(){
  window.__docs=QA_DOCS;
