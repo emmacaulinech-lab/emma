@@ -57590,13 +57590,8 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
                 r.assiette?.complement || ""
               ),
 
-            plaisirSucre:
-              type === "diner"
-                ? String(
-                    r.assiette?.plaisirSucre ||
-                    "Carrés de chocolat"
-                  )
-                : ""
+            // Le plaisir du soir est saisi séparément, jamais imposé au planning.
+            plaisirSucre: ""
           },
 
           ingredients:
