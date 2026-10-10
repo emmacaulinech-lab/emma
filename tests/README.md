@@ -47,3 +47,11 @@ Preview isolée : `QA_AUTO=1 PORT=8781 npm --prefix tests run preview`. Saisie p
 ## Correction des quantités lors d'un changement de repas
 
 85 tests passent. Une assiette déjà mangée peut être renseignée directement avec ses ingrédients préremplis, sans génération obligatoire d'une recette IA. Le cas poisson blanc/haricots verts/pommes de terre vérifie ce parcours. Les anciens formats « 1 portion », « 200 g », nombres à virgule et fractions sont séparés en valeur numérique/unité ; les quantités inconnues restent à compléter. Lorsqu'une archive contient uniquement les quantités mangées, la préparation est reconstituée selon le ratio de portions, sans changer l'archive à l'ouverture. Les erreurs désignent la ligne concernée et le champ manquant. Les recettes générées utilisent la même normalisation et gardent le contrôle de l'huile.
+
+## Compta : déficit, filtres AUTO et correspondances Agenda
+
+88 tests passent. Les espèces à déposer partent du déficit reporté une seule fois, puis intègrent les encaissements, charges et dépôts successifs ; le total de l'écart cumulatif est le dernier écart et non la somme des cumuls. AUTO filtre la caisse en lecture seule par mois et semaine, en conservant les limites personnalisées, et les tableaux ont des en-têtes fixes. Preview fictive à 1280 et 390 px ; période 5–11 octobre contrôlée sans débordement de page.
+
+Le bouton Agenda → Caisse résout la correspondance de prestation, reprend son nom canonique et son prix et conserve la date de l'agenda. Les encaissements historiques restent inchangés. Les tests vérifient ces valeurs via le vrai formulaire prérempli et l'absence de réécriture de la caisse.
+
+Le solde Banque reste inchangé : la sauvegarde fournie contient un écart égal au dernier débit, dont le statut doit être clarifié avant toute correction. Aucune donnée personnelle ou sauvegarde utilisateur n'est intégrée aux fixtures ou au dépôt. Preview : `QA_COMPTA=1 PORT=8793 npm --prefix tests run preview`.

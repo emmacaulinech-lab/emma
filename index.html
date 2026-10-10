@@ -4601,6 +4601,8 @@ button.emma-card-row{
 #certificatRealisationModal{width:min(680px,calc(100vw - 24px));max-height:90vh;overflow:auto;border:1px solid var(--brd);border-radius:20px;padding:20px;background:var(--bg);color:var(--text)}
 #certificatRealisationModal::backdrop{background:rgba(30,20,30,.35)}
 #certificatRealisationModal input,#certificatRealisationModal textarea{width:100%;box-sizing:border-box}
+
+#autoC .auto-scroll{border-radius:0 0 12px 12px}#autoC thead th{position:sticky;top:0;z-index:2;background:inherit}#view-auto select{max-width:100%}
 </style>
    
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -5447,6 +5449,7 @@ button.emma-card-row{
       <div><div class="st">🎭 Auto — Praticiens</div><div class="ss">Semaines lun→dim · Part société <span id="tauxSocDisplay">40%</span></div></div>
     </div>
     <div class="ib">💡 CA auto × <span id="tauxSocIb">40%</span> = part société. Déjà encaissé = PLANITY+CHQ+VIR. ESP due = part soc − déjà enc. (négatif = société rembourse)</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><label for="auto-mois">Mois</label><select id="auto-mois" onchange="changerMoisAutoEmma()"><option value="">Tous les mois</option></select></div><div><label for="auto-semaine">Semaine</label><select id="auto-semaine" onchange="renderAuto()" disabled><option value="">Toutes les semaines</option></select></div></div>
     <div id="autoC"></div>
   </div>
 
@@ -10683,14 +10686,31 @@ async function editPrevAuto(nom, mois, currentPrev){
 // ═══════════════════════════════════════
 // AUTO
 // ═══════════════════════════════════════
+function changerMoisAutoEmma(){
+  const semaine=document.getElementById('auto-semaine');if(semaine)semaine.value='';renderAuto();
+}
+function caisseFiltreeAutoEmma(caisse,mois='',semaine=''){
+  if(!mois)return [...caisse];
+  const [y,m]=mois.split('-').map(Number),wk=semainesDuMois(y,m).find(w=>String(w.s)+'-'+w.e===semaine);
+  return caisse.filter(t=>inM(t.date,mois)&&(!wk||inSem(t.date,y,m,wk.s,wk.e)));
+}
 function renderAuto(){
+  const moisEl=document.getElementById('auto-mois'),semaineEl=document.getElementById('auto-semaine');
+  const mois=moisEl?.value||'',semaine=semaineEl?.value||'';
+  const moisDisponibles=[...new Set((DB.caisse||[]).map(t=>dm(t.date)))].sort().reverse();
+  if(moisEl){moisEl.innerHTML='<option value="">Tous les mois</option>'+moisDisponibles.map(m=>`<option value="${m}" ${m===mois?'selected':''}>${mf(m)}</option>`).join('');}
+  if(semaineEl){
+    const [y,m]=mois.split('-').map(Number);semaineEl.disabled=!mois;
+    semaineEl.innerHTML='<option value="">Toutes les semaines</option>'+(mois?semainesDuMois(y,m).map(w=>`<option value="${w.s}-${w.e}" ${semaine===w.s+'-'+w.e?'selected':''}>${String(w.s).padStart(2,'0')}/${String(m).padStart(2,'0')} → ${String(w.e).padStart(2,'0')}/${String(m).padStart(2,'0')}</option>`).join(''):'');
+  }
+  const caisseAuto=caisseFiltreeAutoEmma(DB.caisse||[],moisEl?.value||'',semaineEl?.value||'');
   const prats=['MARIE','GIULIA'];
-  const allMois=[...new Set(DB.caisse.map(t=>dm(t.date)))].sort();
+  const allMois=[...new Set(caisseAuto.map(t=>dm(t.date)))].sort();
   let html='';
 // Tableau Emma
   html+=`<div class="ab">
     <div class="card-hdr">✦ Emma — 100% CA</div>
-    <div style="overflow-x:auto"><table><thead><tr style="background:var(--acc)">
+    <div class="auto-scroll" style="overflow:auto;max-height:65vh"><table><thead><tr style="background:var(--acc)">
       <th style="color:#fff;min-width:130px">Semaine</th>
       <th style="color:#fff;text-align:right">CA</th>
       <th style="color:#fff;text-align:right">ESP</th>
@@ -10699,10 +10719,10 @@ function renderAuto(){
       <th style="color:#fff;text-align:right">PLANITY</th>
     </tr></thead><tbody>`;
   let gCAe=0,gESPe=0,gVIRe=0,gCHQe=0,gPLANe=0;
-  const allMoisEmma=[...new Set(DB.caisse.filter(t=>t.praticien==='').map(t=>dm(t.date)))].sort();
+  const allMoisEmma=[...new Set(caisseAuto.filter(t=>t.praticien==='').map(t=>dm(t.date)))].sort();
   for(const mois of allMoisEmma){
     const[y,m]=mois.split('-').map(Number);
-    const mRows=DB.caisse.filter(t=>t.praticien===''&&inM(t.date,mois)&&t.montant>0);
+    const mRows=caisseAuto.filter(t=>t.praticien===''&&inM(t.date,mois)&&t.montant>0);
     if(!mRows.length) continue;
     const ca=mRows.reduce((s,t)=>s+t.montant,0);
     const esp=mRows.filter(t=>t.reglement==='ESP').reduce((s,t)=>s+t.montant,0);
@@ -10737,7 +10757,7 @@ function renderAuto(){
     const isMarie=prat==='MARIE';
     html+=`<div class="ab">
       <div class="${isMarie?'ahm':'ahg'}">${isMarie?'👩‍🎨':'✨'} ${prat} <span style="font-size:11px;font-family:'DM Sans',sans-serif;font-weight:400;opacity:.7">— Part société ${PARAMS.tauxSoc*100}%</span></div>
-      <div style="overflow-x:auto"><table><thead><tr style="background:${isMarie?'var(--marie)':'var(--giulia)'}">
+      <div class="auto-scroll" style="overflow:auto;max-height:65vh"><table><thead><tr style="background:${isMarie?'var(--marie)':'var(--giulia)'}">
         <th style="color:#fff;min-width:130px">Semaine</th>
         <th style="color:#fff;text-align:right">CA</th>
         <th style="color:#fff;text-align:right">ESP</th>
@@ -10753,7 +10773,7 @@ function renderAuto(){
 
     for(const mois of allMois){
       const[y,m]=mois.split('-').map(Number);
-      const mRows=DB.caisse.filter(t=>t.praticien===prat&&inM(t.date,mois)&&t.montant>0);
+      const mRows=caisseAuto.filter(t=>t.praticien===prat&&inM(t.date,mois)&&t.montant>0);
       if(!mRows.length) continue;
 
       const calc=rows=>{
@@ -10842,6 +10862,10 @@ function resultatBrutMoisRecap(mois){
     salaireLisseMensuel+redevReel+tvaReel+achats;
 }
 
+function cumulEspADeposerEmma(encaissements,charges,depots,deficit=0){
+  let report=Number(deficit)||0;
+  return encaissements.map((credit,i)=>{const besoin=report+Number(credit||0)+Number(charges[i]||0);report=besoin+Number(depots[i]||0);return besoin;});
+}
 function renderRecap(){
   const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date)),...(DB.chargesLissees||[]).map(c=>c.moisDebut).filter(Boolean)])].sort().reverse();
   const reportsDeficit=new Map();
@@ -11088,15 +11112,8 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
     const espDeposesTot=espDeposeesW.reduce((s,v)=>s+v,0);
     // Écart ESP = ESP à déposer - ESP déposées (addition car dépôts sont positifs)
     // Recalcul du cumul en tenant compte des dépôts
-    let reportPrec=0;
-    const espWCorr=weeks.map((wk,i)=>{
-      const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
-      const val=reportPrec+chq+vir+plan+chargesW[i];
-      reportPrec=val+espDeposeesW[i];
-      return val;
-    });
+    const encaissementsSansEspW=weeks.map(wk=>DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&['CHQ','VIR','PLANITY'].includes(t.reglement)&&t.montant>0).reduce((s,t)=>s+Number(t.montant),0));
+    const espWCorr=cumulEspADeposerEmma(encaissementsSansEspW,chargesW,espDeposeesW,reportDeficit);
     const espBrutW=weeks.map((wk,i)=>{
       const chq=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='CHQ'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
       const vir=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='VIR'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
@@ -11104,7 +11121,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       return chq+vir+plan+chargesW[i];
     });
     const espEcartW=espWCorr.map((v,i)=>v+espDeposeesW[i]);
-const espEcartTot=espEcartW.reduce((s,v)=>s+v,0);
+const espEcartTot=espEcartW.at(-1)||0;
 
     const espNetW=weeks.map((wk,i)=>{
       let v=0;
@@ -11125,7 +11142,7 @@ const espEcartTot=espEcartW.reduce((s,v)=>s+v,0);
 
     html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espWCorr[espWCorr.length-1],
       (v,i)=>i>=0?(Math.abs(espWCorr[i])>espNetCumulW[i]?'var(--dep)':'var(--rec)'):(Math.abs(espWCorr[espWCorr.length-1])>espNetCumulW[espNetCumulW.length-1]?'var(--dep)':'var(--rec)'),
-      (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente`:`Cumul fin de mois`
+      (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente\nDéficit reporté en début de mois : ${fm(reportDeficit)}`:`Cumul fin de mois`
     );
     html+=row('→ ESP déposées',espDeposeesW,espDeposesTot,
       v=>v>0?'var(--rec)':'var(--mut)',
@@ -15914,13 +15931,17 @@ async function updatePrixPrestation(nom, val){
   toast('✓ Prix mis à jour');
 }
 
+function nomPrestationAgendaEmma(prestation){
+  const cle=s=>String(s||'').normalize('NFC').trim().toLowerCase();
+  const noms=PARAMS.correspondancesPrestations||{},source=Object.keys(noms).find(n=>cle(n)===cle(prestation));
+  const cible=source&&noms[source]?noms[source]:prestation;
+  return (DB.prestations||[]).find(n=>cle(n)===cle(cible))||Object.keys(PARAMS.prixPrestations||{}).find(n=>cle(n)===cle(cible))||String(cible||'').trim();
+}
 function getPrixPrestation(prestation){
 
     if(!prestation || !PARAMS.prixPrestations) return 0;
 
-    if(PARAMS.correspondancesPrestations?.[prestation]){
-        prestation = PARAMS.correspondancesPrestations[prestation];
-    }
+    prestation=nomPrestationAgendaEmma(prestation);
 
     if(PARAMS.prixPrestations[prestation])
         return PARAMS.prixPrestations[prestation];
@@ -16340,8 +16361,8 @@ const encaissee=DB.caisse.some(t=>t.nom===r.nom&&t.montant>0&&Math.abs((new Date
             <div style="background:${encaissee?'#E1F5EE':couleurs[p]+'15'};border-left:3px solid ${encaissee?'#085041':couleurs[p]};border-radius:0 8px 8px 0;padding:7px 9px;margin-bottom:6px">
               <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--mut)">${r.heure_debut} → ${r.heure_fin}</div>
               <div style="font-size:12px;font-weight:700;color:var(--txt);margin-top:2px">${r.nom}</div>
-              <div style="font-size:11px;color:var(--mut);margin-top:1px">${r.prestation||'—'}</div>
-              ${PARAMS.prixPrestations?.[r.prestation]?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(PARAMS.prixPrestations[r.prestation])}</div>`:''}
+              <div style="font-size:11px;color:var(--mut);margin-top:1px">${echapperHtmlEmma(nomPrestationAgendaEmma(r.prestation)||'—')}</div>
+              ${getPrixPrestation(r.prestation)?`<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--rec);font-weight:600;margin-top:2px">${fa(getPrixPrestation(r.prestation))}</div>`:''}
               ${encaissee?`<div style="font-size:10px;color:#085041;font-weight:700;margin-top:4px">✅ Encaissée</div>`:`<button onclick="prefillFromAgenda('${r.nom.replace(/'/g,"\\'")}','${(r.prestation||'').replace(/'/g,"\\'")}','${r.praticien}')" 
                 style="margin-top:5px;padding:3px 9px;border-radius:20px;border:1.5px solid var(--acc);background:white;color:var(--acc);font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
                 + Caisse
@@ -16410,6 +16431,7 @@ async function syncAgendaVersJournal(){
 }
 
 function prefillFromAgenda(nom, prestation, praticien){
+  const prix=getPrixPrestation(prestation);prestation=nomPrestationAgendaEmma(prestation);
   // Ouvrir saisie rapide pré-remplie
   openRapide();
   // Attendre que le modal soit ouvert puis pré-remplir
@@ -16436,6 +16458,7 @@ function prefillFromAgenda(nom, prestation, praticien){
     if(!found){
       const sel=document.getElementById('rPrest');
       if(sel){
+        if(![...sel.options].some(opt=>opt.value===prestation)){const opt=document.createElement('option');opt.value=prestation;opt.textContent=prestation;sel.appendChild(opt);}
         for(const opt of sel.options){
           if(opt.value===prestation){
             sel.value=prestation;
@@ -16450,8 +16473,8 @@ function prefillFromAgenda(nom, prestation, praticien){
     const mntEl=document.getElementById('rMnt');
     if(mntEl){
       // Pré-remplir avec le prix si configuré
-      const prix=PARAMS.prixPrestations?.[prestation];
-      if(prix) mntEl.value=prix;
+      mntEl.value=Number(prix)>0?prix:'';
+      const date=document.getElementById('agenda-date')?.value;if(/^\d{4}-\d{2}-\d{2}$/.test(date||'')){const champ=document.getElementById('rDate');if(champ)champ.value=date;}
       mntEl.focus();
     }
   }, 200);
@@ -16463,7 +16486,7 @@ function checkNouvellesPrestations(){
   // Trouver les prestations détectées non présentes dans la liste
   const prestationsAgenda=[...new Set(agendaData.map(r=>r.prestation).filter(Boolean))];
   const nouvelles=prestationsAgenda.filter(p=>
-    p&&!DB.prestations.some(dp=>dp.toLowerCase()===p.toLowerCase())
+    p&&!DB.prestations.some(dp=>dp.toLowerCase()===nomPrestationAgendaEmma(p).toLowerCase())
   );
 
   if(!nouvelles.length) return;
