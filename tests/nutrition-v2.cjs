@@ -39,6 +39,38 @@ async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}
 }
 
 
+await test('Weekly gauges use Monday boundary, actual zone minutes and deduplicate sessions',()=>{
+ const old=context.DB;
+ try{
+ context.DB={glow:{activite:{},historiqueSeances:[]},historiqueGlow:[{realisationId:'old',date:'2026-10-04',objectif:'fessiers',minutes:20},{realisationId:'combo',date:'2026-10-05',objectif:'jambes',objectifs:['jambes','posture'],minutes:30,minutesParZone:{jambes:10,posture:20},exercices:[{exerciceId:'a'}]}]};
+ context.DB.glow.historiqueSeances=[{...context.DB.historiqueGlow[1]}];
+ const r=context.recommanderProgrammeGlow('2026-10-05');
+ assert.equal(r.progression.find(p=>p.id==='fessiers').minutes,0);assert.equal(r.progression.find(p=>p.id==='jambes').minutes,10);assert.equal(r.progression.find(p=>p.id==='posture').minutes,20);
+ assert.equal(context.historiqueSemaineSportGlow().length,1);assert.equal(context.getStatsSemaineSportGlow().minutes,30);
+ const html=context.renderProgressionSemaineSportGlow(r);assert.equal((html.match(/role="progressbar"/g)||[]).length,5);assert.ok(html.includes('10 / 20 min'));assert.ok(html.includes('20 / 40 min'));assert.ok(html.includes('Tes séances réalisées'));
+ assert.equal(context.historiqueSemaineSportGlow('2026-10-12').length,0);
+ }finally{context.DB=old;}
+});
+await test('Exercise rotation prefers unused movements, remains stable and respects equipment',()=>{
+ const old=context.DB,library=context.getExercicesGlowComplets;
+ try{
+ context.DB={glow:{activite:{niveau:1,materielsChoisis:[]}},historiqueGlow:[]};
+ context.getExercicesGlowComplets=()=>Array.from({length:12},(_,i)=>({id:'e'+i,type:'exercice',objectif:['jambes'],niveau:1,materiel:[]})).concat({id:'forbidden',type:'exercice',objectif:['jambes'],materiel:['elastique']});
+ const ids=s=>[...new Set(s.exercices.map(e=>e.exerciceId))];const first=context.genererSeanceGlow('jambes',10);
+ assert.deepEqual(ids(first),ids(context.genererSeanceGlow('jambes',10)));assert.ok(!ids(first).includes('forbidden'));
+ context.DB.historiqueGlow=[{date:'2026-10-05',objectif:'jambes',minutes:10,exercices:first.exercices}];
+ const second=context.genererSeanceGlow('jambes',10);assert.equal(ids(second)[0],'e0');assert.ok(ids(second).slice(1).every(id=>!ids(first).includes(id)));
+ assert.equal(second.planTempsPersonnalise.reduce((n,p)=>n+p.dureeSecondes+p.reposSecondes,0),600);
+ }finally{context.DB=old;context.getExercicesGlowComplets=library;}
+});
+await test('Overdue tasks fill available time beyond old caps while sport and fixed slots stay protected',()=>autoFixture(j=>{
+ const d='2026-10-05';j.planning[d]=[{id:'fixed',categorie:'maison',placementManuel:'fixe',heureDebut:'14:00',heureFin:'15:00'}];
+ j.planning['2026-10-04']=Array.from({length:12},(_,i)=>({id:'late'+i,source:'journal',sourceId:'late'+i,categorie:'maison',nom:'Retard '+i,duree:20}));
+ context.organiserPlanningAutomatiqueEmma(d,new Date(d+'T07:30:00'));const p=j.planning[d],late=p.filter(b=>b.reporteDe==='2026-10-04');
+ assert.equal(late.length,12);assert.ok(late.reduce((n,b)=>n+b.duree,0)>120);assert.equal(p.find(b=>b.categorie==='sport').heureDebut,'07:30');assert.equal(p.find(b=>b.id==='fixed').heureDebut,'14:00');
+ for(let i=1;i<p.length;i++)assert.ok(p[i-1].heureFin<=p[i].heureDebut);assert.ok(p.every(b=>b.heureFin<='22:30'));
+}));
+
 await test('Sport recommendation names its zones and splits actual workout time consistently',()=>{
  const old=context.DB,library=context.getExercicesGlowComplets,init=context.initialiserGlowDuJour;
  context.DB={glow:{date:'2026-10-05',activite:{etatSport:'forme',tempsDisponible:20,niveau:1,materielsChoisis:[]},nutrition:{repas:[]}},historiqueGlow:[]};context.initialiserGlowDuJour=()=>{};
