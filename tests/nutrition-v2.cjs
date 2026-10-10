@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const script = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m => m[1].trim())[1];
 const ast = acorn.parse(script, {ecmaVersion: 'latest'});
 new vm.Script(script);
-const constants = new Set(['DOCUMENTS_FORMATION','FORMATIONS_PAR_FINANCEMENT','ETAPES_DOSSIER_FORMATION_CPF','ETAPES_DOSSIER_FORMATION_PERSO','ETAPES_DOSSIER_FORMATION','fileSuiviFormation','recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
+const constants = new Set(['MOIS','MC','DOCUMENTS_FORMATION','FORMATIONS_PAR_FINANCEMENT','ETAPES_DOSSIER_FORMATION_CPF','ETAPES_DOSSIER_FORMATION_PERSO','ETAPES_DOSSIER_FORMATION','fileSuiviFormation','recalageAutomatiqueEmmaEnCours', 'CORRESPONDANCE_FORMATION_KIT', 'KITS_CONTENU', 'EMAIL_TEMPLATES', 'SOINS_GLOW_DEFAUT', 'etatsChargementExtensionsGlow', 'filesSauvegardeExtensionsGlow', 'ALIMENTS_SUPPLEMENTAIRES_GLOW', 'TYPES_ALIMENTS_GLOW', 'POIDS_PIECES_GLOW', 'OPTIONS_ASSIETTE_GLOW', 'LABELS_CATEGORIES_INGREDIENTS_GLOW', 'operationsEmmaEnCours', 'filtreBibliothequeGlow', 'alimentAnalyseGlow']);
 const declarations = ast.body.filter(n => n.type === 'FunctionDeclaration' || n.type === 'VariableDeclaration' && n.declarations.every(d => constants.has(d.id.name))).map(n => script.slice(n.start, n.end)).join('\n');
 const storage = new Map(), writes = [], messages = [], nodes = new Map();
 function node() {return {value:'', innerHTML:'', textContent:'', disabled:false, style:{}, classList:{add(){},remove(){},contains(){return false}}, remove(){}, insertAdjacentHTML(){}, focus(){}};}
@@ -39,6 +39,30 @@ async function test(name, fn){try{await fn();passed++;console.log('PASS',name);}
  try{return fn(context.DB.journal);}finally{context.DB=before;for(const n of names)context[n]=saved[n];}
 }
 
+
+await test('Cash deposits include prior deficit once and carry deposits across weeks',()=>{
+ assert.deepEqual(Array.from(context.cumulEspADeposerEmma([20,30],[-50,-10],[90,70],-100)),[-130,-20]);
+ assert.deepEqual(Array.from(context.cumulEspADeposerEmma([20,30],[-50,-10],[90,70],0)),[-30,80]);
+});
+await test('AUTO month and week filters respect personalised boundaries without modifying caisse',()=>{
+ const old=context.DB;
+ try{
+ context.DB={semainesPerso:{'2026-10':[{s:1,e:10},{s:11,e:20},{s:21,e:31}]}};
+ const c=[{date:'2026-09-30',montant:1},{date:'2026-10-01',montant:2},{date:'2026-10-10',montant:3},{date:'2026-10-11',montant:4}];const before=JSON.stringify(c);
+ assert.equal(context.caisseFiltreeAutoEmma(c,'2026-10').length,3);assert.deepEqual(Array.from(context.caisseFiltreeAutoEmma(c,'2026-10','1-10').map(t=>t.montant)),[2,3]);assert.equal(context.caisseFiltreeAutoEmma(c).length,4);assert.equal(JSON.stringify(c),before);
+ }finally{context.DB=old;}
+});
+await test('Agenda encashment prefills canonical service, mapped price and agenda date without rewriting past caisse',()=>{
+ const old=context.DB,params=context.PARAMS,names=['openRapide','setRPrat','setTimeout'],saved=Object.fromEntries(names.map(n=>[n,context[n]]));
+ try{
+ context.DB={prestations:['Pose complète'],caisse:[{prestation:'Ancien nom',montant:60}]};context.PARAMS={correspondancesPrestations:{'Planity - pose':'Pose complète'},prixPrestations:{'Pose complète':85}};
+ assert.equal(context.nomPrestationAgendaEmma(' planity - POSE '),'Pose complète');assert.equal(context.getPrixPrestation('Planity - pose'),85);
+ for(const id of ['rNom','rPrat','rPrestVal','rMnt','rDate','agenda-date'])nodes.set(id,node());nodes.get('agenda-date').value='2026-10-04';
+ const select=node();select.options=[{value:''},{value:'Pose complète'}];nodes.set('rPrest',select);context.openRapide=()=>{};context.setRPrat=p=>nodes.get('rPrat').value=p;context.setTimeout=f=>{f();return 1};
+ const before=JSON.stringify(context.DB.caisse);context.prefillFromAgenda('Cliente test','Planity - pose','GIULIA');
+ assert.equal(nodes.get('rPrestVal').value,'Pose complète');assert.equal(nodes.get('rMnt').value,85);assert.equal(nodes.get('rDate').value,'2026-10-04');assert.equal(nodes.get('rPrat').value,'GIULIA');assert.equal(JSON.stringify(context.DB.caisse),before);
+ }finally{context.DB=old;context.PARAMS=params;for(const n of names)context[n]=saved[n];for(const id of ['rNom','rPrat','rPrestVal','rMnt','rDate','agenda-date','rPrest'])nodes.delete(id);}
+});
 
 await test('Changed fish/beans/potatoes meal can be recorded directly without requiring an AI cooking recipe',async()=>{
  const old=context.DB,render=context.afficherConsommationV2Glow,generate=context.ouvrirRecetteRepasGlow,get=context.getRepasPlanifieGlow;
