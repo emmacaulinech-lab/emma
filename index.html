@@ -58615,6 +58615,17 @@ Réponds uniquement en JSON valide sans backticks :
 
     const proposition = JSON.parse(match[0]);
     if(signatureRepasGlow(r)!==signatureAvant)throw new Error('Ce repas a changé pendant la recherche. Réessaie.');
+    if(mode==='accompagnement'&&r.assiette?.proteine&&r.assiette.proteine!=='Aucun'){
+      const principal=r.assiette.proteine,cle=cleAlimentGlow(principal);
+      const originaux=(r.ingredients||[]).filter(i=>cleAlimentGlow(i.nom)===cle).map(i=>normaliserIngredientConsommationGlow(i));
+      if(!originaux.length||originaux.some(i=>!Number.isFinite(Number(i.quantite))||Number(i.quantite)<=0||!i.unite))throw new Error('Le plat principal doit avoir une quantité renseignée avant de changer son accompagnement.');
+      const proteines=new Set(catalogueAlimentaireGlow().filter(i=>i.categorie==='proteine').map(i=>cleAlimentGlow(i.nom)));
+      proteines.add(cle);if(proposition.assiette?.proteine)proteines.add(cleAlimentGlow(proposition.assiette.proteine));
+      proposition.ingredients=[...originaux.map(i=>({...i,quantite:Number(i.quantite)*(r.personnes||2)/(r.portionsBase||r.personnes||2)})),...(proposition.ingredients||[]).filter(i=>!proteines.has(cleAlimentGlow(i.nom)))];
+      proposition.assiette={...(proposition.assiette||{}),proteine:principal,plaisirSucre:''};
+      proposition.nom=[principal,proposition.assiette.legumes,proposition.assiette.feculent].filter(n=>n&&n!=='Aucun').join(' · ');
+      proposition.recetteId=null;proposition.typeAliment='repas';
+    }
     const candidat=normaliserRepasV2Glow({...proposition,personnes:r.personnes,portionsBase:r.personnes||2,typeAliment:proposition.typeAliment||'repas'});
     const tempsTotal=Number(candidat.tempsPreparation)+Number(candidat.tempsCuisson||0);
     if(mode==='15min'&&(!Number.isFinite(tempsTotal)||tempsTotal>15))throw new Error('Cette proposition dépasse 15 minutes. Le repas actuel est conservé.');
@@ -58642,13 +58653,7 @@ Réponds uniquement en JSON valide sans backticks :
         candidat.assiette?.complement || ""
       ),
 
-      plaisirSucre:
-        r.type === "diner"
-          ? String(
-              candidat.assiette?.plaisirSucre ||
-              "Carrés de chocolat"
-            )
-          : ""
+      plaisirSucre: ""
     };
 
     r.ingredients = Array.isArray(candidat.ingredients)

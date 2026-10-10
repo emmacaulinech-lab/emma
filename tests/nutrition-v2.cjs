@@ -622,7 +622,7 @@ await test('15-minute option rejects a slower recipe without changing the meal',
   plan();const avant=JSON.stringify(d().planActif.repas[0]);context.fetch=async()=>response({nom:'Poulet',typeAliment:'recette',tempsPreparation:10,tempsCuisson:20,ingredients:[{nom:'Poulet',quantite:300,unite:'g'}]});await context.proposerNouvelleAssietteGlow('a',node(),'15min');assert.equal(JSON.stringify(d().planActif.repas[0]),avant);assert.equal(vm.runInContext('operationsEmmaEnCours',context),0);
 });
 await test('Alternative accompaniment keeps the existing main protein',async()=>{
-  plan();d().planActif.repas[0].assiette={proteine:'Blanc de poulet'};const avant=JSON.stringify(d().planActif.repas[0]);context.fetch=async()=>response({nom:'Saumon',assiette:{proteine:'Saumon'},ingredients:[{nom:'Saumon',quantite:2,unite:'pièce'}]});await context.proposerNouvelleAssietteGlow('a',node(),'accompagnement');assert.equal(JSON.stringify(d().planActif.repas[0]),avant);
+  plan();d().planActif.repas[0].assiette={proteine:'Blanc de poulet'};context.fetch=async()=>response({nom:'Saumon et riz',assiette:{proteine:'Saumon',feculent:'Riz'},ingredients:[{nom:'Saumon',quantite:2,unite:'pièce'},{nom:'Riz',quantite:150,unite:'g'}]});await context.proposerNouvelleAssietteGlow('a',node(),'accompagnement');const r=d().planActif.repas[0];assert.equal(r.assiette.proteine,'Blanc de poulet');assert.ok(r.ingredients.some(i=>i.nom==='Blanc de poulet'));assert.ok(r.ingredients.some(i=>i.nom==='Riz'));assert.ok(!r.ingredients.some(i=>i.nom==='Saumon'));assert.equal(r.assiette.plaisirSucre,'');
 });
 console.log(`${passed} passed, ${failed} failed. Firebase is mocked; no production writes.`);
 if(process.env.BUNDLE_OUTPUT)fs.writeFileSync(process.env.BUNDLE_OUTPUT,declarations);
