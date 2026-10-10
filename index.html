@@ -4597,6 +4597,10 @@ button.emma-card-row{
 #consommation-v2-glow input,#consommation-v2-glow select{box-sizing:border-box;max-width:100%;padding:10px;border:1px solid var(--brd);border-radius:10px;background:white;color:var(--txt);font:inherit}
 #consommation-v2-glow select,#consommation-v2-glow .g2 input{width:100%}
 #consommation-v2-glow .ma{flex-wrap:wrap}
+
+#certificatRealisationModal{width:min(680px,calc(100vw - 24px));max-height:90vh;overflow:auto;border:1px solid var(--brd);border-radius:20px;padding:20px;background:var(--bg);color:var(--text)}
+#certificatRealisationModal::backdrop{background:rgba(30,20,30,.35)}
+#certificatRealisationModal input,#certificatRealisationModal textarea{width:100%;box-sizing:border-box}
 </style>
    
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -20480,6 +20484,8 @@ function renderFicheEtudianteFormation(e,today){
               >
                 Contrat
               </button>
+              ${formationTermineeCertificatEmma(e)?`<button class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="genererCertificatRealisationFormation(decodeURIComponent(this.dataset.eleve))">Certificat de réalisation</button>`:'<small style="color:var(--mut)">Certificat disponible à la fin de la formation.</small>'}
+
 
             </div>
 
@@ -21719,6 +21725,109 @@ async function remplirConvocation5jCpf(pdfBytes, donnees){
   return remplirConvocationEmma(pdfBytes, donnees);
 }
 
+function formationTermineeCertificatEmma(e,date=dateLocaleISO()){
+  const fin=dateSessionFormation(e?.dateFinFormation);
+  return !!fin&&fin<=date;
+}
+function donneesCertificatRealisationEmma(e){
+  const type=e?.formationTypeNormalise||normaliserTypeFormation(e?.formation)||e?.formation;
+  const config=DOCUMENTS_FORMATION[e?.financement?.type]?.[type];
+  if(!config)throw Error('Complète la formation et son financement dans la fiche élève.');
+  if(nomEtudianteFormation(e)==='Élève sans nom')throw Error('Complète le nom de l’élève dans sa fiche.');
+  const extensions=['debutante-express-3j','debutante-4j','debutante-5j','coaching-prive-1j','coaching-prive-2j','coaching-prive-3j'].includes(type);
+  const competences=extensions?[
+    'Définir la faisabilité de l’intensification du regard par la pose d’extensions ou le rehaussement de cils.',
+    'Présenter la solution technique retenue pour intensifier le regard.',
+    'Sélectionner le matériel et les produits adaptés aux objectifs de la séance.',
+    'Réaliser la prestation dans le respect du protocole et des règles d’hygiène.',
+    'Apporter les conseils nécessaires après la prestation.'
+  ]:type==='browlift'?[
+    'Analyser le sourcil et définir une prestation adaptée.',
+    'Sélectionner le matériel et les produits nécessaires au Browlift.',
+    'Réaliser le protocole de Browlift dans le respect des règles d’hygiène.',
+    'Apporter les conseils d’entretien après la prestation.'
+  ]:[
+    'Réaliser un diagnostic et choisir un protocole de rehaussement adapté.',
+    'Sélectionner le matériel et les produits adaptés à la prestation.',
+    `Réaliser le protocole ${getLabelFormation(type)} dans le respect des règles d’hygiène.`,
+    'Apporter les conseils d’entretien après la prestation.'
+  ];
+  return {nomComplet:nomEtudianteFormation(e),formation:getLabelFormation(type),dateDebut:dateSessionFormation(e.dateFormation),dateFin:dateSessionFormation(e.dateFinFormation),heures:Number(e.heuresRealisees??config.heures),dateDocument:dateLocaleISO(),competences:competences.join('\n'),certification:e.financement?.type==='cpf'&&extensions?'Inscrite au Répertoire Spécifique n° RS 6861\nCertificateur Institut Laugier - Échéance certification 31/10/26':''};
+}
+function validerDonneesCertificatRealisationEmma(d){
+  if(!texteDocumentEmma(d.nomComplet)||!texteDocumentEmma(d.formation)||!texteDocumentEmma(d.competences))throw Error('Complète le nom, la formation et les compétences.');
+  if(!Number.isFinite(Number(d.heures))||Number(d.heures)<=0)throw Error('Indique la durée réellement réalisée en heures.');
+  const debut=dateDocumentEmma(d.dateDebut,'Date de début'),fin=dateDocumentEmma(d.dateFin,'Date de fin'),emission=dateDocumentEmma(d.dateDocument,'Date du certificat');
+  if(fin.date<debut.date)throw Error('La fin doit être après le début de la formation.');
+  if(emission.date<fin.date||emission.date>new Date(dateLocaleISO()+'T12:00:00'))throw Error('Le certificat doit être daté entre la fin de formation et aujourd’hui.');
+  return {debut:debut.texte,fin:fin.texte,emission:emission.texte};
+}
+async function remplirCertificatRealisationEmma(pdfBytes,d){
+  const dates=validerDonneesCertificatRealisationEmma(d);
+  const pdf=await PDFLib.PDFDocument.load(pdfBytes),page=pdf.getPages()[0];
+  if(pdf.getPageCount()!==1||page.getWidth()!==595||page.getHeight()!==842)throw Error('Dimensions du modèle certificat inattendues.');
+  const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica),gras=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const noir=PDFLib.rgb(.08,.08,.08),rose=PDFLib.rgb(.83,.43,.66);
+  const propre=t=>String(t||'').normalize('NFC').replace(/[’‘]/g,"'").replace(/[–—]/g,'-').replace(/œ/g,'oe').replace(/\u00a0/g,' ');
+  function lignes(t,largeur,taille,police=font){
+    const resultat=[];
+    for(const paragraphe of propre(t).split('\n')){
+      let ligne='';
+      for(const mot of paragraphe.trim().split(/\s+/).filter(Boolean)){
+        if(police.widthOfTextAtSize(mot,taille)>largeur)throw Error('Un mot est trop long pour le certificat. Ajoute des espaces.');
+        const essai=ligne?ligne+' '+mot:mot;
+        if(ligne&&police.widthOfTextAtSize(essai,taille)>largeur){resultat.push(ligne);ligne=mot;}else ligne=essai;
+      }
+      if(ligne)resultat.push(ligne);
+    }
+    return resultat;
+  }
+  const dessiner=(t,x,y,size=10,police=font,color=noir)=>page.drawText(propre(t),{x,y,size,font:police,color});
+  // Le modèle conserve son logo, les mentions fixes, le pied de page et la signature ; le corps variable est vide.
+  let taille=10,corps;
+  do{
+    corps=[
+      ...lignes('Atteste que '+d.nomComplet,450,taille,gras).map(t=>({t,font:gras})),{espace:true},
+      ...lignes('A suivi l’action de formation : '+d.formation,450,taille).map(t=>({t,color:rose})),
+      ...(d.certification?lignes(d.certification,450,taille-1).map(t=>({t,size:taille-1})):[]),{espace:true},
+      {t:'Qui s’est déroulée du '+dates.debut+' au '+dates.fin},{t:'Pour une durée totale de '+Number(d.heures)+' heures'},{espace:true},
+      {t:'Cette formation lui a permis d’acquérir les compétences suivantes :'},
+      ...d.competences.split('\n').filter(t=>t.trim()).flatMap(t=>lignes('- '+t.replace(/^[-•]\s*/,''),450,taille).map(t=>({t})))
+    ];
+    if(corps.length*(taille+3)<=255)break;
+    taille-=.5;
+  }while(taille>=8);
+  if(taille<8)throw Error('Le texte des compétences est trop long. Raccourcis-le avant de générer le PDF.');
+  let y=601;
+  for(const ligne of corps){if(!ligne.espace)dessiner(ligne.t,71,y,ligne.size||taille,ligne.font||font,ligne.color||noir);y-=taille+3;}
+  dessiner(dates.emission,106,239.142);
+  return pdf.save();
+}
+function genererCertificatRealisationFormation(etudianteId){
+  const e=DB.formations?.etudiantes?.find(e=>e.id===etudianteId);
+  if(!e)return toast('Élève introuvable.');
+  if(!formationTermineeCertificatEmma(e))return toast('Le certificat et son mail seront disponibles à la fin de la formation.');
+  let d;try{d=donneesCertificatRealisationEmma(e);}catch(erreur){toast(erreur.message);return;}
+  document.getElementById('certificatRealisationModal')?.remove();
+  const fenetre=document.createElement('dialog');fenetre.id='certificatRealisationModal';fenetre.className='f-certificat-modal';
+  const esc=echapperFormation;
+  fenetre.innerHTML=`<h2>Certificat de réalisation</h2><p>Vérifie les informations et adapte les compétences à la formation réellement suivie.</p>${[['nomComplet','Nom et prénom','text'],['formation','Formation','text'],['dateDebut','Date de début','date'],['dateFin','Date de fin','date'],['heures','Heures réellement réalisées','number'],['dateDocument','Date du certificat','date']].map(([cle,label,type])=>`<div class="fr"><label for="certificat-${cle}">${label}</label><input id="certificat-${cle}" data-champ="${cle}" type="${type}" value="${esc(d[cle])}" ${type==='number'?'min="0.5" step="0.5"':''}></div>`).join('')}<div class="fr"><label for="certificat-competences">Compétences travaillées (modifiable)</label><textarea id="certificat-competences" data-champ="competences" rows="7">${esc(d.competences)}</textarea></div><div class="fr"><label for="certificat-certification">Mention de certification, si applicable</label><textarea id="certificat-certification" data-champ="certification" rows="2">${esc(d.certification)}</textarea></div><p data-erreur role="alert"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bg" data-fermer>Annuler</button><button class="btn bd" data-generer>Télécharger le certificat</button></div>`;
+  document.body.appendChild(fenetre);fenetre.showModal();
+  fenetre.querySelector('[data-fermer]').onclick=()=>{fenetre.close();fenetre.remove();};
+  fenetre.querySelector('[data-generer]').onclick=async()=>{
+    const bouton=fenetre.querySelector('[data-generer]');bouton.disabled=true;
+    try{
+      const valeurs=Object.fromEntries([...fenetre.querySelectorAll('[data-champ]')].map(champ=>[champ.dataset.champ,champ.value]));valeurs.heures=Number(valeurs.heures);
+      validerDonneesCertificatRealisationEmma(valeurs);
+      const {bytes}=await chargerModeleEmma('certificat-realisation','65b09835cb66b074e379ab1436676745fe8d4023e86a7ade48362b7b1090daf5',1,'.pdf');
+      const rempli=await remplirCertificatRealisationEmma(bytes,valeurs);
+      telechargerDocumentEmma(rempli,'Certificat-realisation-'+valeurs.nomComplet+'.pdf');
+      const suivi=await validerDocumentGenereFormation(etudianteId,'certificat_realisation_cree');fenetre.close();fenetre.remove();if(suivi)toast('✓ Certificat téléchargé et suivi enregistré.');
+    }catch(erreur){fenetre.querySelector('[data-erreur]').textContent=erreur.message;}
+    finally{bouton.disabled=false;}
+  };
+}
+
 async function genererConvocationFormation(etudianteId){
   try{
     const {donnees,eleve} = donneesDocumentEmma(etudianteId);
@@ -22913,7 +23022,9 @@ const ETAPES_DOSSIER_FORMATION_CPF=[
     {id:'jury_candidate_signe',label:'Jury — signature candidate',type:'attente'},
     {id:'jury_emma_signe',label:'Jury — signature Emma',type:'action'},
     {id:'jury_giulia_signe',label:'Jury — signature Giulia',type:'action'},
-    {id:'attestation_fin',label:'Attestation de fin de formation remise',type:'action'}
+    {id:'attestation_fin',label:'Attestation de fin de formation remise',type:'action'},
+    {id:'certificat_realisation_cree',label:'Certificat de réalisation créé',action:'Créer le certificat de réalisation',type:'action'},
+    {id:'certificat_realisation_envoye',label:'Certificat et mail de fin envoyés',action:'Envoyer le mail de fin avec le certificat',type:'action'}
   ]},
   {id:'cloture',titre:'5 · Clôture',items:[
     {id:'dossier_verifie',label:'Dossier complet vérifié',type:'action'},
@@ -22933,6 +23044,8 @@ const ETAPES_DOSSIER_FORMATION_PERSO=[
     {id:'kit_prepare',label:'Kit offert préparé',action:'Préparer le kit',type:'action'}
   ]},
   {id:'termine',titre:'3 · Terminé',items:[
+    {id:'certificat_realisation_cree',label:'Certificat de réalisation créé',action:'Créer le certificat de réalisation',type:'action'},
+    {id:'certificat_realisation_envoye',label:'Certificat et mail de fin envoyés',action:'Envoyer le mail de fin avec le certificat',type:'action'},
     {id:'dossier_cloture',label:'Formation terminée',type:'action'}
   ]}
 ];
@@ -23015,6 +23128,7 @@ function getProchaineActionFormation(e){
   for(const etape of getEtapesDossierFormation(e)){
     const item=etape.items.find(element=>
       !suivi[element.id] &&
+      !(['certificat_realisation_cree','certificat_realisation_envoye'].includes(element.id)&&!formationTermineeCertificatEmma(e)) &&
       !(element.id==='cni_recue'&&!suivi.dossier_contractuel_envoye)
     );
     if(item) return {
@@ -23277,6 +23391,20 @@ function getInfosFormationPerso(e){
 
 // ── Emails formations ──
 const EMAIL_TEMPLATES={
+  'fin-formation':{
+    workflow:true,label:'Mail de fin de formation',etape:'certificat_realisation_envoye',
+    sujet:'Votre certificat de réalisation – LIMAGE SCHOOL',
+    corps:(e,d)=>`Bonjour ${d.prenom},
+
+Nous espérons que la formation ${d.formation} vous a plu et que vous repartez avec de nouvelles connaissances et davantage de confiance pour votre pratique.
+
+Vous trouverez en pièce jointe votre certificat de réalisation.
+
+Merci pour votre confiance et pour ces moments partagés. Nous vous souhaitons une belle continuation et restons disponibles si vous avez des questions.
+
+À bientôt,
+L’équipe LIMAGE SCHOOL`
+  },
   contrat:{
     workflow:true,
     label:'Mail contrat / dossier contractuel',
@@ -23470,6 +23598,7 @@ function documentsMailFormation(e,type){
   const formation=e.formationTypeNormalise||e.formation||'';
   const config=getDocumentsFormation({...e,formationTypeNormalise:formation});
   const absent=nom=>({nom});
+  if(type==='fin-formation')return [{nom:'Certificat de réalisation personnalisé',fichier:'certificat-realisation.pdf',genere:true,action:'certificat'}];
   if(type==='candidature') return [
     {nom:'Bulletin de candidature',fichier:'bulletin-candidature.pdf',modele:true},
     absent('Grille d’analyse des besoins')
@@ -23492,7 +23621,8 @@ function construireMailFormation(e,type){
   const modele=EMAIL_TEMPLATES[type];
   if(!modele?.workflow) throw new Error('Ce modèle de mail est indisponible.');
   if(type!=='candidature'&&(!d.type||!d.debut||!d.fin)) throw new Error('Complète la formation et ses dates dans la fiche élève.');
-  const kit=type==='candidature'?null:regleKitsMailFormation(e);
+  if(type==='fin-formation'&&!formationTermineeCertificatEmma(e))throw Error('Le mail de fin sera disponible une fois la formation terminée.');
+  const kit=['candidature','fin-formation'].includes(type)?null:regleKitsMailFormation(e);
   const documents=documentsMailFormation(e,type);
   if(type==='contrat'&&kit.payant) documents.push({nom:'RIB'});
   return {sujet:modele.sujet,corps:modele.corps(e,d,kit),adresse:d.email,documents,
@@ -23503,7 +23633,8 @@ function construireMailFormation(e,type){
 
 function boutonsMailsFormation(e){
   const types=e.financement?.type==='cpf'?['candidature','contrat','convocation']:['validation-perso'];
-  return `<div class="f-mail-buttons" aria-label="Mails de l’élève">${types.map(type=>`<button type="button" class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="ouvrirMailFormation(decodeURIComponent(this.dataset.eleve),'${type}')">${type==='validation-perso'?"Préparer le mail de validation":'Préparer mail '+type}</button>`).join('')}</div>`;
+  if(formationTermineeCertificatEmma(e))types.push('fin-formation');
+  return `<div class="f-mail-buttons" aria-label="Mails de l’élève">${types.map(type=>`<button type="button" class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="ouvrirMailFormation(decodeURIComponent(this.dataset.eleve),'${type}')">${type==='validation-perso'?"Préparer le mail de validation":type==='fin-formation'?'Préparer le mail de fin':'Préparer mail '+type}</button>`).join('')}</div>`;
 }
 
 function ouvrirMailFormation(etudianteId,type){
@@ -23517,7 +23648,7 @@ function ouvrirMailFormation(etudianteId,type){
   const fenetre=document.createElement('dialog');
   fenetre.id='mailFormationModal';
   fenetre.setAttribute('aria-labelledby','mailFormationTitre');
-  fenetre.innerHTML=`<div class="f-mail-header"><h2 id="mailFormationTitre">Préparer mail ${esc(type)}</h2><button type="button" class="btn bg bsm" data-fermer aria-label="Fermer le mail">✕</button></div>
+  fenetre.innerHTML=`<div class="f-mail-header"><h2 id="mailFormationTitre">${type==='fin-formation'?'Mail de fin de formation':'Préparer mail '+esc(type)}</h2><button type="button" class="btn bg bsm" data-fermer aria-label="Fermer le mail">✕</button></div>
     <p>${esc(nomEtudianteFormation(e))}</p>
     <div class="fr"><label for="mailFormationAdresse">À</label><input id="mailFormationAdresse" type="email" value="${esc(mail.adresse)}" placeholder="Adresse email de l’élève" autocomplete="off"></div>
     ${!mail.adresse?'<p class="f-mail-warning">Email manquant : tu peux le saisir ici pour ce brouillon, ou compléter la fiche élève.</p>':''}
@@ -23554,7 +23685,7 @@ function ouvrirMailFormation(etudianteId,type){
   };
   fenetre.querySelectorAll('[data-generer]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
-    try{await (b.dataset.generer==='contrat'?genererContratFormation:genererConvocationFormation)(etudianteId);}
+    try{await (b.dataset.generer==='certificat'?genererCertificatRealisationFormation:b.dataset.generer==='contrat'?genererContratFormation:genererConvocationFormation)(etudianteId);}
     finally{b.disabled=false;}
   });
   const envoye=fenetre.querySelector('[data-envoye]');
@@ -27925,6 +28056,44 @@ function renderGlowEvolution(){
   document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total}%</h1><p style="color:var(--mut)">Hydratation, sommeil, sport, repas renseignés et lecture composent maintenant ton score. Humeur et photo n’entrent plus dans le calcul.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
 }
 
+function datesSaisieNutritionGlow(){
+    return Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return dateLocaleISO(d);});
+}
+function verifierDateSaisieNutritionGlow(date){
+    if(!datesSaisieNutritionGlow().includes(date))throw Error('Choisis une date parmi les 7 derniers jours, aujourd’hui compris.');
+    return date;
+}
+function nutritionJourSaisieGlow(date,creer=false){
+    verifierDateSaisieNutritionGlow(date);
+    if(date===dateLocaleISO())return DB.glow?.nutrition||{repas:[]};
+    let jour=[...(DB.historiqueGlow||[])].reverse().find(j=>j.date===date&&j.nutrition);
+    if(!jour&&creer){jour={date,nutrition:{repas:[]}};(DB.historiqueGlow||(DB.historiqueGlow=[])).push(jour);}
+    if(jour&&creer){jour.nutrition.repas=jour.nutrition.repas||[];}
+    return jour?.nutrition||{repas:[]};
+}
+function trouverRepasSaisieNutritionGlow(date,id){
+    const repas=nutritionJourSaisieGlow(date).repas||[];
+    return repas.find(r=>r.id===id)||(/^ancien_\d+$/.test(id||'')?repas[Number(id.slice(7))]:null);
+}
+function selecteurDateNutritionGlow(date){
+    return `<section class="glow-extension-card" style="margin-bottom:16px"><label for="nutrition-jour-saisie">Mes repas du</label><select id="nutrition-jour-saisie" style="width:100%;margin-top:8px" onchange="renderGlowNutrition(this.value)">${datesSaisieNutritionGlow().map((d,i)=>`<option value="${d}" ${d===date?'selected':''}>${i===0?'Aujourd’hui':i===1?'Hier':new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long'})} · ${d.split('-').reverse().join('/')}</option>`).join('')}</select><small style="display:block;margin-top:8px;color:var(--mut)">Les 7 derniers jours, même quand la semaine change.</small></section>`;
+}
+function listeRepasSaisieNutritionGlow(date){
+    const repas=nutritionJourSaisieGlow(date).repas||[];
+    return `<section class="glow-extension-card" style="margin-bottom:16px"><h3>Repas enregistrés</h3>${repas.length?repas.map((r,i)=>`<div style="padding:12px 0;border-bottom:1px solid var(--brd)"><strong>${echapperTexteRepasGlow(getNomTypeRepasGlow(r.type))}</strong><div>${echapperTexteRepasGlow(r.nom||(r.aliments||[]).map(a=>typeof a==='string'?a:a.nom).join(' · '))}</div><div style="font-size:12px;color:var(--mut);margin:6px 0">${(r.aliments||[]).map(a=>echapperTexteRepasGlow(typeof a==='string'?a:[a.nom,a.quantite,a.unite].filter(x=>x!==undefined&&x!==null&&x!=='').join(' · '))).join(' • ')}</div><small>${Number(r.proteines)||0} g de protéines${r.portionMangee?` · ${r.portionMangee} portion(s)`:''}</small><div style="margin-top:8px"><button class="btn bg bsm" onclick="ouvrirConsommationV2Glow('${echapperTexteRepasGlow(r.type)}',null,'${date}','${echapperTexteRepasGlow(r.id||'ancien_'+i)}')">Modifier ce repas</button></div></div>`).join(''):'<p>Aucun repas enregistré pour cette date.</p>'}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${['petit-dejeuner','dejeuner','diner'].map(type=>`<button class="btn bg" onclick="ouvrirConsommationV2Glow('${type}',null,'${date}')">Ajouter ${getNomTypeRepasGlow(type)}</button>`).join('')}</div></section>`;
+}
+function renderNutritionJourPasseGlow(date){
+    document.getElementById('glow-content').innerHTML=`${navigationGlowSimple('nutrition')}${selecteurDateNutritionGlow(date)}<h2>${new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</h2>${renderBilanV2Glow(date)}${listeRepasSaisieNutritionGlow(date)}<div class="glow-extension-card"><h3>Repas planifiés ce jour-là</h3>${['dejeuner','diner'].map(type=>{const p=getRepasPlanifieGlow(date,type);return p?`<div style="margin:12px 0"><strong>${getNomTypeRepasGlow(type)}</strong> · ${echapperTexteRepasGlow(p.nom)} <button class="btn bd bsm" onclick="ouvrirConsommationV2Glow('${type}','${echapperTexteRepasGlow(p.id)}','${date}')">J’ai mangé ça</button></div>`:'';}).join('')||'<p>Aucun repas planifié pour cette date.</p>'}</div>`;
+}
+async function sauvegarderConsommationDateGlow(date,type,choisi={}){
+    if(!chargementReussi||!userRef)throw Error('Attends le chargement complet de tes données avant d’enregistrer.');
+    if(date===dateLocaleISO())return sauvegarderChoixRepasNutritionGlow(type,choisi);
+    const cle=`emma_nutrition_historique_${currentUser?.uid||'local'}`;
+    try{localStorage.setItem(cle,JSON.stringify({historiqueGlow:DB.historiqueGlow,confirmee:false}));}catch{}
+    if(!await sauvegarderChampSeul('historiqueGlow',JSON.stringify(DB.historiqueGlow)))throw Error('Sauvegarde de ce jour non confirmée. Réessaie.');
+    try{localStorage.setItem(cle,JSON.stringify({historiqueGlow:DB.historiqueGlow,confirmee:true}));}catch{}
+}
+
 function joursHistoriqueNutritionGlow(){
     const parDate=new Map();
     for(const jour of DB.historiqueGlow||[]){
@@ -27948,9 +28117,14 @@ function renderHistoriqueNutritionGlow(date=''){
     }).join('')}</section>`).join(''):'<div class="empty">Aucun repas enregistré pour cette période.</div>'}`;
 }
 
-function renderGlowNutrition(){
+function renderGlowNutrition(date=null){
 
     initialiserGlowDuJour();
+
+    date=date||window.nutritionDateSaisieGlow||dateLocaleISO();
+    if(!datesSaisieNutritionGlow().includes(date))date=dateLocaleISO();
+    window.nutritionDateSaisieGlow=date;
+    if(date!==dateLocaleISO()){renderNutritionJourPasseGlow(date);return;}
 
     DB.glow.nutrition = DB.glow.nutrition || {
         repas: [],
@@ -28038,7 +28212,8 @@ function renderGlowNutrition(){
 </div>
 
 
-        ${renderBilanV2Glow()}
+        ${selecteurDateNutritionGlow(date)}
+        ${renderBilanV2Glow(date)}
         <!-- RESUME JOURNEE -->
         <div style="
             background:linear-gradient(135deg,#FFF0F5,#FFF9F7);
@@ -28723,6 +28898,7 @@ const courses =
                             </div>
 
                             <div style="display:flex;gap:6px">
+                                <button class="btn bg bsm" onclick="ouvrirConsommationV2Glow('${echapperTexteRepasGlow(r.type)}',null,'${date}','${echapperTexteRepasGlow(r.id||'ancien_'+index)}')">Modifier</button>
                                 ${r.source === "photo_ia" ? `
                                     <button class="btn bg bsm" onclick="corrigerRepasPhotoGlow(${index})">
                                         ✏️ Corriger
@@ -56525,20 +56701,24 @@ function cleAlimentGlow(nom){
   const alias = {'courgette':'courgettes','carotte':'carottes','aubergine':'aubergines','pomme de terre':'pommes de terre','oeuf':'oeufs','blancs de poulet':'blanc de poulet','filet de poulet':'blanc de poulet','filets de poulet':'blanc de poulet','escalope de poulet':'blanc de poulet','pave de saumon':'saumon','paves de saumon':'saumon'};
   return alias[n] || n;
 }
-async function ouvrirConsommationV2Glow(type,planId=null){
-    const plan=planId?trouverRepasPlanGlow(planId):getRepasPlanifieGlow(dateLocaleISO(),type);
-    const choisi=repasPrevuExpliciteGlow(type);
+async function ouvrirConsommationV2Glow(type,planId=null,date=null,repasId=null){
+    initialiserGlowDuJour();date=date||dateLocaleISO();
+    try{verifierDateSaisieNutritionGlow(date);}catch(e){toast(e.message);return;}
+    const existant=repasId?trouverRepasSaisieNutritionGlow(date,repasId):null;
+    if(repasId&&!existant){toast('Ce repas est introuvable.');return;}
+    const plan=!existant?(planId?trouverRepasPlanGlow(planId):getRepasPlanifieGlow(date,type)):null;
+    const choisi=date===dateLocaleISO()&&!existant?repasPrevuExpliciteGlow(type):null;
     if(plan&&!plan.recetteGeneree&&!recettesDisponiblesPlanGlow().some(r=>r.id===plan.recetteId)){await ouvrirRecetteRepasGlow(plan.id);if(!plan.recetteGeneree)return;}
     const recette=plan?.recetteGeneree||recettesDisponiblesPlanGlow().find(r=>r.id===plan?.recetteId);
-    const ingredients=recette?.ingredients||plan?.ingredients||choisi?.aliments||[];
-    window.glowConsommationDraft={date:dateLocaleISO(),type,planId:plan?.id,nom:plan?.nom||choisi?.nom||(type==='plaisir-soir'?'Pancakes':''),portions:Number(recette?.portions||plan?.portionsBase||plan?.personnes||1),portion:1,ingredients:ingredients.map(i=>typeof i==='string'?{nom:i,quantite:100,unite:'g'}:{...i})};
+    const ingredients=existant?.ingredientsUtilises||existant?.aliments||recette?.ingredients||plan?.ingredients||choisi?.aliments||[];
+    window.glowConsommationDraft={date,type,repasId:existant?repasId:null,planId:existant?.choixPlanId||plan?.id,recetteId:existant?.recetteId,nom:existant?.nom||plan?.nom||choisi?.nom||(type==='plaisir-soir'?'Pancakes':''),portions:Number(existant?.portionsPreparees||recette?.portions||plan?.portionsBase||plan?.personnes||1),portion:Number(existant?.portionMangee)||1,ingredients:ingredients.map(i=>typeof i==='string'?{nom:i,quantite:100,unite:'g'}:{...i})};
     afficherConsommationV2Glow();
 }
 function afficherConsommationV2Glow(){
     const d=window.glowConsommationDraft;if(!d)return;
     document.getElementById('consommation-v2-glow')?.remove();
     const esc=echapperTexteRepasGlow;
-    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p>Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${Number(i.quantite)||0}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'g')}" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button><p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${Number(i.quantite)||0}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'g')}" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button><p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
 }
 function choisirRecetteConsommationV2Glow(id){
     const recette=recettesDisponiblesPlanGlow().find(r=>r.id===id);if(!recette)return;
@@ -56557,31 +56737,38 @@ function validerQuantitesConsommationV2Glow(d){
     return true;
 }
 async function validerConsommationV2Glow(bouton){
-    const d=JSON.parse(JSON.stringify(window.glowConsommationDraft));
+    const d=JSON.parse(JSON.stringify(window.glowConsommationDraft));d.date=d.date||dateLocaleISO();
     try{
-        validerQuantitesConsommationV2Glow(d);bouton.disabled=true;
-        const resultat=await demanderJSONNutritionGlow(`Estime la nutrition de la portion réellement mangée de ce plat : ${JSON.stringify(d)}. Repas déjà consommés aujourd’hui : ${JSON.stringify(DB.glow?.nutrition?.repas||[])}. Activité du jour : ${JSON.stringify(bilanSportJourGlow())}. Les ingrédients sont les quantités TOTALES utilisées : multiplie par portion/portions. Réponds {"calories":nombre,"proteines":nombre,"conseil":"conseil doux pour la suite de journée sans compensation ni restriction"}. Ne traite pas un plaisir du soir comme un repas incomplet.`,'EMMA analyse ta portion…');
+        verifierDateSaisieNutritionGlow(d.date);validerQuantitesConsommationV2Glow(d);bouton.disabled=true;
+        const repasAvant=nutritionJourSaisieGlow(d.date).repas||[];
+        const resultat=await demanderJSONNutritionGlow(`Estime la nutrition de la portion réellement mangée de ce plat : ${JSON.stringify(d)}. Repas déjà consommés le ${d.date} : ${JSON.stringify(repasAvant.filter(r=>r!==trouverRepasSaisieNutritionGlow(d.date,d.repasId)))}. Activité de cette date : ${JSON.stringify(bilanSportJourGlow(d.date))}. Les ingrédients sont les quantités TOTALES utilisées : multiplie par portion/portions. Réponds {"calories":nombre,"proteines":nombre,"conseil":"${d.date===dateLocaleISO()?'conseil doux pour la suite de journée sans compensation ni restriction':'bilan doux de cette journée passée sans conseil à appliquer aujourd’hui ni compensation'}"}. Ne traite pas un plaisir du soir comme un repas incomplet.`,'EMMA analyse ta portion…');
         if(!Number.isFinite(resultat.calories)||resultat.calories<0||!Number.isFinite(resultat.proteines)||resultat.proteines<0)throw Error('Analyse invalide. Réessaie.');
-        if(d.date&&d.date!==dateLocaleISO())throw Error('La journée a changé. Rouvre le repas pour confirmer sa date.');
-        initialiserGlowDuJour();
-        const choisi=repasPrevuExpliciteGlow(d.type);
-        const cle=choisi?.choixRepasId||d.planId&&`consomme_${dateLocaleISO()}_${d.planId}`;
-        if(cle&&DB.glow.nutrition.repas.some(r=>r.choixRepasId===cle))throw Error('Ce repas est déjà enregistré.');
-        const entree={id:`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients.map(i=>({...i,quantite:Math.round(Number(i.quantite)*d.portion/d.portions*100)/100})),ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:dateLocaleISO(),heure:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2'};
-        DB.glow.nutrition.repas.push(entree);
+        verifierDateSaisieNutritionGlow(d.date);initialiserGlowDuJour();
+        const nutrition=nutritionJourSaisieGlow(d.date,true),repas=nutrition.repas||(nutrition.repas=[]);
+        const ancien=d.repasId?trouverRepasSaisieNutritionGlow(d.date,d.repasId):null;
+        if(d.repasId&&!ancien)throw Error('Ce repas a changé. Rouvre-le pour le modifier.');
+        const choisi=d.date===dateLocaleISO()&&!ancien?repasPrevuExpliciteGlow(d.type):null;
+        const cle=ancien?.choixRepasId||choisi?.choixRepasId||d.planId&&`consomme_${d.date}_${d.planId}`;
+        if(cle&&repas.some(r=>r.choixRepasId===cle&&r!==ancien))throw Error('Ce repas est déjà enregistré.');
+        const entree={...(ancien||{}),id:ancien?.id||`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients.map(i=>({...i,quantite:Math.round(Number(i.quantite)*d.portion/d.portions*100)/100})),ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:d.date,heure:ancien?.heure||(d.date===dateLocaleISO()?new Date():new Date(d.date+'T12:00:00')).toISOString(),enregistreLe:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2',sauvegardeNonConfirmee:false};
+        if(ancien)repas[repas.indexOf(ancien)]=entree;else repas.push(entree);
         if(choisi){choisi.consomme=true;choisi.choixRepasId=cle;}
-        if(['dejeuner','diner'].includes(d.type)&&DB.journal){const date=dateLocaleISO();const bloc=(DB.journal.planning?.[date]||[]).find(b=>b.id===`glow_${d.type}_${date}`);if(bloc){DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;}}
-        try{await sauvegarderChoixRepasNutritionGlow(d.type,choisi||{});}catch(e){entree.sauvegardeNonConfirmee=true;document.getElementById('consommation-v2-glow')?.remove();renderGlowNutrition();throw e;}
+        if(d.date===dateLocaleISO()&&['dejeuner','diner'].includes(d.type)&&DB.journal){const date=d.date;const bloc=(DB.journal.planning?.[date]||[]).find(b=>b.id===`glow_${d.type}_${date}`);if(bloc){DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;}}
+        window.nutritionDateSaisieGlow=d.date;
+        try{await sauvegarderConsommationDateGlow(d.date,d.type,choisi||{});}catch(e){entree.sauvegardeNonConfirmee=true;document.getElementById('consommation-v2-glow')?.remove();renderGlowNutrition();throw e;}
         document.getElementById('consommation-v2-glow')?.remove();renderGlowNutrition();toast('Repas analysé et enregistré ✓');
     }catch(e){const n=document.getElementById('consommation-erreur-glow');if(n)n.textContent=e.message;else toast(e.message);}
     finally{bouton.disabled=false;}
 }
 function minutesRecetteV2Glow(valeur){const n=parseFloat(String(valeur||'').replace(',','.'));return Number.isFinite(n)?Math.max(0,n):0;}
-async function reessayerConsommationV2Glow(id){const r=DB.glow.nutrition.repas.find(r=>r.id===id);if(!r)return;try{r.sauvegardeNonConfirmee=false;await sauvegarderChoixRepasNutritionGlow(r.type,repasPrevuExpliciteGlow(r.type)||{});renderGlowNutrition();toast('Sauvegarde confirmée ✓');}catch(e){r.sauvegardeNonConfirmee=true;toast(e.message);}}
-function renderBilanV2Glow(){
-    const repas=DB.glow?.nutrition?.repas||[];
+async function reessayerConsommationV2Glow(id,date=dateLocaleISO()){
+ const r=(nutritionJourSaisieGlow(date).repas||[]).find(r=>r.id===id);if(!r)return;
+ try{r.sauvegardeNonConfirmee=false;await sauvegarderConsommationDateGlow(date,r.type,date===dateLocaleISO()?repasPrevuExpliciteGlow(r.type)||{}:{});renderGlowNutrition(date);toast('Sauvegarde confirmée ✓');}catch(e){r.sauvegardeNonConfirmee=true;toast(e.message);}
+}
+function renderBilanV2Glow(date=dateLocaleISO()){
+    const repas=nutritionJourSaisieGlow(date).repas||[];
     const somme=champ=>repas.reduce((n,r)=>n+(Number.isFinite(Number(r[champ]))?Number(r[champ]):0),0);
-    return `<section class="glow-extension-card" style="margin-bottom:16px"><h3>Bilan de ma journée</h3><strong>${Math.round(somme('proteines'))} g de protéines</strong><details><summary style="font-size:12px;color:var(--mut)">Estimation énergétique</summary>${Math.round(somme('calories'))} kcal · valeurs estimées</details><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn bg" onclick="ouvrirConsommationV2Glow('collation')">Ajouter une collation</button><button class="btn bd" onclick="ouvrirConsommationV2Glow('plaisir-soir')">Mon plaisir du soir</button></div>${repas.filter(r=>r.sauvegardeNonConfirmee).map(r=>`<button class="btn bd" onclick="reessayerConsommationV2Glow('${echapperTexteRepasGlow(r.id)}')">Réessayer la sauvegarde de ${echapperTexteRepasGlow(r.nom)}</button>`).join('')}${repas.filter(r=>r.conseil).map(r=>`<p>${echapperTexteRepasGlow(r.nom)} : ${echapperTexteRepasGlow(r.conseil)}</p>`).join('')}</section>`;
+    return `<section class="glow-extension-card" style="margin-bottom:16px"><h3>Bilan ${date===dateLocaleISO()?'de ma journée':'du '+date.split('-').reverse().join('/')}</h3><strong>${Math.round(somme('proteines'))} g de protéines</strong><details><summary style="font-size:12px;color:var(--mut)">Estimation énergétique</summary>${Math.round(somme('calories'))} kcal · valeurs estimées</details><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn bg" onclick="ouvrirConsommationV2Glow('collation',null,'${date}')">Ajouter une collation</button><button class="btn bd" onclick="ouvrirConsommationV2Glow('plaisir-soir',null,'${date}')">Mon plaisir du soir</button></div>${repas.filter(r=>r.sauvegardeNonConfirmee).map(r=>`<button class="btn bd" onclick="reessayerConsommationV2Glow('${echapperTexteRepasGlow(r.id)}','${date}')">Réessayer la sauvegarde de ${echapperTexteRepasGlow(r.nom)}</button>`).join('')}${repas.filter(r=>r.conseil).map(r=>`<p>${echapperTexteRepasGlow(r.nom)} : ${echapperTexteRepasGlow(r.conseil)}</p>`).join('')}</section>`;
 }
 
 function initialiserNutritionV2Glow(){
