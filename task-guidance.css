@@ -23,3 +23,5 @@ body .emma-assistant-dock{bottom:calc(96px + env(safe-area-inset-bottom))!import
 
 body .emma-bottom-nav:not(#emma-main-navigation){display:none!important}
 body #emma-main-navigation[hidden]{display:none!important}
+
+.emma-task-help{min-width:26px;width:26px;height:26px;padding:4px;margin:0;flex-shrink:0;border-radius:9px;font-size:13px;line-height:1}

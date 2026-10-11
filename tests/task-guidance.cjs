@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
 const G=require('../task-guidance.js');
-assert(G.eligible({nom:'Nettoyer le four extérieur',typeElement:'maison'}));assert(!G.eligible({nom:'Cliente',verrouille:true}));assert(!G.eligible({nom:'Sport',typeElement:'sport'}));assert(!G.eligible({nom:'Laver les cheveux',typeElement:'soins'}));
+assert(G.eligible({nom:'Nettoyer le four extérieur',typeElement:'maison'}));assert(!G.eligible({nom:'Cliente',verrouille:true}));assert(!G.eligible({nom:'Sport',typeElement:'sport'}));assert(!G.eligible({nom:'Envoyer factures',typeElement:'maison'}));assert(!G.eligible({nom:'Laver les cheveux',typeElement:'soins'}));
 assert(G.basic({nom:'Nettoyer le four extérieur'}).etapes.some(x=>x.includes('commandes')));assert(G.basic({nom:'Nettoyer le four intérieur'}).questions.length);
 assert.throws(()=>G.validate({resume:'x',etapes:[]}));assert(!G.escape('<img onerror=x>').includes('<img'));
 const html=fs.readFileSync('../index.html','utf8'),main=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].trim())[1];new vm.Script(main);
