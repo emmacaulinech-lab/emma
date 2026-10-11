@@ -6,7 +6,7 @@ assert(G.basic({nom:'Nettoyer le four extérieur'}).etapes.some(x=>x.includes('c
 assert.throws(()=>G.validate({resume:'x',etapes:[]}));assert(!G.escape('<img onerror=x>').includes('<img'));
 const html=fs.readFileSync('../index.html','utf8'),main=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].trim())[1];new vm.Script(main);
 assert(html.lastIndexOf('task-guidance.js')>html.lastIndexOf('</script>')-80);assert(html.includes('emmaTaskTipsButton(p,'));
-const dom=new JSDOM('<body><nav class="emma-bottom-nav"><button class="emma-nav-item active" data-emma-dest="accueil"><span>⌂</span><span>Accueil</span></button></nav><div id="task"></div></body>',{url:'https://emma.test',runScripts:'outside-only'}),w=dom.window;
+const dom=new JSDOM('<body><div id="hubPage"></div><div id="module-journal" style="display:none"></div><nav class="emma-bottom-nav"><button class="emma-nav-item active" data-emma-dest="accueil"><span>⌂</span><span>Accueil</span></button><button class="emma-nav-item" data-emma-dest="journal"><span>✓</span><span>Journal</span></button></nav><div id="task"></div></body>',{url:'https://emma.test',runScripts:'outside-only'}),w=dom.window;
 w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.URL.revokeObjectURL=()=>{};
 w.DB={journal:{planning:{'2026-10-11':[{id:'t1',nom:'Nettoyer le four extérieur',typeElement:'maison'}]}}};const before=JSON.stringify(w.DB);let requests=[],bubble=0;
 w.compresserImageDressingGlow=async()=>({preview:'blob:test',mediaType:'image/jpeg',base64:'dGVzdA=='});
@@ -15,7 +15,9 @@ vm.runInContext(fs.readFileSync('../task-guidance.js','utf8'),dom.getInternalVMC
 w.document.getElementById('task').innerHTML=w.emmaTaskTipsButton(w.DB.journal.planning['2026-10-11'][0],'2026-10-11');w.document.getElementById('task').addEventListener('click',()=>bubble++);
 const tick=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setTimeout(r,0));};
 (async()=>{
+ assert(w.document.getElementById('emma-main-navigation'));assert(!w.document.getElementById('emma-main-navigation').hidden);
  assert(w.document.querySelector('.emma-nav-item svg'));assert.equal(w.document.querySelector('.emma-nav-item').getAttribute('aria-current'),'page');
+ w.document.getElementById('hubPage').style.display='none';w.document.getElementById('module-journal').style.display='flex';await tick();assert.equal(w.document.querySelector('#emma-main-navigation [data-emma-dest=journal]').getAttribute('aria-current'),'page','Le Journal utilise la même navigation');
  w.document.querySelector('.emma-task-help').click();assert(w.document.getElementById('emma-task-guide'));assert.equal(bubble,0,'Ouvrir les conseils ne coche ni ne déplie la tâche');assert.equal(requests.length,0,'Aucun appel IA à l’ouverture');
  w.document.getElementById('emma-guide-generate').click();await tick();assert(w.document.getElementById('emma-guide-error').textContent.includes('connexion IA'));assert.equal(requests.length,0);
  w.localStorage.setItem('anthropic_key','mock-key');w.document.getElementById('emma-guide-surface').value='inox';w.document.getElementById('emma-guide-products').value='microfibre';w.document.getElementById('emma-guide-generate').click();await tick();assert.equal(requests.length,1);assert.equal(requests[0].messages[0].content.length,1,'Conseils personnalisés sans photo');assert(w.document.getElementById('emma-guide-result').textContent.includes('Adapté'));
