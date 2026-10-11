@@ -4607,6 +4607,7 @@ button.emma-card-row{
    
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
    
+<link rel="stylesheet" href="task-guidance.css?v=1">
 </head>
 <body>
 
@@ -48276,6 +48277,7 @@ ${faitBloc?'<span style="color:white;font-size:11px;font-weight:900">✓</span>'
         white-space:normal;
     ">
         ${p.heureDebut} – ${p.heureFin}
+        ${typeof emmaTaskTipsButton==='function'?emmaTaskTipsButton(p,options.estAujourdhui?new Date().toLocaleDateString('fr-CA'):getJournalJour()):''}
         ${p.realiseA && p.heurePrevueDebut
             ? ` · prévu ${p.heurePrevueDebut}, fait ${p.realiseA}`
             : ''
@@ -59580,5 +59582,6 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
 
   </div>
 </div>
+<script src="task-guidance.js?v=1"></script>
 </body>
 </html>
