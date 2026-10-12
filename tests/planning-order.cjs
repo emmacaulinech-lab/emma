@@ -1,0 +1,6 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');const O=require('../planning-order.js');
+const a={id:'a',nom:'Four',zoneId:'k',duree:10},b={id:'b',nom:'Évier',zoneId:'k',duree:5},c={id:'c',nom:'Miroir',zoneId:'b',duree:10};
+assert.deepEqual(O.group([c,a,b],[{id:'k',nom:'Cuisine'},{id:'b',nom:'Salle de bain'}],['k','b']).map(g=>g.tasks.map(t=>t.id)),[['a','b'],['c']]);
+const fixed=[{id:'rdv',heureDebut:'10:00',heureFin:'11:00'},{id:'repas',heureDebut:'11:20',heureFin:'12:00'}];const before=JSON.stringify(fixed);const result=O.arrange([b,a,c],fixed,'09:55','13:00');assert.deepEqual(result.map(t=>[t.id,t.heureDebut,t.heureFin]),[['b','09:55','10:00'],['a','11:00','11:10'],['c','11:10','11:20']]);assert.equal(JSON.stringify(fixed),before);assert(result.every(t=>t.placementManuel==='fixe'&&t.flexible===false));assert.throws(()=>O.arrange([a],fixed,'10:00','10:30'));assert.throws(()=>O.arrange([a],[], '13:00','12:00'));
+const html=fs.readFileSync(process.env.ORDER_INDEX_PATH||'../index.html','utf8');const main=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].trim())[1];new vm.Script(main);assert(main.includes('DB.journal?.ordreManuelJour?.[date]'));
+console.log('PASS : pièces groupées, ordre choisi, horaires fixes préservés, débordement refusé, protection de l’ordre enregistré.');

@@ -42629,6 +42629,7 @@ function zonesSportAutomatiquesEmma(date){
     return zones;
 }
 function organiserPlanningAutomatiqueEmma(date=dateLocaleISO(),maintenant=new Date()){
+    if(window.planningOrderEditingEmma||DB.journal?.ordreManuelJour?.[date])return false;
     if(DB.journal?.planningAutomatique===false)return false;
     ensureJournalData();
     const avant=JSON.stringify([DB.journal.planning?.[date]||[],DB.journal.reserveAutomatique?.[date]||[]]);
@@ -42714,6 +42715,7 @@ function organiserPlanningAutomatiqueEmma(date=dateLocaleISO(),maintenant=new Da
     return avant!==JSON.stringify([DB.journal.planning[date],reserve]);
 }
 async function actualiserPlanningAutomatiqueEmma(date=dateLocaleISO()){
+    if(window.planningOrderEditingEmma||DB.journal?.ordreManuelJour?.[date])return false;
     if(!chargementReussi||!userRef||date!==dateLocaleISO()||recalageAutomatiqueEmmaEnCours)return false;
     recalageAutomatiqueEmmaEnCours=true;
     try{
@@ -59583,5 +59585,6 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
   </div>
 </div>
 <script src="task-guidance.js?v=2"></script>
+<script src="planning-order.js?v=1"></script>
 </body>
 </html>
