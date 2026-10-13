@@ -44822,7 +44822,7 @@ function raccourciSelectionMaison(mode){
             }
         });
     }
-    renderNavigateurTachesMaison(true);
+    renderNavigateurTachesMaison(false);
 }
 
 function toggleSelectionTacheMaison(sousTacheId){
@@ -44830,7 +44830,7 @@ function toggleSelectionTacheMaison(sousTacheId){
     if(getIdsMaisonDejaDansJournee(date).has(sousTacheId)) return;
     if(maisonSelectionTemporaire.has(sousTacheId)) maisonSelectionTemporaire.delete(sousTacheId);
     else maisonSelectionTemporaire.add(sousTacheId);
-    renderNavigateurTachesMaison(true);
+    renderNavigateurTachesMaison(false);
 }
 
 function actualiserBoutonSelectionMaison(){
