@@ -44565,19 +44565,19 @@ function toggleRattrapageTacheMaison(id){
     }
     if(maisonRattrapageSelection.has(id)) maisonRattrapageSelection.delete(id);
     else maisonRattrapageSelection.add(id);
-    renderRattrapageDernieresRealisationsMaison(true);
+    renderRattrapageDernieresRealisationsMaison(false);
 }
 
 function selectionnerToutesTachesRattrapageMaison(){
     getToutesReferencesTachesMaison().forEach(({st})=>{
         if(!st.dernierFait||st.dernierFait<=maisonRattrapageEtat.date) maisonRattrapageSelection.add(st.id);
     });
-    renderRattrapageDernieresRealisationsMaison(true);
+    renderRattrapageDernieresRealisationsMaison(false);
 }
 
 function viderSelectionRattrapageMaison(){
     maisonRattrapageSelection.clear();
-    renderRattrapageDernieresRealisationsMaison(true);
+    renderRattrapageDernieresRealisationsMaison(false);
 }
 
 function renderRattrapageDernieresRealisationsMaison(garderFocus=false){
@@ -59586,6 +59586,6 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
 </div>
 <script src="task-guidance.js?v=2"></script>
 <script src="planning-order.js?v=2"></script>
-<script src="comfort-fixes.js?v=3"></script>
+<script src="comfort-fixes.js?v=4"></script>
 </body>
 </html>
