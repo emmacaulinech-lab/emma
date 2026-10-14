@@ -8681,6 +8681,10 @@ async function loadAll() {
         DB.glow = JSON.parse(g.data);
       }
 
+      if(g.historiqueSport){
+        DB.historiqueSportPersistant = JSON.parse(g.historiqueSport);
+      }
+
       if(g.historique){
         DB.historiqueGlow = JSON.parse(g.historique);
       }
@@ -9009,11 +9013,7 @@ async function executerFileSauvegardes(){
       updatedAt
     }, {merge:true});
 
-    await userRef.collection('modules').doc('glow').set({
-      data: JSON.stringify(DB.glow || {}),
-      historique: JSON.stringify(DB.historiqueGlow || []),
-      updatedAt
-    }, {merge:true});
+    await sauvegarderGlowAvecSeancesEmma(JSON.stringify(DB.glow||{}),JSON.stringify(DB.historiqueGlow||[]));
 
     await userRef.collection('modules').doc('journal').set({
       data: JSON.stringify(DB.journal || {}),
@@ -9141,12 +9141,7 @@ async function sauvegarderChampSeul(nomChamp, valeur){
 
     // GLOW
     if(nomChamp === 'glow'){
-      await userRef.collection('modules').doc('glow').set({
-        data: valeur,
-        // Conserve aussi la journée archivée lors du passage au jour suivant.
-        ...(chargementReussi?{historique:JSON.stringify(DB.historiqueGlow||[])}:{}),
-        updatedAt
-      }, {merge:true});
+      await sauvegarderGlowAvecSeancesEmma(valeur,chargementReussi?JSON.stringify(DB.historiqueGlow||[]):null);
 
       programmerSynchronisationNotificationsEmma?.(
         new Date().toLocaleDateString('fr-CA')
@@ -9156,10 +9151,7 @@ async function sauvegarderChampSeul(nomChamp, valeur){
     }
 
     if(nomChamp === 'historiqueGlow'){
-      await userRef.collection('modules').doc('glow').set({
-        historique: valeur,
-        updatedAt
-      }, {merge:true});
+      await sauvegarderGlowAvecSeancesEmma(null,valeur);
 
       return true;
     }
@@ -10864,8 +10856,9 @@ function resultatBrutMoisRecap(mois){
 }
 
 function cumulEspADeposerEmma(encaissements,charges,depots,deficit=0){
-  let report=Number(deficit)||0;
-  return encaissements.map((credit,i)=>{const besoin=report+Number(credit||0)+Number(charges[i]||0);report=besoin+Number(depots[i]||0);return besoin;});
+  let report=0;
+  const partDeficit=encaissements.length?(Number(deficit)||0)/encaissements.length:0;
+  return encaissements.map((credit,i)=>{const besoin=report+partDeficit+Number(credit||0)+Number(charges[i]||0);report=besoin+Number(depots[i]||0);return besoin;});
 }
 function renderRecap(){
   const allMois=[...new Set([...DB.caisse.map(t=>dm(t.date)),...DB.banque.map(t=>dm(t.date)),...(DB.chargesLissees||[]).map(c=>c.moisDebut).filter(Boolean)])].sort().reverse();
@@ -11121,6 +11114,8 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       const plan=DB.caisse.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.reglement==='PLANITY'&&t.montant>0).reduce((s,t)=>s+t.montant,0);
       return chq+vir+plan+chargesW[i];
     });
+    window.EmmaTresorerieRecap=window.EmmaTresorerieRecap||{};
+    window.EmmaTresorerieRecap[mois]={charges:chargesW,besoin:espWCorr,depots:espDeposeesW,partDeficit:reportDeficit/nw,report:espWCorr.map((v,i)=>i?espWCorr[i-1]+espDeposeesW[i-1]:0)};
     const espEcartW=espWCorr.map((v,i)=>v+espDeposeesW[i]);
 const espEcartTot=espEcartW.at(-1)||0;
 
@@ -11143,7 +11138,7 @@ const espEcartTot=espEcartW.at(-1)||0;
 
     html+=row('💰 ESP à déposer (cumulatif)',espWCorr,espWCorr[espWCorr.length-1],
       (v,i)=>i>=0?(Math.abs(espWCorr[i])>espNetCumulW[i]?'var(--dep)':'var(--rec)'):(Math.abs(espWCorr[espWCorr.length-1])>espNetCumulW[espNetCumulW.length-1]?'var(--dep)':'var(--rec)'),
-      (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente\nDéficit reporté en début de mois : ${fm(reportDeficit)}`:`Cumul fin de mois`
+      (i,v)=>i>=0?`S${i+1}: CHQ+VIR+PLANITY+charges\n+écart semaine précédente\nPart du déficit ce mois / ${nw} semaines : ${fm(reportDeficit/nw)}`:`Cumul fin de mois`
     );
     html+=row('→ ESP déposées',espDeposeesW,espDeposesTot,
       v=>v>0?'var(--rec)':'var(--mut)',
@@ -13850,7 +13845,7 @@ function openSemaine(mois, idx){
   const redevAutoEstim=-(redevDeposee(DB.caisse.filter(t=>inM(t.date,pm))));
   const tvaAutoEstim=-(tvaNette(pm));
   const totalEstim=fixEstim+varEstim+redevAutoEstim+tvaAutoEstim-achatEstim;
-  const chargeParSem=totalEstim/4;
+  const chargeParSem=totalEstim/nw;
   const achatsW=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='ACHATS'&&t.montant<0).reduce((s,t)=>s+t.montant,0);
 
   // Charges réelles (pour dernière semaine)
@@ -13863,15 +13858,16 @@ function openSemaine(mois, idx){
   const tvaReelBanque=tvaManuelleW?tvaManuelleW.montant:DB.banque.filter(b=>inM(b.date,mois)&&b.nom==='TVA'&&b.montant<0).reduce((s,b)=>s+b.montant,0);
   const totalReel=fixReelW+varReelHorsRedevTva+redevReelBanque+tvaReelBanque;
   const isLastWeek=idx===nw-1;
-  const chargeAffichee=isLastWeek?totalReel-chargeParSem*3:chargeParSem;
+  const tresorerie=window.EmmaTresorerieRecap?.[mois];
+  const chargeAffichee=tresorerie?tresorerie.charges[idx]-achatsW:(isLastWeek?totalReel-chargeParSem*(nw-1):chargeParSem);
 
   // Redevance
   const redevDueW=redevDue(caisseW);
   const redevDepW=redevDeposee(caisseW);
 
   // ESP
-  const deposes=DB.banque.filter(t=>inSem(t.date,y,m,wk.s,wk.e)&&t.categorie==='CA'&&t.nom.toUpperCase().includes('DÉPÔT')&&!t.nom.toUpperCase().includes('CHQ')&&!t.nom.toUpperCase().includes('CHEQUE')).reduce((s,t)=>s+t.montant,0);
-  const espADeposer=chqW+virW+planW+chargeAffichee+achatsW-deposes;
+  const deposes=tresorerie?tresorerie.depots[idx]:caisseW.filter(t=>t.reglement==='ESP'&&t.depose===true).reduce((s,t)=>s+Number(t.montant),0);
+  const espADeposer=tresorerie?tresorerie.besoin[idx]:chqW+virW+planW+chargeAffichee+achatsW;
 
   const prestations=caisseW.filter(t=>t.nom!=='PLANITY'&&!t.nom.startsWith('DÉPÔT')).sort((a,b)=>b.montant-a.montant);
 
@@ -13898,8 +13894,8 @@ function openSemaine(mois, idx){
       <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:14px 16px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut);margin-bottom:10px;letter-spacing:.08em">📊 Détail charges</div>
         <div style="font-size:12px;line-height:2;font-family:'DM Mono',monospace">
-          <div style="display:flex;justify-content:space-between"><span>Fixes prévues /4</span><span style="color:var(--dep)">${fm(fixEstim/4)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Variables prévues /4</span><span style="color:var(--dep)">${fm((varEstim+redevAutoEstim+tvaAutoEstim-achatEstim)/4)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Fixes prévues /${nw}</span><span style="color:var(--dep)">${fm(fixEstim/nw)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Variables prévues /${nw}</span><span style="color:var(--dep)">${fm((varEstim+redevAutoEstim+tvaAutoEstim-achatEstim)/nw)}</span></div>
           ${isLastWeek?`<div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px"><span style="color:var(--warn)">⚡ Régule S${nw}</span><span style="color:${chargeAffichee>=0?'var(--rec)':'var(--dep)'}">${fm(chargeAffichee)}</span></div>`:''}
           <div style="display:flex;justify-content:space-between"><span>Achats réels</span><span style="color:var(--dep)">${achatsW?fm(achatsW):'—'}</span></div>
           <div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px;font-weight:700"><span>TOTAL</span><span style="color:var(--dep)">${fm(chargeAffichee+achatsW)}</span></div>
@@ -13910,8 +13906,10 @@ function openSemaine(mois, idx){
         <div style="font-size:12px;line-height:2;font-family:'DM Mono',monospace">
           <div style="display:flex;justify-content:space-between"><span>CHQ + VIR + PLANITY</span><span style="color:var(--rec)">${fa(chqW+virW+planW)}</span></div>
           <div style="display:flex;justify-content:space-between"><span>Charges semaine</span><span style="color:var(--dep)">${fm(chargeAffichee+achatsW)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>ESP déposées</span><span style="color:var(--rec)">${deposes?fa(deposes):'—'}</span></div>
-          <div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px;font-weight:700"><span>ESP à déposer</span><span style="color:${espADeposer>=0?'var(--rec)':'var(--dep)'}">${fm(espADeposer,true)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Part du déficit précédent</span><span>${fm(tresorerie?.partDeficit||0)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Reste de la semaine précédente</span><span>${fm(tresorerie?.report[idx]||0)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>ESP déjà déposées cette semaine</span><span style="color:var(--rec)">${deposes?fa(deposes):'—'}</span></div>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px;font-weight:700"><span>ESP à déposer avant dépôts de cette semaine</span><span style="color:${espADeposer>=0?'var(--rec)':'var(--dep)'}">${fm(espADeposer,true)}</span></div>
         </div>
       </div>
     </div>
@@ -23903,11 +23901,11 @@ async function copyEmailToClipboard(){
    if(DB.glow?.date){
 
     const indexExistant = DB.historiqueGlow.findIndex(
-        item => item.date === DB.glow.date
+        item => item.date === DB.glow.date && !item.realisationId && !item.seanceId
     );
 
     const jourArchive = {
-        ...DB.glow
+        ...JSON.parse(JSON.stringify(DB.glow))
     };
 
     if(indexExistant >= 0){
@@ -24462,13 +24460,7 @@ function ouvrirVueMinuteEmma(){
 
 function groupesMusclesV2Glow(muscles=[]){return [...new Set(muscles.flatMap(m=>/fessier/i.test(m)?['Fessiers']:/quadriceps|ischio|mollet|jambe/i.test(m)?['Jambes']:/abdomin|oblique|transverse/i.test(m)?['Abdominaux']:/dos|dors|trapez|trapèz/i.test(m)?['Dos']:/épaule|epaule|delto/i.test(m)?['Épaules']:/bras|biceps|triceps/i.test(m)?['Bras']:[]))];}
 function historiqueSportV2Glow(){
-    const uniques=new Map();
-    for(const e of [...(DB.glow?.historiqueSeances||[]),...(DB.historiqueSeances||[]),...(DB.historiqueGlow||[])]){
-        if(!e?.objectif||e.terminee===false||!Number.isFinite(Number(e.minutes??e.duree))||Number(e.minutes??e.duree)<=0)continue;
-        const cle=e.realisationId||`${e.date}|${e.seanceId}|${e.minutes??e.duree}`;
-        uniques.set(cle,{...uniques.get(cle),...e});
-    }
-    return [...uniques.values()];
+    return collecterSeancesEnregistreesEmma(DB);
 }
 function historiqueSemaineSportGlow(date=dateLocaleISO()){
     const jour=new Date(date+'T12:00:00');
@@ -31836,6 +31828,12 @@ DB.glow.historiqueSeances.push({
     objectif: seance.objectif,
     seanceId: seance.id,
     duree: minutesRetenues,
+    minutes: minutesRetenues,
+    objectifs: entree.objectifs,
+    minutesParZone: entree.minutesParZone,
+    muscles: entree.muscles,
+    exercices: entree.exercices,
+    terminee: true,
     score: calculGlowScore().total,
     feedback,
     partielle,
@@ -57320,7 +57318,8 @@ function ingredientAssietteGlow(champ,nom){
   if(champ==="plaisirSucre")return {nom,quantite:2,unite:"portion"};
   return {nom,quantite:champ==='legumes'?400:champ==='complement'?100:200,unite:fiche?.unitePrincipale||'g'};
 }
-async function creerPlanRepasGlow(nombreJours){
+async function creerPlanRepasGlow(nombreJours, options = {}){
+  if(!options.dates)return ouvrirJoursRepasLibresEmma(nombreJours);
 
   initialiserExtensionsGlowLocales();
   initialiserNutritionV2Glow();
@@ -57378,7 +57377,7 @@ async function creerPlanRepasGlow(nombreJours){
 
     const debut = new Date();
 
-    const dates = Array.from(
+    const dates = options.dates || Array.from(
       {length:nombreJours},
       (_,j) =>
         dateLocaleISO(
@@ -57657,24 +57656,25 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
     if(DB.glowNutritionPlans.planActif !== planAvant||Number(planAvant?.revision||0)!==revisionAvant)throw new Error('Le planning a changé pendant la génération. Réessaie.');
     if(parCle.size!==attendus.size)throw new Error('Planning incomplet : réessaie, ton planning actuel est conservé.');
     for(const r of repas){
-      if(!habitudes.repasMaison.includes(r.type)||!habitudes.joursMaison.includes(new Date(`${r.date}T12:00:00`).getDay()))r.statut='absent';
+      if(!habitudes.repasMaison.includes(r.type)||(!options.dates&&!habitudes.joursMaison.includes(new Date(`${r.date}T12:00:00`).getDay())))r.statut='absent';
       if(r.statut==='restes'&&!r.resteDeId)throw new Error('Restes sans repas source. Réessaie.');
       if(r.statut==='garder')normaliserRepasV2Glow(r);
     }
     for(const r of repas.filter(x=>x.statut==='restes'))if(!repas.some(x=>x.id===r.resteDeId&&x.statut==='garder'&&x.date<=r.date))throw new Error('Restes incompatibles avec les repas à la maison. Réessaie.');
     if(planAvant)DB.glowNutritionPlans.historiquePlans.push(JSON.parse(JSON.stringify(planAvant)));
     DB.glowNutritionPlans.planActif = {
-
-      id: `plan_${genId()}`,
-
-      debut: dates[0],
-
-      fin: dates.at(-1),
+      ...(options.ajouter&&planAvant?planAvant:{}),
+      id: options.ajouter&&planAvant?planAvant.id:`plan_${genId()}`,
+      libre: true,
+      revision: revisionAvant+1,
+      joursSelectionnes: dates,
+      debut: options.ajouter&&planAvant? [planAvant.debut,dates[0]].sort()[0]:dates[0],
+      fin: options.ajouter&&planAvant? [planAvant.fin,dates.at(-1)].sort().at(-1):dates.at(-1),
 
       creeLe:
         new Date().toISOString(),
 
-      repas
+      repas: options.ajouter&&planAvant?[...(planAvant.repas||[]),...repas]:repas
     };
 
     if(DB.glowNutritionPlans.courses)DB.glowNutritionPlans.courses.aActualiser=true;
@@ -57685,7 +57685,7 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       "glowNutritionPlans"
     );
 
-    toast("✓ Planning préparé par EMMA");
+    toast("✓ Repas ajoutés à ta réserve");
 
   }catch(error){
 
@@ -59586,6 +59586,7 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
 </div>
 <script src="task-guidance.js?v=2"></script>
 <script src="planning-order.js?v=2"></script>
+<script src="daily-improvements.js?v=1"></script>
 <script src="comfort-fixes.js?v=4"></script>
 <script src="completion-safety.js?v=1"></script>
 <script src="dated-recovery.js?v=1"></script>
