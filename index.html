@@ -11115,7 +11115,7 @@ Base: fixes prévues ${fm(fixEstim)} + variables prévues ${fm(varEstim)}`:`Tota
       return chq+vir+plan+chargesW[i];
     });
     window.EmmaTresorerieRecap=window.EmmaTresorerieRecap||{};
-    window.EmmaTresorerieRecap[mois]={charges:chargesW,besoin:espWCorr,depots:espDeposeesW,partDeficit:reportDeficit/nw,report:espWCorr.map((v,i)=>i?espWCorr[i-1]+espDeposeesW[i-1]:0)};
+    window.EmmaTresorerieRecap[mois]={fixVar:fixVarW,lissage:lissageW,salaire:salaireLisseW,redevTva:redevTvaW,charges:chargesW,besoin:espWCorr,depots:espDeposeesW,partDeficit:reportDeficit/nw,report:espWCorr.map((v,i)=>i?espWCorr[i-1]+espDeposeesW[i-1]:0)};
     const espEcartW=espWCorr.map((v,i)=>v+espDeposeesW[i]);
 const espEcartTot=espEcartW.at(-1)||0;
 
@@ -13894,8 +13894,10 @@ function openSemaine(mois, idx){
       <div style="background:white;border:1.5px solid var(--brd);border-radius:14px;padding:14px 16px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut);margin-bottom:10px;letter-spacing:.08em">📊 Détail charges</div>
         <div style="font-size:12px;line-height:2;font-family:'DM Mono',monospace">
-          <div style="display:flex;justify-content:space-between"><span>Fixes prévues /${nw}</span><span style="color:var(--dep)">${fm(fixEstim/nw)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Variables prévues /${nw}</span><span style="color:var(--dep)">${fm((varEstim+redevAutoEstim+tvaAutoEstim-achatEstim)/nw)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Fixes + variables</span><span style="color:var(--dep)">${fm(tresorerie?.fixVar[idx]??(fixEstim+varEstim-achatEstim)/nw)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Redevance + TVA</span><span style="color:var(--dep)">${fm(tresorerie?.redevTva[idx]??(redevAutoEstim+tvaAutoEstim)/nw)}</span></div>
+          ${tresorerie?.lissage[idx]?`<div style="display:flex;justify-content:space-between"><span>Charges périodiques lissées</span><span>${fm(tresorerie.lissage[idx])}</span></div>`:''}
+          ${tresorerie?.salaire[idx]?`<div style="display:flex;justify-content:space-between"><span>Dette salaire lissée</span><span>${fm(tresorerie.salaire[idx])}</span></div>`:''}
           ${isLastWeek?`<div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px"><span style="color:var(--warn)">⚡ Régule S${nw}</span><span style="color:${chargeAffichee>=0?'var(--rec)':'var(--dep)'}">${fm(chargeAffichee)}</span></div>`:''}
           <div style="display:flex;justify-content:space-between"><span>Achats réels</span><span style="color:var(--dep)">${achatsW?fm(achatsW):'—'}</span></div>
           <div style="display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:4px;padding-top:4px;font-weight:700"><span>TOTAL</span><span style="color:var(--dep)">${fm(chargeAffichee+achatsW)}</span></div>

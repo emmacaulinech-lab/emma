@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
-const html=fs.readFileSync('../daily-final-index.html','utf8');
+const html=fs.readFileSync(process.env.DAILY_INDEX_PATH||(fs.existsSync('../daily-final-index.html')?'../daily-final-index.html':'../index.html'),'utf8');
 const dom=new JSDOM('<body><div id="glow-content"></div><div id="mBody"></div></body>',{url:'https://emma.test',runScripts:'outside-only'}),w=dom.window;
 const json=x=>JSON.parse(JSON.stringify(x));
 w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
