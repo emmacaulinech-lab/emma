@@ -4763,6 +4763,7 @@ button.emma-card-row{
       <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('formations')">
         <span>🎓</span><span><strong>Formations</strong><small id="hub-work-training">Élèves et kits</small></span><span>›</span>
       </button>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('facturation-perso')"><span>🧾</span><span><strong>Ma facturation</strong><small>Mes factures · EMMA</small></span><span>›</span></button>
       <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('facturation')">
         <span>🧾</span><span><strong>Facturation</strong><small id="hub-work-billing">Factures et règlements</small></span><span>›</span>
       </button>
@@ -5811,6 +5812,7 @@ button.emma-card-row{
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Facturation LIMAGECILS</div></div>
   <iframe src="https://emmacaulinech-lab.github.io/limagecils-facturation/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
 </div>
+<div id="module-facturation-perso" style="display:none;min-height:100vh;background:#fff8fb;flex-direction:column"><div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🧾 Ma facturation</div></div><iframe title="Ma facturation EMMA" src="/emma/facturation/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe></div>
 <div id="module-formations" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
   <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🎓 Formations</div></div>
   <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
@@ -18201,7 +18203,7 @@ async function delHumeurEntree(jour,idx){
 function goHub(){
   document.getElementById('hubPage').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  ['facturation','formations','banqueperso','maison','glow','lecture','journal'].forEach(m=>{
+  ['facturation','facturation-perso','formations','banqueperso','maison','glow','lecture','journal'].forEach(m=>{
     document.getElementById('module-'+m).style.display='none';
   });
   setEmmaNav('accueil');
@@ -18211,7 +18213,7 @@ function goHub(){
 
 function goModule(name){
   document.getElementById('hubPage').style.display='none';
-  ['facturation','formations','banqueperso','maison','glow','lecture','journal'].forEach(moduleName=>{
+  ['facturation','facturation-perso','formations','banqueperso','maison','glow','lecture','journal'].forEach(moduleName=>{
     const module=document.getElementById('module-'+moduleName);
     if(module) module.style.display='none';
   });
@@ -18286,6 +18288,7 @@ function emmaNavigate(destination){
                     action:() => goModule("formations")
                 },
 
+                {icon:"🧾",titre:"Ma facturation",texte:"Mes factures · Firebase EMMA",action:() => goModule("facturation-perso")},
                 {
                     icon:"🧾",
                     titre:"Facturation",
