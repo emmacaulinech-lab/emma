@@ -21918,7 +21918,7 @@ async function genererConvocationFormation(etudianteId){
       page.drawRectangle({x:48,y:y-60,width:499,height:70,color:roseClair});
       paragraphes(page,texteGiulia,65,y-12,465,9.5,gras,noir,13);y-=88;
       page.drawText('KIT PEDAGOGIQUE', {x:48,y,size:12,font:gras,color:noir});y-=22;
-      y=paragraphes(page,'Dans le cadre de votre financement personnel, votre kit pédagogique est offert et vous sera remis pendant la formation.',48,y,495,10.5,normal,noir,15)-5;
+      y=paragraphes(page,eleve.financement?.kitOffert===false?'Votre kit pédagogique n’est pas offert. Son achat est à votre charge ; les modalités de règlement vous seront communiquées.':'Dans le cadre de votre financement personnel, votre kit pédagogique est offert et vous sera remis pendant la formation.',48,y,495,10.5,normal,noir,15)-5;
       page.drawText('INFORMATIONS PRATIQUES', {x:48,y,size:12,font:gras,color:noir});y-=22;
       paragraphes(page,'Le petit-déjeuner et le goûter sont offerts. Merci de prévoir votre déjeuner ; un réfrigérateur et un micro-ondes sont disponibles sur place.',48,y,495,10.5,normal,noir,15);
 
@@ -22693,6 +22693,7 @@ function openEtudianteModal(id=null){
   onchange="
     afficherChampCPFFormation();
     mettreAJourFormationsDisponibles(this.value);
+    afficherChoixKitOffertFormation();
   "
 >
 
@@ -22737,6 +22738,14 @@ function openEtudianteModal(id=null){
     </div>
 
 
+    <div class="fr" id="fe-kit-offert-zone" style="display:${(e?.financement?.type||'perso')==='perso'?'block':'none'}">
+      <label>Kit pédagogique en financement personnel</label>
+      <select id="fe-kit-offert" class="inp">
+        <option value="" ${e?.financement?.kitOffert===undefined?'selected':''}>— Choisir : offert ou non —</option>
+        <option value="oui" ${e?.financement?.kitOffert===true?'selected':''}>Kit offert</option>
+        <option value="non" ${e?.financement?.kitOffert===false?'selected':''}>Kit non offert (à régler séparément)</option>
+      </select>
+    </div>
     <div
       class="fr"
       id="fe-cpf-zone"
@@ -22928,11 +22937,13 @@ mettreAJourFormationsDisponibles(
 );
 
 afficherChampCPFFormation();
+  afficherChoixKitOffertFormation();
   document
     .getElementById('saveEtudianteBtn')
     .disabled=false;
 }
 
+function afficherChoixKitOffertFormation(){const zone=document.getElementById('fe-kit-offert-zone');if(zone)zone.style.display=document.getElementById('fe-fin-type')?.value==='perso'?'block':'none';}
 function afficherChampCPFFormation(){
 
   const type=
@@ -23246,7 +23257,8 @@ nom,
       ...existing?.financement,
       type:document.getElementById('fe-fin-type')?.value||'perso',
       montant:parseFloat(document.getElementById('fe-fin-montant')?.value)||0,
-      paye:document.getElementById('fe-fin-paye')?.value==='1'
+      paye:document.getElementById('fe-fin-paye')?.value==='1',
+      kitOffert:document.getElementById('fe-fin-type')?.value==='perso' ? document.getElementById('fe-kit-offert')?.value==='oui' : null
     },
     kits:construireKits(
   [...document.querySelectorAll('.fe-kit-check:checked')].map(c=>c.value),
@@ -23522,7 +23534,7 @@ Organisation des modèles :
 ${infos.modeles}
 Si vous venez de loin ou ne pouvez pas amener vos modèles, nous pouvons nous charger de les trouver. Giulia est en charge de leur planning et vous accompagnera dans l’organisation.
 
-Votre kit pédagogique est offert et sera préparé pour votre venue.
+${kit.payant?'Votre kit pédagogique n’est pas offert. '+kit.texte+' Merci de prévoir son règlement avant la formation.':'Votre kit pédagogique est offert et sera préparé pour votre venue.'}
 
 Le petit-déjeuner et le goûter sont offerts. Merci de prévoir votre déjeuner ; un réfrigérateur et un micro-ondes sont à votre disposition sur place.
 
@@ -23738,7 +23750,7 @@ function regleKitsMailFormation(e){
   if(!regle) throw new Error('Association du kit à confirmer pour cette formation.');
   if(!['cpf','perso'].includes(financement)) throw new Error('Règle de paiement à confirmer pour ce financement.');
   if(type==='browlift'&&financement==='cpf')throw new Error('La formation Browlift n’est pas financée par le CPF. Vérifie la fiche.');
-  const payant=financement==='cpf';
+  const payant=financement==='cpf'||(financement==='perso'&&e.financement?.kitOffert===false);
   const options=regle.auto?[regle.kits]:regle.choix;
   const choix=payant&&options.length>1;
   const necessaires=choix?options:options.slice(0,1);
