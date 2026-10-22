@@ -21369,6 +21369,7 @@ function getDonneesDocumentsFormation(etudiante){
     ),
 
     financement,
+    kitOffert: etudiante?.financement?.kitOffert !== false,
 
     dateDebut: formatDate(
       etudiante?.dateFormation
@@ -21735,6 +21736,41 @@ async function remplirConvocationEmma(pdfBytes, donnees){
     color:PDFLib.rgb(0,0,0)
   });
 
+  // Les modèles PDF historiques mentionnent un kit offert en texte fixe.
+  // Pour un kit non offert, remplacer la première page entière pour éviter toute contradiction.
+  if(donnees.financement==='perso'&&donnees.kitOffert===false){
+    pdf.removePage(0);
+    const p=pdf.insertPage(0,[595,842]);
+    const regular=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+    const bold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const pink=PDFLib.rgb(.78,.19,.43),dark=PDFLib.rgb(.17,.17,.2);
+    p.drawRectangle({x:0,y:775,width:595,height:67,color:pink});
+    p.drawText('LIMAGE SCHOOL',{x:45,y:801,size:21,font:bold,color:PDFLib.rgb(1,1,1)});
+    p.drawText('CONVOCATION A LA FORMATION',{x:45,y:724,size:18,font:bold,color:pink});
+    const lignes=[
+      'Bonjour '+prenom+',',
+      'Nous avons le plaisir de confirmer votre inscription.',
+      'Formation : '+String(donnees.formationLabel||''),
+      'Date de debut : '+String(donnees.dateDebut||''),
+      'Date de fin : '+String(donnees.dateFin||''),
+      'Lieu : '+String(donnees.lieu||'A confirmer avec notre equipe'),
+      'KIT PEDAGOGIQUE : NON OFFERT',
+      'Le kit pedagogique est a votre charge.',
+      'Les modalites de choix et de reglement vous seront communiquees.',
+      'Merci de consulter le programme joint en page suivante.',
+      'Pour toute question, contactez notre equipe.'
+    ];
+    let y=660;
+    for(let i=0;i<lignes.length;i++){
+      const line=lignes[i].replace(/[’‘]/g,"'").replace(/[–—]/g,'-');
+      const fontLine=i===6?bold:regular;
+      const color=i===6?pink:dark;
+      const size=i===6?13:11;
+      if(fontLine.widthOfTextAtSize(line,size)>510)throw Error('Texte de convocation trop long : '+line);
+      p.drawText(line,{x:45,y,size,font:fontLine,color});y-=i===6?37:31;
+    }
+    p.drawText('LIMAGE SCHOOL - Convocation personnalisee',{x:45,y:55,size:9,font:regular,color:dark});
+  }
   return pdf.save();
 }
 
