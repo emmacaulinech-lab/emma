@@ -20511,7 +20511,7 @@ function renderFicheEtudianteFormation(e,today){
               >
                 Contrat
               </button>
-              ${formationTermineeCertificatEmma(e)?`<button class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="genererCertificatRealisationFormation(decodeURIComponent(this.dataset.eleve))">Certificat de réalisation</button>`:'<small style="color:var(--mut)">Certificat disponible à la fin de la formation.</small>'}
+              ${(e.financement?.type==='perso'||formationTermineeCertificatEmma(e))?`<button class="btn bg bsm" data-eleve="${encodeURIComponent(e.id)}" onclick="genererCertificatRealisationFormation(decodeURIComponent(this.dataset.eleve))">Certificat de réalisation</button>`:'<small style="color:var(--mut)">Certificat disponible à la fin de la formation.</small>'}
 
 
             </div>
@@ -21859,12 +21859,12 @@ async function remplirCertificatRealisationEmma(pdfBytes,d){
 function genererCertificatRealisationFormation(etudianteId){
   const e=DB.formations?.etudiantes?.find(e=>e.id===etudianteId);
   if(!e)return toast('Élève introuvable.');
-  if(!formationTermineeCertificatEmma(e))return toast('Le certificat et son mail seront disponibles à la fin de la formation.');
+  if(e.financement?.type!=='perso'&&!formationTermineeCertificatEmma(e))return toast('Le certificat et son mail seront disponibles à la fin de la formation.');
   let d;try{d=donneesCertificatRealisationEmma(e);}catch(erreur){toast(erreur.message);return;}
   document.getElementById('certificatRealisationModal')?.remove();
   const fenetre=document.createElement('dialog');fenetre.id='certificatRealisationModal';fenetre.className='f-certificat-modal';
   const esc=echapperFormation;
-  fenetre.innerHTML=`<h2>Certificat de réalisation</h2><p>Vérifie les informations et adapte les compétences à la formation réellement suivie.</p>${[['nomComplet','Nom et prénom','text'],['formation','Formation','text'],['dateDebut','Date de début','date'],['dateFin','Date de fin','date'],['heures','Heures réellement réalisées','number'],['dateDocument','Date du certificat','date']].map(([cle,label,type])=>`<div class="fr"><label for="certificat-${cle}">${label}</label><input id="certificat-${cle}" data-champ="${cle}" type="${type}" value="${esc(d[cle])}" ${type==='number'?'min="0.5" step="0.5"':''}></div>`).join('')}<div class="fr"><label for="certificat-competences">Compétences travaillées (modifiable)</label><textarea id="certificat-competences" data-champ="competences" rows="7">${esc(d.competences)}</textarea></div><div class="fr"><label for="certificat-certification">Mention de certification, si applicable</label><textarea id="certificat-certification" data-champ="certification" rows="2">${esc(d.certification)}</textarea></div><p data-erreur role="alert"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bg" data-fermer>Annuler</button><button class="btn bd" data-generer>Télécharger le certificat</button></div>`;
+  fenetre.innerHTML=`<h2>Certificat de réalisation</h2><p>Vérifie les informations, complète les dates si nécessaire et adapte les compétences à la formation réellement suivie. Le certificat peut être téléchargé à partir de la fin de la formation.</p>${[['nomComplet','Nom et prénom','text'],['formation','Formation','text'],['dateDebut','Date de début','date'],['dateFin','Date de fin','date'],['heures','Heures réellement réalisées','number'],['dateDocument','Date du certificat','date']].map(([cle,label,type])=>`<div class="fr"><label for="certificat-${cle}">${label}</label><input id="certificat-${cle}" data-champ="${cle}" type="${type}" value="${esc(d[cle])}" ${type==='number'?'min="0.5" step="0.5"':''}></div>`).join('')}<div class="fr"><label for="certificat-competences">Compétences travaillées (modifiable)</label><textarea id="certificat-competences" data-champ="competences" rows="7">${esc(d.competences)}</textarea></div><div class="fr"><label for="certificat-certification">Mention de certification, si applicable</label><textarea id="certificat-certification" data-champ="certification" rows="2">${esc(d.certification)}</textarea></div><p data-erreur role="alert"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bg" data-fermer>Annuler</button><button class="btn bd" data-generer>Télécharger le certificat</button></div>`;
   document.body.appendChild(fenetre);fenetre.showModal();
   fenetre.querySelector('[data-fermer]').onclick=()=>{fenetre.close();fenetre.remove();};
   fenetre.querySelector('[data-generer]').onclick=async()=>{
