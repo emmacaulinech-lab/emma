@@ -19855,18 +19855,14 @@ function getSessionsFormation(){
     if(!groupes.has(s.cle)) groupes.set(s.cle,{...s,etudiantes:[]});
     groupes.get(s.cle).etudiantes.push(e);
   }
-  const maintenant=new Date();
-  const aujourdHui=[maintenant.getFullYear(),String(maintenant.getMonth()+1).padStart(2,'0'),
-    String(maintenant.getDate()).padStart(2,'0')].join('-');
   const sessions=[...groupes.values()];
   for(const s of sessions){
-    s.groupe=!s.debut || !s.fin || s.fin<s.debut ? 3
-      : s.fin<aujourdHui ? 2 : s.debut<=aujourdHui ? 0 : 1;
     s.etudiantes.sort((a,b)=>nomEtudianteFormation(a).localeCompare(
       nomEtudianteFormation(b),'fr',{sensitivity:'base'}));
   }
-  return sessions.sort((a,b)=>a.groupe-b.groupe
-    || (a.groupe===2 ? b.debut.localeCompare(a.debut) : a.debut.localeCompare(b.debut))
+  // Ordre chronologique, indépendamment du statut ou de la date de fin.
+  // Les sessions sans date de début restent en bas de la liste.
+  return sessions.sort((a,b)=>(a.debut || '9999-12-31').localeCompare(b.debut || '9999-12-31')
     || a.formation.localeCompare(b.formation,'fr') || a.cle.localeCompare(b.cle));
 }
 
