@@ -21250,6 +21250,7 @@ const DOCUMENTS_FORMATION = {
       heures: 21,
       bulletin: true,
       convocation: 'convocation-debutante-express-3j-perso',
+      convocationKitPayant: 'convocation-debutante-express-3j-perso-kit-payant',
       contrat: 'contrat-debutante-express-3j'
     },
 
@@ -21258,6 +21259,7 @@ const DOCUMENTS_FORMATION = {
       heures: 14,
       bulletin: true,
       convocation: 'convocation-coaching-prive-2j-perso',
+      convocationKitPayant: 'convocation-coaching-prive-2j-perso-kit-payant',
       contrat: null
     },
 
@@ -21266,6 +21268,7 @@ const DOCUMENTS_FORMATION = {
       heures: 28,
       bulletin: true,
       convocation: 'convocation-debutante-4j-perso',
+      convocationKitPayant: 'convocation-debutante-4j-perso-kit-payant',
       contrat: 'contrat-debutante-4j'
     },
 
@@ -21274,6 +21277,7 @@ const DOCUMENTS_FORMATION = {
       heures: 35,
       bulletin: true,
       convocation: 'convocation-debutante-5j-perso',
+      convocationKitPayant: 'convocation-debutante-5j-perso-kit-payant',
       contrat: 'contrat-debutante-5j'
     },
 
@@ -21397,7 +21401,9 @@ function getDonneesDocumentsFormation(etudiante){
       config.bulletin === true,
 
     modeleConvocation:
-      config.convocation,
+      financement === 'perso' && etudiante?.financement?.kitOffert === false
+        ? (config.convocationKitPayant || config.convocation)
+        : config.convocation,
 
     modeleContrat:
       config.contrat
@@ -21473,6 +21479,25 @@ const CALIBRAGE_CONVOCATIONS_EMMA = {
     date:[429.4268,732.75,436.6468,742.75,735.25,10],
     lundi:true
   }
+};
+
+// Versions payantes : même design officiel, mentions de financement personnel.
+CALIBRAGE_CONVOCATIONS_EMMA['convocation-debutante-express-3j-perso-kit-payant'] = {
+  ...CALIBRAGE_CONVOCATIONS_EMMA['convocation-debutante-express-3j-cpf'],
+  sha:'c27cef903f13e62a9bdf0567bf2dcb4b98fa6d3511018477bd4b81594bdd4186',
+  date:[359.5095,725.05,409.6211,736.05,727.8,11]
+};
+CALIBRAGE_CONVOCATIONS_EMMA['convocation-debutante-4j-perso-kit-payant'] = {
+  ...CALIBRAGE_CONVOCATIONS_EMMA['convocation-debutante-4j-cpf'],
+  sha:'06463bb362584b92e567c38d9e133e4af1817b0a3907b462b43d7edb099abdb7'
+};
+CALIBRAGE_CONVOCATIONS_EMMA['convocation-debutante-5j-perso-kit-payant'] = {
+  ...CALIBRAGE_CONVOCATIONS_EMMA['convocation-debutante-5j-cpf'],
+  sha:'86a634f09a9b463fd16f022c71d3d7f4bec8ed29dd9f18b1aca7fe4c26f43398'
+};
+CALIBRAGE_CONVOCATIONS_EMMA['convocation-coaching-prive-2j-perso-kit-payant'] = {
+  ...CALIBRAGE_CONVOCATIONS_EMMA['convocation-coaching-prive-2j-perso'],
+  sha:'2156deb66aa153afb3bf8d0cdb5c464b1da33e9bbbd784e25b1407b4b7b5edfb'
 };
 
 function texteDocumentEmma(valeur){
@@ -21736,41 +21761,6 @@ async function remplirConvocationEmma(pdfBytes, donnees){
     color:PDFLib.rgb(0,0,0)
   });
 
-  // Les modèles PDF historiques mentionnent un kit offert en texte fixe.
-  // Pour un kit non offert, remplacer la première page entière pour éviter toute contradiction.
-  if(donnees.financement==='perso'&&donnees.kitOffert===false){
-    pdf.removePage(0);
-    const p=pdf.insertPage(0,[595,842]);
-    const regular=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
-    const bold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
-    const pink=PDFLib.rgb(.78,.19,.43),dark=PDFLib.rgb(.17,.17,.2);
-    p.drawRectangle({x:0,y:775,width:595,height:67,color:pink});
-    p.drawText('LIMAGE SCHOOL',{x:45,y:801,size:21,font:bold,color:PDFLib.rgb(1,1,1)});
-    p.drawText('CONVOCATION A LA FORMATION',{x:45,y:724,size:18,font:bold,color:pink});
-    const lignes=[
-      'Bonjour '+prenom+',',
-      'Nous avons le plaisir de confirmer votre inscription.',
-      'Formation : '+String(donnees.formationLabel||''),
-      'Date de debut : '+String(donnees.dateDebut||''),
-      'Date de fin : '+String(donnees.dateFin||''),
-      'Lieu : '+String(donnees.lieu||'A confirmer avec notre equipe'),
-      'KIT PEDAGOGIQUE : NON OFFERT',
-      'Le kit pedagogique est a votre charge.',
-      'Les modalites de choix et de reglement vous seront communiquees.',
-      'Merci de consulter le programme joint en page suivante.',
-      'Pour toute question, contactez notre equipe.'
-    ];
-    let y=660;
-    for(let i=0;i<lignes.length;i++){
-      const line=lignes[i].replace(/[’‘]/g,"'").replace(/[–—]/g,'-');
-      const fontLine=i===6?bold:regular;
-      const color=i===6?pink:dark;
-      const size=i===6?13:11;
-      if(fontLine.widthOfTextAtSize(line,size)>510)throw Error('Texte de convocation trop long : '+line);
-      p.drawText(line,{x:45,y,size,font:fontLine,color});y-=i===6?37:31;
-    }
-    p.drawText('LIMAGE SCHOOL - Convocation personnalisee',{x:45,y:55,size:9,font:regular,color:dark});
-  }
   return pdf.save();
 }
 
