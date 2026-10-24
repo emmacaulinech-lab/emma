@@ -18082,7 +18082,7 @@ function ouvrirPopupHumeur(){
 
 function getPlanningEnRetard(){
   ensureJournalData();
-  const today=new Date().toISOString().split('T')[0];
+  const today=dateLocaleISO();
   const planning=DB.journal.planning[today]||[];
   const faitMap=(DB.journal.faitAujourdhui||{})[today]||{};
   const maintenant=new Date();
@@ -19860,9 +19860,12 @@ function getSessionsFormation(){
     s.etudiantes.sort((a,b)=>nomEtudianteFormation(a).localeCompare(
       nomEtudianteFormation(b),'fr',{sensitivity:'base'}));
   }
-  // Ordre chronologique, indépendamment du statut ou de la date de fin.
-  // Les sessions sans date de début restent en bas de la liste.
-  return sessions.sort((a,b)=>(a.debut || '9999-12-31').localeCompare(b.debut || '9999-12-31')
+  const aujourdHui=dateLocaleISO();
+  const terminee=s=>!!(s.fin&&s.fin<aujourdHui)
+    || s.etudiantes.every(e=>e.suiviFormation?.dossier_cloture===true);
+  // Sessions actives par date, puis formations terminées par date.
+  return sessions.sort((a,b)=>Number(terminee(a))-Number(terminee(b))
+    || (a.debut || '9999-12-31').localeCompare(b.debut || '9999-12-31')
     || a.formation.localeCompare(b.formation,'fr') || a.cle.localeCompare(b.cle));
 }
 
@@ -48190,12 +48193,10 @@ const clickHandlers =
         : `onclick="goModule('journal')"`;
 
         
-const checkHandler =
-    clickable
-        ? estDecisionRepas
-            ? `onclick="event.stopPropagation();ouvrirDecisionRepasEmma('${p.actionRepas}')"`
-            : `onclick="event.stopPropagation();togglePlanningFait('${p.id}')"`
-        : '';
+const dateValidation = estAujourdhui ? dateLocaleISO() : getJournalJour();
+const checkHandler = estDecisionRepas
+    ? `onclick="event.stopPropagation();ouvrirDecisionRepasEmma('${p.actionRepas}')"`
+    : `onclick="event.stopPropagation();togglePlanningFait('${p.id}','${dateValidation}')"`;
 
 return`<div ${clickHandlers} style="
     position:absolute;
@@ -51811,9 +51812,13 @@ async function togglePlanningFait(planningId,dateValidation=null){
   if(!DB.journal.faitAujourdhui[today]) DB.journal.faitAujourdhui[today]={};
   const faitMap=DB.journal.faitAujourdhui[today];
 
+  const cible=(DB.journal.planning[today]||[]).find(p=>String(p.id)===String(planningId));
+  if(!cible) return;
   dedupliquerPlanningEmma(today);
-  const item=(DB.journal.planning[today]||[]).find(p=>p.id===planningId);
+  const item=(DB.journal.planning[today]||[]).find(p=>String(p.id)===String(planningId))
+    || (DB.journal.planning[today]||[]).find(p=>cleOccurrenceMaisonEmma(p)===cleOccurrenceMaisonEmma(cible));
   if(!item) return;
+  planningId=item.id;
 
   const sousTacheId=cleTachePlanningEmma(item);
   const referenceTache=trouverSousTacheJournalEmma(sousTacheId);
@@ -51925,6 +51930,7 @@ async function togglePlanningFait(planningId,dateValidation=null){
   if(!await sauvegarderChampSeul('journal',JSON.stringify(DB.journal)))throw new Error('EMMA_JOURNAL_NOT_SAVED');
   await recalculerResteJourneeEmma(today);
   renderPlanningTimeline();
+  renderHubPlanningMini();
   if(document.getElementById('module-maison')?.style.display==='flex'){
     renderMaisonModule();
   }

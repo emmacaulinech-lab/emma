@@ -1,0 +1,24 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
+process.chdir(require('path').join(__dirname,'..'));
+const html=fs.readFileSync('index.html','utf8'),day='2026-10-24';
+const dom=new JSDOM('<body><div id="module-maison"></div></body>');
+let saved=0,hub=0,selected='2026-10-22';
+const ctx={document:dom.window.document,Date,console,DB:{journal:{planning:{},zones:[]}},dateLocaleISO:()=>day,getJournalJour:()=>selected,minToStr:()=> '12:00',strToMin:()=>0,cleTachePlanningEmma:b=>b.stId||b.id,cleOccurrenceMaisonEmma:b=>b.stId||b.id,trouverSousTacheJournalEmma:()=>null,estTacheMaisonPlanningEmma:()=>false,estRendezVousPlanningEmma:()=>false,marquerEquivalentsCatalogueFaitsEmma:()=>{},nettoyerCopiesTachesFaitesEmma:()=>{},repositionnerTachesFaitesAvantMaintenant:()=>{},mettreAJourBilanAutoEmma:()=>{},sauvegarderChampSeul:async()=>{saved++;return true},recalculerResteJourneeEmma:async()=>{},renderPlanningTimeline:()=>{},renderHubPlanningMini:()=>hub++};vm.createContext(ctx);
+vm.runInContext(html.slice(html.indexOf('function dedupliquerPlanningEmma('),html.indexOf('function repositionnerTachesFaitesAvantMaintenant(')),ctx);
+const handler=html.slice(html.indexOf('const dateValidation = estAujourdhui'),html.indexOf('\nreturn`<div',html.indexOf('const dateValidation = estAujourdhui')));
+(async()=>{
+ ctx.DB.journal.planning[day]=[{id:123,nom:'Test'}];ctx.DB.journal.planning[selected]=[{id:'other'}];
+ Object.assign(ctx,{p:{id:123},estAujourdhui:true,estDecisionRepas:false,clickable:false});
+ vm.runInContext(handler+'\nthis.handler=checkHandler;',ctx);
+ const button=dom.window.document.createElement('button');button.outerHTML;
+ const onclick=ctx.handler.match(/onclick="([^"]+)"/)[1];assert(onclick.includes(day));
+ ctx.event={stopPropagation:()=>{}};await vm.runInContext(onclick,ctx);
+ assert.equal(ctx.DB.journal.faitAujourdhui[day][123],true);assert.equal(ctx.DB.journal.faitAujourdhui[selected],undefined);assert.equal(saved,1);assert.equal(hub,1);
+ await ctx.togglePlanningFait('123',day);assert.equal(ctx.DB.journal.faitAujourdhui[day][123],undefined);
+ ctx.DB.journal.planning[day]=[{id:'a',stId:'same'},{id:'b',stId:'same',verrouille:true}];await ctx.togglePlanningFait('a',day);
+ assert.equal(ctx.DB.journal.faitAujourdhui[day].b,true,'Clicked duplicate resolves to retained task');
+ const formations=[['past','2026-01-01','2026-01-02'],['future','2026-11-01','2026-11-02'],['current','2026-10-24','2026-10-24'],['closed','2026-12-01','2026-12-02']].map(([id,dateFormation,dateFinFormation])=>({id,prenom:id,dateFormation,dateFinFormation,formation:'browlift',suiviFormation:{dossier_cloture:id==='closed'}}));
+ ctx.DB.formations={etudiantes:formations};vm.runInContext(html.slice(html.indexOf('function dateSessionFormation('),html.indexOf('function ouvrirSessionFormation(')),ctx);
+ assert.equal(ctx.getSessionsFormation().map(s=>s.etudiantes[0].id).join(','),'current,future,past,closed');
+ console.log('PASS: home checkbox works, explicit local date, numeric IDs, retained duplicates, check/uncheck, saved state, refreshed home, completed formations last.');
+})().catch(e=>{console.error(e);process.exit(1)});
