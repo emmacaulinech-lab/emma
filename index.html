@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Mono:wght@300;400;500&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <!-- Firebase SDKs -->
+<script src="journal-storage.js?v=1"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -8697,16 +8698,8 @@ async function loadAll() {
     await chargerExtensionsGlowSecurisees();
 
 
-    const journalDoc = await userRef
-      .collection('modules')
-      .doc('journal')
-      .get();
-
-    if(journalDoc.exists && journalDoc.data().data){
-      DB.journal = JSON.parse(
-        journalDoc.data().data
-      );
-    }
+    const journalCharge = await EmmaJournalStorage.load(userRef);
+    if(journalCharge) DB.journal = journalCharge;
 
 
     const humeursDoc = await userRef
@@ -8863,6 +8856,10 @@ async function migrerEmmaVersDocumentsSepares(){
 
   try{
     for(const [nom, donnees] of Object.entries(documents)){
+      if(nom === 'journal'){
+        await EmmaJournalStorage.save(userRef, donnees.data);
+        continue;
+      }
       await userRef
         .collection('modules')
         .doc(nom)
@@ -9017,10 +9014,7 @@ async function executerFileSauvegardes(){
 
     await sauvegarderGlowAvecSeancesEmma(JSON.stringify(DB.glow||{}),JSON.stringify(DB.historiqueGlow||[]));
 
-    await userRef.collection('modules').doc('journal').set({
-      data: JSON.stringify(DB.journal || {}),
-      updatedAt
-    }, {merge:true});
+    await EmmaJournalStorage.save(userRef, JSON.stringify(DB.journal || {}));
 
      await userRef.collection('modules').doc('humeurs').set({
   data: JSON.stringify(DB.humeurs || {}),
@@ -9190,10 +9184,7 @@ if(nomChamp === 'agendaImporte'){
 
     // JOURNAL / MAISON
     if(nomChamp === 'journal'){
-      await userRef.collection('modules').doc('journal').set({
-        data: valeur,
-        updatedAt
-      }, {merge:true});
+      await EmmaJournalStorage.save(userRef, valeur);
 
       return true;
     }
@@ -59632,7 +59623,8 @@ document.getElementById('todayLbl').textContent=new Date().toLocaleDateString('f
 <script src="planning-order.js?v=2"></script>
 <script src="daily-improvements.js?v=1"></script>
 <script src="comfort-fixes.js?v=4"></script>
-<script src="completion-safety.js?v=1"></script>
-<script src="dated-recovery.js?v=1"></script>
+<script src="completion-safety.js?v=2"></script>
+<script src="dated-recovery.js?v=2"></script>
 </body>
 </html>
+
