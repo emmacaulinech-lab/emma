@@ -5428,10 +5428,13 @@ button.emma-card-row{
 <div class="view" id="view-factures">
   <div class="sh">
     <div><div class="st">🧾 TVA</div><div class="ss">Import factures, rapprochement banque, gestion des exclusions</div></div>
-    <label class="btn bd" style="cursor:pointer">
-      + Importer des factures
-      <input type="file" accept="image/*,.pdf" multiple onchange="importerFacturesMultiples(event)" style="display:none">
-    </label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bg" onclick="ouvrirFactureManuelle()">✏️ Saisir manuellement</button>
+      <label class="btn bd" style="cursor:pointer">
+        + Importer des factures
+        <input type="file" accept="image/*,.pdf" multiple onchange="importerFacturesMultiples(event)" style="display:none">
+      </label>
+    </div>
   </div>
   <div class="ib">💡 Sélectionne plusieurs fichiers d'un coup pour les importer en série. Le rapprochement automatique tente ensuite de les relier à tes mouvements bancaires.</div>
   <div style="display:flex;gap:8px;margin-bottom:16px">
@@ -9679,7 +9682,7 @@ function tvaDed(mois){
   }).reduce((s,f)=>s+f.tva,0);
 
   const viaManuelle=DB.banque
-    .filter(b=>inM(b.date,mois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id))
+    .filter(b=>inM(b.date,mois)&&['ACHATS','CH. Fixe','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id))
     .reduce((s,b)=>s+Math.abs(b.tva||0),0);
 
   return viaFactures+viaManuelle;
@@ -12725,9 +12728,121 @@ async function saveFacture(f){
   try{ await userRef.collection('factures').doc(f.id).set(f); }catch(e){console.error(e);}
 }
 
+function nombreFactureEmma(valeur){
+  if(typeof valeur==='number') return Number.isFinite(valeur)?valeur:0;
+  const nettoye=String(valeur??'')
+    .replace(/\s|\u00a0/g,'')
+    .replace(/€/g,'')
+    .replace(',','.');
+  const nombre=Number.parseFloat(nettoye);
+  return Number.isFinite(nombre)?nombre:0;
+}
+
+function ouvrirFactureManuelle(factureId=''){
+  const f=factureId?DB_FACTURES.find(x=>x.id===factureId):null;
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('mTitle').textContent=f?'✏️ Corriger la facture':'🧾 Saisir une facture';
+  document.getElementById('mBody').innerHTML=`
+    <div class="ib" style="margin-bottom:14px">Tu peux corriger ici une facture mal lue. Les montants sont enregistrés directement dans la TVA, sans réimporter le document.</div>
+    <div class="fr"><label>Fournisseur</label><input id="fact-man-fournisseur" value="${echapperHtmlEmma(f?.fournisseur||'')}" placeholder="Ex. EDF, IONOS…"></div>
+    <div class="g2">
+      <div class="fr"><label>Date</label><input type="date" id="fact-man-date" value="${f?.date||today}"></div>
+      <div class="fr"><label>N° de facture</label><input id="fact-man-numero" value="${echapperHtmlEmma(f?.numeroFacture||'')}" placeholder="Facultatif"></div>
+    </div>
+    <div class="g2">
+      <div class="fr"><label>Montant HT (€)</label><input type="number" id="fact-man-ht" value="${f?.montantHT??''}" min="0" step="0.01"></div>
+      <div class="fr"><label>TVA (€)</label><input type="number" id="fact-man-tva" value="${f?.tva??''}" min="0" step="0.01"></div>
+    </div>
+    <div class="fr"><label>Montant TTC (€)</label><input type="number" id="fact-man-ttc" value="${f?.montantTTC??''}" min="0" step="0.01"></div>`;
+  const footer=document.querySelector('#mainModal .ma');
+  footer.style.display='flex';
+  footer.innerHTML=`<button class="btn bg" onclick="closeMo('mainModal')">Annuler</button><button class="btn bd" onclick="enregistrerFactureManuelle('${factureId}')">✓ Enregistrer</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+async function enregistrerFactureManuelle(factureId=''){
+  const existante=factureId?DB_FACTURES.find(x=>x.id===factureId):null;
+  const fournisseur=document.getElementById('fact-man-fournisseur')?.value.trim()||'';
+  const date=document.getElementById('fact-man-date')?.value||'';
+  let montantHT=Math.abs(nombreFactureEmma(document.getElementById('fact-man-ht')?.value));
+  const tva=Math.abs(nombreFactureEmma(document.getElementById('fact-man-tva')?.value));
+  let montantTTC=Math.abs(nombreFactureEmma(document.getElementById('fact-man-ttc')?.value));
+  if(!fournisseur||!date||(!montantTTC&&!montantHT)){toast('⚠ Renseigne au moins le fournisseur, la date et un montant');return;}
+  if(!montantTTC) montantTTC=Math.round((montantHT+tva)*100)/100;
+  if(!montantHT) montantHT=Math.max(0,Math.round((montantTTC-tva)*100)/100);
+  const facture={
+    ...(existante||{}),
+    id:existante?.id||genId(),
+    fournisseur,
+    date,
+    numeroFacture:document.getElementById('fact-man-numero')?.value.trim()||'—',
+    montantHT,
+    tva,
+    montantTTC,
+    rapprochee:existante?.rapprochee||false,
+    operationBanqueId:existante?.operationBanqueId||null,
+    saisieManuelle:true
+  };
+  if(existante) Object.assign(existante,facture); else DB_FACTURES.push(facture);
+  await saveFacture(facture);
+  if(facture.operationBanqueId) await recalcTvaLigneBanque(facture.operationBanqueId);
+  closeMo('mainModal');
+  renderFactures();renderTvaDetail();renderSansTva();renderAll();
+  toast(existante?'✓ Facture corrigée':'✓ Facture ajoutée');
+}
+
 async function deleteFactureFB(id){
   if(!userRef) return;
   try{ await userRef.collection('factures').doc(id).delete(); }catch(e){console.error(e);}
+}
+
+async function lirePdfFacturePourIA(file,maxPages=5){
+  if(!window.pdfjsLib){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const arrayBuffer=await file.arrayBuffer();
+  const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  let texte='';
+  const pages=[];
+  for(let i=1;i<=Math.min(pdf.numPages,maxPages);i++){
+    const page=await pdf.getPage(i);
+    const tc=await page.getTextContent();
+    const textePage=tc.items.map(x=>x.str).join(' ').trim();
+    texte+=textePage+'\n';
+    if(textePage.length<80&&pages.length<3){
+      const viewport=page.getViewport({scale:1.45});
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.round(viewport.width);canvas.height=Math.round(viewport.height);
+      await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+      pages.push(canvas.toDataURL('image/jpeg',.82).split(',')[1]);
+    }
+  }
+  return {texte:texte.trim(),pages};
+}
+
+async function convertirImageFacturePourIA(file){
+  return new Promise((resolve,reject)=>{
+    const lecteur=new FileReader();
+    lecteur.onerror=()=>reject(new Error('Image illisible'));
+    lecteur.onload=()=>{
+      const image=new Image();
+      image.onerror=()=>reject(new Error('Format d’image non reconnu — utilise la saisie manuelle'));
+      image.onload=()=>{
+        const max=1800,ratio=Math.min(1,max/Math.max(image.width,image.height));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(image.width*ratio));canvas.height=Math.max(1,Math.round(image.height*ratio));
+        canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+        resolve({base64:canvas.toDataURL('image/jpeg',.86).split(',')[1],mediaType:'image/jpeg'});
+      };
+      image.src=lecteur.result;
+    };
+    lecteur.readAsDataURL(file);
+  });
 }
 
 async function importerFacture(event){
@@ -12740,45 +12855,27 @@ async function importerFacture(event){
   el.innerHTML=`<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:12px;color:var(--mut)">Analyse de la facture...</div></div>`;
 
   try{
-    const base64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=rej;
-      r.readAsDataURL(file);
-    });
     const isPDF=file.type==='application/pdf';
+    const imageIA=isPDF?null:await convertirImageFacturePourIA(file);
     let content;
 
     if(isPDF){
-      if(!window.pdfjsLib){
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-          s.onload=res;s.onerror=rej;
-          document.head.appendChild(s);
-        });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-      const arrayBuffer=await file.arrayBuffer();
-      const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
-      let text='';
-      for(let i=1;i<=Math.min(pdf.numPages,3);i++){
-        const page=await pdf.getPage(i);
-        const tc=await page.getTextContent();
-        text+=tc.items.map(x=>x.str).join(' ')+'\n';
-      }
-      content=`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
+      const pdfLu=await lirePdfFacturePourIA(file,3);
+      const instruction=`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
 Réponds UNIQUEMENT en JSON valide sans backticks :
 {"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}
 
 Texte :
-${text.slice(0,4000)}`;
+${pdfLu.texte.slice(0,4000)}`;
+      content=pdfLu.pages.length
+        ?[...pdfLu.pages.map(data=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data}})),{type:'text',text:instruction}]
+        :instruction;
     }
 
     const body=isPDF
       ?{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content}]}
       :{model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'image',source:{type:'base64',media_type:imageIA.mediaType,data:imageIA.base64}},
           {type:'text',text:`Analyse cette facture et extrais : fournisseur, date (YYYY-MM-DD), numéro de facture, montant HT, montant TVA, montant TTC.
 Réponds UNIQUEMENT en JSON valide sans backticks :
 {"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}`}
@@ -12801,9 +12898,9 @@ Réponds UNIQUEMENT en JSON valide sans backticks :
       fournisseur:fd.fournisseur||'Inconnu',
       date:fd.date||new Date().toISOString().split('T')[0],
       numeroFacture:fd.numeroFacture||'—',
-      montantHT:parseFloat(fd.montantHT)||0,
-      tva:parseFloat(fd.tva)||0,
-      montantTTC:parseFloat(fd.montantTTC)||0,
+      montantHT:nombreFactureEmma(fd.montantHT),
+      tva:nombreFactureEmma(fd.tva),
+      montantTTC:nombreFactureEmma(fd.montantTTC),
       rapprochee:false,
       operationBanqueId:null
     };
@@ -12829,7 +12926,7 @@ function renderTvaDetail(){
   const collecteLignes=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['CA','VIR'].includes(b.categorie)&&b.montant!==0);
   const totalCollecte=collecteLignes.reduce((s,b)=>s+(b.montant/(1+PARAMS.tva)*PARAMS.tva),0);
 
-  const dedLignesBanque=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['ACHATS','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id));
+  const dedLignesBanque=DB.banque.filter(b=>inM(b.date,tvaDetailMois)&&['ACHATS','CH. Fixe','CH. Variable'].includes(b.categorie)&&(b.tva||0)<0&&!DB_FACTURES.some(f=>f.operationBanqueId===b.id));
   const dedFactures=DB_FACTURES.filter(f=>{
     const b=DB.banque.find(x=>x.id===f.operationBanqueId);
     return b&&inM(b.date,tvaDetailMois);
@@ -12914,7 +13011,7 @@ function renderFactures(){
       <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--pla)">${fa(f.tva)}</td>
       <td class="tn" style="text-align:right">${fa(f.montantTTC)}</td>
       <td style="text-align:center">${f.rapprochee?'✅':`<button class="btn bg bsm" onclick="ouvrirRapprochementFacture('${f.id}')">🔗</button>`}</td>
-      <td><button class="btn br bsm" onclick="delFacture('${f.id}')">✕</button></td>
+      <td><div style="display:flex;gap:5px"><button class="btn bg bsm" onclick="ouvrirFactureManuelle('${f.id}')">✏️</button><button class="btn br bsm" onclick="delFacture('${f.id}')">✕</button></div></td>
     </tr>`;
   }
   html+=`<tr class="trt"><td colspan="3">TOTAL</td>
@@ -12929,26 +13026,22 @@ function renderFactures(){
 async function importerFacturesMultiples(event){
   const files=[...event.target.files];
   if(!files.length) return;
+  let nombreImportees=0;
   for(const file of files){
-    await importerUneFacture(file);
+    nombreImportees+=await importerUneFacture(file);
   }
   event.target.value='';
   renderFactures();
   renderSansTva();
-  toast(`✓ ${files.length} facture(s) traitée(s)`);
+  toast(nombreImportees?`✓ ${nombreImportees} facture(s) importée(s)`:"⚠ Aucune facture lue — utilise « Saisir manuellement »");
 }
 
 async function importerUneFacture(file){
   const apiKey=localStorage.getItem('anthropic_key');
-  if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return;}
+  if(!apiKey){toast('⚠ Configure ta clé API d\'abord');return 0;}
   try{
-    const base64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=rej;
-      r.readAsDataURL(file);
-    });
     const isPDF=file.type==='application/pdf';
+    const imageIA=isPDF?null:await convertirImageFacturePourIA(file);
     let content;
     const promptTexte=`Analyse ce document, qui peut contenir UNE ou PLUSIEURS factures distinctes.
 
@@ -12958,29 +13051,16 @@ Réponds UNIQUEMENT avec un tableau JSON valide, sans backticks, sans texte avan
 [{"fournisseur":"...","date":"2026-01-15","numeroFacture":"...","montantHT":100,"tva":20,"montantTTC":120}]`;
 
     if(isPDF){
-      if(!window.pdfjsLib){
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-          s.onload=res;s.onerror=rej;
-          document.head.appendChild(s);
-        });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-      const arrayBuffer=await file.arrayBuffer();
-      const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
-      let text='';
-      for(let i=1;i<=Math.min(pdf.numPages,10);i++){
-        const page=await pdf.getPage(i);
-        const tc=await page.getTextContent();
-        text+=tc.items.map(x=>x.str).join(' ')+'\n';
-      }
-      content=`${promptTexte}\n\nTexte du document :\n${text.slice(0,8000)}`;
+      const pdfLu=await lirePdfFacturePourIA(file,10);
+      const instruction=`${promptTexte}\n\nTexte du document :\n${pdfLu.texte.slice(0,8000)}`;
+      content=pdfLu.pages.length
+        ?[...pdfLu.pages.map(data=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data}})),{type:'text',text:instruction}]
+        :instruction;
     }
     const body=isPDF
       ?{model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content}]}
       :{model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'image',source:{type:'base64',media_type:imageIA.mediaType,data:imageIA.base64}},
           {type:'text',text:promptTexte}
         ]}]};
     const response=await fetchIAAvecLoaderEmma('https://api.anthropic.com/v1/messages',{
@@ -12992,34 +13072,38 @@ Réponds UNIQUEMENT avec un tableau JSON valide, sans backticks, sans texte avan
     if(data.error) throw new Error(data.error.message||data.error);
     const text2=data.content.map(i=>i.text||'').join('');
     const match=text2.match(/\[[\s\S]*\]/);
-    if(!match){ console.error('Aucun JSON tableau trouvé dans:', text2); return; }
+    if(!match){ console.error('Aucun JSON tableau trouvé dans:', text2); return 0; }
 
     let facturesDetectees;
     try{
       facturesDetectees=JSON.parse(match[0]);
     }catch(parseErr){
       console.error('Erreur de parsing JSON:', parseErr, 'Texte brut:', match[0]);
-      return;
+      return 0;
     }
 
+    let nombreImportees=0;
     for(const fd of facturesDetectees){
       const facture={
         id:genId(),
         fournisseur:fd.fournisseur||'Inconnu',
         date:fd.date||new Date().toISOString().split('T')[0],
         numeroFacture:fd.numeroFacture||'—',
-        montantHT:parseFloat(fd.montantHT)||0,
-        tva:parseFloat(fd.tva)||0,
-        montantTTC:parseFloat(fd.montantTTC)||0,
+        montantHT:nombreFactureEmma(fd.montantHT),
+        tva:nombreFactureEmma(fd.tva),
+        montantTTC:nombreFactureEmma(fd.montantTTC),
         rapprochee:false,
         operationBanqueId:null
       };
       DB_FACTURES.push(facture);
       await saveFacture(facture);
+      nombreImportees++;
     }
+    return nombreImportees;
   }catch(e){
     console.error('Erreur import facture:',e);
-    toast('⚠️ Erreur import facture: '+e.message);
+    toast(`⚠️ ${file.name} non lue — tu peux la saisir manuellement`);
+    return 0;
   }
 }
 
@@ -13492,8 +13576,8 @@ function buildForm(ctx, editId=null){
       <div class="fr"><label>Catégorie</label>
         <select id="fCat" onchange="calcTvaAuto()">${CAT_BANQUE.map(c=>`<option${t&&t.categorie===c?' selected':''}>${c}</option>`).join('')}</select>
       </div>
-      <div class="fr"><label>TVA (€) <span style="font-size:10px;color:var(--pla)">(auto VIR/CA)</span></label>
-        <input type="number" id="fTva" value="${t?t.tva:0}" placeholder="0.00" step="0.01">
+      <div class="fr"><label>TVA (€) <span style="font-size:10px;color:var(--pla)">(auto VIR/CA · modifiable)</span></label>
+        <input type="number" id="fTva" value="${t?Math.abs(Number(t.tva)||0):0}" placeholder="0.00" step="0.01" data-auto-tva="0" oninput="this.dataset.autoTva='0'">
       </div>
     </div>`;
   }
@@ -13563,9 +13647,11 @@ function calcTvaAuto(){
   const cat=catEl.value;
   const mnt=parseFloat(mntEl.value)||0;
   if(['VIR','CA'].includes(cat)){
-    tvaEl.value=calculerTvaBanque(mnt,cat).toFixed(2);
-  } else {
+    tvaEl.value=Math.abs(calculerTvaBanque(mnt,cat)).toFixed(2);
+    tvaEl.dataset.autoTva='1';
+  } else if(tvaEl.dataset.autoTva==='1'){
     tvaEl.value='0';
+    tvaEl.dataset.autoTva='0';
   }
 }
 
@@ -13613,9 +13699,14 @@ async function saveEntry(addAnother=false){
     } else if(mCtx==='banque'){
       const montant=parseFloat(g('fMnt'));
       const categorie=g('fCat');
+      const tvaSaisie=parseFloat(g('fTva'));
+      const tvaCalculee=calculerTvaBanque(montant,categorie);
+      const tva=Number.isFinite(tvaSaisie)
+        ?(montant<0?-Math.abs(tvaSaisie):Math.abs(tvaSaisie))
+        :tvaCalculee;
       const ancienneBanque=mEditId?DB.banque.find(x=>x.id===mEditId):null;
       const ancienMoisAchat=ancienneBanque?.categorie==='ACHATS'?dm(ancienneBanque.date):'';
-      const t={...(ancienneBanque||{}),id,date:g('fDate'),nom:g('fNom'),montant,categorie,tva:calculerTvaBanque(montant,categorie)};
+      const t={...(ancienneBanque||{}),id,date:g('fDate'),nom:g('fNom'),montant,categorie,tva};
       if(!t.date||isNaN(t.montant)||!t.nom){toast('⚠ Remplis tous les champs');return;}
       if(mEditId){ const i=DB.banque.findIndex(x=>x.id===mEditId); DB.banque[i]=t; }
       else DB.banque.push(t);
