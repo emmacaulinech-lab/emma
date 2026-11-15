@@ -1,6 +1,6 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
 process.chdir(require('path').join(__dirname,'..'));
-const html=fs.readFileSync('index.html','utf8'),day='2026-10-24';
+const html=require('./read-app.cjs')(),day='2026-10-24';
 const dom=new JSDOM('<body><div id="module-maison"></div></body>');
 let saved=0,hub=0,selected='2026-10-22';
 const ctx={document:dom.window.document,Date,console,DB:{journal:{planning:{},zones:[]}},dateLocaleISO:()=>day,getJournalJour:()=>selected,minToStr:()=> '12:00',strToMin:()=>0,cleTachePlanningEmma:b=>b.stId||b.id,cleOccurrenceMaisonEmma:b=>b.stId||b.id,trouverSousTacheJournalEmma:()=>null,estTacheMaisonPlanningEmma:()=>false,estRendezVousPlanningEmma:()=>false,marquerEquivalentsCatalogueFaitsEmma:()=>{},nettoyerCopiesTachesFaitesEmma:()=>{},repositionnerTachesFaitesAvantMaintenant:()=>{},mettreAJourBilanAutoEmma:()=>{},sauvegarderChampSeul:async()=>{saved++;return true},recalculerResteJourneeEmma:async()=>{},renderPlanningTimeline:()=>{},renderHubPlanningMini:()=>hub++};vm.createContext(ctx);
@@ -22,3 +22,4 @@ const handler=html.slice(html.indexOf('const dateValidation = estAujourdhui'),ht
  assert.equal(ctx.getSessionsFormation().map(s=>s.etudiantes[0].id).join(','),'current,future,past,closed');
  console.log('PASS: home checkbox works, explicit local date, numeric IDs, retained duplicates, check/uncheck, saved state, refreshed home, completed formations last.');
 })().catch(e=>{console.error(e);process.exit(1)});
+

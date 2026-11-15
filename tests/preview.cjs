@@ -59,7 +59,7 @@ const server=http.createServer(async(req,res)=>{
  }
  const pathname=new URL(req.url,'http://localhost').pathname;
  if(pathname==='/'){
-   let html=fs.readFileSync(path.join(root,'index.html'),'utf8').replace(/<script[^>]*\bsrc=[^>]*><\/script>/g,'');
+   let html=require('./read-app.cjs')().replace(/<script[^>]*\bsrc=[^>]*><\/script>/g,'');
    const start=`<script>const QA_DOCS=${JSON.stringify(docs).replace(/</g,'\\u003c')};(${mocks.toString()})();</script>`;
    html=html.replace('<head>','<head><script src="/qa-pdf-lib.js"></script><meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: blob:; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; connect-src \'self\';">'+start);
    const fin=html.lastIndexOf('</body>');html=html.slice(0,fin)+bootstrap+html.slice(fin);
@@ -68,3 +68,4 @@ const server=http.createServer(async(req,res)=>{
  const file=path.join(root,decodeURIComponent(pathname));if(file.startsWith(root)&&fs.existsSync(file)&&fs.statSync(file).isFile()){res.end(fs.readFileSync(file));return;}
  res.statusCode=404;res.end();
 });server.listen(Number(process.env.PORT||8765),'127.0.0.1',()=>console.log(`Preview isolée : http://127.0.0.1:${process.env.PORT||8765}`));
+

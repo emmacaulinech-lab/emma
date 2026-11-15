@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict'),{JSDOM}=require('jsdom'),PDFLib=require('pdf-lib');
 process.chdir(path.join(__dirname,'..'));
-const html=fs.readFileSync('index.html','utf8');
+const html=require('./read-app.cjs')();
 const dom=new JSDOM('<body></body>');
 dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true};
 dom.window.HTMLDialogElement.prototype.close=function(){this.open=false};
@@ -26,3 +26,4 @@ vm.runInContext(html.slice(html.indexOf('function formationTermineeCertificatEmm
  assert(html.includes("(e.financement?.type==='perso'||formationTermineeCertificatEmma(e))?`<button"));
  console.log('PASS: 16 certificats personnels, 8 formations, kit offert/payant, formulaire avec dates manquantes, refus des dates futures, aucune mention CPF.');
 })().catch(e=>{console.error(e);process.exit(1)});
+
