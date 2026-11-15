@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const core=read('app-core.js').replace('/*__LIMAGECILS_FORMATIONS__*/\n',()=>read('modules/limagecils-formations.js'));
-assert.equal(createHash('sha256').update(core).digest('hex'),'2a083ec70f5702eb378d0718e4f5d58cfeb1c2a119af27df7d6c75170c3eb5d9','Le script de séparation est reconstitué à l’identique');
+assert.equal(createHash('sha256').update(core).digest('hex'),'50962e8846f1347faefeddb5dfb10622c7d15eefb5e7f75f6f00211cdae1df77','Le script de séparation est reconstitué à l’identique');
 new vm.Script(core);
 for(const p of ['app-loader.js','workspace-navigation.js','micro-preparation.js'])new vm.Script(read(p));
 for(const entry of ['index.html']){

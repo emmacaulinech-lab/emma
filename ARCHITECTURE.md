@@ -19,3 +19,7 @@ La société garde ses calculs et son historique. Le panneau Micro-entreprise en
 Le dépôt LIMAGECILS a sa propre suite `tests/standalone.cjs`. La prévisualisation HTTP locale est bloquée par l'environnement ; les parcours authentifiés, les PDF et les suites nécessitant les dépendances externes restent à vérifier. Les modèles PDF et images de kits conservent leurs URL actuelles dans EMMA : ne pas les supprimer.
 
 Publier les deux modifications de façon coordonnée et fermer les anciennes fenêtres EMMA avant utilisation de la nouvelle version pour éviter l'exécution de l'ancien code de sauvegarde encore présent en mémoire. Aucun changement des données de production n'a été fait pendant la préparation.
+
+## Connexion explicite
+
+EMMA ne traite plus une session Firebase restaurée comme une ouverture autorisée. La persistance est limitée à l’onglet et l’authentification précédente est effacée à l’ouverture. L’utilisateur valide ses identifiants à chaque ouverture/rechargement ; l’autoremplissage reste possible. Les données ne se chargent qu’après réussite du formulaire. Le départ de la page, le retour arrière et l’ouverture de LIMAGECILS dans un autre onglet masquent les vues et révoquent la validation en mémoire. Aucun indicateur permanent d’accès n’est stocké. `tests/explicit-login.cjs` couvre ces scénarios, ainsi que l’absence de sauvegarde de clé API après un échec.

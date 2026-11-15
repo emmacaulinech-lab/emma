@@ -16,6 +16,10 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
 
+let emmaValidatedUid=null;
+let emmaOpenedUid=null;
+let emmaLoginInProgress=false;
+
 let currentUser = null;
 let userRef = null;
 let chargementReussi = false;
@@ -52,14 +56,14 @@ let banquePersoCategories=[];
 
 // Détecte automatiquement une session Ma Compta déjà active (survit aux rechargements)
 banquePersoAuth.onAuthStateChanged(async user => {
-  if(user){
+  if(user&&emmaValidatedUid&&auth.currentUser?.uid===emmaValidatedUid){
     banquePersoUid = user.uid;
     await loadSoldeBanquePerso();
     renderHubOverview();
   }
 });
 facturationAuth.onAuthStateChanged(async user => {
-  if(user){
+  if(user&&emmaValidatedUid&&auth.currentUser?.uid===emmaValidatedUid){
     facturationUid = user.uid;
     await loadFacturesLimagecils();
     renderHubOverview();
@@ -69,55 +73,68 @@ facturationAuth.onAuthStateChanged(async user => {
 // ═══════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════
-async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pwd = document.getElementById('loginPwd').value;
-  const apiKey = document.getElementById('loginApiKey').value.trim();
-  if(apiKey) localStorage.setItem('anthropic_key', apiKey);
-  const errEl = document.getElementById('loginErr');
-  errEl.textContent = '';
-  try {
-    await auth.signInWithEmailAndPassword(email, pwd);
-    // Connexion silencieuse au compte Facturation pour les notifs
-    try {
-      const cred = await facturationAuth.signInWithEmailAndPassword(email, pwd);
-      facturationUid = cred.user.uid;
-      await loadFacturesLimagecils();
-    } catch(e2) {
-      console.warn('Connexion Facturation impossible:', e2.message);
-    }
-    // Connexion silencieuse au compte Ma Compta pour le solde perso
-    try {
-      const cred2 = await banquePersoAuth.signInWithEmailAndPassword(email, pwd);
-      banquePersoUid = cred2.user.uid;
-      await loadSoldeBanquePerso();
-      renderHubOverview(); // rafraîchit le Hub une fois le solde chargé
-    } catch(e3) {
-      console.warn('Connexion Banque perso impossible:', e3.message);
-    }
-  } catch(e) {
-    errEl.textContent = 'Email ou mot de passe incorrect.';
-  }
+const emmaAuthStartup=auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(()=>auth.signOut());
+emmaAuthStartup.catch(error=>{console.error('Initialisation connexion EMMA',error);});
+function verrouillerSessionEmma(){
+  emmaValidatedUid=null;emmaOpenedUid=null;currentUser=null;userRef=null;
+  chargementReussi=false;chargementInitialEnCours=false;
+  document.getElementById('loginPage').style.display='flex';
+  document.getElementById('hubPage').style.display='none';
+  document.getElementById('app').classList.remove('visible');
+  document.querySelectorAll('[id^="module-"]').forEach(module=>{module.style.display='none';});
+  document.querySelectorAll('.mo.open').forEach(modal=>modal.classList.remove('open'));
+  document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
 }
-
-function doLogout() {
-  auth.signOut();
+function annoncerEspaceEmma(){
+  localStorage.setItem('workspace_access_event',JSON.stringify({app:'emma',nonce:Date.now()+':'+Math.random()}));
 }
-
-document.getElementById('loginPwd').addEventListener('keydown', e => {
-  if(e.key === 'Enter') doLogin();
-});
-
-auth.onAuthStateChanged(async user => {
-  if(user) {
+async function doLogin(){
+  if(emmaLoginInProgress)return;
+  const email=document.getElementById('loginEmail').value.trim();
+  const pwd=document.getElementById('loginPwd').value;
+  const apiKey=document.getElementById('loginApiKey').value.trim();
+  const errEl=document.getElementById('loginErr');errEl.textContent='';
+  if(!email||!pwd){errEl.textContent='Renseigne ton e-mail et ton mot de passe.';return;}
+  emmaLoginInProgress=true;
+  try{
+    await emmaAuthStartup;
+    const credential=await auth.signInWithEmailAndPassword(email,pwd);
+    emmaValidatedUid=credential.user.uid;
+    if(apiKey)localStorage.setItem('anthropic_key',apiKey);else localStorage.removeItem('anthropic_key');
+    document.getElementById('loginPwd').value='';
+    annoncerEspaceEmma();
+    await appliquerSessionEmma(credential.user);
+    if(emmaValidatedUid!==credential.user.uid)return;
+    try{
+      const cred=await facturationAuth.signInWithEmailAndPassword(email,pwd);
+      if(emmaValidatedUid!==credential.user.uid)return;
+      facturationUid=cred.user.uid;await loadFacturesLimagecils();
+    }catch(error){console.warn('Connexion Facturation impossible:',error.message);}
+    try{
+      const cred=await banquePersoAuth.signInWithEmailAndPassword(email,pwd);
+      if(emmaValidatedUid!==credential.user.uid)return;
+      banquePersoUid=cred.user.uid;await loadSoldeBanquePerso();renderHubOverview();
+    }catch(error){console.warn('Connexion Banque perso impossible:',error.message);}
+  }catch(error){
+    verrouillerSessionEmma();
+    errEl.textContent=error.code?.startsWith('auth/')?'Connexion impossible : vérifie ton e-mail et ton mot de passe.':'Connexion ou chargement impossible. Réessaie.';
+  }finally{emmaLoginInProgress=false;}
+}
+function doLogout(){verrouillerSessionEmma();auth.signOut();}
+document.getElementById('loginPwd').addEventListener('keydown',event=>{if(event.key==='Enter')doLogin();});
+async function appliquerSessionEmma(user){
+  if(user&&emmaValidatedUid===user.uid){
+    if(emmaOpenedUid===user.uid)return;
+    emmaOpenedUid=user.uid;
     currentUser = user;
     userRef = db.collection('users').doc(user.uid);
     chargementInitialEnCours = true;
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('userEmail').textContent = user.email;
     await loadAll();
+    if(emmaValidatedUid!==user.uid||auth.currentUser?.uid!==user.uid)return;
     chargementInitialEnCours = false;
-    if(!chargementReussi) return;
+    if(!chargementReussi){verrouillerSessionEmma();document.getElementById('loginErr').textContent='Chargement impossible. Réessaie.';return;}
     // Les champs HTML contiennent des valeurs de secours codées en dur.
     // Après Firebase, on doit toujours les remplacer par les vrais paramètres.
     applyParamsToUI();
@@ -128,6 +145,7 @@ auth.onAuthStateChanged(async user => {
     if(synchroniserPrevusSalairesExistantsEmma()){
       await sauvegarderChampSeul('fixes',JSON.stringify(DB.fixes));
     }
+    if(emmaValidatedUid!==user.uid||currentUser?.uid!==user.uid)return;
     goHub();
     setTimeout(decalerTachesEnRetardAutomatiquementEmma,450);
     setTimeout(initialiserAccueilConversationEmma,700);
@@ -137,14 +155,18 @@ auth.onAuthStateChanged(async user => {
         await synchroniserNotificationsPlanningEmma(new Date().toLocaleDateString('fr-CA'));
       },1200);
     }
-  } else {
-    chargementInitialEnCours = false;
-    currentUser = null;
-    userRef = null;
-    document.getElementById('loginPage').style.display = 'flex';
-    document.getElementById('app').classList.remove('visible');
-  }
+  }else verrouillerSessionEmma();
+}
+auth.onAuthStateChanged(user=>{appliquerSessionEmma(user).catch(error=>{console.error(error);verrouillerSessionEmma();document.getElementById('loginErr').textContent='Chargement impossible. Réessaie.';});});
+window.addEventListener('storage',event=>{
+  if(event.key!=='workspace_access_event')return;
+  try{if(JSON.parse(event.newValue||'null')?.app==='limagecils')verrouillerSessionEmma();}catch{}
 });
+window.addEventListener('pagehide',verrouillerSessionEmma);
+window.addEventListener('pageshow',event=>{if(event.persisted){verrouillerSessionEmma();annoncerEspaceEmma();}});
+document.getElementById('apiKeyField').style.display='';
+document.getElementById('loginApiKey').value=localStorage.getItem('anthropic_key')||'';
+annoncerEspaceEmma();
 
 // ═══════════════════════════════════════
 // DATA — Firebase Firestore
