@@ -1,6 +1,6 @@
 process.chdir(require('path').join(__dirname,'..'));
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),PDFLib=require('pdf-lib'),{webcrypto}=require('crypto'),acorn=require('acorn');
-const html=fs.readFileSync('index.html','utf8');
+const html=require('./read-app.cjs')();
 for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=|application\/ld\+json/.test(m[1]))acorn.parse(m[2],{ecmaVersion:'latest',sourceType:'script',allowReturnOutsideFunction:true});
 const ctx={PDFLib,crypto:webcrypto,Date,getLabelFormation:x=>x,console};vm.createContext(ctx);
 vm.runInContext(html.slice(html.indexOf('const DOCUMENTS_FORMATION ='),html.indexOf('// Compatibilité avec le nom de la fonction existante.'))+'\nthis.api={getDonneesDocumentsFormation,remplirConvocationEmma};',ctx);
@@ -23,3 +23,4 @@ vm.runInContext(html.slice(html.indexOf('const DOCUMENTS_FORMATION ='),html.inde
  assert(!html.includes('pdf.removePage(0)'));
  console.log('PASS: syntaxe, 8 PDF générés, mapping personnel/CPF, intégrité SHA-256, deux pages conservées.');
 })().catch(e=>{console.error(e);process.exit(1)});
+

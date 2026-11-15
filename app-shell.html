@@ -1,0 +1,1468 @@
+
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="login-logo">✦ EMMA</div>
+    <div class="login-sub">Comptabilité · Accès privé</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="ton@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+    </div>
+     <div class="login-field" id="apiKeyField" style="display:none">
+      <label>Clé API Anthropic <span style="font-size:10px;color:var(--mut)">(une seule fois)</span></label>
+      <input type="text" id="loginApiKey" placeholder="sk-ant-..." autocomplete="off">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Se connecter</button>
+    <div class="login-error" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="hub" id="hubPage" style="display:none;min-height:100vh;align-items:stretch;justify-content:flex-start;flex-direction:column">
+
+  <section class="emma-home-hero">
+
+    <div style="flex:1">
+
+      <div
+        class="emma-home-kicker"
+        id="emma-date"
+      >
+        AUJOURD’HUI
+      </div>
+
+      <div class="emma-home-title">
+        Bonjour Emma ✨
+      </div>
+
+      <div
+        class="emma-home-subtitle"
+        id="emma-resume-jour"
+      ></div>
+
+    </div>
+
+    <button
+  class="emma-brain-button"
+  type="button"
+  aria-label="Assistant EMMA"
+  title="Assistant EMMA"
+  onclick="ouvrirAssistantEmma()"
+>
+  ✦
+</button>
+
+  </section>
+
+  <div class="emma-home-quick-strip" aria-label="Accès rapides">
+    <button type="button" onclick="goModule('journal')">📅 Agenda</button>
+    <button type="button" onclick="ouvrirAssistantEmma()">✦ Assistante</button>
+    <button type="button" onclick="ouvrirVueMinuteEmma()">◷ Vue minute</button>
+    <button id="emma-enable-notifications" type="button" onclick="activerNotificationsEmma()">🔔 Notifications</button>
+  </div>
+
+
+ <!-- ═══════════════ HUB — CARTES INTELLIGENTES ═══════════════ -->
+
+<div class="emma-hub-grid" id="hub-modules-grid">
+
+  <!-- JOURNAL -->
+  <section class="hub-smart-card journal-smart-card emma-dashboard-card emma-journal-card" onclick="goModule('journal')">
+
+    <div class="hub-smart-header">
+      <div>
+        <div class="hub-smart-kicker">📔 JOURNAL</div>
+        <div class="hub-smart-title">Aujourd’hui</div>
+      </div>
+
+      <div class="hub-smart-icon">✓</div>
+    </div>
+
+    <div
+      id="hub-planning-wrap"
+      class="hub-smart-content"
+      style="display:none"
+    >
+      <div id="hub-planning-mini"></div>
+    </div>
+
+    <div
+      class="hub-smart-inner"
+      onclick="event.stopPropagation()"
+    >
+      <div class="hub-smart-label">À faire</div>
+
+      <div class="emma-todo-add">
+        <input
+          type="text"
+          id="todo-input"
+          placeholder="Ajouter une note rapide..."
+          onkeypress="if(event.key==='Enter')ajouterTodo()"
+        >
+
+        <button
+          class="btn bd bsm"
+          onclick="ajouterTodo()"
+        >
+          +
+        </button>
+      </div>
+
+      <div id="todos-list"></div>
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-journal"></div>
+
+    <div class="hub-smart-footer">
+      Ouvrir mon journal →
+    </div>
+
+  </section>
+
+  <!-- MAISON -->
+  <section class="hub-smart-card emma-house-card emma-dashboard-card" onclick="ouvrirMaisonDepuisHub()">
+    <div class="hub-smart-header">
+      <div>
+        <div class="hub-smart-kicker">🏠 MAISON</div>
+        <div class="hub-smart-title">État des pièces</div>
+      </div>
+      <div class="hub-smart-icon">⌂</div>
+    </div>
+    <div class="emma-card-rows" id="hub-house-mini"></div>
+    <div class="hub-smart-footer">Voir →</div>
+  </section>
+
+  <!-- TRAVAIL -->
+  <section class="hub-smart-card emma-work-card emma-dashboard-card" onclick="emmaNavigate('travail')">
+    <div class="hub-smart-header">
+      <div>
+        <div class="hub-smart-kicker">💼 TRAVAIL</div>
+        <div class="hub-smart-title">Mon travail</div>
+      </div>
+      <div class="hub-smart-icon">▣</div>
+    </div>
+    <div class="emma-card-rows">
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('compta')">
+        <span>💼</span><span><strong>Emploi</strong><small id="hub-work-employment">Agenda et activité</small></span><span>›</span>
+      </button>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('formations')">
+        <span>🎓</span><span><strong>Formations</strong><small id="hub-work-training">Élèves et kits</small></span><span>›</span>
+      </button>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('facturation-perso')"><span>🧾</span><span><strong>Ma facturation</strong><small>Mes factures · EMMA</small></span><span>›</span></button>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();goModule('facturation')">
+        <span>🧾</span><span><strong>Facturation</strong><small id="hub-work-billing">Factures et règlements</small></span><span>›</span>
+      </button>
+    </div>
+    <div class="hub-smart-footer">Continuer →</div>
+  </section>
+
+
+  <!-- GLOW -->
+  <section class="hub-smart-card glow-smart-card emma-dashboard-card" onclick="goModule('glow')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">✨ GLOW</div>
+        <div class="hub-smart-title">Nutrition, sport &amp; hydratation</div>
+      </div>
+
+      <div class="glow-score-circle">
+        <span id="hub-glow-score">0%</span>
+      </div>
+
+    </div>
+
+
+    <div class="emma-card-rows">
+      <div class="emma-card-row"><span>💧</span><span><strong>Eau</strong><small id="hub-glow-water">0 / 8 verres</small></span></div>
+      <div class="emma-card-row"><span>🏃</span><span><strong>Sport</strong><small id="hub-glow-sport">0 / 30 min</small></span></div>
+      <div class="emma-card-row"><span>🥗</span><span><strong>Nutrition</strong><small id="hub-glow-meals">0 repas renseigné</small></span></div>
+      <button class="emma-card-row" type="button" onclick="event.stopPropagation();ouvrirOutfitDuJourGlow()"><span>👗</span><span><strong>Outfit of the day ?</strong><small>Ajouter ma tenue</small></span><span>›</span></button>
+    </div>
+
+    <div class="emma-glow-meal-actions" onclick="event.stopPropagation()">
+      <button type="button" onclick="renseignerRepasDepuisHub()">Renseigner un repas</button>
+      <button type="button" onclick="choisirRepasDepuisHub()">Choisir un repas</button>
+      <button type="button" onclick="prendreRepasPhotoDepuisHub()">📸 Prendre mon repas en photo</button>
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-glow"></div>
+
+    <div class="hub-smart-footer">
+      Continuer →
+    </div>
+
+  </section>
+
+
+  <!-- COMPTA -->
+  <section class="hub-smart-card compta-smart-card hub-legacy-card" onclick="goModule('compta')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">💰 COMPTA</div>
+        <div class="hub-smart-title">Disponible</div>
+      </div>
+
+      <div class="hub-smart-icon">💰</div>
+
+    </div>
+
+
+    <div
+      class="compta-solde"
+      id="compta-solde"
+    >
+      -- €
+    </div>
+
+
+    <div
+      class="compta-actions"
+      onclick="event.stopPropagation()"
+    >
+
+      <label class="mini-action">
+
+        📅 Importer Planity
+
+        <input
+          type="file"
+          accept="image/*"
+          onchange="importerPlanity(event)"
+          hidden
+        >
+
+      </label>
+
+
+      <label class="mini-action">
+
+        🏦 Importer Banque
+
+        <input
+          type="file"
+          accept="image/*"
+          onchange="importBanqueImage(event)"
+          hidden
+        >
+
+      </label>
+
+    </div>
+
+
+    <div class="compta-info">
+
+      <div>
+        📈 CA estimé
+        <strong id="compta-ca">-- €</strong>
+      </div>
+
+      <div>
+        🧾 TVA
+        <strong id="compta-tva">0 facture</strong>
+      </div>
+
+    </div>
+
+
+    <div class="hub-card-notifications" id="hub-notifs-compta"></div>
+
+    <div
+      id="hub-virements-wrap"
+      style="display:none"
+      class="hub-smart-inner"
+    >
+      <div class="hub-smart-label">
+        ⏳ Virements en attente
+      </div>
+
+      <div id="hub-virements"></div>
+    </div>
+
+
+    <div style="display:none">
+      <span id="hub-solde-pro">—</span>
+    </div>
+
+    <div class="hub-smart-footer">
+      Continuer →
+    </div>
+
+  </section>
+
+
+  <!-- FORMATIONS -->
+  <section class="hub-smart-card formations-smart-card hub-legacy-card" onclick="goModule('formations')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">🎓 FORMATIONS</div>
+        <div class="hub-smart-title">Élèves & kits</div>
+      </div>
+
+      <div class="hub-smart-icon">🎓</div>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-formations"></div>
+
+    <div class="hub-smart-empty" id="hub-empty-formations">
+      Tout est à jour ✨
+    </div>
+
+    <div class="hub-smart-footer">
+      Ouvrir les formations →
+    </div>
+
+  </section>
+
+
+  <!-- FACTURATION -->
+  <section class="hub-smart-card facturation-smart-card hub-legacy-card" onclick="goModule('facturation')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">🧾 FACTURATION</div>
+        <div class="hub-smart-title">LIMAGECILS</div>
+      </div>
+
+      <div class="hub-smart-icon">🧾</div>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-facturation"></div>
+
+    <div class="hub-smart-empty" id="hub-empty-facturation">
+      Rien à relancer ✨
+    </div>
+
+    <div class="hub-smart-footer">
+      Voir les factures →
+    </div>
+
+  </section>
+
+
+  <!-- BANQUE PERSO -->
+  <section class="hub-smart-card banque-smart-card hub-legacy-card" onclick="goModule('banqueperso')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">👛 BANQUE PERSO</div>
+        <div class="hub-smart-title">Mon argent</div>
+      </div>
+
+      <div class="hub-smart-icon">👛</div>
+
+    </div>
+
+    <div class="hub-smart-balance">
+
+      <span>Solde</span>
+
+      <strong id="hub-solde-perso">
+        —
+      </strong>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-banqueperso"></div>
+
+    <div class="hub-smart-footer">
+      Voir mes finances →
+    </div>
+
+  </section>
+
+
+  <!-- LECTURE -->
+  <section class="hub-smart-card lecture-smart-card hub-legacy-card" onclick="goModule('lecture')">
+
+    <div class="hub-smart-header">
+
+      <div>
+        <div class="hub-smart-kicker">📚 LECTURE</div>
+        <div class="hub-smart-title">Mes lectures</div>
+      </div>
+
+      <div class="hub-smart-icon">📚</div>
+
+    </div>
+
+    <div class="hub-card-notifications" id="hub-notifs-lecture"></div>
+
+    <div class="hub-smart-empty">
+      Continue ta lecture quand tu en as envie ♡
+    </div>
+
+    <div class="hub-smart-footer">
+      Ouvrir ma bibliothèque →
+    </div>
+
+  </section>
+
+</div>
+  <button class="emma-assistant-dock" type="button" onclick="ouvrirAssistantEmma()">
+    <span>✦</span><span>Parler à mon assistante…</span><span style="margin-left:auto">🎙</span>
+  </button>
+  <nav class="emma-bottom-nav" aria-label="Navigation principale">
+
+  <button
+    class="emma-nav-item active"
+    data-emma-dest="accueil"
+    onclick="emmaNavigate('accueil')"
+  >
+    <span>⌂</span>
+    <span>Accueil</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="travail"
+    onclick="emmaNavigate('travail')"
+  >
+    <span>▣</span>
+    <span>Travail</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="glow"
+    onclick="emmaNavigate('glow')"
+  >
+    <span>✦</span>
+    <span>Glow</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="journal"
+    onclick="emmaNavigate('journal')"
+  >
+    <span>✓</span>
+    <span>Journal</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="plus"
+    onclick="emmaNavigate('plus')"
+  >
+    <span>•••</span>
+    <span>Plus</span>
+  </button>
+
+</nav>
+</div>
+   
+<!-- ═══════════════ APP ═══════════════ -->
+<div class="app" id="app">
+
+  <header class="hdr">
+    <button class="logout-btn" onclick="goHub()" style="margin-right:4px">← Accueil</button>
+    <div class="hdr-title">✦ EMMA <span>Comptabilité</span></div>
+    <div class="hdr-right">
+      <div class="hdr-date" id="todayLbl"></div>
+      <div class="hdr-user" id="userEmail"></div>
+      <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" onclick="goTab('dashboard',this)">🏠 Dashboard</button>
+    <button class="tab" onclick="goTab('caisse',this)">🧳 Caisse</button>
+    <button class="tab" onclick="goTab('banque',this)">🏦 Banque</button>
+    <button class="tab" onclick="goTab('auto',this)">🎭 Auto</button>
+    <button class="tab" onclick="goTab('recap',this)">✅ Récap</button>
+    <button class="tab" onclick="goTab('factures',this)">🧾 TVA</button>
+    <button class="tab" onclick="goTab('fixes',this)">✏️ Ch. Fixes</button>
+    <button class="tab" onclick="goTab('variables',this)">📊 Ch. Variables</button>
+    <button class="tab" onclick="goTab('boutique',this)">🛍️ Boutique</button>
+    <button class="tab" onclick="goTab('clients',this)">👥 Clients</button>
+    <button class="tab" onclick="goTab('compta',this)">📂 Compta déposée</button>
+    <button class="tab" onclick="goTab('settings',this)">⚙️ Paramètres</button>
+  </nav>
+  <nav class="emma-bottom-nav" aria-label="Navigation principale">
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="accueil"
+    onclick="emmaNavigate('accueil')"
+  >
+    <span>⌂</span>
+    <span>Accueil</span>
+  </button>
+
+  <button
+    class="emma-nav-item active"
+    data-emma-dest="travail"
+    onclick="emmaNavigate('travail')"
+  >
+    <span>▣</span>
+    <span>Travail</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="glow"
+    onclick="emmaNavigate('glow')"
+  >
+    <span>✦</span>
+    <span>Glow</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="journal"
+    onclick="emmaNavigate('journal')"
+  >
+    <span>✓</span>
+    <span>Journal</span>
+  </button>
+
+  <button
+    class="emma-nav-item"
+    data-emma-dest="plus"
+    onclick="emmaNavigate('plus')"
+  >
+    <span>•••</span>
+    <span>Plus</span>
+  </button>
+
+</nav>
+
+<!-- DASHBOARD -->
+<div class="view active" id="view-dashboard">
+  <div style="max-width:860px;margin:0 auto">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:700;color:var(--acc)">✦ Dashboard</div>
+      <div style="display:flex;align-items:center;gap:12px;background:white;border:1.5px solid var(--brd);border-radius:20px;padding:8px 16px;box-shadow:var(--shadow)">
+        <button onclick="dashD(-1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">‹</button>
+        <div id="dml" style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--acc);min-width:130px;text-align:center"></div>
+        <button onclick="dashD(1)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--acc)">›</button>
+      </div>
+    </div>
+
+
+   <!-- Agenda du jour -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">📅 Agenda du jour</div>
+        <label style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:white;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif">
+          📸 Importer Planity
+          <input type="file" accept="image/*" onchange="importerPlanity(event)" style="display:none">
+        </label>
+      </div>
+      <div id="agenda-widget">
+      <div id="agenda-nouvelles-prests"></div>
+        <div style="text-align:center;padding:20px;color:var(--mut);font-size:12px">
+          📸 Importe ta capture Planity pour voir l'agenda du jour
+        </div>
+      </div>
+    </div>
+     
+    <!-- Caisse virtuelle -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">💵 Caisse espèces</div>
+      <div id="cv-widget"></div>
+    </div>
+
+    <!-- Virements en attente -->
+    <div style="background:white;border:1.5px solid var(--brd2);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:700;margin-bottom:12px">⏳ Virements en attente</div>
+      <div id="d-nonpayees"></div>
+    </div>
+
+    <!-- Assistante financière -->
+    <div style="background:linear-gradient(135deg,#fff9fc,#f4f8ff);border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--pla);font-weight:700">✦ Assistante financière</div><div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:700;color:var(--txt);margin-top:3px">Mes conseils pour ta société</div></div><span style="font-size:10px;color:var(--mut)">Aucune action automatique</span></div>
+      <div id="conseils-financiers-emma"></div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">⚡ Actions rapides</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+      <label style="background:linear-gradient(135deg,#f0f4ff,#e0eaff);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd);display:block">
+        <div style="font-size:22px;margin-bottom:7px">📸</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Import screenshot</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">Relevé banque</div>
+        <input type="file" accept="image/*" onchange="importBanqueImage(event);goTab('banque',document.querySelector('[onclick*=banque]'))" style="display:none">
+      </label>
+      <div onclick="openStatsPrestations()" style="background:linear-gradient(135deg,#f0fff8,#d8f5e8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">📊</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Stats prestations</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px">CA par prestation</div>
+      </div>
+      <div onclick="openNouvellesClientes()" style="background:linear-gradient(135deg,#fffbf0,#fff0c8);border-radius:16px;padding:14px 16px;cursor:pointer;border:1.5px solid var(--brd)">
+        <div style="font-size:22px;margin-bottom:7px">🆕</div>
+        <div style="font-size:13px;font-weight:700;color:var(--txt)">Nouvelles clientes</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:3px" id="d-nouvelles-count">Ce mois</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px">💰 Chiffres clés</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+      <div style="background:linear-gradient(135deg,#e87a9a,#c45878);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">CA net société</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700" id="d-ca">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px" id="d-ca-sub"></div>
+        <div style="height:5px;background:rgba(255,255,255,.3);border-radius:99px;margin-top:8px;overflow:hidden">
+          <div id="d-pb" style="height:100%;background:white;border-radius:99px;width:0%;transition:width .6s"></div>
+        </div>
+        <div style="font-size:11px;opacity:.8;margin-top:5px" id="d-re"></div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7ab8e8,#4a88c8);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">Solde CB</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700" id="d-solde">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px">Banque en temps réel</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7ad4a8,#4aaa78);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">Projection fin de mois</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700" id="d-pj">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px">Sur tendance actuelle</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#e8c070,#c89040);border-radius:18px;padding:15px 16px;color:white">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;font-weight:700">Panier moyen</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700" id="d-pan">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px" id="d-nb">—</div>
+      </div>
+    </div>
+
+    <!-- Objectif + modes -->
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:20px">
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:8px;font-weight:700">🎯 Objectif</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:var(--acc)" id="d-obj">—</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:8px">
+          <span style="font-size:11px;color:var(--mut)">€</span>
+          <input type="number" id="objI" value="6000" onchange="PARAMS.objectif=parseFloat(this.value);saveParams();renderDash()" style="width:90px;padding:5px 8px;border:1.5px solid var(--brd2);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg)">
+        </div>
+        <div style="font-size:11px;color:var(--mut);margin-top:6px" id="d-pr">—</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px" id="d-oc">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:4px" id="d-jours">—</div>
+        <div style="font-size:11px;opacity:.8;margin-top:3px" id="d-vs">—</div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:12px;font-weight:700">💳 CA par mode</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="d-modes"></div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:14px 0 10px;font-weight:700">📅 Cette semaine</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="d-modes-semaine"></div>
+      </div>
+    </div>
+
+    <!-- Top clientes + À relancer -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">🏆 Top clientes</div>
+        <div id="d-topclientes"></div>
+      </div>
+      <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📬 À relancer</div>
+        <div id="d-relancer"></div>
+      </div>
+    </div>
+
+     <!-- Graphique CA semaines -->
+    <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">📊 CA par semaine — <span id="chart-mois"></span></div>
+      <div id="chart-semaines" style="display:flex;align-items:flex-end;gap:8px;height:80px"></div>
+    </div>
+
+
+     <!-- Fidélité -->
+<div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:12px">🏆 Programme fidélité</div>
+  <div id="fidelite-widget"></div>
+</div>
+
+     <!-- Salaires dus -->
+   <div style="background:white;border:1.5px solid var(--brd);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow);margin-bottom:16px">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700">💰 Salaires dus</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn bg bsm" onclick="openPlanSalaire()">📆 Lisser</button>
+          <label style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:white;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif">
+            📄 Importer fiche de paie
+            <input type="file" accept=".pdf" onchange="importerFichePaie(event)" style="display:none">
+          </label>
+        </div>
+      </div>
+      <div id="salaires-widget"></div>
+    </div>
+  
+
+  </div>
+</div>
+
+  <!-- CAISSE -->
+  <div class="view" id="view-caisse">
+    <div class="sh">
+      <div><div class="st">🧳 Caisse</div><div class="ss">VIR/CHQ/PLANITY = Payé+Déposé auto · ESP = dépôt via Banque</div></div>
+      <button class="btn bd" onclick="openModal('caisse')">+ Ajouter</button>
+    </div>
+    <div class="flt">
+      <input class="fi" id="cs" placeholder="🔍 Rechercher..." oninput="renderCaisse()" style="min-width:180px">
+      <select class="fi" id="cm" onchange="renderCaisse()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="cp" onchange="renderCaisse()">
+        <option value="ALL">Tous praticiens</option><option value="">Emma</option>
+        <option value="MARIE">MARIE</option><option value="GIULIA">GIULIA</option>
+      </select>
+      <select class="fi" id="cmo" onchange="renderCaisse()">
+        <option value="">Tous modes</option><option>ESP</option><option>VIR</option><option>CHQ</option><option>PLANITY</option>
+      </select>
+      <select class="fi" id="cpy" onchange="renderCaisse()">
+        <option value="">Tous statuts</option><option value="1">✅ Payé</option><option value="0">❓ Non payé</option>
+      </select>
+      <select class="fi" id="crap" onchange="renderCaisse()">
+        <option value="">Tous rapprochements</option>
+        <option value="0">⏳ Non rapprochées</option>
+        <option value="1">✅ Rapprochées</option>
+        <option value="ignore">🚫 À ne pas rapprocher</option>
+      </select>
+    </div>
+    <div class="tw" id="caisseTable"></div>
+  </div>
+
+  <!-- BANQUE -->
+  <div class="view" id="view-banque">
+    <div style="margin-bottom:14px">
+      <button class="btn bg" onclick="openTVA()" style="width:100%;padding:12px;font-size:13px">🧾 Calculer TVA</button>
+    </div>
+    <div class="sh">
+      <div><div class="st">🏦 Banque</div><div class="ss">Mouvements réels · TVA auto sur VIR/CA · Dépôts depuis ici</div></div>
+      <button class="btn bd" onclick="openModal('banque')">+ Ajouter</button>
+    </div>
+    <div class="rb">💡 Pour un <strong>dépôt espèces ou chèques</strong> : saisis l'opération normalement, une fenêtre de sélection s'ouvrira automatiquement.</div>
+   <div class="rb" style="background:var(--pla2);border-color:#b3c6ef">
+  📥 <strong>Importer un relevé</strong> — l'IA détecte les mouvements et propose des catégories automatiquement.
+</div>
+<div style="display:flex;gap:8px;margin-bottom:14px">
+  <label class="btn bd" style="cursor:pointer">
+    📄 Importer PDF
+    <input type="file" accept=".pdf" onchange="importBanquePDF(event)" style="display:none">
+  </label>
+  <label class="btn bg" style="cursor:pointer">
+    📊 Importer CSV
+    <input type="file" accept=".csv" onchange="importBanqueCSV(event)" style="display:none">
+  </label>
+  <label class="btn bg" style="cursor:pointer">
+    📸 Screenshot banque
+    <input type="file" accept="image/*" onchange="importBanqueImage(event)" style="display:none">
+  </label>
+</div>
+<div id="importBanqueResult"></div>
+    <div class="flt">
+      <input class="fi" id="bs" placeholder="🔍 Rechercher..." oninput="renderBanque()" style="min-width:180px">
+      <select class="fi" id="bm" onchange="renderBanque()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="bc" onchange="renderBanque()"><option value="">Toutes catégories</option></select>
+      <select class="fi" id="brap" onchange="renderBanque()">
+        <option value="">Tous rapprochements</option>
+        <option value="0">⏳ Non rapprochées</option>
+        <option value="1">✅ Rapprochées</option>
+        <option value="ignore">🚫 À ne pas rapprocher</option>
+      </select>
+    </div>
+    <div class="banque-layout" style="display:grid;grid-template-columns:1fr;gap:16px;align-items:start">
+      <div class="tw" id="banqueTable"></div>
+      <div class="banque-chq-panel" style="background:white;border:1.5px solid #c9a8e0;border-radius:16px;padding:15px;box-shadow:var(--shadow)">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:13px;color:#6f2da8;margin-bottom:10px;font-weight:700">📝 CHQ à déposer</div>
+        <div id="chqList"></div>
+        <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:#6f2da8" id="chqTot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CH. FIXES -->
+  <div class="view" id="view-fixes">
+    <div class="fb" style="margin-bottom:16px">
+      <div class="fh">
+        <div><strong>📆 Charges périodiques lissées</strong><div style="font-size:10px;font-weight:400;opacity:.75;margin-top:2px">Trimestrielles, semestrielles ou annuelles · sans créer de faux mouvement bancaire</div></div>
+        <button class="btn bd bsm" onclick="openModal('lissees')">+ Ajouter</button>
+      </div>
+      <div id="chargesLisseesC"></div>
+    </div>
+    <div class="sh">
+      <div><div class="st">✏️ Charges Fixes</div><div class="ss">Rapprochement auto Banque · Prévu = mois précédent</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bg" onclick="dupFixes()">📋 Dupliquer → mois suivant</button>
+        <button class="btn bd" onclick="openModal('fixes')">+ Ajouter</button>
+      </div>
+    </div>
+    <div id="fixesC"></div>
+  </div>
+
+  <!-- CH. VARIABLES -->
+  <div class="view" id="view-variables">
+    <div class="sh">
+      <div><div class="st">📊 Charges Variables</div><div class="ss">REDEVANCE & TVA : réel = Banque · Prévu = mois précédent auto</div></div>
+      <button class="btn bd" onclick="openModal('variables')">+ Ajouter</button>
+    </div>
+    <div id="variablesC"></div>
+  </div>
+
+<div class="view" id="view-factures">
+  <div class="sh">
+    <div><div class="st">🧾 TVA</div><div class="ss">Import factures, rapprochement banque, gestion des exclusions</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bg" onclick="ouvrirFactureManuelle()">✏️ Saisir manuellement</button>
+      <label class="btn bd" style="cursor:pointer">
+        + Importer des factures
+        <input type="file" accept="image/*,.pdf" multiple onchange="importerFacturesMultiples(event)" style="display:none">
+      </label>
+    </div>
+  </div>
+  <div class="ib">💡 Sélectionne plusieurs fichiers d'un coup pour les importer en série. Le rapprochement automatique tente ensuite de les relier à tes mouvements bancaires.</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn bg" onclick="matcherToutesFactures()">🔄 Rapprocher automatiquement</button>
+  </div>
+  <div id="facturesC"></div>
+  <div id="tvaDetailC" style="margin-bottom:16px"></div>
+  <div class="divider"></div>
+  <div class="fh" style="background:var(--bg2);border-radius:10px 10px 0 0"><span>🚫 Lignes banque sans TVA à exclure</span></div>
+  <div id="sansTvaC"></div>
+  ${''}
+  <div id="noTvaListC" style="margin-top:12px"></div>
+</div>
+
+  <!-- AUTO -->
+  <div class="view" id="view-auto">
+    <div class="sh">
+      <div><div class="st">🎭 Auto — Praticiens</div><div class="ss">Semaines lun→dim · Part société <span id="tauxSocDisplay">40%</span></div></div>
+    </div>
+    <div class="ib">💡 CA auto × <span id="tauxSocIb">40%</span> = part société. Déjà encaissé = PLANITY+CHQ+VIR. ESP due = part soc − déjà enc. (négatif = société rembourse)</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><label for="auto-mois">Mois</label><select id="auto-mois" onchange="changerMoisAutoEmma()"><option value="">Tous les mois</option></select></div><div><label for="auto-semaine">Semaine</label><select id="auto-semaine" onchange="renderAuto()" disabled><option value="">Toutes les semaines</option></select></div></div>
+    <div id="autoC"></div>
+  </div>
+
+  <!-- RECAP -->
+  <div class="view" id="view-recap">
+    <div class="sh">
+      <div><div class="st">✅ Récap</div><div class="ss">Par semaine · Survoler les chiffres pour le détail</div></div>
+    </div>
+    <div id="recapC"></div>
+  </div>
+
+  <!-- CLIENTS -->
+  <div class="view" id="view-clients">
+    <div class="sh">
+      <div><div class="st">👥 Clients</div><div class="ss">Historique · Alimenté depuis Caisse</div></div>
+      <button class="btn bg" onclick="openFusionDoublons()">🔗 Fusionner doublons</button>
+    </div>
+    <div class="flt">
+      <input class="fi" id="clis" placeholder="🔍 Rechercher..." oninput="renderClients()" style="min-width:200px">
+    </div>
+    <div id="clientsC"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="sh"><div><div class="st">⚙️ Paramètres & Vérification</div></div></div>
+
+    <!-- Paramètres de calcul -->
+    <div class="set-block">
+      <h3>🧮 Paramètres de calcul</h3>
+      <div class="set-row">
+        <label>Taux société (part sur CA des autos)</label>
+        <input type="number" id="pTauxSoc" value="40" step="1" min="0" max="100" onchange="updateParam('tauxSoc',this.value/100)">
+        <span class="unit">%</span>
+      </div>
+      <div class="set-row">
+        <label>Taux redevance</label>
+        <input type="number" id="pRedev" value="10" step="1" min="0" max="100" onchange="updateParam('redev',this.value/100)">
+        <span class="unit">%</span>
+      </div>
+      <div class="set-row">
+        <label>Taux TVA</label>
+        <input type="number" id="pTva" value="20" step="1" min="0" max="100" onchange="updateParam('tva',this.value/100)">
+        <span class="unit">%</span>
+      </div>
+      <div class="set-row">
+        <label>Objectif mensuel CA</label>
+        <input type="number" id="pObj" value="6000" step="100" onchange="updateParam('objectif',parseFloat(this.value))">
+        <span class="unit">€</span>
+      </div>
+       <div class="set-row">
+  <label>Mon numéro pro (relances)</label>
+  <input type="tel" id="pTelPro" value="${PARAMS.telPro||''}" placeholder="+33612345678" onchange="updateParam('telPro',this.value)">
+</div>
+      <div class="set-row">
+        <label>Solde initial banque</label>
+        <input type="number" id="pSolde" value="3161.58" step="0.01" onkeydown="if(event.key==='Enter'){event.preventDefault();enregistrerSoldeInitial()}">
+        <span class="unit">€</span>
+        <button class="btn bd bsm" type="button" onclick="enregistrerSoldeInitial()">Enregistrer</button>
+      </div>
+    </div>
+
+   <!-- Prestations -->
+    <div class="set-block">
+      <h3>💅 Prestations & Prix</h3>
+      <div style="font-size:11px;color:var(--mut);margin-bottom:10px">💡 Les prix sont utilisés pour estimer le CA de l'agenda du jour</div>
+      <div id="prestList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input class="fi" id="newPrest" placeholder="Nouvelle prestation..." style="flex:1;border-radius:10px">
+        <button class="btn bd" onclick="addPrest()">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- Mode vérification -->
+    <div class="set-block">
+      <h3>🔍 Mode vérification des formules</h3>
+      <div class="veri-select" id="veriMonths"></div>
+      <div id="veriContent"></div>
+    </div>
+
+    <!-- Données -->
+    <div class="set-block">
+      <h3>💾 Données</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bg" onclick="exportData()">📥 Exporter JSON</button>
+        <label class="btn bgrn" style="cursor:pointer">📤 Importer JSON<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+        <label class="btn bd" style="cursor:pointer">📊 Importer historique Numbers<input type="file" accept=".numbers,.xlsx,.xls,.csv" onchange="importerHistoriqueNumbers(event)" style="display:none"></label>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:8px">💡 Tes données sont synchronisées en temps réel sur Firebase. Pour Numbers, choisis « Exporter → Excel » ou « CSV » avant l’import.</div>
+    </div>
+  </div>
+
+  <!-- COMPTA DÉPOSÉE -->
+  <div class="view" id="view-compta">
+    <div class="sh">
+      <div><div class="st">📂 Compta déposée</div><div class="ss">Uniquement les règlements déposés ✅ — vue officielle</div></div>
+      <button class="btn bd" onclick="exportComptaPDF()">📄 Exporter PDF</button>
+    </div>
+    <div class="flt">
+      <select class="fi" id="comptaMois" onchange="renderCompta()"><option value="">Tous les mois</option></select>
+      <select class="fi" id="comptaPrat" onchange="renderCompta()">
+        <option value="ALL">Tous praticiens</option><option value="">Emma</option>
+        <option value="MARIE">MARIE</option><option value="GIULIA">GIULIA</option>
+      </select>
+    </div>
+    <div class="tw" id="comptaTable"></div>
+  </div>
+   
+<!-- SAISIE RAPIDE -->
+<button onclick="openRapide()" style="position:fixed;bottom:24px;right:24px;z-index:400;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;box-shadow:var(--shadow2);cursor:pointer;font-size:22px;color:white;display:flex;align-items:center;justify-content:center;">⚡</button>
+
+<!-- BOUTIQUE -->
+<div class="view" id="view-boutique">
+  <div class="sh">
+    <div><div class="st">🛍️ Boutique</div><div class="ss">Accessoires · Produits franchise · Lots · Ventes</div></div>
+  </div>
+
+  <!-- Sous-navigation -->
+  <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
+    <button id="btab0" onclick="goBTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">📦 Produits</button>
+    <button id="btab1" onclick="goBTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🎁 Lots</button>
+    <button id="btab2" onclick="goBTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🛒 Ventes</button>
+  </div>
+
+  <div id="bview-produits"></div>
+  <div id="bview-lots" style="display:none"></div>
+  <div id="bview-ventes" style="display:none"></div>
+</div>
+   
+</div><!-- /app -->
+
+   <div class="mo" id="formationModal">
+  <div class="mb" style="width:600px;max-width:96vw">
+    <h2 id="fModalTitle">Nouvelle étudiante</h2>
+    <div id="fModalBody"></div>
+    <div class="ma">
+  <button class="btn bg" onclick="closeMo('formationModal')">Annuler</button>
+  <button class="btn bd" id="saveEtudianteBtn" onclick="saveEtudiante()">Enregistrer</button>
+</div>
+  </div>
+</div>
+<div class="mo" id="livreModal">
+  <div class="mb" style="width:500px;max-width:96vw">
+    <h2 id="lModalTitle">—</h2>
+    <div id="lModalBody"></div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('livreModal')">Annuler</button>
+      <button class="btn bd" id="saveLivreBtn" onclick="saveLivre()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+   <div class="mo" id="sousTachesModal">
+  <div class="mb" style="width:480px;max-width:96vw">
+    <h2 id="stModalTitle">—</h2>
+    <div id="stModalBody"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('sousTachesModal')">Fermer</button></div>
+  </div>
+</div>
+   <div class="mo" id="humeurModal">
+  <div class="mb" style="width:420px;max-width:94vw;text-align:center">
+    <h2 style="text-align:center">🌸 Comment tu te sens ?</h2>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:16px">Tu peux en choisir plusieurs si besoin</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😄')" data-e="😄" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😄</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😌')" data-e="😌" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😌</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😴')" data-e="😴" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😴</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😰')" data-e="😰" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😰</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😢')" data-e="😢" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😢</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😡')" data-e="😡" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😡</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('🥰')" data-e="🥰" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">🥰</button>
+      <button class="humeur-btn" onclick="toggleHumeurChoix('😤')" data-e="😤" style="font-size:32px;padding:12px;border-radius:14px;border:2px solid var(--brd2);background:white;cursor:pointer">😤</button>
+    </div>
+    <div class="ma" style="justify-content:center">
+      <button class="btn bg" onclick="closeMo('humeurModal')">Passer</button>
+      <button class="btn bd" onclick="validerHumeur()">✓ Valider</button>
+    </div>
+  </div>
+</div>
+   <input type="file" id="photoJourInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoJourCapturee(event)">
+
+<div class="mo" id="photoJourModal">
+  <div class="mb" style="width:400px;max-width:94vw;text-align:center">
+    <h2 style="text-align:center">📸 Petite photo du jour ?</h2>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:18px">Ça fait un moment — capture un instant de ta journée</div>
+    <button class="btn bd" onclick="document.getElementById('photoJourInput').click()" style="width:100%;padding:14px;font-size:14px">📷 Prendre une photo</button>
+    <button class="btn bg" onclick="closeMo('photoJourModal')" style="width:100%;margin-top:10px">Passer pour cette fois</button>
+  </div>
+</div>
+   <div class="mo" id="tempsLibreModal">
+
+  <div class="mb" style="width:560px;max-width:96vw">
+
+    <h2>🕐 Que faisais-tu ?</h2>
+
+    <div
+      id="tempsLibreRange"
+      style="
+        font-size:12px;
+        color:var(--mut);
+        margin-bottom:16px;
+      "
+    ></div>
+
+
+    <!-- =========================
+         CATÉGORIES
+    ========================== -->
+
+    <div style="
+      font-size:11px;
+      font-weight:800;
+      margin-bottom:8px;
+    ">
+      Choisis une catégorie
+    </div>
+
+    <div
+      id="tempsLibre-categories"
+      style="
+        display:flex;
+        flex-wrap:wrap;
+        gap:8px;
+        margin-bottom:16px;
+      "
+    ></div>
+
+
+    <!-- =========================
+         TÂCHES DE LA CATÉGORIE
+    ========================== -->
+
+    <div
+      id="tempsLibre-taches-wrap"
+      style="display:none"
+    >
+
+      <div style="
+        font-size:11px;
+        font-weight:800;
+        margin-bottom:8px;
+      ">
+        Qu'est-ce que tu as fait ?
+      </div>
+
+      <div
+        id="tempsLibre-taches"
+        style="
+          max-height:220px;
+          overflow-y:auto;
+          margin-bottom:16px;
+          display:flex;
+          flex-direction:column;
+          gap:7px;
+        "
+      ></div>
+
+    </div>
+
+
+    <!-- =========================
+         MOMENT LIBRE
+    ========================== -->
+
+    <div style="
+      border-top:1px solid var(--brd);
+      padding-top:14px;
+      margin-top:4px;
+    ">
+
+      <div style="
+        font-size:11px;
+        font-weight:800;
+        margin-bottom:8px;
+      ">
+        ☕ Ou créer un moment libre
+      </div>
+
+      <input
+        type="text"
+        id="tempsLibre-nom"
+        placeholder="Ex : téléphone, sieste, piscine, balade..."
+        style="
+          width:100%;
+          margin-bottom:10px;
+        "
+      >
+
+    </div>
+
+
+    <!-- =========================
+         ACTIONS
+    ========================== -->
+
+    <div
+      class="ma"
+      style="
+        display:flex;
+        gap:8px;
+      "
+    >
+
+      <button
+        class="btn bg"
+        onclick="passerTempsLibre()"
+        style="flex:1"
+      >
+        Passer
+      </button>
+
+      <button
+        class="btn bd"
+        onclick="validerTempsLibreIntelligent()"
+        style="flex:2"
+      >
+        ✓ Enregistrer ce créneau
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+   <div class="mo" id="convertirTodoModal">
+  <div class="mb" style="width:420px;max-width:94vw">
+    <h2>🔗 Enregistrer comme sous-tâche</h2>
+    <div id="convertirTodoBody"></div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('convertirTodoModal')">Annuler</button>
+      <button class="btn bd" onclick="validerConvertirTodo()">✓ Enregistrer</button>
+    </div>
+  </div>
+</div>
+   <div class="mo" id="historiqueHumeurModal">
+  <div class="mb" style="width:500px;max-width:96vw">
+    <h2>🕐 Historique Humeur & Photos</h2>
+    <div id="historiqueHumeurBody" style="max-height:500px;overflow-y:auto"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('historiqueHumeurModal')" style="width:100%">Fermer</button></div>
+  </div>
+</div>
+   <div class="mo" id="tachesRetardModal">
+  <div class="mb" style="width:480px;max-width:94vw">
+    <h2>📋 Tâches en retard</h2>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Coche celles que tu as déjà faites</div>
+    <div id="tachesRetardBody" style="max-height:400px;overflow-y:auto"></div>
+    <div class="ma">
+      <button class="btn bd" onclick="closeMo('tachesRetardModal')" style="width:100%">✓ Terminé</button>
+    </div>
+  </div>
+</div>
+   <div class="mo" id="configPlanningModal">
+  <div class="mb" style="width:520px;max-width:96vw">
+    <h2 id="configPlanningTitre">Configurer un bloc</h2>
+    <div id="configPlanningBody"></div>
+  </div>
+</div>
+<div id="limagecils-module-slot"></div>
+<div id="module-banqueperso" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">👛 Banque perso</div></div>
+  <iframe src="https://emmacaulinech-lab.github.io/banqueperso/" style="flex:1;width:100%;border:none;min-height:calc(100vh - 52px)"></iframe>
+</div>
+<div id="module-maison" style="display:none;min-height:100vh;flex-direction:column">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">🏠 Maison</div></div>
+  <main class="maison-page">
+    <section class="maison-hero">
+      <div><div class="maison-kicker">Maison</div><h1 class="maison-title">Ma maison ✨</h1><div class="maison-subtitle">Tout ce qui mérite ton attention, pièce par pièce.</div><button class="maison-soft-btn" style="margin-top:12px" onclick="ouvrirRattrapageDernieresRealisationsMaison()">🗓️ Rattraper les dernières réalisations</button></div>
+      <div class="maison-stats">
+        <div class="maison-stat"><strong id="maison-up-to-date">0</strong><small>à jour</small></div>
+        <div class="maison-stat"><strong id="maison-overdue">0</strong><small>en retard</small></div>
+        <div class="maison-stat"><strong id="maison-due-today">0</strong><small>aujourd’hui</small></div>
+      </div>
+    </section>
+    <div class="maison-layout">
+      <section class="maison-panel">
+        <div class="maison-panel-head"><div><div class="maison-kicker">Vue d'ensemble</div><h2>État des pièces</h2></div><button class="maison-soft-btn" onclick="ouvrirAnalyseMaisonJournal()">📷 Scanner</button></div>
+        <div id="maison-floor-grid" class="maison-floor-grid"></div>
+      </section>
+      <div class="maison-side">
+        <section id="maison-priority-card" class="maison-panel maison-priority"></section>
+        <section id="maison-today-card" class="maison-panel"></section>
+      </div>
+    </div>
+    <section class="maison-panel">
+      <div class="maison-panel-head"><div><div class="maison-kicker">Détail</div><h2>Toutes les pièces</h2></div><button class="maison-soft-btn" onclick="ouvrirToutesPiecesMaison()">Sélectionner dans toute la maison →</button></div>
+      <div id="maison-all-rooms" class="maison-rooms-list"></div>
+    </section>
+    <section id="maison-task-browser" class="maison-panel maison-browser" aria-live="polite"></section>
+    <section id="maison-catchup-browser" class="maison-panel maison-browser" aria-live="polite"></section>
+  </main>
+  <button id="maison-sticky-add" class="maison-sticky-add" type="button" onclick="ajouterSelectionMaisonALaJournee()"></button>
+</div>
+<div id="module-glow" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
+
+  <div class="module-hdr">
+    <button class="logout-btn" onclick="goHub()">← Accueil</button>
+    <div class="module-hdr-title">✨ Glow</div>
+  </div>
+
+  <div id="glow-content"
+       style="padding:24px;max-width:900px;margin:0 auto;width:100%">
+
+  </div>
+
+</div>
+<div id="module-lecture" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">📚 Lecture</div></div>
+  <div style="padding:24px;max-width:1000px;margin:0 auto;width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px;flex-wrap:wrap">
+      <button id="ltab0" onclick="goLTab(0)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">📚 Bibliothèque</button>
+      <button id="ltab1" onclick="goLTab(1)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📊 Progression</button>
+      <button id="ltab2" onclick="goLTab(2)" style="flex:1;min-width:90px;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">✨ Recommandations</button>
+    </div>
+    <div id="lview-biblio"></div>
+    <div id="lview-progression" style="display:none"></div>
+    <div id="lview-recos" style="display:none"></div>
+  </div>
+</div>
+<div id="module-journal" style="display:none;min-height:100vh;background:linear-gradient(135deg,#fff0f8,#f0f4ff,#f0fff8);flex-direction:column">
+  <div class="module-hdr"><button class="logout-btn" onclick="goHub()">← Accueil</button><div class="module-hdr-title">📔 Journal & Tâches</div></div>
+  <div style="padding:24px;max-width:800px;margin:0 auto;width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg2);border-radius:14px;padding:4px">
+      <button id="jtab0" onclick="goJTab(0)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:white;color:var(--acc);box-shadow:var(--shadow)">📅 Aujourd'hui</button>
+      <button id="jtab1" onclick="goJTab(1)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">📋 Mes tâches</button>
+      <button id="jtab2" onclick="goJTab(2)" style="flex:1;padding:9px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--mut)">🕐 Historique</button>
+    </div>
+    <div id="jview-aujourdhui"></div>
+    <div id="jview-taches" style="display:none"></div>
+    <div id="jview-historique" style="display:none"></div>
+  </div>
+</div>
+   
+<!-- MODALS -->
+<div class="mo" id="mainModal">
+  <div class="mb">
+    <h2 id="mTitle">—</h2>
+    <div id="mBody"></div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('mainModal')">Annuler</button>
+      <button class="btn bg" onclick="saveEntry()">Enregistrer</button> 
+      <button class="btn bd" onclick="saveEntry(true)">Enregistrer + Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="depotModal">
+  <div class="mb">
+    <h2 id="depTitle">💵 Dépôt</h2>
+    <div class="rb" style="margin-bottom:12px">Sélectionne les clientes dont les règlements sont inclus dans ce dépôt.</div>
+    <div class="dl" id="depList"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--brd)">
+      <span style="font-size:12px;color:var(--mut)">Total sélectionné :</span>
+      <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--rec)" id="depSel">0,00 €</span>
+    </div>
+    <div class="ma">
+      <button class="btn bg" onclick="closeMo('depotModal')">Passer</button>
+      <button class="btn bgrn" onclick="valDepot()">✅ Valider</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="clientModal">
+  <div class="mb">
+    <h2 id="cliMT">Fiche cliente</h2>
+    <div id="cliMB"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('clientModal')">Fermer</button></div>
+  </div>
+</div>
+
+<div class="mo" id="exerciceModal">
+  <div class="mb" style="width:420px;max-width:94vw">
+    <h2 id="exModalTitle">Exercice</h2>
+    <div id="exModalBody"></div>
+    <div class="ma"><button class="btn bg" onclick="closeMo('exerciceModal')">Fermer</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+
+   
+<div id="emma-assistant-overlay" onclick="fermerAssistantEmma(event)">
+  <div class="emma-assistant-sheet" onclick="event.stopPropagation()">
+
+    <div class="emma-assistant-handle"></div>
+
+    <div class="emma-assistant-header">
+      <div>
+        <div class="emma-assistant-kicker">✦ EMMA</div>
+        <div class="emma-assistant-title">Qu’est-ce qu’on fait ?</div>
+        <div class="emma-assistant-subtitle">
+          Dis-moi simplement ce que tu veux.
+        </div>
+      </div>
+
+      <button
+        class="emma-assistant-close"
+        onclick="fermerAssistantEmma()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="emma-assistant-suggestions">
+
+      <button onclick="executerReponseRapideEmma('organiser')">
+        🗓 Organise ma journée
+      </button>
+
+      <button onclick="executerReponseRapideEmma('fatigue')">
+        🫶 Je suis fatiguée
+      </button>
+
+      <button onclick="executerReponseRapideEmma('scanner_piece')">
+        📸 Scanner une pièce
+      </button>
+
+      <button onclick="executerReponseRapideEmma('temps_20')">
+        ⏱ J’ai 20 minutes
+      </button>
+
+    </div>
+
+    <div
+      id="emma-assistant-conversation"
+      class="emma-assistant-conversation"
+    >
+      <div class="emma-assistant-message assistant">
+        Tu peux me demander d’ouvrir un espace, d’ajouter une tâche ou de te dire ce qui mérite ton attention maintenant.
+      </div>
+    </div>
+
+    <div class="emma-assistant-input-wrap">
+
+      <textarea
+        id="emma-assistant-input"
+        rows="1"
+        placeholder="Ex : ajoute acheter du shampoing..."
+        onkeydown="
+          if(event.key==='Enter' && !event.shiftKey){
+            event.preventDefault();
+            envoyerCommandeEmma();
+          }
+        "
+      ></textarea>
+
+      <button
+        class="emma-assistant-send"
+        onclick="envoyerCommandeEmma()"
+      >
+        ↑
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+<div id="emma-morning-overlay" class="emma-morning-overlay">
+  <div class="emma-morning-sheet">
+
+    <div class="emma-morning-handle"></div>
+
+    <div class="emma-morning-kicker">
+      ✦ EMMA · AUJOURD’HUI
+    </div>
+
+    <div class="emma-morning-title">
+      Qu’est-ce qu’on fait aujourd’hui ?
+    </div>
+
+    <div class="emma-morning-subtitle">
+      Je prépare ta journée avec toi.
+    </div>
+
+    <div class="emma-morning-options">
+
+      <button
+        class="emma-morning-option travail"
+        onclick="choisirTypeJourneeEmma('travail')"
+      >
+        <span class="emma-morning-icon">💼</span>
+
+        <span>
+          <strong>Je travaille</strong>
+          <small>Importer Planity et organiser le reste</small>
+        </span>
+
+        <b>›</b>
+      </button>
+
+      <button
+        class="emma-morning-option repos"
+        onclick="choisirTypeJourneeEmma('repos')"
+      >
+        <span class="emma-morning-icon">☁️</span>
+
+        <span>
+          <strong>Je suis en repos</strong>
+          <small>Construire une journée perso</small>
+        </span>
+
+        <b>›</b>
+      </button>
+
+    </div>
+
+    <button
+      class="emma-morning-later"
+      onclick="fermerRoutineMatinEmma()"
+    >
+      Plus tard
+    </button>
+
+  </div>
+</div>
+
+
+
+
+
+

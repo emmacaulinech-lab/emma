@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const acorn = require(process.env.ACORN_PATH || 'acorn');
-const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+const html = require('./read-app.cjs')();
 const script = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m => m[1].trim())[1];
 const ast = acorn.parse(script, {ecmaVersion: 'latest'});
 new vm.Script(script);
@@ -647,3 +647,4 @@ console.log(`${passed} passed, ${failed} failed. Firebase is mocked; no producti
 if(process.env.BUNDLE_OUTPUT)fs.writeFileSync(process.env.BUNDLE_OUTPUT,declarations);
 process.exitCode=failed?1:0;
 })();
+

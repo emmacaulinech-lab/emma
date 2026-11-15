@@ -4,7 +4,7 @@ const G=require('../task-guidance.js');
 assert(G.eligible({nom:'Nettoyer le four extérieur',typeElement:'maison'}));assert(!G.eligible({nom:'Cliente',verrouille:true}));assert(!G.eligible({nom:'Sport',typeElement:'sport'}));assert(!G.eligible({nom:'Envoyer factures',typeElement:'maison'}));assert(!G.eligible({nom:'Laver les cheveux',typeElement:'soins'}));
 assert(G.basic({nom:'Nettoyer le four extérieur'}).etapes.some(x=>x.includes('commandes')));assert(G.basic({nom:'Nettoyer le four intérieur'}).questions.length);
 assert.throws(()=>G.validate({resume:'x',etapes:[]}));assert(!G.escape('<img onerror=x>').includes('<img'));
-const html=fs.readFileSync('../index.html','utf8'),main=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].trim())[1];new vm.Script(main);
+const html=require('./read-app.cjs')(),main=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].trim())[1];new vm.Script(main);
 assert(html.lastIndexOf('task-guidance.js')>html.lastIndexOf('</script>')-80);assert(html.includes('emmaTaskTipsButton(p,'));
 const dom=new JSDOM('<body><div id="hubPage"></div><div id="module-journal" style="display:none"></div><nav class="emma-bottom-nav"><button class="emma-nav-item active" data-emma-dest="accueil"><span>⌂</span><span>Accueil</span></button><button class="emma-nav-item" data-emma-dest="journal"><span>✓</span><span>Journal</span></button></nav><div id="task"></div></body>',{url:'https://emma.test',runScripts:'outside-only'}),w=dom.window;
 w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.URL.revokeObjectURL=()=>{};
@@ -27,3 +27,4 @@ const tick=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setTimeout(r,0));}
  let resolve;w.fetchIAAvecLoaderEmma=()=>new Promise(r=>resolve=r);w.document.getElementById('emma-guide-generate').click();w.document.querySelector('.emma-guide-close').click();resolve({ok:true,json:async()=>({content:[{text:JSON.stringify({resume:'Ancien résultat',etapes:['a']})}]})});await tick();assert(!w.document.getElementById('emma-task-guide'));
  assert.equal(JSON.stringify(w.DB),before,'Les conseils ne modifient aucune donnée du planning');console.log('PASS : navigation, conseils sans photo, photo envoyée uniquement au clic, erreurs récupérables, réponses périmées ignorées, planning inchangé.');w.close();
 })().catch(e=>{console.error(e);w.close();process.exit(1);});
+

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
-const html=fs.readFileSync(process.env.DAILY_INDEX_PATH||(fs.existsSync('../daily-final-index.html')?'../daily-final-index.html':'../index.html'),'utf8');
+const html=require('./read-app.cjs')(process.env.DAILY_INDEX_PATH||require('path').join(__dirname,'../index.html'));
 const dom=new JSDOM('<body><div id="glow-content"></div><div id="mBody"></div></body>',{url:'https://emma.test',runScripts:'outside-only'}),w=dom.window;
 const json=x=>JSON.parse(JSON.stringify(x));
 w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
@@ -38,3 +38,4 @@ w.DB.glow={date:'2026-10-13',activite:{},historiqueSeances:[first],nutrition:{re
  w.consigneStockNutritionGlow=()=>'';w.stockTexteNutritionGlow=()=>[];w.fetchIAAvecLoaderEmma=async()=>({ok:true,json:async()=>({content:[{text:JSON.stringify({repas:['2026-10-14','2026-10-17'].flatMap(date=>['dejeuner','diner'].map(type=>({date,type,nom:'Nouveau '+date+' '+type,statut:'garder',ingredients:[{nom:'Carottes',quantite:200,unite:'g'}]})))})}]})});w.sauvegarderExtensionGlow=async()=>true;
  vm.runInContext(functionBetween('async function creerPlanRepasGlow','function creerPlanJusquaGlow'),dom.getInternalVMContext());const beforePlan=json(w.DB.glowNutritionPlans.planActif),beforeCourses=json(w.DB.glowNutritionPlans.courses);await w.creerPlanRepasGlow(2,{dates:['2026-10-14','2026-10-17'],ajouter:true});assert.equal(w.DB.glowNutritionPlans.planActif.repas.length,beforePlan.repas.length+4,'Selected-date generation appends meals');assert.deepEqual(json(w.DB.glowNutritionPlans.planActif.repas.slice(0,3)),beforePlan.repas,'Existing purchased meals are identical');assert.deepEqual(json(w.DB.glowNutritionPlans.courses.articles),beforeCourses.articles,'Purchased checklist preserved');assert.deepEqual(json(w.DB.glowNutritionPlans.planActif.repas.slice(3)).map(r=>r.date),['2026-10-14','2026-10-14','2026-10-17','2026-10-17']);
  console.log('PASS weekly deficit/carry, rollover preservation, archived/multi-zone/local sessions, transaction merge/failure, selected dates, additive generation, flexible meals and unchanged shopping data.');w.close();})().catch(e=>{console.error(e);w.close();process.exit(1)});
+
