@@ -1,32 +1,21 @@
-# EMMA OS et LIMAGECILS
+# EMMA OS personnel et site LIMAGECILS séparé
 
-Deux entrées sur la même origine : `index.html` pour EMMA OS et `limagecils.html` pour les formations et les deux facturations. Les anciens appels `goModule('formations')`, `goModule('facturation')` et `goModule('facturation-perso')` redirigent depuis EMMA vers la bonne page LIMAGECILS. Les liens profonds attendent le chargement authentifié.
+Le lien EMMA OS reste `https://emmacaulinech-lab.github.io/emma/`. LIMAGECILS utilise son site existant `https://emmacaulinech-lab.github.io/limagecils-facturation/`, avec Facturation Franchise, Facturation clientes et Formations. Les pages métier sont hébergées dans le dépôt LIMAGECILS ; aucune iframe EMMA n'y est utilisée.
 
-## Fichiers
+## EMMA OS
 
-- `app.css` : styles extraits.
-- `app-shell.html` : interface partagée et éléments historiques nécessaires à l'initialisation.
-- `app-core.js` : logique commune et personnelle, sans le bloc principal des formations.
-- `modules/limagecils-formations.js` : logique formations, élèves, kits, documents et mails.
-- `modules/limagecils.html` : interfaces formations et deux facturations.
-- `workspace-navigation.js` : navigation des deux espaces.
-- `micro-preparation.js` : brouillon indépendant de préparation micro.
-- `app-loader.js` : charge les ressources puis reconstitue le script historique avant son exécution. Cette étape conserve exactement ses déclarations, leur portée et leur ordre. Les correctifs existants s'exécutent ensuite dans leur ordre initial.
+`index.html` charge l'interface partagée (`app-shell.html`), les styles (`app.css`) et le code (`app-core.js`). L'extraction du gros fichier conserve la portée et l'ordre de ses déclarations via `app-loader.js`. Les dépendances du planning sur les helpers Formations restent chargées pour compatibilité, mais les interfaces et les iframes métiers ne sont plus montées. Les anciens appels `goModule` redirigent vers les pages du site LIMAGECILS. L'ancienne entrée locale `limagecils.html` redirige vers ce site.
 
-Cette première séparation ne rend pas les applications indépendantes : elles partagent encore l'authentification, la sauvegarde, l'initialisation et les dépendances formations du planning. Le code commun et celui des formations sont chargés dans les deux espaces pour préserver ces dépendances. Pas de duplication du gros script et pas de migration de données. Un découplage complet nécessiterait d'isoler ensuite ces services et de valider les scénarios authentifiés.
+La sauvegarde globale EMMA ne réécrit plus le document Formations. `formation-sync.js` conserve la validation des étapes depuis le Journal par une transaction ciblée sur la version courante. Le détail des élèves, les autres étapes et les autres modifications LIMAGECILS sont ainsi préservés.
 
-## Préparation micro
+## MA COMPTA
 
-La société reste active, sans modification des calculs, de la TVA ou des écritures historiques. Le panneau ajouté à MA COMPTA prépare la date envisagée, la périodicité, les activités et des notes. Il ne peut pas activer la micro ni importer des encaissements.
+La société garde ses calculs et son historique. Le panneau Micro-entreprise en préparation enregistre uniquement une date envisagée, une périodicité, des activités et des notes dans `users/{uid}/modules/microPreparation`. Aucune activation, aucun taux présélectionné et aucun transfert d'encaissements. Le fonctionnement complet de la future micro reste à définir avec Emma.
 
-Le brouillon est enregistré uniquement dans `users/{uid}/modules/microPreparation`, champ `preparation`, avec `statut: preparation`. Il ne passe pas par `saveAll` et n'écrit pas dans `comptabilite`, `formations` ou les sauvegardes historiques. Aucun taux social, fiscal ou régime de TVA n'est fixé. Vérifier les droits Firestore pour ce document lors du parcours authentifié ; un refus laisse le formulaire réessayable.
+## Validation et limites
 
-La future comptabilité micro devra avoir son propre stockage d'encaissements, dépenses et déclarations ; les règles de calcul et la date de bascule restent à définir avec Emma. Conserver les exports de la société et son historique consultable.
+`node tests/workspace-split.cjs`, `node tests/journal-storage.cjs` et `node tests/dated-recovery.cjs` passent. La suite de séparation vérifie la recomposition du script, le chargement, le DOM et l'isolation du brouillon. Les lecteurs des tests historiques sont adaptés avec `tests/read-app.cjs`.
 
-## Validation
+Le dépôt LIMAGECILS a sa propre suite `tests/standalone.cjs`. La prévisualisation HTTP locale est bloquée par l'environnement ; les parcours authentifiés, les PDF et les suites nécessitant les dépendances externes restent à vérifier. Les modèles PDF et images de kits conservent leurs URL actuelles dans EMMA : ne pas les supprimer.
 
-`node tests/workspace-split.cjs` vérifie l'identité SHA-256 du script historique reconstitué, la syntaxe, les deux entrées, les identifiants principaux du DOM, l'ordre du chargeur, l'échec réseau avant exécution et l'isolation du brouillon micro. `tests/read-app.cjs` fournit aux tests historiques une vue HTML recomposée pour conserver leurs extractions de fonctions.
-
-Contrôles exécutés : suite de séparation, sept tests de sauvegarde Journal et récupération datée. Les suites qui dépendent d'acorn, jsdom et pdf-lib n'ont pas été exécutées dans l'environnement de modification, où ces dépendances ne sont pas disponibles. La prévisualisation HTTP locale est bloquée par les permissions de l'environnement.
-
-Avant mise en production : tester sur session authentifiée les deux pages, l'aller-retour EMMA/LIMAGECILS, les liens profonds, les élèves et documents, les deux iframes, le brouillon micro (sauvegarde puis rechargement), l'accès société inchangé et la déconnexion. Déployer tous les nouveaux fichiers ensemble. Les URL des deux outils de facturation restent inchangées.
+Publier les deux modifications de façon coordonnée et fermer les anciennes fenêtres EMMA avant utilisation de la nouvelle version pour éviter l'exécution de l'ancien code de sauvegarde encore présent en mémoire. Aucun changement des données de production n'a été fait pendant la préparation.

@@ -3050,10 +3050,8 @@ async function executerFileSauvegardes(){
       updatedAt
     }, {merge:true});
 
-    await userRef.collection('modules').doc('formations').set({
-      data: JSON.stringify(DB.formations || {etudiantes:[]}),
-      updatedAt
-    }, {merge:true});
+    // Les formations sont gérées dans LIMAGECILS : ne pas réécrire ici
+    // une copie potentiellement ancienne lors d'une sauvegarde personnelle.
 
     await userRef.collection('modules').doc('lecture').set({
       data: JSON.stringify(DB.lecture || {}),
@@ -12699,7 +12697,7 @@ function getToutesNotifications(today){
         icon:t.icon,
         txt:t.nom,
         color:t.priorite===1?'var(--dep)':'var(--warn)',
-        onclick:`goModule('formations');goFTab('etudiantes');openEtudiante(decodeURIComponent('${idEncode}'))`
+        onclick:`goModule('formations')`
       });
     });
 

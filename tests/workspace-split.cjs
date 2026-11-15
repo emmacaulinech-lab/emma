@@ -1,15 +1,17 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const core=read('app-core.js').replace('/*__LIMAGECILS_FORMATIONS__*/\n',()=>read('modules/limagecils-formations.js'));
-assert.equal(createHash('sha256').update(core).digest('hex'),'9795a7d78c1c49a132153041f40ee1af7101794cd5b33486abee0f47e32956c1','Le script historique est conservé octet pour octet');
+assert.equal(createHash('sha256').update(core).digest('hex'),'2a083ec70f5702eb378d0718e4f5d58cfeb1c2a119af27df7d6c75170c3eb5d9','Le script de séparation est reconstitué à l’identique');
 new vm.Script(core);
 for(const p of ['app-loader.js','workspace-navigation.js','micro-preparation.js'])new vm.Script(read(p));
-for(const entry of ['index.html','limagecils.html']){
+for(const entry of ['index.html']){
   const html=require('./read-app.cjs')(path.join(root,entry));
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
   for(const id of ['module-formations','module-facturation','module-facturation-perso','app','hubPage','loginPage'])assert.equal(ids.filter(x=>x===id).length,1,id+' présent une seule fois');
   assert(read(entry).length<2000);
 }
+assert(read('limagecils.html').includes('https://emmacaulinech-lab.github.io/limagecils-facturation/'));
+assert(!core.slice(core.indexOf('async function executerFileSauvegardes'),core.indexOf('async function saveAll')).includes("doc('formations')"));
 async function loaderTest(fail){
   const scripts=[],nodes=new Map();let removed=false,ready=false;
   const status={textContent:'',appendChild(){},remove(){removed=true;}};
@@ -17,7 +19,7 @@ async function loaderTest(fail){
   const context={document,Event:class{},location:{reload(){}},console:{error(){}},fetch:async url=>({ok:!fail||!url.startsWith('app-core'),text:async()=>read(url.split('?')[0])})};
   await vm.runInNewContext(read('app-loader.js'),context);
   if(fail){assert(!removed);assert(!ready);assert.equal(scripts.length,0);assert.match(status.textContent,/échoué/);}
-  else{assert(removed&&ready);assert.equal(scripts[0],core);assert.equal(scripts[1],read('workspace-navigation.js'));assert.equal(scripts[2],read('micro-preparation.js'));assert.equal(scripts.length,9);}
+  else{assert(removed&&ready);assert.equal(scripts[0],core);assert.equal(scripts[1],read('workspace-navigation.js'));assert.equal(scripts[2],read('micro-preparation.js'));assert.equal(scripts.length,10);}
 }
 function microFixture(){
   const nodes=new Map(),writes=[],listeners=[];
