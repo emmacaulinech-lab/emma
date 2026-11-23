@@ -118,6 +118,27 @@ function alreadyDone(journal, pattern) {
     .sort().at(-1)?.slice(0, 10)
 }
 
+export function readPlanningHistory(uid) {
+  let state
+  try {
+    state = JSON.parse(localStorage.getItem('emma:planning-v1:' + uid)) || {}
+  } catch {
+    return []
+  }
+  const bookings = (state.bookings || []).filter(item => item.done).map(item => ({
+    date: item.completedAt?.slice(0, 10) || item.date,
+    time: item.completedAt?.slice(11, 16) || '',
+    title: item.title,
+    color: roomColors[item.room],
+  }))
+  const routines = Object.entries(state.days || {}).flatMap(([date, settings]) =>
+    Object.entries(settings.checks || {}).filter(([, checked]) => checked).map(([title]) => ({
+      date, title, time: settings.checkTimes?.[title] || '',
+    })))
+  return [...bookings, ...routines].sort((a, b) =>
+    b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+}
+
 export function mountPlanningWorkspace(container, bridge) {
   const key = 'emma:planning-v1:' + bridge.uid
   let state
@@ -588,6 +609,8 @@ export function mountPlanningWorkspace(container, bridge) {
         add(detail, 'p', block.title + (block.detail ? ' · ' + block.detail : ''))
         if (!block.done) button(detail, 'Fait', () => {
           block.done = true
+          const now = new Date()
+          block.completedAt = now.toLocaleDateString('sv-SE') + 'T' + clock(now.getHours() * 60 + now.getMinutes())
           state.completed[block.id] = today
           delete state.pending[block.id]
           if (block.id === 'linge') state.laundry = (state.laundry + 1) % 4
@@ -604,6 +627,10 @@ export function mountPlanningWorkspace(container, bridge) {
           check.onchange = () => {
             settings.checks ||= {}
             settings.checks[text] = check.checked
+            const now = new Date()
+            settings.checkTimes ||= {}
+            settings.checkTimes[text] = check.checked && date === today ? clock(now.getHours() * 60 + now.getMinutes()) : ''
+
             save()
           }
         }

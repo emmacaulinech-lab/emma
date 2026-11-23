@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=6');
+  const homeModule = import('./modules/day-planning-home.js?v=8');
   const glowModule = import('./modules/day-planning-glow.js?v=2');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -318,6 +318,37 @@
     renderJAujourdhui = function () {
       if (!currentUser || !DB.journal) return oldJournalDay.apply(this, arguments);
       renderHubPlanningMini();
+    };
+
+    const oldHistoryJournal = renderJHistorique;
+    renderJHistorique = function () {
+      oldHistoryJournal.apply(this, arguments);
+      if (!currentUser) return;
+      const start = new Date((historiqueJourAffiche || dateLocaleISO()) + 'T12:00:00');
+      start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      const from = dateLocaleISO(start);
+      const to = dateLocaleISO(end);
+      const entries = home.readPlanningHistory(currentUser.uid).filter(item => item.date >= from && item.date < to);
+      if (!entries.length) return;
+      const history = document.getElementById('jview-historique');
+      const section = document.createElement('section');
+      section.className = 'refonte-preview';
+      const title = document.createElement('h3');
+      title.textContent = 'Fait dans le planning';
+      section.append(title);
+      const list = document.createElement('ul');
+      for (const entry of entries) {
+        const item = document.createElement('li');
+        const date = new Date(entry.date + 'T12:00:00').toLocaleDateString('fr-FR', {weekday:'short', day:'numeric', month:'short'});
+        item.textContent = [date, entry.time, entry.title].filter(Boolean).join(' · ');
+        list.append(item);
+      }
+      section.append(list);
+      history.prepend(section);
+      const empty = history.querySelector('.empty');
+      if (empty?.textContent.trim() === 'Rien fait cette semaine') empty.remove();
     };
 
     syncAgendaVersJournal = async function () { await syncPlanity(); refresh(); };
