@@ -132,6 +132,8 @@ export function mountPlanningWorkspace(container, bridge) {
   let quizReady = false
   let saving = false
   let proposals = []
+  let proposalTaskCount = 0
+  let proposalDayCount = 0
   let rankedTasks = []
   let error = ''
   let calendarStatus = ''
@@ -236,6 +238,8 @@ export function mountPlanningWorkspace(container, bridge) {
     const days = Array.from({ length: 7 }, (_, index) => dateOffset(firstDay, index))
       .filter(day => getDay(day).first != null || dayState(day).off)
       .map(day => available(day, getSchedule(day)))
+    proposalTaskCount = tasks.length
+    proposalDayCount = days.length
     proposals = suggestHome(tasks, days)
   }
 
@@ -251,7 +255,17 @@ export function mountPlanningWorkspace(container, bridge) {
     const wrap = add(root, 'section', '')
     add(wrap, 'h4', 'Préparer ma journée')
     if (Array.from({ length: 7 }, (_, index) => dateOffset(date, index)).some(day => !getDay(day).clients.length && !dayState(day).off && dayState(day).workStart == null)) {
-      add(wrap, 'p', 'Importe Planity ou confirme tes jours off pour mieux placer les blocs cette semaine.')
+      add(wrap, 'p', 'EMMA cherche des créneaux uniquement les jours où elle connaît tes horaires ou que tu as confirmés comme jours off.')
+      for (const [offset, label] of [[0, 'Jour sélectionné : repos'], [1, 'Lendemain : repos']]) {
+        const day = dateOffset(date, offset)
+        if (day < today || getDay(day).first != null || dayState(day).off) continue
+        button(wrap, label, () => {
+          dayState(day).off = true
+          save()
+          if (quizReady) makeProposals()
+          render()
+        })
+      }
       button(wrap, 'Importer Planity', () => bridge.importPlanity(date))
     }
     const signals = new Map()
@@ -261,6 +275,7 @@ export function mountPlanningWorkspace(container, bridge) {
       const options = task.id === 'vasque' ? [['', 'Choisir'], ['yes', 'Encombré'], ['traces', 'Encombré avec des traces'], ['no', 'En ordre']] :
         [['', 'Choisir'], ['yes', 'À faire'], ['no', 'Ça peut attendre']]
       for (const [value, name] of options) add(select, 'option', name).value = value
+      if (typeof state.pending[task.id] === 'string') select.value = state.pending[task.id]
       label.append(select)
       signals.set(task.id, select)
     }
@@ -270,6 +285,7 @@ export function mountPlanningWorkspace(container, bridge) {
     for (const task of homeTasks.filter(task => !signals.has(task.id))) {
       checks.push([task, input(details, task.room + ' · ' + taskFor(task.id).title, 'checkbox')])
     }
+    add(wrap, 'p', 'Indique ce qui est à faire, puis choisis un créneau proposé.')
     const view = button(wrap, 'Voir les créneaux', async () => {
       view.disabled = true
       for (const [id, select] of signals) {
@@ -300,7 +316,10 @@ export function mountPlanningWorkspace(container, bridge) {
       }
     })
     if (!quizReady) return
-    if (proposals.length === 0) add(wrap, 'p', 'Aucun créneau proposé. Les tâches signalées te seront reproposées.')
+    if (!proposalTaskCount) add(wrap, 'p', 'Aucune tâche à placer. Choisis « À faire » ou coche une tâche dans « Tu as remarqué autre chose ? ».')
+    else if (!proposalDayCount) add(wrap, 'p', 'Tes tâches sont retenues. Confirme au moins un jour off ou importe Planity pour voir les créneaux.')
+    else if (proposals.length === 0) add(wrap, 'p', 'Les jours renseignés n’ont plus assez de temps libre. Tes tâches seront reproposées.')
+
     for (const item of proposals) {
       const detail = add(wrap, 'details', '')
       tint(detail, item)
@@ -398,7 +417,12 @@ export function mountPlanningWorkspace(container, bridge) {
   function renderCalendar(root) {
     const group = add(root, 'details', '')
     add(group, 'summary', 'Calendrier Apple')
-    button(group, 'Exporter 7 jours (.ics)', exportCalendar)
+    add(group, 'p', 'L’export contient les 7 jours à partir de la date sélectionnée. Le fichier .ics est une copie du planning à importer dans Calendrier.')
+    button(group, 'Télécharger le planning (.ics)', exportCalendar)
+    if (bridge.calendarPreview) {
+      add(group, 'p', 'L’abonnement automatique à Calendrier Apple reste à activer.')
+      return
+    }
     if (!state.calendarKey) {
       button(group, 'Créer un lien d’abonnement', async () => {
         const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, '0')).join('')
@@ -563,5 +587,5 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   render()
-  return { refresh: render }
+  return { refresh() { if (quizReady) makeProposals(); render() } }
 }

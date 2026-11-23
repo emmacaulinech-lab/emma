@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=4');
+  const homeModule = import('./modules/day-planning-home.js?v=5');
   const glowModule = import('./modules/day-planning-glow.js?v=2');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -207,6 +207,7 @@
         journal: () => DB.journal,
         planning: day => DB.journal.planning?.[day] || [],
         formations: trainingFor,
+        calendarPreview: location.hostname.startsWith("deploy-preview-"),
         calendarLink: key => calendarEndpoint.replace('https:', 'webcal:') + '?key=' + key,
         async publishCalendar(data) {
           if (currentUser?.uid !== uid) throw Error('Reconnecte-toi.');
