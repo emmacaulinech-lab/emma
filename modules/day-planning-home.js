@@ -129,6 +129,7 @@ export function mountPlanningWorkspace(container, bridge) {
   const today = new Date().toLocaleDateString('sv-SE')
   let date = today
   let quizOpen = false
+  let controlsOpen = false
   let quizReady = false
   let saving = false
   let proposals = []
@@ -470,10 +471,15 @@ export function mountPlanningWorkspace(container, bridge) {
     const picker = input(navigation, 'Date', 'date', date)
     picker.onchange = () => { if (picker.value) { date = picker.value; quizReady = false; render() } }
     button(navigation, 'Aujourd’hui', () => { date = today; quizReady = false; render() })
-    button(navigation, 'Importer Planity', () => bridge.importPlanity(date))
-    renderCalendar(container)
+    const controls = document.createElement('details')
+    controls.className = 'day-workspace-controls'
+    controls.open = controlsOpen
+    controls.ontoggle = () => { if (controls.isConnected) controlsOpen = controls.open }
+    add(controls, 'summary', 'Options du planning')
+    button(controls, 'Importer Planity', () => bridge.importPlanity(date))
+    renderCalendar(controls)
     if (!clients.length) {
-      const dayType = add(container, 'details', '')
+      const dayType = add(controls, 'details', '')
       add(dayType, 'summary', settings.off ? 'Jour off confirmé' : settings.workStart != null ? 'Jour travaillé confirmé' : 'Confirmer le type de journée')
       button(dayType, 'Jour off', () => { settings.off = true; delete settings.workStart; delete settings.workEnd; save(); render() })
       const start = input(dayType, 'Début au salon', 'time', settings.workStart == null ? '09:00' : clock(settings.workStart))
@@ -487,9 +493,9 @@ export function mountPlanningWorkspace(container, bridge) {
         render()
       })
     }
-    add(container, 'p', 'Réveil conseillé ' + clock(morning.wake) + ' · Coucher conseillé ' + clock(evening.bedtime))
+    add(controls, 'p', 'Réveil conseillé ' + clock(morning.wake) + ' · Coucher conseillé ' + clock(evening.bedtime))
     if (date === today) {
-      const wake = button(container, settings.actualWake == null ? 'Je suis réveillée' : 'Réveil noté à ' + clock(settings.actualWake), () => {
+      const wake = button(navigation, settings.actualWake == null ? 'Je suis réveillée' : 'Réveil noté à ' + clock(settings.actualWake), () => {
         const now = new Date()
         settings.actualWake = now.getHours() * 60 + now.getMinutes()
         save()
@@ -497,13 +503,14 @@ export function mountPlanningWorkspace(container, bridge) {
       })
       wake.disabled = settings.actualWake != null
     }
+    const notices = document.createElement('div')
     if (morning.earlyWindow) {
       const task = taskFor(state.pending['lave-vaisselle'] ? 'lave-vaisselle' : 'linge')
       const slot = firstSlot([...personal, ...bookings], morning.earlyWindow.start, morning.earlyWindow.end, task.duration)
       if (slot && settings.earlyDismissed !== true && !bookings.some(item => item.id === task.id && !item.done)) {
-        add(container, 'p', interval(slot) + ' · ' + task.title)
-        button(container, 'Ajouter au planning', () => book({ ...task, ...slot, date }))
-        button(container, 'Garder le créneau libre', () => { settings.earlyDismissed = true; save(); render() })
+        add(notices, 'p', interval(slot) + ' · ' + task.title)
+        button(notices, 'Ajouter au planning', () => book({ ...task, ...slot, date }))
+        button(notices, 'Garder le créneau libre', () => { settings.earlyDismissed = true; save(); render() })
       }
     }
     for (let index = 1; index < clients.length; index++) {
@@ -515,7 +522,7 @@ export function mountPlanningWorkspace(container, bridge) {
       const slot = firstSlot([...personal, ...bookings, ...clients], Math.max(previous.end, earliest), next.start - 5, 10)
       if (!slot || settings.dismissedBreaks?.includes(next.start)) continue
       const task = { id: 'admin-break-' + next.start, room: 'Perso', title: 'Traiter un message ou envoyer un document', duration: 10, ...slot, date }
-      const suggestion = add(container, 'details', '')
+      const suggestion = add(notices, 'details', '')
       add(suggestion, 'summary', interval(slot) + ' · Suggestion entre deux clientes')
       add(suggestion, 'p', task.title)
       button(suggestion, 'Ajouter au planning', () => book(task))
@@ -527,31 +534,50 @@ export function mountPlanningWorkspace(container, bridge) {
       break
     }
     if (evening.needsDinnerChoice || settings.dinnerChoice) {
-      add(container, 'p', 'Tu manges où ce soir ?')
+      add(notices, 'p', 'Tu manges où ce soir ?')
       for (const [value, label] of [['outside', 'À l’extérieur'], ['home', 'À la maison']]) {
-        const choice = button(container, label, () => { settings.dinnerChoice = value; save(); render() })
+        const choice = button(notices, label, () => { settings.dinnerChoice = value; save(); render() })
         choice.setAttribute('aria-pressed', String(settings.dinnerChoice === value))
       }
     }
-    if (displaced.length) add(container, 'p', 'À replacer · ' + displaced.map(item => item.title).join(' · '))
+    if (displaced.length) add(notices, 'p', 'À replacer · ' + displaced.map(item => item.title).join(' · '))
     if (evening.conflictsWithBedtime) {
-      add(container, 'p', 'Ta soirée empiète sur le coucher conseillé. Avec les blocs actuels, tu peux te coucher à ' + clock(evening.earliestBedtime) + '.')
+      add(notices, 'p', 'Ta soirée empiète sur le coucher conseillé. Avec les blocs actuels, tu peux te coucher à ' + clock(evening.earliestBedtime) + '.')
     }
-    if (error) add(container, 'p', error)
-    renderAppointmentForm(container)
-    const quizButton = button(container, quizOpen ? 'Fermer le quiz Maison' : 'Préparer ma journée', () => { quizOpen = !quizOpen; if (quizOpen && quizReady) makeProposals(); render() })
+    if (error) add(notices, 'p', error)
+    renderAppointmentForm(controls)
+    const quizButton = button(navigation, quizOpen ? 'Fermer le quiz Maison' : 'Préparer ma journée', () => {
+      quizOpen = !quizOpen
+      controlsOpen = quizOpen
+      if (quizOpen && quizReady) makeProposals()
+      render()
+      if (quizOpen) container.querySelector('#emma-day-options')?.scrollIntoView?.({ block: 'nearest' })
+    })
     if (!quizOpen) quizButton.dataset.openQuiz = ''
-    if (quizOpen) renderQuiz(container)
+    if (quizOpen) renderQuiz(controls)
+    const optionsButton = button(navigation, 'Options', () => {
+      controls.open = !controls.open
+      if (controls.open) controls.scrollIntoView?.({ block: 'nearest' })
+    })
+    optionsButton.setAttribute('aria-controls', 'emma-day-options')
+    controls.id = 'emma-day-options'
     const list = add(container, 'div', '')
+    list.className = 'day-workspace-timeline'
     const sport = bridge.sport(date)
     const schedule = [
       { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
     ]
     for (const block of schedule.sort((a, b) => a.start - b.start)) {
-      const detail = add(list, 'details', '')
+      const row = add(list, 'div', '')
+      row.className = 'day-workspace-time-row'
+      const time = add(row, 'div', '')
+      time.className = 'day-workspace-hours'
+      add(time, 'strong', clock(block.start))
+      add(time, 'small', clock(block.end))
+      const detail = add(row, 'details', '')
       tint(detail, block)
-      add(detail, 'summary', interval(block) + ' · ' + (block.room || block.title || labels[block.type]) + (block.done ? ' ✓' : ''))
+      add(detail, 'summary', (block.room || block.title || labels[block.type]) + (block.done ? ' ✓' : ''))
       if (block.children) {
         for (const child of block.children) {
           const row = add(detail, 'p', interval(child) + ' · ' + (child.type === 'sport' ? sport.label : labels[child.type]))
@@ -583,6 +609,8 @@ export function mountPlanningWorkspace(container, bridge) {
         }
       }
     }
+    if (notices.childElementCount) container.append(notices)
+    container.append(controls)
     if (state.calendarKey) void publishCalendar()
   }
 

@@ -69,7 +69,9 @@ test('accueil, ajout d’un rendez-vous et choix du repas', async () => {
   await form.querySelector('button').onclick()
   assert.match(root.textContent, /Tu manges où ce soir/)
   ;[...root.querySelectorAll('button')].find(item => item.textContent === 'À l’extérieur').click()
-  assert.match(root.textContent, /20:00–21:30 · Restaurant/)
+  const appointment = [...root.querySelectorAll('.day-workspace-time-row')].find(row => row.querySelector('summary').textContent === 'Restaurant')
+  assert.ok(appointment)
+  assert.deepEqual([...appointment.querySelector('.day-workspace-hours').children].map(node => node.textContent), ['20:00', '21:30'])
   assert.doesNotMatch(root.textContent, / · Dîner/)
 })
 

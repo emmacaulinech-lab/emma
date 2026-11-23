@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=5');
+  const homeModule = import('./modules/day-planning-home.js?v=6');
   const glowModule = import('./modules/day-planning-glow.js?v=2');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -168,24 +168,67 @@
     function arrangeDashboard() {
       const grid = document.getElementById('hub-modules-grid');
       if (!grid || grid.classList.contains('refonte-dashboard')) return;
-      const makeCard = (name, style, action) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'hub-smart-card emma-dashboard-card ' + style;
-        card.textContent = name;
-        card.onclick = action;
-        grid.append(card);
+      const aside = document.createElement('aside');
+      aside.className = 'refonte-sidebar';
+      const shortcuts = document.createElement('div');
+      shortcuts.className = 'refonte-shortcuts';
+      aside.append(shortcuts);
+      const add = (tag, text, parent, className) => {
+        const node = document.createElement(tag);
+        node.textContent = text;
+        node.className = className || '';
+        parent.append(node);
+        return node;
       };
-      grid.classList.add('refonte-dashboard');
-      makeCard('Ma compta', 'refonte-compta', () => goModule('compta'));
-      makeCard('Nutrition · Qu’est-ce que je mange ?', 'refonte-nutrition', () => {
-        goModule('glow');
-        renderGlowNutrition();
-      });
-      makeCard('Sport · Séance de 20 min', 'refonte-sport', () => {
+      const compta = add('button', 'Ma compta', shortcuts, 'refonte-shortcut');
+      compta.type = 'button';
+      compta.onclick = () => goModule('compta');
+      const portal = add('a', 'LIMAGECILS PRO ↗', shortcuts, 'refonte-shortcut');
+      portal.href = document.getElementById('limagecils-portal')?.href ||
+        'https://emmacaulinech-lab.github.io/limagecils-facturation/';
+
+      const preview = (title, id, actionLabel, action) => {
+        const card = add('section', '', aside, 'refonte-preview');
+        add('h3', title, card);
+        add('div', '', card, 'refonte-preview-content').id = id;
+        const actionButton = add('button', actionLabel, card, 'btn bg bsm');
+        actionButton.type = 'button';
+        actionButton.onclick = action;
+      };
+      preview('Sport', 'refonte-sport-apercu', 'Ouvrir Sport', () => {
         goModule('glow');
         renderGlowSport();
       });
+      preview('Nutrition', 'refonte-nutrition-apercu', 'Qu’est-ce que je mange ?', () => {
+        goModule('glow');
+        renderGlowNutrition();
+      });
+      grid.append(aside);
+      grid.classList.add('refonte-dashboard');
+    }
+
+    function refreshDashboardPreviews() {
+      const day = dateLocaleISO();
+      const workout = bilanSportJourGlow(day);
+      const goal = glow.selectSport(day, historiqueSportV2Glow(), DB.glow?.activite?.etatSport === 'courbaturee',
+        materielAutoriseGlow({materiel:['tapis_course']}));
+      const meals = joursHistoriqueNutritionGlow().find(entry => entry.date === day)?.repas || [];
+      const last = meals.at(-1);
+      const dish = last?.nom || last?.aliments?.map(item => typeof item === 'string' ? item : item.nom).filter(Boolean).join(', ');
+      const sportTitle = workout.minutes > 0 ? 'Sport aujourd’hui' : 'Séance du jour';
+      const setPreview = (id, title, subtitle) => {
+        const target = document.getElementById(id);
+        if (!target) return;
+        const heading = document.createElement('strong');
+        heading.textContent = title;
+        const detail = document.createElement('small');
+        detail.textContent = subtitle;
+        target.replaceChildren(heading, detail);
+      };
+      setPreview('refonte-sport-apercu', sportTitle,
+        workout.minutes > 0 ? workout.minutes + ' min réalisées' : (labels[goal] || 'Sport') + ' · 20 min');
+      setPreview('refonte-nutrition-apercu', meals.length ? meals.length + ' repas renseigné' + (meals.length > 1 ? 's' : '') : 'Aucun repas renseigné aujourd’hui',
+        dish ? 'Dernier repas : ' + dish : 'Des idées adaptées à tes goûts et à ton historique');
     }
 
     renderHubPlanningMini = () => {
@@ -194,6 +237,7 @@
       const mini = document.getElementById('hub-planning-mini');
       if (!wrap || !mini) return;
       arrangeDashboard();
+      refreshDashboardPreviews();
       wrap.onclick = event => event.stopPropagation();
       wrap.onkeydown = event => event.stopPropagation();
       wrap.style.display = '';

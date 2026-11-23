@@ -49,44 +49,96 @@ dialog.day-workspace::backdrop {
   background: #34213880;
 }
 
-#hub-modules-grid.refonte-dashboard {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+#hub-modules-grid.emma-hub-grid.refonte-dashboard {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) !important;
   grid-auto-rows: min-content;
   align-items: start;
 }
-.refonte-dashboard .emma-journal-card {
-  grid-area: 1 / 1 / span 5 / 2;
+#hub-modules-grid.refonte-dashboard > .emma-journal-card {
+  grid-column: 1 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+#hub-modules-grid.refonte-dashboard > :is(.emma-house-card, .glow-smart-card, .emma-work-card, #limagecils-portal) {
+  display: none !important;
+}
+.refonte-sidebar {
+  display: grid;
+  grid-column: 2;
+  gap: clamp(.65rem, 1.5vw, 1.2rem);
   min-width: 0;
 }
-.refonte-dashboard .emma-house-card,
-.refonte-dashboard .glow-smart-card {
-  display: none;
+.refonte-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
 }
-.refonte-dashboard > .refonte-compta { grid-area: 1 / 2; }
-.refonte-dashboard > .refonte-nutrition { grid-area: 2 / 2; }
-.refonte-dashboard > .refonte-sport { grid-area: 3 / 2; }
-.refonte-dashboard > button.hub-smart-card {
-  min-height: 4rem;
-  width: 100%;
-  padding: 1rem;
-  text-align: left;
+.refonte-shortcut,
+.refonte-preview {
+  border: 1px solid #ffffffc9;
+  border-radius: 1.1rem;
+  background: #ffffff78;
+  color: inherit;
+  padding: .8rem 1rem;
+}
+.refonte-shortcut {
+  display: grid;
+  place-items: center;
+  font: inherit;
+  font-weight: 700;
   cursor: pointer;
+  text-align: center;
+  text-decoration: none;
 }
-.refonte-dashboard #hub-planning-mini {
-  max-height: none;
-  overflow: visible;
+.refonte-preview {
+  display: grid;
+  justify-items: start;
+  gap: .65rem;
+  padding: clamp(.9rem, 2vw, 1.4rem);
+}
+.refonte-preview h3 {
+  margin: 0;
+  font: 700 clamp(1.4rem, 2.5vw, 2rem) 'Cormorant Garamond', serif;
+}
+.refonte-preview-content {
+  display: grid;
+  gap: .2rem;
+  overflow-wrap: anywhere;
+}
+.refonte-preview-content small { color: var(--mut, #665c69); }
+#hub-modules-grid.refonte-dashboard #hub-planning-mini {
+  max-height: none !important;
+  overflow: visible !important;
 }
 @media (max-width: 700px) {
-  #hub-modules-grid.refonte-dashboard { grid-template-columns: minmax(0, 1fr); }
-  .refonte-dashboard > .hub-smart-card { grid-area: auto; }
-  .refonte-dashboard .emma-journal-card { order: -1; }
+  #hub-modules-grid.emma-hub-grid.refonte-dashboard { grid-template-columns: minmax(0, 1fr) !important; }
+  .refonte-sidebar { grid-column: 1; }
 }
 
+.day-workspace-timeline { display: grid; gap: .4rem; }
+.day-workspace-time-row {
+  display: grid;
+  grid-template-columns: minmax(3.25rem, max-content) minmax(0, 1fr);
+  gap: .65rem;
+  align-items: start;
+}
+.day-workspace-hours {
+  display: grid;
+  gap: .1rem;
+  padding-top: .52rem;
+  text-align: right;
+  color: var(--mut, #665c69);
+  font-variant-numeric: tabular-nums;
+  font-size: .85rem;
+}
+.day-workspace-time-row details { margin: 0; }
+.day-workspace-controls[open] { margin-top: .55rem; }
 .day-workspace .day-workspace-block {
   --day-block-color: #993556;
-  background: color-mix(in srgb, var(--day-block-color) 14%, white);
-  border: 1px solid color-mix(in srgb, var(--day-block-color) 45%, white);
+  background: color-mix(in srgb, var(--day-block-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--day-block-color) 43%, transparent);
   border-inline-start: 4px solid var(--day-block-color);
 }
 .day-workspace p.day-workspace-block {
