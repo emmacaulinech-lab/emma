@@ -146,3 +146,40 @@ dialog.day-workspace::backdrop {
   padding: .35rem .55rem;
   border-radius: .5rem;
 }
+
+#hub-modules-grid.refonte-dashboard > .emma-journal-card {
+  --section-tint: 176 157 228;
+  --section-ink: #594580;
+}
+.refonte-shortcuts > button {
+  --section-tint: 140 183 230;
+  --section-ink: #315775;
+}
+.refonte-shortcuts > a {
+  --section-tint: 232 150 179;
+  --section-ink: #80405c;
+}
+.refonte-preview:has(#refonte-sport-apercu) {
+  --section-tint: 125 196 160;
+  --section-ink: #326751;
+}
+.refonte-preview:has(#refonte-nutrition-apercu) {
+  --section-tint: 248 178 139;
+  --section-ink: #845039;
+}
+#hub-modules-grid.refonte-dashboard > .emma-journal-card,
+.refonte-sidebar :is(.refonte-preview, .refonte-shortcut) {
+  background: linear-gradient(145deg, rgb(var(--section-tint) / .28), rgb(255 255 255 / .19)) !important;
+  border: 1px solid rgb(255 255 255 / .78);
+  box-shadow: 0 8px 24px rgb(74 67 109 / .07), inset 0 1px 0 rgb(255 255 255 / .68);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.refonte-sidebar :is(.refonte-shortcut, .refonte-preview h3),
+#hub-modules-grid.refonte-dashboard > .emma-journal-card .hub-smart-title {
+  color: var(--section-ink);
+}
+.refonte-sidebar :is(button, a):focus-visible {
+  outline: 2px solid var(--section-ink);
+  outline-offset: 3px;
+}
