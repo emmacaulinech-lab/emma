@@ -143,3 +143,53 @@ exports.notificationsEmma = onSchedule({
     resultats,
   });
 });
+
+// Calendrier Apple interroge l'URL sans session Firebase. Le lien utilise une
+// clé aléatoire révocable, dont seul le condensat est enregistré côté serveur.
+const {onRequest} = require("firebase-functions/v2/https");
+const {getAuth} = require("firebase-admin/auth");
+const {createHash} = require("node:crypto");
+
+exports.calendrierEmma = onRequest({cors: [BASE_URL], invoker: "public"}, async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
+  if (req.method === "GET") {
+    const key = req.query.key;
+    if (typeof key !== "string" || !/^[a-f0-9]{64}$/.test(key)) {
+      return res.status(404).end();
+    }
+    const hash = createHash("sha256").update(key).digest("hex");
+    const feed = await db.collection("emma_calendar_feeds").doc(hash).get();
+    if (!feed.exists) return res.status(404).end();
+    return res.type("text/calendar; charset=utf-8").send(feed.data().calendar);
+  }
+  if (req.method !== "POST") return res.status(405).end();
+  let owner;
+  try {
+    const bearer = /^Bearer (\S+)$/.exec(req.get("Authorization") || "");
+    if (!bearer) return res.status(401).end();
+    owner = await getAuth().verifyIdToken(bearer[1]);
+  } catch {
+    return res.status(401).end();
+  }
+  const {key, calendar, revoke} = req.body || {};
+  if (!revoke && (typeof key !== "string" || !/^[a-f0-9]{64}$/.test(key) ||
+      typeof calendar !== "string" || Buffer.byteLength(calendar) > 200000 ||
+      !calendar.startsWith("BEGIN:VCALENDAR\r\n") || !calendar.endsWith("END:VCALENDAR\r\n"))) {
+    return res.status(400).end();
+  }
+  const links = db.collection("emma_calendar_feeds");
+  const user = db.collection("emma_calendar_owners").doc(owner.uid);
+  const hash = revoke ? null : createHash("sha256").update(key).digest("hex");
+  await db.runTransaction(async (transaction) => {
+    const current = (await transaction.get(user)).data()?.hash;
+    const feed = hash ? await transaction.get(links.doc(hash)) : null;
+    if (feed?.exists && feed.data().owner !== owner.uid) throw Error("Calendar link collision");
+    if (current && current !== hash) transaction.delete(links.doc(current));
+    if (revoke) transaction.delete(user);
+    else {
+      transaction.set(user, {hash});
+      transaction.set(links.doc(hash), {calendar, owner: owner.uid});
+    }
+  });
+  return res.status(204).end();
+});

@@ -13,14 +13,21 @@ async function read(ref,options){
   const m=snap.data();
   if(m.format!==2||typeof m.version!=='string'||!Array.isArray(m.chunks)||!m.chunks.length||m.chunks.length>10000||m.chunks.some((id,i)=>id!==`journal_v2_${m.version}_${i}`))throw failure('index incomplet ; sauvegarde bloquée pour protéger les données');
   const parts=[];
-  for(const id of m.chunks){const part=await modules.doc(id).get(options);if(!part.exists||typeof part.data().data!=='string')throw failure('copie incomplète ; sauvegarde bloquée');parts.push(part.data().data);}
+  for(let start=0;start<m.chunks.length;start+=8){
+    const group=await Promise.all(m.chunks.slice(start,start+8).map(id=>modules.doc(id).get(options)));
+    for(const part of group){
+      if(!part.exists||typeof part.data().data!=='string')throw failure('copie incomplète ; sauvegarde bloquée');
+      parts.push(part.data().data);
+    }
+  }
   const text=parts.join('');
   if(encoder.encode(text).length!==m.bytes||await checksum(text)!==m.sha256)throw failure('vérification de la copie échouée ; sauvegarde bloquée');
-  return {journal:parse(text),version:m.version};
+  return {journal:parse(text),version:m.version,text};
 }
-async function load(ref){const result=await read(ref,{source:'server'}),s=state(ref);s.version=result.version;s.loaded=true;return result.journal;}
+async function load(ref){const result=await read(ref,{source:'server'}),s=state(ref);s.version=result.version;s.text=result.text;s.loaded=true;return result.journal;}
 async function write(ref,text){
   const s=state(ref);if(!s.loaded)throw failure('chargement complet requis avant toute sauvegarde');
+  if(text===s.text)return true;
   const version=crypto.randomUUID(),modules=ref.collection('modules'),chunks=[];
   // Chaque fragment reste très en dessous de la limite Firestore, même en UTF-8.
   for(let start=0;start<text.length;){let end=Math.min(text.length,start+chunkChars);if(end<text.length&&/[\uD800-\uDBFF]/.test(text[end-1]))end--;chunks.push(text.slice(start,end));start=end;}
@@ -35,6 +42,7 @@ async function write(ref,text){
     tr.set(target,manifest);
   });
   s.version=version;
+  s.text=text;
   return true;
 }
 function save(ref,value){let text;try{text=typeof value==='string'?value:JSON.stringify(value);parse(text);}catch(e){return Promise.reject(e);}const s=state(ref),job=s.queue.catch(()=>{}).then(()=>write(ref,text));s.queue=job;return job;}

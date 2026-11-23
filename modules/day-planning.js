@@ -60,9 +60,13 @@ export function buildEvening({
     blocks.push({ type: 'kitchen', start: dinnerStart + 20, end: dinnerStart + 30 })
   }
   if (bedtime != null) blocks.push({ type: 'evening-routine', start: bedtime - 30, end: bedtime })
-  const conflictsWithBedtime = bedtime != null && (
-    blocks.some(block => block.type !== 'evening-routine' && block.end > bedtime - 30) ||
-    appointments.some(appointment => appointment.end > bedtime - 30)
-  )
-  return { bedtime, needsDinnerChoice: needsDinnerChoice && dinnerChoice == null, conflictsWithBedtime, blocks }
+  const eveningEnd = Math.max(0, ...blocks.filter(block => block.type !== 'evening-routine').map(block => block.end),
+    ...appointments.map(appointment => appointment.end))
+  const earliestBedtime = bedtime == null ? null : Math.max(bedtime, eveningEnd + 30)
+  return {
+    bedtime, earliestBedtime,
+    needsDinnerChoice: needsDinnerChoice && dinnerChoice == null,
+    conflictsWithBedtime: earliestBedtime > bedtime,
+    blocks,
+  }
 }
