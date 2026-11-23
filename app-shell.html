@@ -5,20 +5,22 @@
   <div class="login-card">
     <div class="login-logo">✦ EMMA</div>
     <div class="login-sub">Comptabilité · Accès privé</div>
+    <form id="emma-login-form" onsubmit="event.preventDefault();doLogin()">
     <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="ton@email.com" autocomplete="username">
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" name="username" placeholder="ton@email.com" autocomplete="username">
     </div>
     <div class="login-field">
-      <label>Mot de passe</label>
-      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+      <label for="loginPwd">Mot de passe</label>
+      <input type="password" id="loginPwd" name="password" placeholder="Saisis ton mot de passe" autocomplete="current-password">
     </div>
-     <div class="login-field" id="apiKeyField">
-      <label>Clé API Anthropic <span style="font-size:10px;color:var(--mut)">(actions IA)</span></label>
+    </form>
+    <div class="login-field" id="apiKeyField">
+      <label for="loginApiKey">Clé API Anthropic <span style="font-size:10px;color:var(--mut)">(facultative pour la connexion)</span></label>
       <input type="password" id="loginApiKey" placeholder="sk-ant-..." autocomplete="off">
     </div>
-    <button class="login-btn" onclick="doLogin()">Se connecter</button>
-    <div class="login-error" id="loginErr"></div>
+    <button class="login-btn" type="submit" form="emma-login-form">Se connecter</button>
+    <div class="login-error" id="loginErr" role="alert"></div>
   </div>
 </div>
 
