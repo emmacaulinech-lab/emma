@@ -24,6 +24,34 @@ function clock(value) {
   return hours + ':' + minutes + (value >= 1440 ? ' (+1 j)' : value < 0 ? ' (veille)' : '')
 }
 
+const roomColors = {
+  Cuisine: '#D98B6C',
+  Chambre: '#A78BC3',
+  Salon: '#C97C91',
+  Entrée: '#C5A46D',
+  Linge: '#7FA58C',
+  'Salle de bain': '#A78BC3',
+  Perso: '#668FB5',
+}
+
+const blockColors = {
+  morning: '#8D78B8',
+  admin: '#668FB5',
+  sport: '#65A37A',
+  preparation: '#C69A72',
+  outbound: '#7895A5',
+  return: '#7895A5',
+  dinner: '#C4A24E',
+  kitchen: roomColors.Cuisine,
+  'evening-routine': '#C69A72',
+}
+
+function tint(node, block) {
+  const color = block.color || roomColors[block.room] || blockColors[block.type] || '#993556'
+  node.classList.add('day-workspace-block')
+  node.style.setProperty('--day-block-color', color)
+}
+
 export function readDayAppointments(planning) {
   const clients = []
   const personal = []
@@ -32,9 +60,13 @@ export function readDayAppointments(planning) {
     const end = minutes(block.heureFin)
     if (start == null || end == null || end <= start) continue
     const appointment = { start, end, arrivalHome: minutes(block.arriveeMaison), title: block.customNom || block.nom || 'Rendez-vous' }
-    if (block.source === 'planity' || block.typeElement === 'planity') clients.push(appointment)
+    const customColor = block.couleur || block.couleurOverride
+    const color = /^#[0-9a-f]{6}$/i.test(customColor || '') ? customColor : null
+    if (block.source === 'planity' || block.typeElement === 'planity') {
+      clients.push({ ...appointment, color: color || '#E87A9A' })
+    }
     else if (block.rendezVous || ['rdv', 'rendezVous', 'evenement'].includes(block.categorie) ||
-      (block.iconOverride === '📌' && block.aClasser)) personal.push(appointment)
+      (block.iconOverride === '📌' && block.aClasser)) personal.push({ ...appointment, color: color || '#993556' })
   }
   clients.sort((a, b) => a.start - b.start)
   return { clients, personal }
@@ -142,8 +174,8 @@ export function mountPlanningWorkspace(container, bridge) {
       dinnerChoice: data.settings.dinnerChoice,
     })
     const robots = [
-      { start: 1305, end: 1307, title: 'Roborock · Cuisine', type: 'robot' },
-      { start: 1307, end: 1309, title: 'Roborock · Salon', type: 'robot' },
+      { start: 1305, end: 1307, title: 'Roborock · Cuisine', type: 'robot', color: roomColors.Cuisine },
+      { start: 1307, end: 1309, title: 'Roborock · Salon', type: 'robot', color: roomColors.Salon },
     ]
     const blockers = [...data.morning.blocks, ...data.clients, ...data.personal, ...evening.blocks]
     const overlaps = item => blockers.some(block => item.start < block.end && item.end > block.start)
@@ -271,6 +303,7 @@ export function mountPlanningWorkspace(container, bridge) {
     if (proposals.length === 0) add(wrap, 'p', 'Aucun créneau proposé. Les tâches signalées te seront reproposées.')
     for (const item of proposals) {
       const detail = add(wrap, 'details', '')
+      tint(detail, item)
       add(detail, 'summary', item.date + ' · ' + interval(item) + ' · ' + item.room)
       add(detail, 'p', item.title + (item.detail ? ' · ' + item.detail : ''))
       button(detail, 'Ajouter au planning', () => book(item))
@@ -488,14 +521,18 @@ export function mountPlanningWorkspace(container, bridge) {
     const list = add(container, 'div', '')
     const sport = bridge.sport(date)
     const schedule = [
-      { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', children: morning.blocks.slice(0, 3) },
+      { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
     ]
     for (const block of schedule.sort((a, b) => a.start - b.start)) {
       const detail = add(list, 'details', '')
+      tint(detail, block)
       add(detail, 'summary', interval(block) + ' · ' + (block.room || block.title || labels[block.type]) + (block.done ? ' ✓' : ''))
       if (block.children) {
-        for (const child of block.children) add(detail, 'p', interval(child) + ' · ' + (child.type === 'sport' ? sport.label : labels[child.type]))
+        for (const child of block.children) {
+          const row = add(detail, 'p', interval(child) + ' · ' + (child.type === 'sport' ? sport.label : labels[child.type]))
+          tint(row, child)
+        }
         if (date === today) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
       } else if (block.room) {
         add(detail, 'p', block.title + (block.detail ? ' · ' + block.detail : ''))

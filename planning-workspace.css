@@ -82,3 +82,15 @@ dialog.day-workspace::backdrop {
   .refonte-dashboard > .hub-smart-card { grid-area: auto; }
   .refonte-dashboard .emma-journal-card { order: -1; }
 }
+
+.day-workspace .day-workspace-block {
+  --day-block-color: #993556;
+  background: color-mix(in srgb, var(--day-block-color) 14%, white);
+  border: 1px solid color-mix(in srgb, var(--day-block-color) 45%, white);
+  border-inline-start: 4px solid var(--day-block-color);
+}
+.day-workspace p.day-workspace-block {
+  margin: .4rem 0;
+  padding: .35rem .55rem;
+  border-radius: .5rem;
+}

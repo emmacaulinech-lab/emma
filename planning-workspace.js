@@ -1,15 +1,17 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=2');
+  const homeModule = import('./modules/day-planning-home.js?v=4');
   const glowModule = import('./modules/day-planning-glow.js?v=2');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
+    const oldJournalDay = renderJAujourdhui;
     const oldNutrition = renderGlowNutrition;
     const oldHistory = renderHistoriqueNutritionGlow;
     const syncPlanity = syncAgendaVersJournal;
     const mounted = new WeakMap();
     const refresh = () => {
-      if (document.getElementById('hubPage')?.style.display === 'flex') renderHubPlanningMini();
+      if (document.getElementById('hubPage')?.style.display === 'flex' ||
+          document.getElementById('module-journal')?.style.display === 'flex') renderHubPlanningMini();
     };
     const calendarEndpoint = 'https://us-central1-emma-31a56.cloudfunctions.net/calendrierEmma';
     const labels = { fessiers: 'Fessiers', taille: 'Gainage et abdos', posture: 'Posture', tapis: 'Marche sur tapis' };
@@ -195,6 +197,9 @@
       wrap.onclick = event => event.stopPropagation();
       wrap.onkeydown = event => event.stopPropagation();
       wrap.style.display = '';
+      const inJournal = document.getElementById('module-journal')?.style.display === 'flex';
+      const target = inJournal ? document.getElementById('jview-aujourdhui') : wrap;
+      if (target && mini.parentElement !== target) target.replaceChildren(mini);
       const uid = currentUser.uid;
       if (mounted.get(mini)?.uid === uid) return mounted.get(mini).refresh();
       const workspace = home.mountPlanningWorkspace(mini, {
@@ -262,6 +267,12 @@
         },
       });
       mounted.set(mini, { uid, refresh:workspace.refresh });
+    };
+
+    window.emmaPlanningRefonteActive = true;
+    renderJAujourdhui = function () {
+      if (!currentUser || !DB.journal) return oldJournalDay.apply(this, arguments);
+      renderHubPlanningMini();
     };
 
     syncAgendaVersJournal = async function () { await syncPlanity(); refresh(); };
