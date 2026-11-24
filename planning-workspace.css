@@ -334,3 +334,12 @@ dialog.day-workspace::backdrop {
   font-size: 1.2rem;
 }
 .day-workspace-routine-menu::-webkit-details-marker { display: none; }
+
+.day-workspace-room-marker {
+  position: absolute;
+  inset-inline-start: calc(var(--time-gutter) - .4rem);
+  width: 3px;
+  border-radius: 2px;
+  opacity: .75;
+}
+.day-workspace-room-tasks summary strong { display: block; }

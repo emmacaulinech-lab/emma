@@ -490,27 +490,37 @@ export function mountPlanningWorkspace(container, bridge) {
       { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
     ].sort((a, b) => a.start - b.start)
-    const grouped = []
     const roomOf = item => {
       if (item.room && item.room !== 'Perso') return item.room
       if (item.type === 'kitchen') return 'Cuisine'
       if (item.type === 'robot') return item.title.split(' · ')[1]
       return null
     }
+    const tasksByRoom = new Map()
     for (const block of blocks) {
       const room = roomOf(block)
-      const previous = grouped.at(-1)
-      if (!room || !previous || room !== roomOf(previous) || block.start - previous.end > 5) {
-        grouped.push(block)
-        continue
-      }
-      const tasks = [...(previous.roomTasks || [previous]), block]
-      grouped[grouped.length - 1] = {
-        type: 'room-group', room, title: room, start: previous.start, end: Math.max(previous.end, block.end),
-        roomTasks: tasks, done: tasks.every(task => task.done),
-      }
+      if (!room) continue
+      if (!tasksByRoom.has(room)) tasksByRoom.set(room, [])
+      tasksByRoom.get(room).push(block)
     }
-    return grouped
+    return blocks.flatMap((block, index) => {
+      const room = roomOf(block)
+      const tasks = tasksByRoom.get(room)
+      if (!tasks || tasks.length < 2) return [block]
+      if (tasks[0] !== block) return []
+
+      // The card stays at the first visit. Only extend it across consecutive
+      // room tasks, so a later visit never covers an intervening appointment.
+      let end = block.end
+      for (const next of blocks.slice(index + 1)) {
+        if (roomOf(next) !== room || next.start > end) break
+        end = Math.max(end, next.end)
+      }
+      return [{
+        type: 'room-group', room, title: room, start: block.start, end,
+        roomTasks: tasks, done: tasks.every(task => task.done),
+      }]
+    })
   }
 
   function renderRoutineTask(root, { day, settings, id, title, duration, sport, addCheck }) {
@@ -620,10 +630,12 @@ export function mountPlanningWorkspace(container, bridge) {
     const detail = add(parent, 'details', '')
     if (nested) detail.open = true
     tint(detail, block)
-    const title = (weekly || nested || block.routineReport ? block.title : block.room || block.title) || labels[block.type]
+    const name = (weekly || nested || block.routineReport ? block.title : block.room || block.title) || labels[block.type]
+    const title = block.roomTasks ? name + ' · ' + block.roomTasks.length + ' tâches' : name
     const heading = add(detail, 'summary', '')
-    if (weekly) {
-      add(heading, 'small', interval(block) + (proposed ? ' · Proposé' : ''))
+    if (weekly || nested) {
+      const time = block.roomTasks ? 'Dès ' + clock(block.start) : interval(block)
+      add(heading, 'small', time + (proposed ? ' · Proposé' : ''))
       add(heading, 'strong', title + (block.done ? ' ✓' : ''))
     } else {
       heading.textContent = title + (block.done ? ' ✓' : '')
@@ -716,6 +728,17 @@ export function mountPlanningWorkspace(container, bridge) {
       mark.style.top = ((hour * 60 - start) * minuteHeight) + 'px'
       add(mark, 'span', hour === 24 ? '00 h' : String(hour).padStart(2, '0') + ' h')
     }
+    for (const group of schedule.filter(item => item.roomTasks)) {
+      for (const task of group.roomTasks) {
+        if (task.end <= group.end || task.end <= start || task.start >= end) continue
+        const marker = add(grid, 'span', '')
+        marker.className = 'day-workspace-room-marker'
+        marker.title = group.room + ' · ' + task.title + ' · ' + interval(task)
+        marker.style.top = ((Math.max(start, task.start) - start) * minuteHeight) + 'px'
+        marker.style.height = Math.max(5, (Math.min(end, task.end) - Math.max(start, task.start)) * minuteHeight) + 'px'
+        marker.style.backgroundColor = task.color || roomColors[group.room] || '#993556'
+      }
+    }
     const track = add(grid, 'div', '')
     track.className = 'day-workspace-day-track'
     const gap = 4
@@ -731,8 +754,9 @@ export function mountPlanningWorkspace(container, bridge) {
       cursor += spacing + slotHeight
       renderScheduleBlock(row, block, day, settings)
       const heading = row.querySelector('summary')
-      heading.title = interval(block)
-      heading.setAttribute('aria-label', heading.textContent + ', ' + interval(block))
+      const time = block.roomTasks ? 'Dès ' + clock(block.start) : interval(block)
+      heading.title = time
+      heading.setAttribute('aria-label', heading.textContent + ', ' + time)
     }
     outside(schedule.filter(item => item.start >= end), 'Après minuit')
   }
