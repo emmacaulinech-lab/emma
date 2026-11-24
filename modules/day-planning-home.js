@@ -152,6 +152,7 @@ export function mountPlanningWorkspace(container, bridge) {
   let quizOpen = false
   let controlsOpen = false
   let quizReady = false
+  let viewMode = 'day'
   let saving = false
   let proposals = []
   let proposalTaskCount = 0
@@ -256,7 +257,8 @@ export function mountPlanningWorkspace(container, bridge) {
       .filter(task => !state.bookings.some(item => item.id === task.id && !item.done && notYetDone(item) && !getSchedule(item.date).displaced.includes(item)))
     const priority = id => (rankedTasks.indexOf(id) + 1 || Number.MAX_SAFE_INTEGER)
     tasks.sort((a, b) => priority(a.id) - priority(b.id))
-    const firstDay = date < today ? today : date
+    const anchor = state.quizStart || today
+    const firstDay = anchor < today ? today : anchor
     const days = Array.from({ length: 7 }, (_, index) => dateOffset(firstDay, index))
       .filter(day => getDay(day).first != null || dayState(day).off)
       .map(day => available(day, getSchedule(day)))
@@ -319,6 +321,7 @@ export function mountPlanningWorkspace(container, bridge) {
       }
       for (const [task, checkbox] of checks) if (checkbox.checked) state.pending[task.id] = true
       quizReady = true
+      state.quizStart = date
       save()
       const selectedDay = date
       makeProposals()
@@ -480,12 +483,67 @@ export function mountPlanningWorkspace(container, bridge) {
     }
   }
 
+  function renderWeek() {
+    makeProposals()
+    const selected = new Date(date + 'T12:00:00')
+    const monday = dateOffset(date, -((selected.getDay() + 6) % 7))
+    const shortDate = day => new Date(day + 'T12:00:00').toLocaleDateString('fr-FR', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    })
+    const header = add(container, 'div', '')
+    header.className = 'day-workspace-actions'
+    button(header, 'Semaine précédente', () => { date = dateOffset(date, -7); render() })
+    add(header, 'strong', shortDate(monday) + ' – ' + shortDate(dateOffset(monday, 6)))
+    button(header, 'Semaine suivante', () => { date = dateOffset(date, 7); render() })
+
+    const grid = add(container, 'div', '')
+    grid.className = 'day-workspace-week'
+    for (let index = 0; index < 7; index++) {
+      const day = dateOffset(monday, index)
+      const { clients, personal, bookings, displaced, first, settings } = getSchedule(day)
+      const column = add(grid, 'section', '')
+      column.className = 'day-workspace-week-day'
+      if (day === today) column.dataset.today = ''
+      const heading = button(column, shortDate(day), () => { date = day; viewMode = 'day'; quizReady = false; render() })
+      if (day === today) heading.setAttribute('aria-current', 'date')
+      const candidates = proposals.filter(item => item.date === day)
+      if (clients.length) add(column, 'small', clients.length + ' RDV Planity')
+      else if (settings.off) add(column, 'small', 'Repos')
+      else if (first == null && day >= today) {
+        add(column, 'small', 'Journée à renseigner')
+        button(column, 'Confirmer repos', () => { settings.off = true; save(); render() })
+      }
+      const items = [
+        ...bookings.map(item => ({ item, status: item.done ? 'Fait' : 'Prévu' })),
+        ...candidates.map(item => ({ item, status: 'Proposé' })),
+        ...personal.map(item => ({ item, status: 'Rendez-vous' })),
+      ].sort((a, b) => a.item.start - b.item.start)
+      for (const { item, status } of items) {
+        const card = add(column, 'div', '')
+        tint(card, item)
+        card.classList.add('day-workspace-week-item')
+        add(card, 'small', interval(item) + ' · ' + status)
+        add(card, 'strong', item.title)
+        if (status === 'Proposé') button(card, 'Ajouter au planning', () => book(item))
+      }
+      if (displaced.length) add(column, 'small', displaced.length + ' bloc(s) à replacer')
+    }
+  }
+
   function render() {
     const { morning, evening, clients, personal, robots, bookings, displaced, settings } = getSchedule(date)
     container.replaceChildren()
     container.classList.add('day-workspace')
     const navigation = add(container, 'div', '')
     navigation.className = 'day-workspace-actions'
+    for (const [mode, label] of [['day', 'Jour'], ['week', 'Semaine']]) {
+      const toggle = button(navigation, label, () => { viewMode = mode; render() })
+      toggle.setAttribute('aria-pressed', String(viewMode === mode))
+    }
+    if (viewMode === 'week') {
+      renderWeek()
+      return
+    }
     const picker = input(navigation, 'Date', 'date', date)
     picker.onchange = () => { if (picker.value) { date = picker.value; quizReady = false; render() } }
     button(navigation, 'Aujourd’hui', () => { date = today; quizReady = false; render() })

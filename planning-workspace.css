@@ -190,3 +190,28 @@ dialog.day-workspace::backdrop {
 #module-journal #jtab1 {
   display: none !important;
 }
+
+.day-workspace-week {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: .6rem;
+}
+.day-workspace-week-day,
+.day-workspace-week-item {
+  display: grid;
+  align-content: start;
+  gap: .35rem;
+  min-width: 0;
+  padding: .55rem;
+  border-radius: .85rem;
+  overflow-wrap: anywhere;
+}
+.day-workspace-week-day {
+  border: 1px solid var(--brd2, #e7dce6);
+  background: #ffffff6b;
+}
+.day-workspace-week-day[data-today] { border-color: var(--acc, #995b8a); }
+.day-workspace-week small { color: var(--mut, #665c69); }
+.day-workspace-actions button[aria-pressed="true"] {
+  box-shadow: inset 0 -2px var(--acc, #995b8a);
+}
