@@ -483,7 +483,73 @@ export function mountPlanningWorkspace(container, bridge) {
     }
   }
 
-  function renderWeek() {
+  function scheduleBlocks({ morning, evening, clients, personal, robots, bookings }) {
+    return [
+      { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
+      ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
+    ].sort((a, b) => a.start - b.start)
+  }
+
+  function renderScheduleBlock(parent, block, day, settings, weekly = false, proposed = false) {
+    const sport = block.children ? bridge.sport(day) : null
+    function addRoutineCheck(parent, title) {
+      const check = input(parent, title, 'checkbox')
+      check.checked = Boolean(settings.checks?.[title])
+      check.onchange = () => {
+        settings.checks ||= {}
+        settings.checks[title] = check.checked
+        settings.checkTimes ||= {}
+        const now = new Date()
+        settings.checkTimes[title] = check.checked && day === today ? clock(now.getHours() * 60 + now.getMinutes()) : ''
+        save()
+      }
+    }
+    const detail = add(parent, 'details', '')
+    tint(detail, block)
+    const title = (weekly ? block.title : block.room || block.title) || labels[block.type]
+    const heading = add(detail, 'summary', '')
+    if (weekly) {
+      add(heading, 'small', interval(block) + (proposed ? ' · Proposé' : ''))
+      add(heading, 'strong', title + (block.done ? ' ✓' : ''))
+    } else {
+      heading.textContent = title + (block.done ? ' ✓' : '')
+    }
+    if (proposed) {
+      if (block.detail) add(detail, 'p', block.detail)
+      button(detail, 'Ajouter au planning', () => book(block))
+      return
+    }
+    if (block.children) {
+      for (const child of block.children) {
+        const row = add(detail, 'div', '')
+        add(row, 'small', interval(child))
+        const tasks = child.type === 'admin' ? ['Mails', 'Formations'] :
+          child.type === 'sport' ? ['Séance de sport · ' + sport.label] :
+          ['Douche du matin', 'Soins du matin', 'Maquillage']
+        for (const task of tasks) addRoutineCheck(row, task)
+      }
+      if (day === today) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
+    } else if (block.room) {
+      if (!weekly || block.detail) add(detail, 'p', weekly ? block.detail : block.title + (block.detail ? ' · ' + block.detail : ''))
+      if (!block.done) button(detail, 'Fait', () => {
+        block.done = true
+        const now = new Date()
+        block.completedAt = now.toLocaleDateString('sv-SE') + 'T' + clock(now.getHours() * 60 + now.getMinutes())
+        state.completed[block.id] = today
+        delete state.pending[block.id]
+        if (block.id === 'linge') state.laundry = (state.laundry + 1) % 4
+        save()
+        if (quizReady) makeProposals()
+        render()
+      })
+    } else if (['kitchen', 'evening-routine', 'robot'].includes(block.type)) {
+      const options = block.type === 'kitchen' ? ['Faire la vaisselle ou lancer le lave-vaisselle', 'Nettoyer la planche si utilisée', 'Essuyer le plan de travail'] :
+        block.type === 'evening-routine' ? ['Douche', 'Soins', 'Hydratation'] : [block.title]
+      for (const text of options) addRoutineCheck(detail, text)
+    }
+  }
+
+  function renderWeek(scrollLeft) {
     makeProposals()
     const selected = new Date(date + 'T12:00:00')
     const monday = dateOffset(date, -((selected.getDay() + 6) % 7))
@@ -498,9 +564,12 @@ export function mountPlanningWorkspace(container, bridge) {
 
     const grid = add(container, 'div', '')
     grid.className = 'day-workspace-week'
+    grid.setAttribute('aria-label', 'Planning de la semaine')
+    grid.tabIndex = 0
     for (let index = 0; index < 7; index++) {
       const day = dateOffset(monday, index)
-      const { clients, personal, bookings, displaced, first, settings } = getSchedule(day)
+      const schedule = getSchedule(day)
+      const { clients, displaced, first, settings } = schedule
       const column = add(grid, 'section', '')
       column.className = 'day-workspace-week-day'
       if (day === today) column.dataset.today = ''
@@ -514,26 +583,21 @@ export function mountPlanningWorkspace(container, bridge) {
         button(column, 'Confirmer repos', () => { settings.off = true; save(); render() })
       }
       const items = [
-        ...bookings.map(item => ({ item, status: item.done ? 'Fait' : 'Prévu' })),
-        ...candidates.map(item => ({ item, status: 'Proposé' })),
-        ...personal.map(item => ({ item, status: 'Rendez-vous' })),
+        ...scheduleBlocks(schedule).map(item => ({ item, proposed: false })),
+        ...candidates.map(item => ({ item, proposed: true })),
       ].sort((a, b) => a.item.start - b.item.start)
-      for (const { item, status } of items) {
-        const card = add(column, 'div', '')
-        tint(card, item)
-        card.classList.add('day-workspace-week-item')
-        add(card, 'small', interval(item) + ' · ' + status)
-        add(card, 'strong', item.title)
-        if (status === 'Proposé') button(card, 'Ajouter au planning', () => book(item))
-      }
+      for (const { item, proposed } of items) renderScheduleBlock(column, item, day, settings, true, proposed)
       if (displaced.length) add(column, 'small', displaced.length + ' bloc(s) à replacer')
     }
+    grid.scrollLeft = scrollLeft
   }
 
   function render() {
     const { morning, evening, clients, personal, robots, bookings, displaced, settings } = getSchedule(date)
+    const scrollLeft = container.querySelector('.day-workspace-week')?.scrollLeft || 0
     container.replaceChildren()
     container.classList.add('day-workspace')
+    container.classList.toggle('day-workspace-week-mode', viewMode === 'week')
     const navigation = add(container, 'div', '')
     navigation.className = 'day-workspace-actions'
     for (const [mode, label] of [['day', 'Jour'], ['week', 'Semaine']]) {
@@ -541,7 +605,8 @@ export function mountPlanningWorkspace(container, bridge) {
       toggle.setAttribute('aria-pressed', String(viewMode === mode))
     }
     if (viewMode === 'week') {
-      renderWeek()
+      renderWeek(scrollLeft)
+      if (state.calendarKey) void publishCalendar()
       return
     }
     const picker = input(navigation, 'Date', 'date', date)
@@ -639,62 +704,15 @@ export function mountPlanningWorkspace(container, bridge) {
     controls.id = 'emma-day-options'
     const list = add(container, 'div', '')
     list.className = 'day-workspace-timeline'
-    const sport = bridge.sport(date)
-    const schedule = [
-      { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
-      ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
-    ]
-    function addRoutineCheck(parent, title) {
-      const check = input(parent, title, 'checkbox')
-      check.checked = Boolean(settings.checks?.[title])
-      check.onchange = () => {
-        settings.checks ||= {}
-        settings.checks[title] = check.checked
-        settings.checkTimes ||= {}
-        const now = new Date()
-        settings.checkTimes[title] = check.checked && date === today ? clock(now.getHours() * 60 + now.getMinutes()) : ''
-        save()
-      }
-    }
-
-    for (const block of schedule.sort((a, b) => a.start - b.start)) {
+    const schedule = scheduleBlocks({ morning, evening, clients, personal, robots, bookings })
+    for (const block of schedule) {
       const row = add(list, 'div', '')
       row.className = 'day-workspace-time-row'
       const time = add(row, 'div', '')
       time.className = 'day-workspace-hours'
       add(time, 'strong', clock(block.start))
       add(time, 'small', clock(block.end))
-      const detail = add(row, 'details', '')
-      tint(detail, block)
-      add(detail, 'summary', (block.room || block.title || labels[block.type]) + (block.done ? ' ✓' : ''))
-      if (block.children) {
-        for (const child of block.children) {
-          const row = add(detail, 'div', '')
-          add(row, 'small', interval(child))
-          const tasks = child.type === 'admin' ? ['Mails', 'Formations'] :
-            child.type === 'sport' ? ['Séance de sport · ' + sport.label] :
-            ['Douche du matin', 'Soins du matin', 'Maquillage']
-          for (const task of tasks) addRoutineCheck(row, task)
-        }
-        if (date === today) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
-      } else if (block.room) {
-        add(detail, 'p', block.title + (block.detail ? ' · ' + block.detail : ''))
-        if (!block.done) button(detail, 'Fait', () => {
-          block.done = true
-          const now = new Date()
-          block.completedAt = now.toLocaleDateString('sv-SE') + 'T' + clock(now.getHours() * 60 + now.getMinutes())
-          state.completed[block.id] = today
-          delete state.pending[block.id]
-          if (block.id === 'linge') state.laundry = (state.laundry + 1) % 4
-          save()
-          if (quizReady) makeProposals()
-          render()
-        })
-      } else if (['kitchen', 'evening-routine', 'robot'].includes(block.type)) {
-        const options = block.type === 'kitchen' ? ['Faire la vaisselle ou lancer le lave-vaisselle', 'Nettoyer la planche si utilisée', 'Essuyer le plan de travail'] :
-          block.type === 'evening-routine' ? ['Douche', 'Soins', 'Hydratation'] : [block.title]
-        for (const text of options) addRoutineCheck(detail, text)
-      }
+      renderScheduleBlock(row, block, date, settings)
     }
     if (notices.childElementCount) container.append(notices)
     container.append(controls)

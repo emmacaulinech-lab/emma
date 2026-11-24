@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=15');
+  const homeModule = import('./modules/day-planning-home.js?v=17');
   const glowModule = import('./modules/day-planning-glow.js?v=16');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;

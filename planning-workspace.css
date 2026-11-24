@@ -137,7 +137,7 @@ dialog.day-workspace::backdrop {
 .day-workspace-controls[open] { margin-top: .55rem; }
 .day-workspace .day-workspace-block {
   --day-block-color: #993556;
-  background: color-mix(in srgb, var(--day-block-color) 12%, transparent);
+  background: color-mix(in srgb, var(--day-block-color) 15%, #ffffffad);
   border: 1px solid color-mix(in srgb, var(--day-block-color) 43%, transparent);
   border-inline-start: 4px solid var(--day-block-color);
 }
@@ -191,25 +191,31 @@ dialog.day-workspace::backdrop {
   display: none !important;
 }
 
+#hub-modules-grid.refonte-dashboard:has(.day-workspace-week-mode) > .emma-journal-card,
+#hub-modules-grid.refonte-dashboard:has(.day-workspace-week-mode) > .refonte-sidebar {
+  grid-column: 1 / -1 !important;
+}
+#module-journal > div:has(.day-workspace-week-mode) { max-width: 1500px !important; }
 .day-workspace-week {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-  gap: .6rem;
+  grid-template-columns: repeat(7, minmax(8.75rem, 1fr));
+  gap: .45rem;
+  overflow-x: auto;
+  padding-bottom: .55rem;
 }
-.day-workspace-week-day,
-.day-workspace-week-item {
+.day-workspace-week-day {
   display: grid;
   align-content: start;
   gap: .35rem;
   min-width: 0;
-  padding: .55rem;
+  padding: .45rem;
   border-radius: .85rem;
   overflow-wrap: anywhere;
-}
-.day-workspace-week-day {
   border: 1px solid var(--brd2, #e7dce6);
   background: #ffffff6b;
 }
+.day-workspace-week-day details { margin: 0; padding: .45rem; }
+.day-workspace-week-day summary strong { display: block; margin-top: .15rem; }
 .day-workspace-week-day[data-today] { border-color: var(--acc, #995b8a); }
 .day-workspace-week small { color: var(--mut, #665c69); }
 .day-workspace-actions button[aria-pressed="true"] {
