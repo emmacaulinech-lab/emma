@@ -46338,6 +46338,16 @@ function afficherConsommationV2Glow(){
     document.getElementById('consommation-v2-glow')?.remove();
     const esc=echapperTexteRepasGlow;
     document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.repasId?'Modifier mon repas':d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label for="consommation-bibliotheque">Ajouter depuis ma bibliothèque</label><select id="consommation-bibliotheque" style="width:100%;margin-bottom:12px" onchange="ajouterBibliothequeConsommationGlow(this.value)"><option value="">Choisir un aliment ou un plat…</option>${getGlowAliments().map(a=>`<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('')}</select><label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${i.quantite===''||i.quantite==null?'':Number(i.quantite)}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'')}" placeholder="g, ml, portion…" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button>${d.ingredients.some(i=>!i.quantite||!i.unite)?'<p style="font-size:12px;color:var(--mut)">Certaines anciennes quantités sont incomplètes. Complète les cases vides ; EMMA ne les remplace pas par une quantité estimée.</p>':''}<p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
+    if(d.enregistrerRecette){
+      const status=document.getElementById('consommation-erreur-glow');
+      const label=document.createElement('label');label.textContent='Préparation (facultative)';
+      const steps=document.createElement('textarea');steps.rows=3;steps.style.width='100%';
+      steps.value=(d.etapes||[]).join('\n');
+      steps.oninput=()=>{d.etapes=steps.value.split('\n').map(line=>line.trim()).filter(Boolean);};
+      label.append(steps);status.before(label);
+      const hint=document.createElement('p');hint.textContent='Vérifie les ingrédients et quantités de ce que tu as vraiment mangé. Après validation, la recette sera aussi dans Mes recettes.';
+      status.before(hint);
+    }
 }
 function choisirRecetteConsommationV2Glow(id){
     const recette=recettesDisponiblesPlanGlow().find(r=>r.id===id);if(!recette)return;
@@ -46376,6 +46386,22 @@ async function validerConsommationV2Glow(bouton){
         const cle=ancien?.choixRepasId||choisi?.choixRepasId||d.planId&&`consomme_${d.date}_${d.planId}`;
         if(cle&&repas.some(r=>r.choixRepasId===cle&&r!==ancien))throw Error('Ce repas est déjà enregistré.');
         const entree={...(ancien||{}),id:ancien?.id||`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients.map(i=>({...i,quantite:Math.round(Number(i.quantite)*d.portion/d.portions*100)/100})),ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:d.date,heure:ancien?.heure||(d.date===dateLocaleISO()?new Date():new Date(d.date+'T12:00:00')).toISOString(),enregistreLe:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2',sauvegardeNonConfirmee:false};
+        if(d.enregistrerRecette && d.date===dateLocaleISO()){
+          const recettes=DB.glow.nutrition.recettes ||= [];
+          const key=value=>String(value||'').trim().toLowerCase();
+          const signature=ingredients=>JSON.stringify((ingredients||[]).map(i=>
+            JSON.stringify([key(i?.nom),Number(i?.quantite),key(i?.unite)])).sort());
+          const identique=recettesDisponiblesPlanGlow().find(r=>key(r.nom)===key(d.nom) &&
+            Number(r.portions||1)===d.portions && signature(r.ingredients)===signature(d.ingredients) &&
+            JSON.stringify(r.etapes||r.steps||[])===JSON.stringify(d.etapes||[]));
+          const recette=identique||{
+            id:'recette_repas_'+genId(), nom:d.nom.trim(), type:'recette', portions:d.portions,
+            ingredients:d.ingredients.map(i=>({...i})), etapes:d.etapes||[], emoji:d.emoji||'',
+            origine:'repas', creeLe:new Date().toISOString()
+          };
+          if(!identique)recettes.push(recette);
+          entree.recetteId=recette.id;
+        }
         if(ancien)repas[repas.indexOf(ancien)]=entree;else repas.push(entree);
         if(choisi){choisi.consomme=true;choisi.choixRepasId=cle;}
         if(d.date===dateLocaleISO()&&['dejeuner','diner'].includes(d.type)&&DB.journal){const date=d.date;const bloc=(DB.journal.planning?.[date]||[]).find(b=>b.id===`glow_${d.type}_${date}`);if(bloc){DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;}}

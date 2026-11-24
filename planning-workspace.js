@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const homeModule = import('./modules/day-planning-home.js?v=15');
-  const glowModule = import('./modules/day-planning-glow.js?v=2');
+  const glowModule = import('./modules/day-planning-glow.js?v=16');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
     const oldJournalDay = renderJAujourdhui;
@@ -376,15 +376,36 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
       oldHistory(date);
       document.querySelector('#glow-content [onclick="renderPlanificationRepasGlow()"]')?.remove();
     };
+    function nutritionIdea(item) {
+      const items = Array.isArray(item.ingredients) ? item.ingredients
+        .filter(i => typeof i?.nom === 'string' && i.nom.trim())
+        .map(i => ({ nom:i.nom.trim(), quantite:Number(i.quantite)>0 ? Number(i.quantite) : '', unite:typeof i.unite==='string' ? i.unite : '' })) : [];
+      return {
+        name:item.name, reason:item.reason, recipeId:item.recipeId,
+        emoji:/^\p{Extended_Pictographic}\uFE0F?$/u.test(item.emoji || '') ? item.emoji : '',
+        items, ingredients:items.map(i => [i.quantite, i.unite, i.nom].filter(Boolean).join(' ')),
+        steps:Array.isArray(item.steps) ? item.steps.filter(step => typeof step === 'string') : [],
+      };
+    }
+
     renderGlowNutrition = function (date) {
       if (date && date !== dateLocaleISO()) return oldNutrition(date);
       initialiserGlowDuJour();
       glow.mountNutritionAdvice(document.getElementById('glow-content'), {
-        recipes: renderRecettesGlow,
+        recipes: () => recettesDisponiblesPlanGlow().map(recipe => nutritionIdea({
+          name:recipe.nom, reason:recipe.portions ? recipe.portions + ' portion(s)' : '', emoji:recipe.emoji,
+          ingredients:recipe.ingredients, steps:recipe.etapes || recipe.steps,
+        })),
         history: () => renderHistoriqueNutritionGlow(),
-        manual: () => {
-          window.glowConsommationDraft={date:dateLocaleISO(),type:new Date().getHours()<16?'dejeuner':'diner',nom:'',portions:1,portion:1,ingredients:[]};
-          afficherConsommationV2Glow();
+        async analyze(type, text) {
+          const result = await demanderJSONNutritionGlow(
+            'Transforme cette description d’un repas déjà consommé en fiche à vérifier. Type de repas : ' + getNomTypeRepasGlow(type) +
+            '. Reprends les ingrédients et quantités explicitement indiqués. Pour un ingrédient explicite sans quantité, renvoie null pour la quantité si tu ne peux pas l’estimer raisonnablement. ' +
+            'Si le plat est décrit par son nom seul, propose une composition plausible à corriger. Ne présente aucune hypothèse comme confirmée. ' +
+            'Réponds en JSON {"name":"plat","ingredients":[{"nom":"aliment","quantite":null,"unite":"g"}],"steps":["préparation possible"]}. Description : ' + JSON.stringify(text),
+            'EMMA prépare ta fiche…');
+          if (!result || !Array.isArray(result.ingredients)) throw Error('Analyse illisible. Tu peux saisir les ingrédients à la main.');
+          return nutritionIdea({...result,name:typeof result.name === 'string' && result.name.trim() ? result.name : text});
         },
         back: renderGlowModule,
         async suggest(type) {
@@ -393,23 +414,20 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
             .map(meal => meal.nom || meal.aliments?.map(item => item.nom || item).join(' · ')).filter(Boolean);
           const sport = bilanSportJourGlow(dateLocaleISO());
           const result = await demanderJSONNutritionGlow(
-            'Propose 2 ou 3 idées variées pour ' + (type==='dejeuner'?'le déjeuner':'le dîner') +
+            'Propose 2 ou 3 idées variées pour ' + getNomTypeRepasGlow(type) +
             '. Objectifs : soutenir la progression fessiers et les séances, taille fine, repas équilibrés et assez nourrissants. Ne promets pas de résultat localisé ni de restriction calorique. ' +
             'Évite les repas récents et réutilise une recette enregistrée pertinente si possible. Goûts : fond de veau, ail, échalotes, herbes de Provence. ' +
             'Évite citron, asperges grillées, paprika, crevettes, brocoli, tofu, soja, gingembre, panais, champignons, curry, pois chiches, lentilles, tomates crues, saucisses, porc cuit, lait, avoine, noix, feta, thon, olives et miel ; pas de viande rouge le midi. ' +
             JSON.stringify({recipes,recent,sport:{minutes:sport.minutes,seances:sport.seances}}) +
-            ' Réponds {"ideas":[{"name":"plat","reason":"raison courte","recipeId":null,"ingredients":[{"nom":"aliment","quantite":100,"unite":"g"}],"steps":["étape"]}]}. Quantités pour une portion.',
+            ' Réponds {"ideas":[{"name":"plat","reason":"raison courte","emoji":"🍓","recipeId":null,"ingredients":[{"nom":"aliment","quantite":100,"unite":"g"}],"steps":["étape"]}]}. Quantités pour une portion.',
             'EMMA cherche ton repas…');
-          return (Array.isArray(result.ideas) ? result.ideas : []).slice(0, 3).filter(item => typeof item?.name === 'string')
-            .map(item => {
-              const items = Array.isArray(item.ingredients) ? item.ingredients.filter(i => i?.nom && Number(i.quantite)>0 && i.unite) : [];
-              return {...item, items, ingredients:items.map(i => i.quantite + ' ' + i.unite + ' ' + i.nom),
-                steps:Array.isArray(item.steps)?item.steps.filter(step=>typeof step==='string'):[]};
-            });
+          return (Array.isArray(result.ideas) ? result.ideas : []).slice(0, 3)
+            .filter(item => typeof item?.name === 'string' && item.name.trim()).map(nutritionIdea);
         },
         log(type, idea) {
           window.glowConsommationDraft={date:dateLocaleISO(), type, nom:idea.name, recetteId:idea.recipeId,
-            portions:1, portion:1, ingredients:idea.items.map(item => ({...item}))};
+            portions:1, portion:1, ingredients:idea.items.map(item => ({...item})),
+            enregistrerRecette:true, etapes:idea.steps || [], emoji:idea.emoji || ''};
           afficherConsommationV2Glow();
         },
       });

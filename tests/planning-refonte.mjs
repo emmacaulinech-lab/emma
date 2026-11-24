@@ -84,8 +84,18 @@ test('choix Sport et ouverture du repas réellement mangé', async () => {
   mountNutritionAdvice(root, {
     suggest: async () => [{ name:'Poulet et riz', reason:'Rapide', ingredients:[], steps:[] }],
     log: (type, idea) => logged.push([type, idea.name]),
+    analyze: async (type, description) => ({ name: description, items: [{nom:'Skyr',quantite:100,unite:'g'}] }),
+    recipes: () => [{name:'Pancakes Skyr',ingredients:['100 g Skyr'],steps:[]}],
   })
-  await [...root.querySelectorAll('button')].find(item => item.textContent === 'Midi').onclick()
+  await root.querySelector('[data-meal=dejeuner] button').onclick()
   ;[...root.querySelectorAll('button')].find(item => item.textContent === 'J’ai mangé ça').click()
   assert.deepEqual(logged, [['dejeuner','Poulet et riz']])
+  const snack = root.querySelector('[data-meal=collation]')
+  snack.querySelectorAll('button')[1].click()
+  root.querySelector('textarea').value = '100 g de Skyr'
+  await root.querySelector('form').onsubmit({preventDefault(){}})
+  assert.deepEqual(logged.at(-1), ['collation','100 g de Skyr'])
+  ;[...root.querySelectorAll('button')].find(item => item.textContent === 'Mes recettes').click()
+  assert.match(root.querySelector('.nutrition-results').textContent, /Pancakes Skyr/)
+
 })

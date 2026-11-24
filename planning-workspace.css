@@ -215,3 +215,28 @@ dialog.day-workspace::backdrop {
 .day-workspace-actions button[aria-pressed="true"] {
   box-shadow: inset 0 -2px var(--acc, #995b8a);
 }
+
+.nutrition-meal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: .85rem;
+  margin: 1rem 0;
+}
+.nutrition-meal-card,
+.nutrition-recipe {
+  padding: 1rem;
+  border: 1px solid #ffffffcf;
+  border-radius: 1.2rem;
+  background: linear-gradient(140deg, #f9dbca95, #ffffff80);
+}
+.nutrition-meal-card[data-meal="petit-dejeuner"] { background: linear-gradient(140deg, #f9e1aeaa, #ffffff80); }
+.nutrition-meal-card[data-meal="dejeuner"] { background: linear-gradient(140deg, #bee9ceaa, #ffffff80); }
+.nutrition-meal-card[data-meal="collation"] { background: linear-gradient(140deg, #f4c5dbaa, #ffffff80); }
+.nutrition-meal-card[data-meal="diner"] { background: linear-gradient(140deg, #dcd0f6aa, #ffffff80); }
+.nutrition-meal-card > span { font-size: 1.9rem; }
+.nutrition-meal-card h3 { margin: .35rem 0 .7rem; }
+.nutrition-results { display: grid; gap: .6rem; scroll-margin: 1rem; }
+.nutrition-results form { display: grid; gap: .55rem; justify-items: start; }
+.nutrition-results form label, .nutrition-results textarea { display: block; width: 100%; }
+.nutrition-recipe summary { cursor: pointer; font-weight: 700; }
+.nutrition-recipe :is(ol, ul) { margin: .65rem 0 .65rem 1.3rem; }
