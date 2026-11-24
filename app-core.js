@@ -147,8 +147,6 @@ async function appliquerSessionEmma(user){
     }
     if(emmaValidatedUid!==user.uid||currentUser?.uid!==user.uid)return;
     goHub();
-    setTimeout(decalerTachesEnRetardAutomatiquementEmma,450);
-    setTimeout(initialiserAccueilConversationEmma,700);
     if("Notification" in window&&Notification.permission==="granted"){
       setTimeout(async()=>{
         await abonnerEmmaAuxPush();
@@ -2633,7 +2631,7 @@ async function loadAll() {
           : d.formations;
     }
 
-    if(d.lecture) DB.lecture = JSON.parse(d.lecture);
+    
     if(d.glow) DB.glow = JSON.parse(d.glow);
 
     if(d.historiqueGlow){
@@ -2730,18 +2728,6 @@ async function loadAll() {
     }
 
 
-    const lectureDoc = await userRef
-      .collection('modules')
-      .doc('lecture')
-      .get();
-
-    if(lectureDoc.exists && lectureDoc.data().data){
-      DB.lecture = JSON.parse(
-        lectureDoc.data().data
-      );
-    }
-
-
     const glowDoc = await userRef
       .collection('modules')
       .doc('glow')
@@ -2770,18 +2756,6 @@ async function loadAll() {
 
     const journalCharge = await EmmaJournalStorage.load(userRef);
     if(journalCharge) DB.journal = journalCharge;
-
-
-    const humeursDoc = await userRef
-      .collection('modules')
-      .doc('humeurs')
-      .get();
-
-    if(humeursDoc.exists && humeursDoc.data().data){
-      DB.humeurs = JSON.parse(
-        humeursDoc.data().data
-      );
-    }
 
 
     const todosDoc = await userRef
@@ -2904,11 +2878,6 @@ async function migrerEmmaVersDocumentsSepares(){
 
     formations: {
       data: JSON.stringify(DB.formations || {etudiantes:[]}),
-      updatedAt: maintenant
-    },
-
-    lecture: {
-      data: JSON.stringify(DB.lecture || {}),
       updatedAt: maintenant
     },
 
@@ -3075,19 +3044,11 @@ async function executerFileSauvegardes(){
     // Les formations sont gérées dans LIMAGECILS : ne pas réécrire ici
     // une copie potentiellement ancienne lors d'une sauvegarde personnelle.
 
-    await userRef.collection('modules').doc('lecture').set({
-      data: JSON.stringify(DB.lecture || {}),
-      updatedAt
-    }, {merge:true});
 
     await sauvegarderGlowAvecSeancesEmma(JSON.stringify(DB.glow||{}),JSON.stringify(DB.historiqueGlow||[]));
 
     await EmmaJournalStorage.save(userRef, JSON.stringify(DB.journal || {}));
 
-     await userRef.collection('modules').doc('humeurs').set({
-  data: JSON.stringify(DB.humeurs || {}),
-  updatedAt
-}, {merge:true});
 
 await userRef.collection('modules').doc('todos').set({
   data: JSON.stringify(DB.todos || []),
@@ -12464,13 +12425,6 @@ function emmaNavigate(destination){
                     titre:"Banque perso",
                     texte:"Tes finances personnelles",
                     action:() => goModule("banqueperso")
-                },
-
-                {
-                    icon:"📚",
-                    titre:"Lecture",
-                    texte:"Livres et suivi de lecture",
-                    action:() => goModule("lecture")
                 }
             ]
         );
@@ -13592,8 +13546,7 @@ function calculGlowScore(){
         eau: 0,
         activite: 0,
         sommeil: 0,
-        nutrition: 0,
-        lecture: 0
+        nutrition: 0
     };
 
     // 💧 Eau (20 pts)
@@ -13643,17 +13596,10 @@ if(minutesSport > 0){
         (typesRepas.has("dejeuner") ? 10 : 0) +
         (typesRepas.has("diner") ? 10 : 0);
 
-    // 📚 Lecture (10 pts) dès qu'une lecture est renseignée aujourd'hui.
-    if(Number(DB.glow?.lecture?.minutes || 0) > 0){
-        detail.lecture = 10;
-    }
-
     const points = Object.values(detail)
         .reduce((a,b)=>a+b,0);
 
-    // Les habitudes actives représentent 90 points bruts. Le cercle reste un
-    // pourcentage sur 100, sans réintroduire humeur ou photo dans le calcul.
-    const total = Math.min(100,Math.round(points / 90 * 100));
+    const total = Math.min(100,Math.round(points / 80 * 100));
 
     return {
         total,
@@ -15435,16 +15381,7 @@ async function enregistrerSeancePartielleGlow(){
             </strong>
           </div>
 
-          <div
-            class="glow-dashboard-detail"
-            onclick="goModule('lecture')"
-            style="cursor:pointer"
-          >
-            <small>📚 Lecture</small>
-            <strong>
-              ${score.detail.lecture}/10
-            </strong>
-          </div>
+
 
         </div>
 
@@ -17698,8 +17635,8 @@ function renderGlowSommeil(){
 async function enregistrerSommeilGlow(valeur){const heures=Math.max(0,Math.min(14,Number(valeur)));if(!Number.isFinite(heures)){toast("Durée invalide");return}DB.glow.sommeil=heures;DB.glow.glowScore=calculGlowScore().total;await sauvegarderChampSeul("glow",JSON.stringify(DB.glow));renderGlowSommeil();renderGlowAccueil();toast("✓ Sommeil enregistré")}
 
 function renderGlowEvolution(){
-  initialiserGlowDuJour();const score=calculGlowScore(),labels={eau:"💧 Eau",activite:"🏃 Sport",sommeil:"🌙 Sommeil",nutrition:"🍽️ Nutrition",lecture:"📚 Lecture"},maximums={eau:20,activite:20,sommeil:20,nutrition:20,lecture:10};const seances=[...(DB.historiqueGlow||[])].filter(x=>x?.date&&x?.terminee).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
-  document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total}%</h1><p style="color:var(--mut)">Hydratation, sommeil, sport, repas renseignés et lecture composent maintenant ton score. Humeur et photo n’entrent plus dans le calcul.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
+  initialiserGlowDuJour();const score=calculGlowScore(),labels={eau:"💧 Eau",activite:"🏃 Sport",sommeil:"🌙 Sommeil",nutrition:"🍽️ Nutrition"},maximums={eau:20,activite:20,sommeil:20,nutrition:20};const seances=[...(DB.historiqueGlow||[])].filter(x=>x?.date&&x?.terminee).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total}%</h1><p style="color:var(--mut)">Hydratation, sommeil, sport, et repas renseignés composent maintenant ton score. Humeur et photo n’entrent plus dans le calcul.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
 }
 
 function datesSaisieNutritionGlow(){
@@ -46078,7 +46015,6 @@ const filesSauvegardeExtensionsGlow = {};
 async function chargerExtensionsGlowSecurisees(){
   const destinations=[
     ["glow_soins","glowSoins"],
-    ["glow_dressing","glowDressing"],
     ["glow_nutrition","glowNutritionPlans"]
   ];
   for(const [documentId,cle] of destinations){

@@ -183,3 +183,10 @@ dialog.day-workspace::backdrop {
   outline: 2px solid var(--section-ink);
   outline-offset: 3px;
 }
+
+/* Retired entry points. Keep archived data and shared module containers. */
+#module-glow :is([onclick*="renderGlowDressing("], [onclick*="goModule('lecture')"], [onclick*="ouvrirOutfitDuJourGlow("]),
+#hubPage :is(.lecture-smart-card, [onclick*="ouvrirAssistantEmma("], [onclick*="ouvrirVueMinuteEmma("]),
+#module-journal #jtab1 {
+  display: none !important;
+}
