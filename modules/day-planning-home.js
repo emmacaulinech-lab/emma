@@ -538,7 +538,11 @@ export function mountPlanningWorkspace(container, bridge) {
 
     addCheck(row, title)
     const options = add(row, 'details', '')
-    add(options, 'summary', 'Options')
+    const menu = add(options, 'summary', '⋯')
+    menu.className = 'day-workspace-routine-menu'
+    menu.setAttribute('aria-label', 'Options pour ' + title + ' : passer, reporter ou remplacer')
+    menu.title = 'Passer, reporter ou remplacer'
+
     const status = add(options, 'p', '')
     status.setAttribute('role', 'status')
     const record = value => {
@@ -551,7 +555,7 @@ export function mountPlanningWorkspace(container, bridge) {
       return true
     }
     const update = () => { save(); render() }
-    button(options, 'Passer cette étape', () => {
+    button(options, '× Passer cette étape', () => {
       if (record({ kind: 'skip' })) update()
     })
 

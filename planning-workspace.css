@@ -311,3 +311,26 @@ dialog.day-workspace::backdrop {
   grid-column: 1 / -1;
   box-shadow: none;
 }
+
+.day-workspace .day-workspace-routine-task > details {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.day-workspace .day-workspace-routine-task > details[open] {
+  padding: 0 .5rem .5rem;
+  border: 1px solid var(--brd2, #e7dce6);
+}
+.day-workspace .day-workspace-routine-menu {
+  display: grid;
+  place-items: center;
+  list-style: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--brd2, #e7dce6);
+  border-radius: 50%;
+  background: #ffffffb5;
+  font-size: 1.2rem;
+}
+.day-workspace-routine-menu::-webkit-details-marker { display: none; }
