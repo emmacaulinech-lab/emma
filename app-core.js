@@ -147,8 +147,6 @@ async function appliquerSessionEmma(user){
     }
     if(emmaValidatedUid!==user.uid||currentUser?.uid!==user.uid)return;
     goHub();
-    setTimeout(decalerTachesEnRetardAutomatiquementEmma,450);
-    setTimeout(initialiserAccueilConversationEmma,700);
     if("Notification" in window&&Notification.permission==="granted"){
       setTimeout(async()=>{
         await abonnerEmmaAuxPush();
@@ -2584,7 +2582,19 @@ async function loadAll() {
     // =====================================================
     // 1. ANCIEN DATA/MAIN = FILET DE SÉCURITÉ
     // =====================================================
-    const snap = await userRef.collection('data').doc('main').get();
+    const owner = userRef;
+    const modules = owner.collection('modules');
+    const [snap, comptaDoc, boutiqueDoc, formationsDoc, glowDoc, todosDoc, paramsDoc] =
+      await Promise.all([
+        owner.collection('data').doc('main').get(),
+        modules.doc('comptabilite').get(),
+        modules.doc('boutique').get(),
+        modules.doc('formations').get(),
+        modules.doc('glow').get(),
+        modules.doc('todos').get(),
+        owner.collection('settings').doc('params').get(),
+      ]);
+    if (userRef !== owner) return;
     const d = snap.exists ? snap.data() : {};
 
     if(d.caisse) DB.caisse = JSON.parse(d.caisse);
@@ -2633,7 +2643,7 @@ async function loadAll() {
           : d.formations;
     }
 
-    if(d.lecture) DB.lecture = JSON.parse(d.lecture);
+    
     if(d.glow) DB.glow = JSON.parse(d.glow);
 
     if(d.historiqueGlow){
@@ -2657,10 +2667,6 @@ async function loadAll() {
     // 2. NOUVEAUX MODULES = PRIORITAIRES
     // =====================================================
 
-    const comptaDoc = await userRef
-      .collection('modules')
-      .doc('comptabilite')
-      .get();
 
     if(comptaDoc.exists){
       const c = comptaDoc.data();
@@ -2700,10 +2706,6 @@ async function loadAll() {
     }
 
 
-    const boutiqueDoc = await userRef
-      .collection('modules')
-      .doc('boutique')
-      .get();
 
     if(boutiqueDoc.exists && boutiqueDoc.data().data){
       const b = JSON.parse(boutiqueDoc.data().data);
@@ -2718,10 +2720,6 @@ async function loadAll() {
     }
 
 
-    const formationsDoc = await userRef
-      .collection('modules')
-      .doc('formations')
-      .get();
 
     if(formationsDoc.exists && formationsDoc.data().data){
       DB.formations = JSON.parse(
@@ -2730,22 +2728,6 @@ async function loadAll() {
     }
 
 
-    const lectureDoc = await userRef
-      .collection('modules')
-      .doc('lecture')
-      .get();
-
-    if(lectureDoc.exists && lectureDoc.data().data){
-      DB.lecture = JSON.parse(
-        lectureDoc.data().data
-      );
-    }
-
-
-    const glowDoc = await userRef
-      .collection('modules')
-      .doc('glow')
-      .get();
 
     if(glowDoc.exists){
       const g = glowDoc.data();
@@ -2772,22 +2754,6 @@ async function loadAll() {
     if(journalCharge) DB.journal = journalCharge;
 
 
-    const humeursDoc = await userRef
-      .collection('modules')
-      .doc('humeurs')
-      .get();
-
-    if(humeursDoc.exists && humeursDoc.data().data){
-      DB.humeurs = JSON.parse(
-        humeursDoc.data().data
-      );
-    }
-
-
-    const todosDoc = await userRef
-      .collection('modules')
-      .doc('todos')
-      .get();
 
     if(todosDoc.exists && todosDoc.data().data){
       DB.todos = JSON.parse(
@@ -2800,10 +2766,6 @@ async function loadAll() {
     // 3. PARAMÈTRES SÉPARÉS = PRIORITAIRES
     // =====================================================
 
-    const paramsDoc = await userRef
-      .collection('settings')
-      .doc('params')
-      .get();
 
     if(paramsDoc.exists){
       const {
@@ -2831,8 +2793,7 @@ async function loadAll() {
     // 5. AUTRES DONNÉES DÉJÀ STOCKÉES SÉPARÉMENT
     // =====================================================
 
-    await loadCV();
-    await loadFactures();
+    await Promise.all([loadCV(), loadFactures()]);
 
     if(agendaData){
       setTimeout(()=>{
@@ -2904,11 +2865,6 @@ async function migrerEmmaVersDocumentsSepares(){
 
     formations: {
       data: JSON.stringify(DB.formations || {etudiantes:[]}),
-      updatedAt: maintenant
-    },
-
-    lecture: {
-      data: JSON.stringify(DB.lecture || {}),
       updatedAt: maintenant
     },
 
@@ -3075,19 +3031,11 @@ async function executerFileSauvegardes(){
     // Les formations sont gérées dans LIMAGECILS : ne pas réécrire ici
     // une copie potentiellement ancienne lors d'une sauvegarde personnelle.
 
-    await userRef.collection('modules').doc('lecture').set({
-      data: JSON.stringify(DB.lecture || {}),
-      updatedAt
-    }, {merge:true});
 
     await sauvegarderGlowAvecSeancesEmma(JSON.stringify(DB.glow||{}),JSON.stringify(DB.historiqueGlow||[]));
 
     await EmmaJournalStorage.save(userRef, JSON.stringify(DB.journal || {}));
 
-     await userRef.collection('modules').doc('humeurs').set({
-  data: JSON.stringify(DB.humeurs || {}),
-  updatedAt
-}, {merge:true});
 
 await userRef.collection('modules').doc('todos').set({
   data: JSON.stringify(DB.todos || []),
@@ -12464,13 +12412,6 @@ function emmaNavigate(destination){
                     titre:"Banque perso",
                     texte:"Tes finances personnelles",
                     action:() => goModule("banqueperso")
-                },
-
-                {
-                    icon:"📚",
-                    titre:"Lecture",
-                    texte:"Livres et suivi de lecture",
-                    action:() => goModule("lecture")
                 }
             ]
         );
@@ -13592,8 +13533,7 @@ function calculGlowScore(){
         eau: 0,
         activite: 0,
         sommeil: 0,
-        nutrition: 0,
-        lecture: 0
+        nutrition: 0
     };
 
     // 💧 Eau (20 pts)
@@ -13643,17 +13583,10 @@ if(minutesSport > 0){
         (typesRepas.has("dejeuner") ? 10 : 0) +
         (typesRepas.has("diner") ? 10 : 0);
 
-    // 📚 Lecture (10 pts) dès qu'une lecture est renseignée aujourd'hui.
-    if(Number(DB.glow?.lecture?.minutes || 0) > 0){
-        detail.lecture = 10;
-    }
-
     const points = Object.values(detail)
         .reduce((a,b)=>a+b,0);
 
-    // Les habitudes actives représentent 90 points bruts. Le cercle reste un
-    // pourcentage sur 100, sans réintroduire humeur ou photo dans le calcul.
-    const total = Math.min(100,Math.round(points / 90 * 100));
+    const total = Math.min(100,Math.round(points / 80 * 100));
 
     return {
         total,
@@ -15435,16 +15368,7 @@ async function enregistrerSeancePartielleGlow(){
             </strong>
           </div>
 
-          <div
-            class="glow-dashboard-detail"
-            onclick="goModule('lecture')"
-            style="cursor:pointer"
-          >
-            <small>📚 Lecture</small>
-            <strong>
-              ${score.detail.lecture}/10
-            </strong>
-          </div>
+
 
         </div>
 
@@ -17689,7 +17613,12 @@ function supprimerRecetteGlow(id){
     toast("Recette supprimée");
 }
 
-function navigationGlowSimple(active){return `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px"><button class="btn ${active==='accueil'?'bd':'bg'}" onclick="renderGlowModule()">✨ Accueil</button><button class="btn ${active==='eau'?'bd':'bg'}" onclick="renderGlowHydratation()">💧 Eau</button><button class="btn ${active==='nutrition'?'bd':'bg'}" onclick="renderGlowNutrition()">🍽️ Nutrition</button><button class="btn ${active==='sommeil'?'bd':'bg'}" onclick="renderGlowSommeil()">🌙 Sommeil</button><button class="btn ${active==='evolution'?'bd':'bg'}" onclick="renderGlowEvolution()">📈 Évolution</button><button class="btn ${active==='sport'?'bd':'bg'}" onclick="renderGlowSport()">🏃 Sport</button></div>`}
+function navigationGlowSimple(active){
+  return `<div class="day-workspace-actions" style="margin-bottom:18px">
+    <button class="btn ${active==='nutrition'?'bd':'bg'}" onclick="renderGlowNutrition()">🍽️ Nutrition</button>
+    <button class="btn ${active==='sport'?'bd':'bg'}" onclick="renderGlowSport()">🏃 Sport</button>
+  </div>`;
+}
 
 function renderGlowSommeil(){
   initialiserGlowDuJour();const heures=DB.glow.sommeil;
@@ -17698,8 +17627,8 @@ function renderGlowSommeil(){
 async function enregistrerSommeilGlow(valeur){const heures=Math.max(0,Math.min(14,Number(valeur)));if(!Number.isFinite(heures)){toast("Durée invalide");return}DB.glow.sommeil=heures;DB.glow.glowScore=calculGlowScore().total;await sauvegarderChampSeul("glow",JSON.stringify(DB.glow));renderGlowSommeil();renderGlowAccueil();toast("✓ Sommeil enregistré")}
 
 function renderGlowEvolution(){
-  initialiserGlowDuJour();const score=calculGlowScore(),labels={eau:"💧 Eau",activite:"🏃 Sport",sommeil:"🌙 Sommeil",nutrition:"🍽️ Nutrition",lecture:"📚 Lecture"},maximums={eau:20,activite:20,sommeil:20,nutrition:20,lecture:10};const seances=[...(DB.historiqueGlow||[])].filter(x=>x?.date&&x?.terminee).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
-  document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total}%</h1><p style="color:var(--mut)">Hydratation, sommeil, sport, repas renseignés et lecture composent maintenant ton score. Humeur et photo n’entrent plus dans le calcul.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
+  initialiserGlowDuJour();const score=calculGlowScore(),labels={eau:"💧 Eau",activite:"🏃 Sport",sommeil:"🌙 Sommeil",nutrition:"🍽️ Nutrition"},maximums={eau:20,activite:20,sommeil:20,nutrition:20};const seances=[...(DB.historiqueGlow||[])].filter(x=>x?.date&&x?.terminee).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  document.getElementById("glow-content").innerHTML=`${navigationGlowSimple('evolution')}<div class="glow-extension-card" style="margin-bottom:14px"><div class="maison-kicker">📈 AUJOURD’HUI</div><h1 style="font-family:'Cormorant Garamond',serif;font-size:42px;margin:4px 0">${score.total}%</h1><p style="color:var(--mut)">Hydratation, sommeil, sport, et repas renseignés composent maintenant ton score. Humeur et photo n’entrent plus dans le calcul.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin-top:16px">${Object.entries(score.detail).map(([cle,valeur])=>`<div style="padding:13px;border-radius:16px;background:var(--bg2)"><small style="color:var(--mut)">${labels[cle]}</small><strong style="display:block;font-size:20px;margin-top:3px">${valeur} / ${maximums[cle]}</strong></div>`).join('')}</div></div><div class="glow-extension-card"><h2 style="font-family:'Cormorant Garamond',serif;font-size:26px">Dernières séances</h2>${seances.length?seances.map(s=>`<div class="glow-check-row"><span>🏃</span><span><strong>${echapperTexteRepasGlow(s.objectif||'Sport')}</strong><small style="display:block;color:var(--mut)">${s.date.split('-').reverse().join('/')} · ${s.minutes||s.duree||0} min</small></span></div>`).join(''):`<p style="color:var(--mut);padding:15px 0">Aucune séance terminée enregistrée.</p>`}</div>`;
 }
 
 function datesSaisieNutritionGlow(){
@@ -46077,8 +46006,6 @@ const filesSauvegardeExtensionsGlow = {};
 
 async function chargerExtensionsGlowSecurisees(){
   const destinations=[
-    ["glow_soins","glowSoins"],
-    ["glow_dressing","glowDressing"],
     ["glow_nutrition","glowNutritionPlans"]
   ];
   for(const [documentId,cle] of destinations){
@@ -46402,6 +46329,16 @@ function afficherConsommationV2Glow(){
     document.getElementById('consommation-v2-glow')?.remove();
     const esc=echapperTexteRepasGlow;
     document.body.insertAdjacentHTML('beforeend',`<div id="consommation-v2-glow" class="mo open"><div class="mb" style="width:min(700px,95vw);max-height:90vh;overflow:auto"><h2>${d.repasId?'Modifier mon repas':d.type==='plaisir-soir'?'Mon plaisir du soir':'J’ai mangé ça'}</h2><p><strong>${d.date.split('-').reverse().join('/')}</strong> · Quantités réellement utilisées pour toute la recette, puis ta portion mangée.</p>${d.type==='plaisir-soir'?`<label>Mon choix</label><select onchange="window.glowConsommationDraft.nom=this.value">${['Pancakes','Gaufres','Crêpes','Gâteau','Chocolat','Boisson sucrée','Autre'].map(n=>`<option ${d.nom===n?'selected':''}>${n}</option>`).join('')}</select><label>Recette enregistrée</label><select onchange="choisirRecetteConsommationV2Glow(this.value)"><option value="">Choisir une recette</option>${recettesDisponiblesPlanGlow().map(r=>`<option value="${esc(r.id)}">${esc(r.nom)}</option>`).join('')}</select>`:''}<label for="consommation-bibliotheque">Ajouter depuis ma bibliothèque</label><select id="consommation-bibliotheque" style="width:100%;margin-bottom:12px" onchange="ajouterBibliothequeConsommationGlow(this.value)"><option value="">Choisir un aliment ou un plat…</option>${getGlowAliments().map(a=>`<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('')}</select><label>Plat</label><input style="width:100%" value="${esc(d.nom)}" oninput="window.glowConsommationDraft.nom=this.value"><div class="g2"><div><label>Portions préparées</label><input type="number" min="0.1" step="0.1" value="${d.portions}" oninput="window.glowConsommationDraft.portions=Number(this.value)"></div><div><label>Portions mangées (½ = 0,5)</label><input type="number" min="0.1" step="0.1" value="${d.portion}" oninput="window.glowConsommationDraft.portion=Number(this.value)"></div></div><div>${d.ingredients.map((i,n)=>`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><input aria-label="Ingrédient" style="flex:1;min-width:120px" value="${esc(i.nom||'')}" oninput="window.glowConsommationDraft.ingredients[${n}].nom=this.value"><input aria-label="Quantité utilisée" style="width:90px" type="number" min="0" step="0.1" value="${i.quantite===''||i.quantite==null?'':Number(i.quantite)}" oninput="window.glowConsommationDraft.ingredients[${n}].quantite=Number(this.value)"><input aria-label="Unité" style="width:80px" value="${esc(i.unite||'')}" placeholder="g, ml, portion…" oninput="window.glowConsommationDraft.ingredients[${n}].unite=this.value"><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.splice(${n},1);afficherConsommationV2Glow()">Retirer</button></div>`).join('')}</div><button class="btn bg" onclick="window.glowConsommationDraft.ingredients.push({nom:'',quantite:0,unite:'g'});afficherConsommationV2Glow()">Ajouter un ingrédient</button>${d.ingredients.some(i=>!i.quantite||!i.unite)?'<p style="font-size:12px;color:var(--mut)">Certaines anciennes quantités sont incomplètes. Complète les cases vides ; EMMA ne les remplace pas par une quantité estimée.</p>':''}<p id="consommation-erreur-glow" role="alert"></p><div class="ma"><button class="btn bg" onclick="document.getElementById('consommation-v2-glow').remove()">Annuler</button><button class="btn bd" onclick="validerConsommationV2Glow(this)">Analyser et enregistrer</button></div></div></div>`);
+    if(d.enregistrerRecette){
+      const status=document.getElementById('consommation-erreur-glow');
+      const label=document.createElement('label');label.textContent='Préparation (facultative)';
+      const steps=document.createElement('textarea');steps.rows=3;steps.style.width='100%';
+      steps.value=(d.etapes||[]).join('\n');
+      steps.oninput=()=>{d.etapes=steps.value.split('\n').map(line=>line.trim()).filter(Boolean);};
+      label.append(steps);status.before(label);
+      const hint=document.createElement('p');hint.textContent='Vérifie les ingrédients et quantités de ce que tu as vraiment mangé. Après validation, la recette sera aussi dans Mes recettes.';
+      status.before(hint);
+    }
 }
 function choisirRecetteConsommationV2Glow(id){
     const recette=recettesDisponiblesPlanGlow().find(r=>r.id===id);if(!recette)return;
@@ -46440,6 +46377,22 @@ async function validerConsommationV2Glow(bouton){
         const cle=ancien?.choixRepasId||choisi?.choixRepasId||d.planId&&`consomme_${d.date}_${d.planId}`;
         if(cle&&repas.some(r=>r.choixRepasId===cle&&r!==ancien))throw Error('Ce repas est déjà enregistré.');
         const entree={...(ancien||{}),id:ancien?.id||`repas_${genId()}`,type:d.type,nom:d.nom,aliments:d.ingredients.map(i=>({...i,quantite:Math.round(Number(i.quantite)*d.portion/d.portions*100)/100})),ingredientsUtilises:d.ingredients,portionsPreparees:d.portions,portionMangee:d.portion,calories:Math.round(resultat.calories),proteines:Math.round(resultat.proteines*10)/10,conseil:String(resultat.conseil||''),estimation:true,date:d.date,heure:ancien?.heure||(d.date===dateLocaleISO()?new Date():new Date(d.date+'T12:00:00')).toISOString(),enregistreLe:new Date().toISOString(),choixRepasId:cle,choixPlanId:d.planId,recetteId:d.recetteId,source:'consommation_v2',sauvegardeNonConfirmee:false};
+        if(d.enregistrerRecette && d.date===dateLocaleISO()){
+          const recettes=DB.glow.nutrition.recettes ||= [];
+          const key=value=>String(value||'').trim().toLowerCase();
+          const signature=ingredients=>JSON.stringify((ingredients||[]).map(i=>
+            JSON.stringify([key(i?.nom),Number(i?.quantite),key(i?.unite)])).sort());
+          const identique=recettesDisponiblesPlanGlow().find(r=>key(r.nom)===key(d.nom) &&
+            Number(r.portions||1)===d.portions && signature(r.ingredients)===signature(d.ingredients) &&
+            JSON.stringify(r.etapes||r.steps||[])===JSON.stringify(d.etapes||[]));
+          const recette=identique||{
+            id:'recette_repas_'+genId(), nom:d.nom.trim(), type:'recette', portions:d.portions,
+            ingredients:d.ingredients.map(i=>({...i})), etapes:d.etapes||[], emoji:d.emoji||'',
+            origine:'repas', creeLe:new Date().toISOString()
+          };
+          if(!identique)recettes.push(recette);
+          entree.recetteId=recette.id;
+        }
         if(ancien)repas[repas.indexOf(ancien)]=entree;else repas.push(entree);
         if(choisi){choisi.consomme=true;choisi.choixRepasId=cle;}
         if(d.date===dateLocaleISO()&&['dejeuner','diner'].includes(d.type)&&DB.journal){const date=d.date;const bloc=(DB.journal.planning?.[date]||[]).find(b=>b.id===`glow_${d.type}_${date}`);if(bloc){DB.journal.faitAujourdhui=DB.journal.faitAujourdhui||{};DB.journal.faitAujourdhui[date]=DB.journal.faitAujourdhui[date]||{};DB.journal.faitAujourdhui[date][bloc.id]=true;}}
