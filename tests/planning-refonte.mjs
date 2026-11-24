@@ -6,6 +6,7 @@ import { due, firstSlot, homeTasks, suggestHome } from '../modules/day-planning-
 import { buildCalendar } from '../modules/day-planning-calendar.js'
 import { mountPlanningWorkspace } from '../modules/day-planning-home.js'
 import { mountNutritionAdvice, selectSport } from '../modules/day-planning-glow.js'
+import { makeCalendarHandler } from '../netlify/functions/calendrier-emma.mjs'
 
 test('routine de 70 minutes, réveil anticipé et coucher à cheval sur minuit', () => {
   const result = buildMorning({ firstAppointmentStart: 540, actualWake: 420 })
@@ -53,7 +54,7 @@ test('export avec formation journalière et changement de date après minuit', (
   assert.ok(data.includes('Soirée\\, perso'))
 })
 
-test('abonnement Apple : titres courts et un seul bloc par pièce', () => {
+test('abonnement Apple : blocs regroupés et flux par couleur', async () => {
   const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
   globalThis.document = dom.window.document
   globalThis.localStorage = dom.window.localStorage
@@ -71,7 +72,7 @@ test('abonnement Apple : titres courts et un seul bloc par pièce', () => {
     uid: 'calendar-test', journal: () => ({}), sport: () => ({ label: 'Fessiers' }),
     planning: day => day === date ? [{ heureDebut: '15:30', heureFin: '15:40', nom: 'Ongles', rendezVous: true }] : [],
     formations: day => day === date ? [{ title: 'Formation', count: 2 }] : [],
-    calendarLink: () => 'webcal://localhost/calendar',
+    calendarLink: (_, group) => 'webcal://localhost/calendar' + (group ? '?group=' + group : ''),
     publishCalendar: async ({ calendar }) => { feed = calendar },
   })
   assert.equal((feed.match(/SUMMARY:Cuisine\r\n/g) || []).length, 1)
@@ -80,6 +81,19 @@ test('abonnement Apple : titres courts et un seul bloc par pièce', () => {
   assert.match(feed, /SUMMARY:Ongles/)
   assert.match(feed, /SUMMARY:Formation · 2 inscrites/)
   assert.doesNotMatch(feed, /Maison ·|Sous-tâche de ménage/)
+  assert.equal(document.querySelector('a[href$="?group=cuisine"]').textContent, 'Cuisine')
+
+  const handler = makeCalendarHandler(() => ({ get: async () => ({ calendar: feed }) }))
+  const url = 'https://calendar.test/?key=' + 'a'.repeat(64)
+  const kitchen = await handler(new Request(url + '&group=cuisine'))
+  assert.equal(kitchen.status, 200)
+  const content = await kitchen.text()
+  assert.match(content, /X-WR-CALNAME:EMMA · Cuisine\r\nX-APPLE-CALENDAR-COLOR:#D98B6C/)
+  assert.deepEqual(content.match(/^SUMMARY:.*$/gm), ['SUMMARY:Cuisine'])
+  const work = await handler(new Request(url + '&group=travail'))
+  assert.deepEqual((await work.text()).match(/^SUMMARY:.*$/gm), ['SUMMARY:Formation · 2 inscrites'])
+  assert.equal(await (await handler(new Request(url))).text(), feed)
+  assert.equal((await handler(new Request(url + '&group=toString'))).status, 404)
 })
 
 test('accueil, ajout d’un rendez-vous et choix du repas', async () => {
