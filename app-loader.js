@@ -1,6 +1,6 @@
 (async function loadEmmaApplication(){
   'use strict';
-  const version='20261124-planning-13';
+  const version='20261124-planning-14';
   const extras=['workspace-navigation.js','micro-preparation.js','formation-sync.js','task-guidance.js','planning-order.js','daily-improvements.js','comfort-fixes.js','completion-safety.js','dated-recovery.js','planning-workspace.js','login-loading.js'];
   const paths=['app-shell.html','modules/limagecils.html','app-core.js','modules/limagecils-formations.js',...extras];
   try{

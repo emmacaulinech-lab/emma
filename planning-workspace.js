@@ -60,14 +60,17 @@
         body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:8000, messages:[{
           role:'user', content:[
             { type:'image', source:{ type:'base64', media_type:file.type, data:base64 } },
-            { type:'text', text:'Lis les rendez-vous d’Emma visibles sur cette capture Planity. Premier jour de la semaine : ' + weekStart +
-              '. Utilise les dates réellement visibles et ignore les lignes douteuses, les plages bloquées et les autres praticiennes. ' +
-              'Réponds seulement en JSON : [{"date":"AAAA-MM-JJ","debut":"HH:MM","fin":"HH:MM","nom":"…","prestation":"…"}].' },
+            { type:'text', text:`Transcris la vue semaine Planity d’une seule collaboratrice. La capture provient de l’agenda d’Emma déjà filtré. Tous les blocs de rendez-vous visibles appartiennent donc à Emma, même si son nom, « Emma choisi(e) », le cadenas ou le symbole @ ne figurent pas sur le bloc. Ces mentions ne sont jamais des critères de sélection.
+Premier jour de la semaine sélectionnée : ${weekStart}. Identifie chaque colonne par son en-tête de date, puis parcours chaque colonne de gauche à droite et de haut en bas. Compte d’abord séparément tous les blocs de rendez-vous de chaque colonne et vérifie que ta liste finale contient le même nombre par colonne.
+Inclus chaque bloc client avec nom et horaires, quelle que soit sa couleur (rose, violet, vert foncé, etc.). Ignore les blocs gris de repos/indisponibilité, les cellules vides et les lignes de la grille. Garde les rendez-vous contigus comme entrées séparées. Si une prestation est tronquée, relève uniquement ce qui est lisible, ou laisse prestation vide. Ne supprime pas un rendez-vous lisible parce qu’une autre information est tronquée. N’invente aucun nom ni horaire. Lis les heures écrites sur le bloc et prends la date de l’en-tête de sa propre colonne.
+Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de début : [{"date":"AAAA-MM-JJ","debut":"HH:MM","fin":"HH:MM","nom":"Nom de la cliente","prestation":"Prestation lisible"}].` },
           ],
         }] }),
       });
       if (!response.ok) throw Error('Analyse Planity indisponible. Réessaie.');
-      const raw = (await response.json()).content?.map(item => item.text || '').join('').match(/\[[\s\S]*\]/)?.[0];
+      const result = await response.json();
+      if (result.stop_reason === 'max_tokens') throw Error('L’analyse a été interrompue avant la fin. Réessaie avec une capture plus courte.');
+      const raw = result.content?.map(item => item.text || '').join('').match(/\[[\s\S]*\]/)?.[0];
       if (!raw) throw Error('La capture n’a pas pu être lue.');
       const time = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
       const dates = new Set(Array.from({length:7}, (_, index) => {
@@ -75,8 +78,9 @@
         day.setDate(day.getDate() + index);
         return dateLocaleISO(day);
       }));
-      return JSON.parse(raw).filter(row => dates.has(row.date) && time.test(row.debut) && time.test(row.fin) &&
-        row.debut < row.fin && typeof row.nom === 'string' && row.nom.trim());
+      return JSON.parse(raw).filter(row => row && dates.has(row.date) && time.test(row.debut) && time.test(row.fin) &&
+        row.debut < row.fin && typeof row.nom === 'string' && row.nom.trim())
+        .sort((a, b) => a.date.localeCompare(b.date) || a.debut.localeCompare(b.debut));
     }
 
     function offerWeek(selected) {
@@ -94,6 +98,7 @@
       const monday = new Date(selected + 'T12:00:00');
       monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
       week.value = dateLocaleISO(monday);
+      add('p', 'Dans Planity, sélectionne uniquement ton agenda et garde les dates visibles en haut de la capture.');
       const image = add('input', '', add('label', 'Capture de la semaine '));
       image.type = 'file';
       image.accept = 'image/*';
@@ -120,7 +125,14 @@
             label.append(row.date + ' · ' + row.debut + '–' + row.fin + ' · ' + row.nom);
             return { row, check };
           });
-          status.textContent = rows.length ? 'Vérifie les dates et les heures avant de confirmer.' : 'Aucun rendez-vous trouvé pour cette semaine.';
+          const counts = new Map();
+          for (const row of rows) counts.set(row.date, (counts.get(row.date) || 0) + 1);
+          const summary = [...counts].map(([day, count]) =>
+            new Date(day + 'T12:00:00').toLocaleDateString('fr-FR', {weekday:'short', day:'numeric'}) + ' : ' + count
+          ).join(' · ');
+          status.textContent = rows.length
+            ? rows.length + ' rendez-vous détectés (' + summary + '). Compare avec Planity avant de confirmer.'
+            : 'Aucun rendez-vous trouvé pour cette semaine.';
           confirm.hidden = !rows.length;
         } catch (error) {
           status.textContent = error.message;
@@ -140,7 +152,9 @@
               const existing = journal.planning[row.date] || [];
               const name = row.nom.trim() + (row.prestation ? ' — ' + row.prestation : '');
               if (existing.some(item => item.source === 'planity' && item.heureDebut === row.debut &&
-                item.heureFin === row.fin && (item.customNom || item.nom) === name)) continue;
+                item.heureFin === row.fin &&
+                normaliserNomRoutineEmma((item.customNom || item.nom || '').split(' — ')[0]) ===
+                  normaliserNomRoutineEmma(row.nom))) continue;
               if (!previous.has(row.date)) previous.set(row.date, journal.planning[row.date]);
               journal.planning[row.date] = [...existing, {
                 id:genId(), nom:name, customNom:name, heureDebut:row.debut, heureFin:row.fin,
