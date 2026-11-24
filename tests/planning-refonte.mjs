@@ -79,6 +79,41 @@ test('le quiz ignore les tâches déjà prévues et replace en priorité un cré
   assert.match(newBlock.textContent, new RegExp(tomorrow + ' · 10:20'))
 })
 
+test('la machine déclenche un bloc de linge après le cycle ou une proposition ultérieure', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 24, 14) })
+  const build = (uid, machineStart, rows = []) => {
+    const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+    globalThis.document = dom.window.document
+    globalThis.localStorage = dom.window.localStorage
+    const key = 'emma:planning-v1:' + uid
+    localStorage.setItem(key, JSON.stringify({ bookings: [
+      { id: 'linge', room: 'Linge', title: 'Lancer une machine', date: '2026-11-24', start: machineStart, end: machineStart + 5 },
+    ] }))
+    const root = document.querySelector('main')
+    mountPlanningWorkspace(root, {
+      uid, journal: () => ({}), planning: () => rows,
+      formations: () => [], sport: () => ({ label: 'Fessiers' }),
+    })
+    const done = [...root.querySelectorAll('details.day-workspace-block')].find(node =>
+      [...node.querySelectorAll('p')].some(text => text.textContent === 'Lancer une machine')
+    ).querySelector('button')
+    done.click()
+    done.click()
+    return JSON.parse(localStorage.getItem(key))
+  }
+  const today = build('wash-today', 840, [
+    { heureDebut: '15:20', heureFin: '16:00', nom: 'Rendez-vous', rendezVous: true },
+  ])
+  assert.equal(today.bookings.length, 2)
+  assert.equal(today.bookings[0].done, true)
+  assert.deepEqual([today.bookings[1].title, today.bookings[1].start, today.bookings[1].end],
+    ['Étendre le linge', 960, 970])
+  t.mock.timers.setTime(new Date(2026, 10, 24, 23, 30).valueOf())
+  const late = build('wash-late', 1410)
+  assert.equal(late.bookings.length, 1)
+  assert.equal(late.pending['linge-etendre'], '2026-11-25')
+})
+
 test('export avec formation journalière et changement de date après minuit', () => {
   const data = buildCalendar([
     { id: 'formation', date: '2026-11-23', title: 'Formation · 4 inscrites', allDay:true },
