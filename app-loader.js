@@ -1,11 +1,10 @@
 (async function loadEmmaApplication(){
   'use strict';
-  const version='20261124-planning-23';
   const extras=['workspace-navigation.js','micro-preparation.js','formation-sync.js','task-guidance.js','planning-order.js','daily-improvements.js','comfort-fixes.js','completion-safety.js','dated-recovery.js','planning-workspace.js','login-loading.js'];
   const paths=['app-shell.html','modules/limagecils.html','app-core.js','modules/limagecils-formations.js',...extras];
   try{
     const sources=await Promise.all(paths.map(async path=>{
-      const response=await fetch(path+'?v='+version);
+      const response=await fetch(path, { cache:'no-cache' });
       if(!response.ok) throw new Error('Chargement impossible : '+path);
       return response.text();
     }));

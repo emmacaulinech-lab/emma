@@ -32,7 +32,14 @@ async function write(ref,text){
   // Chaque fragment reste très en dessous de la limite Firestore, même en UTF-8.
   for(let start=0;start<text.length;){let end=Math.min(text.length,start+chunkChars);if(end<text.length&&/[\uD800-\uDBFF]/.test(text[end-1]))end--;chunks.push(text.slice(start,end));start=end;}
   const ids=chunks.map((_,i)=>`journal_v2_${version}_${i}`);
-  for(let i=0;i<chunks.length;i++)await modules.doc(ids[i]).set({data:chunks[i],version,index:i});
+  for(let start=0;start<chunks.length;start+=8){
+    const writes=await Promise.allSettled(chunks.slice(start,start+8).map((data,offset)=>{
+      const index=start+offset;
+      return modules.doc(ids[index]).set({data,version,index});
+    }));
+    const failed=writes.find(result=>result.status==='rejected');
+    if(failed)throw failed.reason;
+  }
   const manifest={format:2,version,chunks:ids,bytes:encoder.encode(text).length,sha256:await checksum(text),updatedAt:new Date().toISOString()};
   const db=ref.firestore, expected=s.version;
   await db.runTransaction(async tr=>{
