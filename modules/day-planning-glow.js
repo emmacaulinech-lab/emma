@@ -26,6 +26,22 @@ export function selectSport(day, history, sore, treadmill) {
   return treadmill ? 'tapis' : 'posture'
 }
 
+export async function completeNutritionQuantities(items, estimate, normalize) {
+  const missing = items.flatMap((item, index) =>
+    item.quantite && item.unite ? [] : [{ ...item, index }])
+  if (!missing.length) return items
+
+  const estimates = await estimate(missing)
+  const byIndex = new Map(estimates.map(item => [item?.index, item]))
+  return items.map((item, index) => {
+    if (item.quantite && item.unite) return item
+    const suggested = normalize(byIndex.get(index) || {})
+    if (!item.quantite && item.unite && suggested.unite &&
+        item.unite.toLowerCase() !== suggested.unite.toLowerCase()) return item
+    return { ...item, quantite: item.quantite || suggested.quantite, unite: item.unite || suggested.unite }
+  })
+}
+
 const mealTypes = [
   ['petit-dejeuner', '☕', 'Petit-déjeuner'],
   ['dejeuner', '🥗', 'Déjeuner'],

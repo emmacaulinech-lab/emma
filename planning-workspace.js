@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const homeModule = import('./modules/day-planning-home.js?v=32');
-  const glowModule = import('./modules/day-planning-glow.js?v=18');
+  const glowModule = import('./modules/day-planning-glow.js?v=33');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
     const oldJournalDay = renderJAujourdhui;
@@ -401,14 +401,36 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
     };
     function nutritionIdea(item) {
       const items = Array.isArray(item.ingredients) ? item.ingredients
-        .filter(i => typeof i?.nom === 'string' && i.nom.trim())
-        .map(i => ({ nom:i.nom.trim(), quantite:Number(i.quantite)>0 ? Number(i.quantite) : '', unite:typeof i.unite==='string' ? i.unite : '' })) : [];
+        .map(i => normaliserIngredientConsommationGlow(i))
+        .filter(i => typeof i.nom === 'string' && i.nom.trim())
+        .map(i => ({ nom:i.nom.trim(), quantite:i.quantite, unite:i.unite })) : [];
       return {
         name:item.name, reason:item.reason, recipeId:item.recipeId,
         emoji:/^\p{Extended_Pictographic}\uFE0F?$/u.test(item.emoji || '') ? item.emoji : '',
         items, ingredients:items.map(i => [i.quantite, i.unite, i.nom].filter(Boolean).join(' ')),
         steps:Array.isArray(item.steps) ? item.steps.filter(step => typeof step === 'string') : [],
       };
+    }
+
+    const quantityInstructions =
+      'Pour chaque ingrédient, donne une quantité numérique strictement positive et une unité concrète (g, ml, pièce, cuillère à café…). ' +
+      'Garde les quantités explicites. Pour les autres, estime une quantité culinaire plausible pour la recette décrite, pour une portion si rien ne précise le nombre. ' +
+      'Jamais de quantité vide, null ou « au goût » dans les ingrédients. Les assaisonnements optionnels peuvent rester dans les étapes. ';
+    async function prefillNutrition(item, type, description = '') {
+      const idea = nutritionIdea(item);
+      const items = await glow.completeNutritionQuantities(idea.items, async missing => {
+        const result = await demanderJSONNutritionGlow(
+          'Complète uniquement les quantités ou unités manquantes de cette recette. ' + quantityInstructions +
+          'Pour toute unité déjà connue, donne la quantité dans cette même unité. Ne change ni l’ordre ni les index. ' +
+          'Réponds en JSON {"ingredients":[{"index":0,"quantite":100,"unite":"g"}]}. ' +
+          JSON.stringify({ repas:getNomTypeRepasGlow(type), plat:idea.name, description, ingredients:idea.items, manquants:missing }),
+          'EMMA complète les quantités…');
+        return Array.isArray(result?.ingredients) ? result.ingredients : [];
+      }, normaliserIngredientConsommationGlow);
+      if (!items.length || items.some(i => !i.quantite || !i.unite)) {
+        throw Error('EMMA n’a pas pu proposer toutes les quantités. Réessaie ou saisis les ingrédients à la main.');
+      }
+      return nutritionIdea({ ...item, ingredients:items });
     }
 
     renderGlowNutrition = function (date) {
@@ -423,12 +445,12 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
         async analyze(type, text) {
           const result = await demanderJSONNutritionGlow(
             'Transforme cette description d’un repas déjà consommé en fiche à vérifier. Type de repas : ' + getNomTypeRepasGlow(type) +
-            '. Reprends les ingrédients et quantités explicitement indiqués. Pour un ingrédient explicite sans quantité, renvoie null pour la quantité si tu ne peux pas l’estimer raisonnablement. ' +
+            '. Reprends les ingrédients et quantités explicitement indiqués. ' + quantityInstructions +
             'Si le plat est décrit par son nom seul, propose une composition plausible à corriger. Ne présente aucune hypothèse comme confirmée. ' +
-            'Réponds en JSON {"name":"plat","ingredients":[{"nom":"aliment","quantite":null,"unite":"g"}],"steps":["préparation possible"]}. Description : ' + JSON.stringify(text),
+            'Réponds en JSON {"name":"plat","ingredients":[{"nom":"aliment","quantite":100,"unite":"g"}],"steps":["préparation possible"]}. Description : ' + JSON.stringify(text),
             'EMMA prépare ta fiche…');
           if (!result || !Array.isArray(result.ingredients)) throw Error('Analyse illisible. Tu peux saisir les ingrédients à la main.');
-          return nutritionIdea({...result,name:typeof result.name === 'string' && result.name.trim() ? result.name : text});
+          return prefillNutrition({...result,name:typeof result.name === 'string' && result.name.trim() ? result.name : text}, type, text);
         },
         sport: renderGlowSport,
         async suggest(type) {
@@ -442,16 +464,25 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
             'Évite les repas récents et réutilise une recette enregistrée pertinente si possible. Goûts : fond de veau, ail, échalotes, herbes de Provence. ' +
             'Évite citron, asperges grillées, paprika, crevettes, brocoli, tofu, soja, gingembre, panais, champignons, curry, pois chiches, lentilles, tomates crues, saucisses, porc cuit, lait, avoine, noix, feta, thon, olives et miel ; pas de viande rouge le midi. ' +
             JSON.stringify({recipes,recent,sport:{minutes:sport.minutes,seances:sport.seances}}) +
-            ' Réponds {"ideas":[{"name":"plat","reason":"raison courte","emoji":"🍓","recipeId":null,"ingredients":[{"nom":"aliment","quantite":100,"unite":"g"}],"steps":["étape"]}]}. Quantités pour une portion.',
+            ' ' + quantityInstructions + 'Réponds {"ideas":[{"name":"plat","reason":"raison courte","emoji":"🍓","recipeId":null,"ingredients":[{"nom":"aliment","quantite":100,"unite":"g"}],"steps":["étape"]}]}. Quantités pour une portion.',
             'EMMA cherche ton repas…');
-          return (Array.isArray(result.ideas) ? result.ideas : []).slice(0, 3)
-            .filter(item => typeof item?.name === 'string' && item.name.trim()).map(nutritionIdea);
+          const ideas = (Array.isArray(result?.ideas) ? result.ideas : []).slice(0, 3)
+            .filter(item => typeof item?.name === 'string' && item.name.trim());
+          const filled = await Promise.allSettled(ideas.map(item => prefillNutrition(item, type)));
+          const ready = filled.flatMap(entry => entry.status === 'fulfilled' ? [entry.value] : []);
+          if (!ready.length && filled.length) throw filled[0].reason;
+          return ready;
         },
         log(type, idea) {
           window.glowConsommationDraft={date:dateLocaleISO(), type, nom:idea.name, recetteId:idea.recipeId,
             portions:1, portion:1, ingredients:idea.items.map(item => ({...item})),
             enregistrerRecette:true, etapes:idea.steps || [], emoji:idea.emoji || ''};
           afficherConsommationV2Glow();
+          if (idea.items.length) {
+            const hint = document.createElement('p');
+            hint.textContent = 'Tu peux garder les quantités proposées si tu ne connais pas les quantités exactes.';
+            document.querySelector('#consommation-v2-glow h2')?.after(hint);
+          }
         },
       });
     };
