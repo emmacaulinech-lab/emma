@@ -114,6 +114,29 @@ test('la machine déclenche un bloc de linge après le cycle ou une proposition 
   assert.equal(late.pending['linge-etendre'], '2026-11-25')
 })
 
+test('le bouton Rappels transmet le titre et l’heure de la sous-tâche à Raccourcis', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 24, 14) })
+  const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+  globalThis.document = dom.window.document
+  globalThis.localStorage = dom.window.localStorage
+  const title = 'Étendre le linge & aérer'
+  localStorage.setItem('emma:planning-v1:reminder-test', JSON.stringify({
+    bookings: [{ id: 'linge-etendre', room: 'Linge', title, date: '2026-11-24', start: 960, end: 970 }],
+  }))
+  const root = document.querySelector('main')
+  mountPlanningWorkspace(root, {
+    uid: 'reminder-test', journal: () => ({}), planning: () => [],
+    formations: () => [], sport: () => ({ label: 'Fessiers' }),
+  })
+  const urls = [...root.querySelectorAll('a')].filter(node => node.textContent === 'Mettre en rappel Apple').map(node => new URL(node.href))
+  const reminder = urls.find(url => url.searchParams.get('text').startsWith(title))
+  assert.equal(reminder.protocol, 'shortcuts:')
+  assert.equal(reminder.hostname, 'run-shortcut')
+  assert.equal(reminder.searchParams.get('name'), 'EMMA – Ajouter un rappel')
+  assert.equal(reminder.searchParams.get('text'), title + '\n' + new Date(2026, 10, 24, 16).toISOString())
+  assert.ok(urls.some(url => url.searchParams.get('text').startsWith('Mails\n')))
+})
+
 test('export avec formation journalière et changement de date après minuit', () => {
   const data = buildCalendar([
     { id: 'formation', date: '2026-11-23', title: 'Formation · 4 inscrites', allDay:true },
