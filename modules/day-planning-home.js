@@ -397,14 +397,28 @@ export function mountPlanningWorkspace(container, bridge) {
     for (let i = 0; i < count; i++) {
       const day = dateOffset(start, i)
       const { morning, evening, first, last, personal, bookings } = getSchedule(day)
-      const blocks = [
+      const fixedBlocks = [
         { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin' },
         ...morning.blocks.filter(item => item.type === 'outbound').map(item => ({ ...item, title: 'Trajet vers le salon' })),
         ...(first != null && last > first ? [{ start: first, end: last, title: 'Travail' }] : []),
         ...evening.blocks.filter(item => ['return', 'evening-routine', 'dinner'].includes(item.type)).map(item => ({ ...item, title: labels[item.type] })),
         ...personal,
-        ...bookings.map(item => ({ ...item, title: item.room === 'Perso' ? item.title : 'Maison · ' + item.room })),
       ]
+      const house = bookings.filter(item => item.room && item.room !== 'Perso' &&
+        !fixedBlocks.some(block => item.start < block.end && item.end > block.start))
+      const personalTasks = bookings.filter(item => !item.room || item.room === 'Perso')
+      const roomBlocks = groupRoomBlocks([...fixedBlocks, ...house]).filter(block => block.room)
+      const houseBlocks = []
+      for (const block of roomBlocks) {
+        const lastBlock = houseBlocks.at(-1)
+        if (lastBlock && block.start < lastBlock.end) {
+          lastBlock.end = Math.max(lastBlock.end, block.end)
+          lastBlock.title = 'Maison'
+          continue
+        }
+        houseBlocks.push({ start: block.start, end: block.end, title: block.room })
+      }
+      const blocks = [...fixedBlocks, ...personalTasks, ...houseBlocks]
       blocks.forEach((block, index) => events.push({
         ...block, date: day, id: [bridge.uid, day, block.start, block.type || block.title, index].join('-'),
       }))
@@ -487,10 +501,14 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function scheduleBlocks({ morning, evening, clients, personal, robots, bookings }) {
-    const blocks = [
+    return groupRoomBlocks([
       { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
-    ].sort((a, b) => a.start - b.start)
+    ])
+  }
+
+  function groupRoomBlocks(blocks) {
+    blocks.sort((a, b) => a.start - b.start)
     const roomOf = item => {
       if (item.room && item.room !== 'Perso') return item.room
       if (item.type === 'kitchen') return 'Cuisine'
