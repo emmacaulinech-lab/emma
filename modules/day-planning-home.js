@@ -589,6 +589,19 @@ export function mountPlanningWorkspace(container, bridge) {
       { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
     ]
+    function addRoutineCheck(parent, title) {
+      const check = input(parent, title, 'checkbox')
+      check.checked = Boolean(settings.checks?.[title])
+      check.onchange = () => {
+        settings.checks ||= {}
+        settings.checks[title] = check.checked
+        settings.checkTimes ||= {}
+        const now = new Date()
+        settings.checkTimes[title] = check.checked && date === today ? clock(now.getHours() * 60 + now.getMinutes()) : ''
+        save()
+      }
+    }
+
     for (const block of schedule.sort((a, b) => a.start - b.start)) {
       const row = add(list, 'div', '')
       row.className = 'day-workspace-time-row'
@@ -601,8 +614,12 @@ export function mountPlanningWorkspace(container, bridge) {
       add(detail, 'summary', (block.room || block.title || labels[block.type]) + (block.done ? ' ✓' : ''))
       if (block.children) {
         for (const child of block.children) {
-          const row = add(detail, 'p', interval(child) + ' · ' + (child.type === 'sport' ? sport.label : labels[child.type]))
-          tint(row, child)
+          const row = add(detail, 'div', '')
+          add(row, 'small', interval(child))
+          const tasks = child.type === 'admin' ? ['Mails', 'Formations'] :
+            child.type === 'sport' ? ['Séance de sport · ' + sport.label] :
+            ['Douche du matin', 'Soins du matin', 'Maquillage']
+          for (const task of tasks) addRoutineCheck(row, task)
         }
         if (date === today) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
       } else if (block.room) {
@@ -621,19 +638,7 @@ export function mountPlanningWorkspace(container, bridge) {
       } else if (['kitchen', 'evening-routine', 'robot'].includes(block.type)) {
         const options = block.type === 'kitchen' ? ['Faire la vaisselle ou lancer le lave-vaisselle', 'Nettoyer la planche si utilisée', 'Essuyer le plan de travail'] :
           block.type === 'evening-routine' ? ['Douche', 'Soins', 'Hydratation'] : [block.title]
-        for (const text of options) {
-          const check = input(detail, text, 'checkbox')
-          check.checked = Boolean(settings.checks?.[text])
-          check.onchange = () => {
-            settings.checks ||= {}
-            settings.checks[text] = check.checked
-            const now = new Date()
-            settings.checkTimes ||= {}
-            settings.checkTimes[text] = check.checked && date === today ? clock(now.getHours() * 60 + now.getMinutes()) : ''
-
-            save()
-          }
-        }
+        for (const text of options) addRoutineCheck(detail, text)
       }
     }
     if (notices.childElementCount) container.append(notices)
