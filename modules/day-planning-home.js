@@ -1,3 +1,4 @@
+import { connectPlanningSync } from './day-planning-sync.js'
 import { buildMorning, buildEvening } from './day-planning.js?v=26'
 
 const labels = {
@@ -172,13 +173,32 @@ export function mountPlanningWorkspace(container, bridge) {
   state.completed ||= {}
   state.laundry ||= 0
 
-  function save() {
+  function cache() {
     try {
       localStorage.setItem(key, JSON.stringify(state))
       error = ''
     } catch {
       error = 'Le stockage de l’appareil est indisponible. Les changements restent visibles dans cet écran.'
     }
+  }
+
+  const sync = bridge.exchangePlanning ? connectPlanningSync(state, {
+    exchange: bridge.exchangePlanning,
+    isCurrent: bridge.isCurrent,
+    cache,
+    receive() { if (quizReady) makeProposals(); render() },
+    status(message) {
+      if (!bridge.isCurrent()) return
+      const node = container.querySelector('.planning-sync-status')
+      if (node) node.textContent = message
+      syncMessage = message
+    },
+  }) : null
+  let syncMessage = ''
+
+  function save() {
+    if (sync) sync.save()
+    else cache()
   }
 
   function dayState(day) {
@@ -885,6 +905,9 @@ export function mountPlanningWorkspace(container, bridge) {
     container.classList.toggle('day-workspace-week-mode', viewMode === 'week')
     const navigation = add(container, 'div', '')
     navigation.className = 'day-workspace-actions'
+    const syncStatus = add(container, 'div', syncMessage)
+    syncStatus.className = 'planning-sync-status'
+    syncStatus.setAttribute('role', 'status')
     for (const [mode, label] of [['day', 'Jour'], ['week', 'Semaine']]) {
       const toggle = button(navigation, label, () => { viewMode = mode; render() })
       toggle.setAttribute('aria-pressed', String(viewMode === mode))
@@ -1002,5 +1025,9 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   render()
-  return { refresh() { if (quizReady) makeProposals(); render() } }
+  void sync?.flush(true)
+  return {
+    refresh() { if (quizReady) makeProposals(); render(); void sync?.flush() },
+    sync() { void sync?.flush(true) },
+  }
 }
