@@ -5,7 +5,7 @@ import { buildMorning, buildEvening } from '../modules/day-planning.js'
 import { due, firstSlot, homeTasks, suggestHome } from '../modules/day-planning-quiz.js'
 import { buildCalendar } from '../modules/day-planning-calendar.js'
 import { mountPlanningWorkspace } from '../modules/day-planning-home.js'
-import { mountNutritionAdvice, selectSport } from '../modules/day-planning-glow.js'
+import { completeNutritionQuantities, mountNutritionAdvice, selectSport } from '../modules/day-planning-glow.js'
 import { makeCalendarHandler } from '../netlify/functions/calendrier-emma.mjs'
 
 test('routine de 70 minutes, réveil anticipé et coucher à cheval sur minuit', () => {
@@ -229,6 +229,29 @@ test('accueil, ajout d’un rendez-vous et choix du repas', async () => {
   assert.equal(hours[0], '07 h')
   assert.equal(hours.at(-1), '00 h')
   assert.doesNotMatch(root.textContent, / · Dîner/)
+})
+
+test('les quantités manquantes sont préremplies sans écraser celles indiquées', async () => {
+  const items = [
+    { nom: 'Skyr', quantite: 200, unite: 'g' },
+    { nom: 'Farine', quantite: '', unite: 'g' },
+    { nom: 'Œuf', quantite: 2, unite: '' },
+  ]
+  let calls = 0
+  const estimate = async missing => {
+    calls++
+    assert.deepEqual(missing.map(item => item.index), [1, 2])
+    return [
+      { index: 0, quantite: 90, unite: 'g' },
+      { index: 1, quantite: 150, unite: 'g' },
+      { index: 2, quantite: 1, unite: 'pièce' },
+    ]
+  }
+  const result = await completeNutritionQuantities(items, estimate, item => item)
+  assert.deepEqual(result.map(item => [item.quantite, item.unite]), [[200, 'g'], [150, 'g'], [2, 'pièce']])
+  assert.equal(items[1].quantite, '')
+  await completeNutritionQuantities(result, estimate, item => item)
+  assert.equal(calls, 1)
 })
 
 test('choix Sport et ouverture du repas réellement mangé', async () => {
