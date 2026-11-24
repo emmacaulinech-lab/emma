@@ -44,6 +44,41 @@ test('échéances et blocs longs en priorité un jour off', () => {
   assert.equal(results.find(item => item.id === 'entree').date, '2026-11-23')
 })
 
+test('le quiz ignore les tâches déjà prévues et replace en priorité un créneau manqué', async () => {
+  const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+  globalThis.document = dom.window.document
+  globalThis.localStorage = dom.window.localStorage
+  const localDate = (offset) => {
+    const day = new Date()
+    day.setDate(day.getDate() + offset)
+    return day.toLocaleDateString('sv-SE')
+  }
+  const today = localDate(0)
+  const tomorrow = localDate(1)
+  const missed = { ...homeTasks.find(task => task.id === 'canape'), date: today, start: -10, end: 0 }
+  const done = { ...homeTasks.find(task => task.id === 'entree'), date: today, start: 780, end: 790, done: true }
+  localStorage.setItem('emma:planning-v1:priority-test', JSON.stringify({
+    bookings: [missed, done], pending: { 'surfaces-salon': true }, days: { [tomorrow]: { off: true } },
+  }))
+  const root = document.querySelector('main')
+  mountPlanningWorkspace(root, {
+    uid: 'priority-test', journal: () => ({}), planning: () => [],
+    formations: () => [], sport: () => ({ label: 'Fessiers' }),
+  })
+  assert.match(root.querySelector('details.day-workspace-done').textContent, /Entrée/)
+  const findButton = label => [...root.querySelectorAll('button')].find(node => node.textContent === label)
+  findButton('Préparer ma journée').click()
+  const quiz = [...root.querySelectorAll('section')].find(node => node.querySelector('h4')?.textContent === 'Préparer ma journée')
+  const choices = [...quiz.querySelectorAll('label')].map(label => label.textContent)
+  assert.ok(!choices.some(label => /Dépoiler le canapé|Ranger les chaussures/.test(label)))
+  await findButton('Voir les créneaux').onclick()
+  const proposed = [...root.querySelectorAll('details')].filter(node => node.querySelector('button')?.textContent === 'Ajouter au planning')
+  const missedBlock = proposed.find(node => node.textContent.includes('Dépoiler le canapé'))
+  const newBlock = proposed.find(node => node.textContent.includes('Ranger ou dépoussiérer les surfaces'))
+  assert.match(missedBlock.textContent, new RegExp(tomorrow + ' · 10:10'))
+  assert.match(newBlock.textContent, new RegExp(tomorrow + ' · 10:20'))
+})
+
 test('export avec formation journalière et changement de date après minuit', () => {
   const data = buildCalendar([
     { id: 'formation', date: '2026-11-23', title: 'Formation · 4 inscrites', allDay:true },
