@@ -21,7 +21,9 @@ export function buildCalendar(events, generatedAt = new Date()) {
     } else {
       lines.push('DTSTART:' + dateTime(event.date, event.start), 'DTEND:' + dateTime(event.date, event.end))
     }
-    lines.push('SUMMARY:' + escape(event.title), 'END:VEVENT')
+    lines.push('SUMMARY:' + escape(event.title))
+    if (event.calendarGroup) lines.push('X-EMMA-GROUP:' + escape(event.calendarGroup))
+    lines.push('END:VEVENT')
   }
   lines.push('END:VCALENDAR')
   return lines.map(line => {
