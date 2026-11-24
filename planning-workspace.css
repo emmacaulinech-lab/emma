@@ -140,11 +140,13 @@ dialog.day-workspace::backdrop {
   border-top: 1px solid var(--brd2, #e7dce6);
 }
 .day-workspace-day-track {
-  position: absolute;
-  inset: 0 0 0 var(--time-gutter);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: var(--time-gutter);
 }
 .day-workspace-positioned {
-  position: absolute;
+  min-width: 0;
   padding-inline: 2px;
 }
 .day-workspace-positioned details {
@@ -158,7 +160,6 @@ dialog.day-workspace::backdrop {
   overflow: hidden;
   white-space: nowrap;
 }
-.day-workspace-positioned:has(details[open]) { z-index: 3; }
 .day-workspace-positioned details[open] {
   background: color-mix(in srgb, var(--day-block-color) 15%, white);
   padding: 0 .5rem .45rem;

@@ -72,7 +72,16 @@ test('accueil, ajout d’un rendez-vous et choix du repas', async () => {
   const appointment = [...root.querySelectorAll('.day-workspace-positioned')].find(row => row.querySelector('summary').textContent === 'Restaurant')
   assert.ok(appointment)
   assert.equal(appointment.querySelector('summary').title, '20:00–21:30')
-  assert.ok(Math.abs(parseFloat(appointment.style.top) - 858) < 0.01)
+  const track = appointment.parentElement
+  const before = [...track.children].slice(0, [...track.children].indexOf(appointment))
+  const visualStart = before.reduce((position, row) => position + parseFloat(row.style.marginTop) +
+    parseFloat(row.style.getPropertyValue('--day-slot-height')), parseFloat(appointment.style.marginTop))
+  assert.ok(Math.abs(visualStart - 858) < 0.01)
+  const robots = [...track.children].filter(row => row.textContent.includes('Roborock'))
+  assert.equal(robots.length, 2)
+  assert.equal(robots[1].previousElementSibling, robots[0])
+  assert.equal(robots[1].style.marginTop, '4px')
+  assert.ok(robots.every(row => !row.style.left && !row.style.width))
   const hours = [...root.querySelectorAll('.day-workspace-hour-mark')].map(node => node.textContent)
   assert.equal(hours.length, 18)
   assert.equal(hours[0], '07 h')

@@ -570,7 +570,7 @@ export function mountPlanningWorkspace(container, bridge) {
     const grid = add(timeline, 'div', '')
     grid.className = 'day-workspace-day-grid'
     const height = (end - start) * minuteHeight
-    grid.style.height = height + 'px'
+    grid.style.minHeight = height + 'px'
     for (let hour = 7; hour <= 24; hour++) {
       const mark = add(grid, 'div', '')
       mark.className = 'day-workspace-hour-mark'
@@ -579,34 +579,21 @@ export function mountPlanningWorkspace(container, bridge) {
     }
     const track = add(grid, 'div', '')
     track.className = 'day-workspace-day-track'
-    const groups = []
+    const gap = 4
+    let cursor = 0
     for (const block of schedule.filter(item => item.start < end && item.end > start)) {
       const top = (Math.max(start, block.start) - start) * minuteHeight
-      const bottom = Math.max(top + minHeight, (Math.min(end, block.end) - start) * minuteHeight)
-      let group = groups.at(-1)
-      if (!group || group.bottom <= top) {
-        group = { bottom, ends: [], blocks: [] }
-        groups.push(group)
-      }
-      let lane = group.ends.findIndex(laneEnd => laneEnd <= top)
-      if (lane < 0) lane = group.ends.length
-      group.ends[lane] = bottom
-      group.bottom = Math.max(group.bottom, bottom)
-      group.blocks.push({ block, top, bottom, lane })
-    }
-    for (const group of groups) {
-      for (const { block, top, bottom, lane } of group.blocks) {
-        const row = add(track, 'div', '')
-        row.className = 'day-workspace-positioned'
-        row.style.top = top + 'px'
-        row.style.setProperty('--day-slot-height', (bottom - top) + 'px')
-        row.style.left = (100 * lane / group.ends.length) + '%'
-        row.style.width = (100 / group.ends.length) + '%'
-        renderScheduleBlock(row, block, day, settings)
-        const heading = row.querySelector('summary')
-        heading.title = interval(block)
-        heading.setAttribute('aria-label', heading.textContent + ', ' + interval(block))
-      }
+      const slotHeight = Math.max(minHeight, (Math.min(end, block.end) - Math.max(start, block.start)) * minuteHeight)
+      const spacing = Math.max(cursor ? gap : 0, top - cursor)
+      const row = add(track, 'div', '')
+      row.className = 'day-workspace-positioned'
+      row.style.marginTop = spacing + 'px'
+      row.style.setProperty('--day-slot-height', slotHeight + 'px')
+      cursor += spacing + slotHeight
+      renderScheduleBlock(row, block, day, settings)
+      const heading = row.querySelector('summary')
+      heading.title = interval(block)
+      heading.setAttribute('aria-label', heading.textContent + ', ' + interval(block))
     }
     outside(schedule.filter(item => item.start >= end), 'Après minuit')
   }
