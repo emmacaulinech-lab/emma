@@ -53,6 +53,35 @@ test('export avec formation journalière et changement de date après minuit', (
   assert.ok(data.includes('Soirée\\, perso'))
 })
 
+test('abonnement Apple : titres courts et un seul bloc par pièce', () => {
+  const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+  globalThis.document = dom.window.document
+  globalThis.localStorage = dom.window.localStorage
+  const date = new Date().toLocaleDateString('sv-SE')
+  const bookings = [
+    { room: 'Cuisine', start: 840, end: 860 },
+    { room: 'Cuisine', start: 860, end: 880 },
+    { room: 'Cuisine', start: 940, end: 950 },
+    { room: 'Chambre', start: 900, end: 920 },
+    { room: 'Salon', start: 905, end: 925 },
+  ].map((task, id) => ({ ...task, date, id: String(id), title: 'Sous-tâche de ménage' }))
+  localStorage.setItem('emma:planning-v1:calendar-test', JSON.stringify({ bookings, calendarKey: 'test' }))
+  let feed
+  mountPlanningWorkspace(document.querySelector('main'), {
+    uid: 'calendar-test', journal: () => ({}), sport: () => ({ label: 'Fessiers' }),
+    planning: day => day === date ? [{ heureDebut: '15:30', heureFin: '15:40', nom: 'Ongles', rendezVous: true }] : [],
+    formations: day => day === date ? [{ title: 'Formation', count: 2 }] : [],
+    calendarLink: () => 'webcal://localhost/calendar',
+    publishCalendar: async ({ calendar }) => { feed = calendar },
+  })
+  assert.equal((feed.match(/SUMMARY:Cuisine\r\n/g) || []).length, 1)
+  assert.match(feed, /T140000\r\nDTEND:\d{8}T144000\r\nSUMMARY:Cuisine/)
+  assert.match(feed, /T150000\r\nDTEND:\d{8}T152500\r\nSUMMARY:Maison/)
+  assert.match(feed, /SUMMARY:Ongles/)
+  assert.match(feed, /SUMMARY:Formation · 2 inscrites/)
+  assert.doesNotMatch(feed, /Maison ·|Sous-tâche de ménage/)
+})
+
 test('accueil, ajout d’un rendez-vous et choix du repas', async () => {
   const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
   globalThis.document = dom.window.document
