@@ -12,6 +12,14 @@ const labels = {
   'evening-routine': 'Douche, soins et hydratation',
 }
 
+const hangLaundryId = 'linge-etendre'
+const laundryCycle = ['Lancer une machine', 'Étendre le linge', 'Plier le linge', 'Ranger le linge']
+const washCycleMinutes = 90
+
+function bookingTaskId(task) {
+  return task.id === 'linge' && task.title === laundryCycle[1] ? hangLaundryId : task.id
+}
+
 function minutes(value) {
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value || '')) return null
   const [hours, minutes] = value.split(':').map(Number)
@@ -164,6 +172,7 @@ export function mountPlanningWorkspace(container, bridge) {
   let proposalDayCount = 0
   let rankedTasks = []
   let error = ''
+  let laundryNotice = ''
   let calendarStatus = ''
   let publishedCalendar = ''
   let publishing = false
@@ -253,10 +262,14 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function taskFor(id) {
-    const task = homeTasks.find(task => task.id === id)
-    if (id === 'linge') {
-      return { ...task, title: ['Lancer une machine', 'Étendre le linge', 'Plier le linge', 'Ranger le linge'][state.laundry % 4] }
+    if (id === hangLaundryId || (id === 'linge' && state.laundry % 4 === 1)) {
+      return {
+        id: hangLaundryId, room: 'Linge', title: laundryCycle[1], duration: 10,
+        notBefore: typeof state.pending[hangLaundryId] === 'string' ? state.pending[hangLaundryId] : '',
+      }
     }
+    const task = homeTasks.find(task => task.id === id)
+    if (id === 'linge') return { ...task, title: laundryCycle[state.laundry % 4] }
     if (id === 'vasque' && state.pending.vasque === 'traces') {
       return { ...task, title: 'Ranger et nettoyer le dessus de la vasque', duration: 10 }
     }
@@ -273,24 +286,33 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function isBooked(id, day) {
-    return state.completed[id] === day || state.bookings.some(item => item.id === id && item.date === day)
+    return state.completed[id] === day || state.bookings.some(item => bookingTaskId(item) === id && item.date === day)
   }
 
   function hasUpcomingBooking(id) {
-    return state.bookings.some(item => item.id === id && !item.done && notYetDone(item) &&
+    return state.bookings.some(item => bookingTaskId(item) === id && !item.done && notYetDone(item) &&
       !getSchedule(item.date).displaced.includes(item))
   }
 
   function missedTaskIds() {
-    const known = new Set(homeTasks.map(task => task.id))
-    return new Set(state.bookings.filter(item => !item.done && known.has(item.id) &&
-      item.date > (state.completed[item.id] || '') &&
-      (!notYetDone(item) || getSchedule(item.date).displaced.includes(item))).map(item => item.id))
+    const known = new Set([...homeTasks.map(task => task.id), hangLaundryId])
+    return new Set(state.bookings.filter(item => !item.done && known.has(bookingTaskId(item)) &&
+      item.date > (state.completed[bookingTaskId(item)] || '') &&
+      (!notYetDone(item) || getSchedule(item.date).displaced.includes(item))).map(bookingTaskId))
+  }
+
+  function planningCandidates(ids) {
+    return [...new Map(ids.map(taskFor).filter(Boolean).map(task => [task.id, task])).values()]
+  }
+
+  function canBookOnDay(task, day) {
+    return (!task.notBefore || day >= task.notBefore) && !isBooked(task.id, day) && !dayState(day).skip?.includes(task.id)
   }
 
   function makeProposals() {
     const missed = missedTaskIds()
-    const tasks = [...new Set([...missed, ...Object.keys(state.pending)])].map(taskFor).filter(Boolean)
+    if (state.pending[hangLaundryId]) missed.add(hangLaundryId)
+    const tasks = planningCandidates([...missed, ...Object.keys(state.pending)])
       .filter(task => !hasUpcomingBooking(task.id))
     const priority = id => (rankedTasks.indexOf(id) + 1 || Number.MAX_SAFE_INTEGER)
     tasks.sort((a, b) => Number(missed.has(b.id)) - Number(missed.has(a.id)) || priority(a.id) - priority(b.id))
@@ -300,7 +322,7 @@ export function mountPlanningWorkspace(container, bridge) {
       .filter(day => getDay(day).first != null || dayState(day).off)
       .map(day => ({
         ...available(day, getSchedule(day)),
-        canBook: task => !isBooked(task.id, day) && !dayState(day).skip?.includes(task.id),
+        canBook: task => canBookOnDay(task, day),
       }))
     proposalTaskCount = tasks.length
     proposalDayCount = days.length
@@ -308,7 +330,7 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function book(task) {
-    if (isBooked(task.id, task.date) || hasUpcomingBooking(task.id)) { makeProposals(); render(); return }
+    if (!canBookOnDay(task, task.date) || hasUpcomingBooking(task.id)) { makeProposals(); render(); return }
     state.bookings.push({ ...task, done: false })
     save()
     makeProposals()
@@ -346,8 +368,9 @@ export function mountPlanningWorkspace(container, bridge) {
     const details = add(wrap, 'details', '')
     add(details, 'summary', 'Tu as remarqué autre chose ?')
     const checks = []
-    for (const task of homeTasks.filter(task => !signals.has(task.id) && !isBooked(task.id, date))) {
-      checks.push([task, input(details, task.room + ' · ' + taskFor(task.id).title, 'checkbox')])
+    for (const task of planningCandidates(homeTasks.map(task => task.id))) {
+      if (signals.has(task.id) || !canBookOnDay(task, date)) continue
+      checks.push([task, input(details, task.room + ' · ' + task.title, 'checkbox')])
     }
     add(wrap, 'p', 'Indique ce qui est à faire, puis choisis un créneau proposé.')
     const view = button(wrap, 'Voir les créneaux', async () => {
@@ -359,7 +382,7 @@ export function mountPlanningWorkspace(container, bridge) {
           settings.skip = [...new Set([...(settings.skip || []), id])]
         } else if (select.value) state.pending[id] = select.value
       }
-      for (const [task, checkbox] of checks) if (checkbox.checked) state.pending[task.id] = true
+      for (const [task, checkbox] of checks) if (checkbox.checked) state.pending[task.id] ||= true
       quizReady = true
       state.quizStart = date
       save()
@@ -685,6 +708,21 @@ export function mountPlanningWorkspace(container, bridge) {
     })
   }
 
+  function scheduleHangLaundry(now) {
+    const task = taskFor(hangLaundryId)
+    if (isBooked(task.id, today) || hasUpcomingBooking(task.id)) return
+    const bounds = available(today, getSchedule(today))
+    const ready = now.getHours() * 60 + now.getMinutes() + washCycleMinutes
+    const slot = firstSlot(bounds.occupied, Math.max(bounds.start, ready), bounds.end, task.duration)
+    if (slot) {
+      state.bookings.push({ ...task, ...slot, date: today, done: false })
+      laundryNotice = 'Étendre le linge ajouté à ' + clock(slot.start) + '.'
+    } else {
+      state.pending[task.id] = dateOffset(today, 1)
+      laundryNotice = 'Pas de créneau après la machine aujourd’hui. Étendre le linge te sera reproposé en priorité.'
+    }
+  }
+
   function renderScheduleBlock(parent, block, day, settings, weekly = false, proposed = false, nested = false) {
     const sport = block.children ? bridge.sport(day) : null
     function addRoutineCheck(parent, title) {
@@ -759,12 +797,21 @@ export function mountPlanningWorkspace(container, bridge) {
       if (block.sport && day === today && !block.done) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(block.sport))
       if ((!weekly && !nested) || block.detail) add(detail, 'p', weekly || nested ? block.detail : block.title + (block.detail ? ' · ' + block.detail : ''))
       if (!block.done) button(detail, 'Fait', () => {
+        if (block.done) return
         block.done = true
         const now = new Date()
         block.completedAt = now.toLocaleDateString('sv-SE') + 'T' + clock(now.getHours() * 60 + now.getMinutes())
-        state.completed[block.id] = today
-        delete state.pending[block.id]
-        if (block.id === 'linge') state.laundry = (state.laundry + 1) % 4
+        const id = bookingTaskId(block)
+        state.completed[id] = today
+        delete state.pending[id]
+        if (id === hangLaundryId) {
+          state.laundry = 2
+          delete state.pending.linge
+        } else if (block.id === 'linge') {
+          const startsWash = block.title === laundryCycle[0]
+          state.laundry = startsWash ? 1 : (state.laundry + 1) % 4
+          if (startsWash) scheduleHangLaundry(now)
+        }
         save()
         if (quizReady) makeProposals()
         render()
@@ -851,10 +898,8 @@ export function mountPlanningWorkspace(container, bridge) {
     const quickTasks = ['surfaces-cuisine', 'chambre', 'entree', 'retouches', 'surfaces-salon']
     const dueIds = new Set(recurringSuggestions(today).map(task => task.id))
     const missed = missedTaskIds()
-    const choices = [...new Set([...missed, ...Object.keys(state.pending), ...dueIds, ...quickTasks])]
-      .map(taskFor).filter(task => task && !isBooked(task.id, today) &&
-        !dayState(today).skip?.includes(task.id) &&
-        !hasUpcomingBooking(task.id))
+    const choices = planningCandidates([...missed, ...Object.keys(state.pending), ...dueIds, ...quickTasks])
+      .filter(task => canBookOnDay(task, today) && !hasUpcomingBooking(task.id))
       .map(task => ({ task, slot: nextHomeSlot(task.duration) }))
       .filter(candidate => candidate.slot)
       .slice(0, 3)
@@ -974,10 +1019,11 @@ export function mountPlanningWorkspace(container, bridge) {
       wake.disabled = settings.actualWake != null
     }
     const notices = document.createElement('div')
+    if (date === today && laundryNotice) add(notices, 'p', laundryNotice).setAttribute('role', 'status')
     if (morning.earlyWindow) {
       const task = taskFor(state.pending['lave-vaisselle'] ? 'lave-vaisselle' : 'linge')
       const slot = firstSlot([...personal, ...bookings], morning.earlyWindow.start, morning.earlyWindow.end, task.duration)
-      if (slot && settings.earlyDismissed !== true && !isBooked(task.id, date) && !hasUpcomingBooking(task.id)) {
+      if (slot && settings.earlyDismissed !== true && canBookOnDay(task, date) && !hasUpcomingBooking(task.id)) {
         add(notices, 'p', interval(slot) + ' · ' + task.title)
         button(notices, 'Ajouter au planning', () => book({ ...task, ...slot, date }))
         button(notices, 'Garder le créneau libre', () => { settings.earlyDismissed = true; save(); render() })
