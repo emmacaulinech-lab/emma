@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=27');
+  const homeModule = import('./modules/day-planning-home.js?v=28');
   const glowModule = import('./modules/day-planning-glow.js?v=18');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -267,7 +267,8 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
         journal: () => DB.journal,
         planning: day => DB.journal.planning?.[day] || [],
         formations: trainingFor,
-        calendarLink: key => calendarEndpoint.replace('https:', 'webcal:') + '?key=' + key,
+        calendarLink: (key, group) => calendarEndpoint.replace('https:', 'webcal:') + '?' +
+          new URLSearchParams(group ? { key, group } : { key }),
         async publishCalendar(data) {
           if (currentUser?.uid !== uid) throw Error('Reconnecte-toi.');
           const token = await currentUser.getIdToken();
