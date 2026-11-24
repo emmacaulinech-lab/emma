@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=28');
+  const homeModule = import('./modules/day-planning-home.js?v=29');
   const glowModule = import('./modules/day-planning-glow.js?v=18');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -261,8 +261,25 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
       const target = inJournal ? document.getElementById('jview-aujourdhui') : wrap;
       if (target && mini.parentElement !== target) target.replaceChildren(mini);
       const uid = currentUser.uid;
-      if (mounted.get(mini)?.uid === uid) return mounted.get(mini).refresh();
+      if (mounted.get(mini)?.owner === userRef) return mounted.get(mini).refresh();
+      const previous = mounted.get(mini)
+      previous?.dispose()
+      const owner = userRef
+      const planningRef = owner.collection('modules').doc('planning_workspace')
+      const isCurrent = () => currentUser?.uid === uid && userRef === owner
       const workspace = home.mountPlanningWorkspace(mini, {
+        isCurrent,
+        exchangePlanning: merge => owner.firestore.runTransaction(async transaction => {
+          if (!isCurrent()) throw Error('Session modifiée.')
+          const current = await transaction.get(planningRef)
+          if (!isCurrent()) throw Error('Session modifiée.')
+          const stored = current.exists ? current.data().data : '{}'
+          const remote = JSON.parse(stored)
+          const next = merge(remote)
+          const data = JSON.stringify(next)
+          if (data !== stored) transaction.set(planningRef, { data })
+          return next
+        }),
         uid,
         journal: () => DB.journal,
         planning: day => DB.journal.planning?.[day] || [],
@@ -327,7 +344,12 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
           commencerSeance(custom.id).catch(() => toast('Séance indisponible.'));
         },
       });
-      mounted.set(mini, { uid, refresh:workspace.refresh });
+      window.addEventListener('focus', workspace.sync)
+      window.addEventListener('online', workspace.sync)
+      mounted.set(mini, { owner, refresh:workspace.refresh, dispose() {
+        window.removeEventListener('focus', workspace.sync)
+        window.removeEventListener('online', workspace.sync)
+      } })
     };
 
     window.emmaPlanningRefonteActive = true;
