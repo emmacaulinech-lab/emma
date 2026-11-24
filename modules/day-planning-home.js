@@ -16,6 +16,23 @@ const hangLaundryId = 'linge-etendre'
 const laundryCycle = ['Lancer une machine', 'Étendre le linge', 'Plier le linge', 'Ranger le linge']
 const washCycleMinutes = 90
 
+const appleReminderShortcut = 'EMMA – Ajouter un rappel'
+
+function appleReminderURL(title, day, start) {
+  const scheduled = new Date(day + 'T00:00:00')
+  scheduled.setMinutes(start)
+  const payload = title.replace(/[\r\n]+/g, ' ') + '\n' + scheduled.toISOString()
+  return 'shortcuts://run-shortcut?name=' + encodeURIComponent(appleReminderShortcut) +
+    '&input=text&text=' + encodeURIComponent(payload)
+}
+
+function addAppleReminder(root, title, day, start) {
+  const link = add(root, 'a', 'Mettre en rappel Apple')
+  link.className = 'btn bg bsm'
+  link.href = appleReminderURL(title, day, start)
+  return link
+}
+
 function bookingTaskId(task) {
   return task.id === 'linge' && task.title === laundryCycle[1] ? hangLaundryId : task.id
 }
@@ -525,6 +542,18 @@ export function mountPlanningWorkspace(container, bridge) {
   function renderCalendar(root) {
     const group = add(root, 'details', '')
     add(group, 'summary', 'Calendrier Apple')
+    const reminders = add(group, 'details', '')
+    add(reminders, 'summary', 'Configurer les rappels Apple')
+    add(reminders, 'p', 'À faire une fois sur l’iPhone ou l’iPad. Le rappel aura l’heure de la sous-tâche. Pour le voir dans Calendrier, active « Rappels programmés ».')
+    const steps = add(reminders, 'ol', '')
+    for (const instruction of [
+      'Dans Raccourcis, crée un raccourci nommé « ' + appleReminderShortcut + ' ».',
+      'Ajoute « Diviser le texte » et choisis « Entrée du raccourci » comme texte, avec « Nouvelles lignes » comme séparateur.',
+      'Ajoute « Obtenir l’élément de la liste » deux fois, en choisissant le résultat de « Diviser le texte » comme liste dans les deux actions. Récupère le premier élément pour le titre et le dernier pour la date.',
+      'Ajoute « Ajouter un nouveau rappel ». Utilise le premier élément comme titre. Active l’alerte à une heure et utilise le dernier élément comme date.',
+      'Dans EMMA, ouvre une sous-tâche et touche « Mettre en rappel Apple ». Au premier lancement, accepte l’accès à Rappels.',
+    ]) add(steps, 'li', instruction)
+    add(reminders, 'p', 'Les coches et les changements d’heure effectués ensuite se gèrent dans chaque app.')
     add(group, 'p', 'L’export contient les 7 jours à partir de la date sélectionnée. Le fichier .ics est une copie du planning à importer dans Calendrier.')
     button(group, 'Télécharger le planning (.ics)', exportCalendar)
     if (!state.calendarKey) {
@@ -618,12 +647,12 @@ export function mountPlanningWorkspace(container, bridge) {
     })
   }
 
-  function renderRoutineTask(root, { day, settings, id, title, duration, sport, addCheck }) {
+  function renderRoutineTask(root, { day, settings, id, title, start, duration, sport, addCheck }) {
     const row = add(root, 'div', '')
     row.className = 'day-workspace-routine-task'
     const override = settings.routineOverrides?.[id]
     if (override) {
-      if (override.kind === 'replace') addCheck(row, override.title)
+      if (override.kind === 'replace') addCheck(row, override.title, start)
       else if (override.kind === 'report') {
         add(row, 'p', title + ' · Reporté au ' +
           new Date(override.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) +
@@ -641,7 +670,7 @@ export function mountPlanningWorkspace(container, bridge) {
       return
     }
 
-    addCheck(row, title)
+    addCheck(row, title, start)
     const options = add(row, 'details', '')
     const menu = add(options, 'summary', '⋯')
     menu.className = 'day-workspace-routine-menu'
@@ -725,14 +754,17 @@ export function mountPlanningWorkspace(container, bridge) {
 
   function renderScheduleBlock(parent, block, day, settings, weekly = false, proposed = false, nested = false) {
     const sport = block.children ? bridge.sport(day) : null
-    function addRoutineCheck(parent, title) {
+    function addRoutineCheck(parent, title, start) {
       const check = input(parent, title, 'checkbox')
       check.checked = Boolean(settings.checks?.[title])
       const label = check.parentElement
+      const reminder = addAppleReminder(parent, title, day, start)
+      reminder.style.display = check.checked ? 'none' : ''
       label.classList.toggle('day-workspace-done', check.checked)
       check.onchange = () => {
         settings.checks ||= {}
         settings.checks[title] = check.checked
+        reminder.style.display = check.checked ? 'none' : ''
         label.classList.toggle('day-workspace-done', check.checked)
         settings.checkTimes ||= {}
         const now = new Date()
@@ -784,10 +816,10 @@ export function mountPlanningWorkspace(container, bridge) {
           child.type === 'sport' ? ['Séance de sport · ' + sport.label] :
           ['Douche du matin', 'Soins du matin', 'Maquillage']
         for (const [index, task] of tasks.entries()) {
-          const duration = Math.floor((child.end - child.start) * (index + 1) / tasks.length) -
-            Math.floor((child.end - child.start) * index / tasks.length)
+          const elapsed = Math.floor((child.end - child.start) * index / tasks.length)
+          const duration = Math.floor((child.end - child.start) * (index + 1) / tasks.length) - elapsed
           renderRoutineTask(row, {day, settings, id:child.type + ':' + index, title:task,
-            duration, sport:child.type === 'sport' ? sport : null, addCheck:addRoutineCheck})
+            start:child.start + elapsed, duration, sport:child.type === 'sport' ? sport : null, addCheck:addRoutineCheck})
         }
       }
       if (day === today && !settings.routineOverrides?.['sport:0']) {
@@ -796,6 +828,7 @@ export function mountPlanningWorkspace(container, bridge) {
     } else if (block.room) {
       if (block.sport && day === today && !block.done) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(block.sport))
       if ((!weekly && !nested) || block.detail) add(detail, 'p', weekly || nested ? block.detail : block.title + (block.detail ? ' · ' + block.detail : ''))
+      if (!block.done) addAppleReminder(detail, block.title, day, block.start)
       if (!block.done) button(detail, 'Fait', () => {
         if (block.done) return
         block.done = true
@@ -819,7 +852,9 @@ export function mountPlanningWorkspace(container, bridge) {
     } else if (['kitchen', 'evening-routine', 'robot'].includes(block.type)) {
       const options = block.type === 'kitchen' ? ['Faire la vaisselle ou lancer le lave-vaisselle', 'Nettoyer la planche si utilisée', 'Essuyer le plan de travail'] :
         block.type === 'evening-routine' ? ['Douche', 'Soins', 'Hydratation'] : [block.title]
-      for (const text of options) addRoutineCheck(detail, text)
+      for (const [index, text] of options.entries()) {
+        addRoutineCheck(detail, text, block.start + Math.floor((block.end - block.start) * index / options.length))
+      }
     }
   }
 
