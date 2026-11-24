@@ -53,6 +53,7 @@ export function suggestHome(tasks, days) {
     const order = days.map((day, index) => ({ ...day, index }))
     if (task.duration >= 25) order.sort((a, b) => Number(a.works) - Number(b.works))
     for (const day of order) {
+      if (day.canBook && !day.canBook(task)) continue
       const slot = firstSlot(occupied[day.index], day.start, day.end, task.duration)
       if (!slot) continue
       occupied[day.index].push(slot)

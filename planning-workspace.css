@@ -353,3 +353,9 @@ dialog.day-workspace::backdrop {
 }
 .day-workspace-free-time { border: 1px solid var(--brd2, #e7dce6); }
 .day-workspace-free-task small { color: var(--mut, #665c69); }
+
+.day-workspace label.day-workspace-done,
+.day-workspace details.day-workspace-done:not(:has(.day-workspace-room-tasks)),
+.day-workspace details.day-workspace-done:has(.day-workspace-room-tasks) > summary {
+  opacity: .55;
+}
