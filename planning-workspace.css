@@ -117,23 +117,57 @@ dialog.day-workspace::backdrop {
   .refonte-sidebar { grid-column: 1; }
 }
 
-.day-workspace-timeline { display: grid; gap: .4rem; }
-.day-workspace-time-row {
-  display: grid;
-  grid-template-columns: minmax(3.25rem, max-content) minmax(0, 1fr);
-  gap: .65rem;
-  align-items: start;
+.day-workspace-timeline { display: grid; gap: .75rem; min-width: 0; }
+.day-workspace-day-grid {
+  position: relative;
+  margin: .65rem 0 1.85rem;
+  --time-gutter: 3rem;
 }
-.day-workspace-hours {
+.day-workspace-hour-mark {
+  position: absolute;
+  inset-inline: 0;
   display: grid;
-  gap: .1rem;
-  padding-top: .52rem;
-  text-align: right;
+  grid-template-columns: var(--time-gutter) 1fr;
+  align-items: center;
+  transform: translateY(-50%);
   color: var(--mut, #665c69);
+  font-size: .8rem;
   font-variant-numeric: tabular-nums;
-  font-size: .85rem;
+  pointer-events: none;
 }
-.day-workspace-time-row details { margin: 0; }
+.day-workspace-hour-mark::after {
+  content: '';
+  border-top: 1px solid var(--brd2, #e7dce6);
+}
+.day-workspace-day-track {
+  position: absolute;
+  inset: 0 0 0 var(--time-gutter);
+}
+.day-workspace-positioned {
+  position: absolute;
+  padding-inline: 2px;
+}
+.day-workspace-positioned details {
+  margin: 0;
+  padding: 0;
+  min-height: var(--day-slot-height);
+}
+.day-workspace-positioned summary {
+  padding: .23rem .45rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.day-workspace-positioned:has(details[open]) { z-index: 3; }
+.day-workspace-positioned details[open] {
+  background: color-mix(in srgb, var(--day-block-color) 15%, white);
+  padding: 0 .5rem .45rem;
+  box-shadow: 0 .4rem 1.1rem #3b283625;
+  max-height: min(55vh, 24rem);
+  overflow: auto;
+}
+.day-workspace-positioned details[open] summary { white-space: normal; }
+.day-workspace-outside-hours { display: grid; gap: .3rem; }
 .day-workspace-controls[open] { margin-top: .55rem; }
 .day-workspace .day-workspace-block {
   --day-block-color: #993556;

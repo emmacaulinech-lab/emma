@@ -549,6 +549,68 @@ export function mountPlanningWorkspace(container, bridge) {
     }
   }
 
+  function renderDayTimeline(parent, schedule, day, settings) {
+    const start = 7 * 60
+    const end = 24 * 60
+    const minuteHeight = 1.1
+    const minHeight = 29
+    const timeline = add(parent, 'div', '')
+    timeline.className = 'day-workspace-timeline'
+    const outside = (items, label) => {
+      if (!items.length) return
+      const section = add(timeline, 'section', '')
+      section.className = 'day-workspace-outside-hours'
+      add(section, 'small', label)
+      for (const item of items) {
+        add(section, 'small', interval(item))
+        renderScheduleBlock(section, item, day, settings)
+      }
+    }
+    outside(schedule.filter(item => item.end <= start), 'Avant 7 h')
+    const grid = add(timeline, 'div', '')
+    grid.className = 'day-workspace-day-grid'
+    const height = (end - start) * minuteHeight
+    grid.style.height = height + 'px'
+    for (let hour = 7; hour <= 24; hour++) {
+      const mark = add(grid, 'div', '')
+      mark.className = 'day-workspace-hour-mark'
+      mark.style.top = ((hour * 60 - start) * minuteHeight) + 'px'
+      add(mark, 'span', hour === 24 ? '00 h' : String(hour).padStart(2, '0') + ' h')
+    }
+    const track = add(grid, 'div', '')
+    track.className = 'day-workspace-day-track'
+    const groups = []
+    for (const block of schedule.filter(item => item.start < end && item.end > start)) {
+      const top = (Math.max(start, block.start) - start) * minuteHeight
+      const bottom = Math.max(top + minHeight, (Math.min(end, block.end) - start) * minuteHeight)
+      let group = groups.at(-1)
+      if (!group || group.bottom <= top) {
+        group = { bottom, ends: [], blocks: [] }
+        groups.push(group)
+      }
+      let lane = group.ends.findIndex(laneEnd => laneEnd <= top)
+      if (lane < 0) lane = group.ends.length
+      group.ends[lane] = bottom
+      group.bottom = Math.max(group.bottom, bottom)
+      group.blocks.push({ block, top, bottom, lane })
+    }
+    for (const group of groups) {
+      for (const { block, top, bottom, lane } of group.blocks) {
+        const row = add(track, 'div', '')
+        row.className = 'day-workspace-positioned'
+        row.style.top = top + 'px'
+        row.style.setProperty('--day-slot-height', (bottom - top) + 'px')
+        row.style.left = (100 * lane / group.ends.length) + '%'
+        row.style.width = (100 / group.ends.length) + '%'
+        renderScheduleBlock(row, block, day, settings)
+        const heading = row.querySelector('summary')
+        heading.title = interval(block)
+        heading.setAttribute('aria-label', heading.textContent + ', ' + interval(block))
+      }
+    }
+    outside(schedule.filter(item => item.start >= end), 'Après minuit')
+  }
+
   function renderWeek(scrollLeft) {
     makeProposals()
     const selected = new Date(date + 'T12:00:00')
@@ -702,18 +764,7 @@ export function mountPlanningWorkspace(container, bridge) {
     })
     optionsButton.setAttribute('aria-controls', 'emma-day-options')
     controls.id = 'emma-day-options'
-    const list = add(container, 'div', '')
-    list.className = 'day-workspace-timeline'
-    const schedule = scheduleBlocks({ morning, evening, clients, personal, robots, bookings })
-    for (const block of schedule) {
-      const row = add(list, 'div', '')
-      row.className = 'day-workspace-time-row'
-      const time = add(row, 'div', '')
-      time.className = 'day-workspace-hours'
-      add(time, 'strong', clock(block.start))
-      add(time, 'small', clock(block.end))
-      renderScheduleBlock(row, block, date, settings)
-    }
+    renderDayTimeline(container, scheduleBlocks({ morning, evening, clients, personal, robots, bookings }), date, settings)
     if (notices.childElementCount) container.append(notices)
     container.append(controls)
     if (state.calendarKey) void publishCalendar()
