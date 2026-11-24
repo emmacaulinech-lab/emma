@@ -89,7 +89,7 @@ export function readDayAppointments(planning) {
     const customColor = block.couleur || block.couleurOverride
     const color = /^#[0-9a-f]{6}$/i.test(customColor || '') ? customColor : null
     if (block.source === 'planity' || block.typeElement === 'planity') {
-      clients.push({ ...appointment, color: color || '#E87A9A' })
+      clients.push({ ...appointment, clientName: appointment.title.split(' — ')[0], color: color || '#E87A9A' })
     }
     else if (block.rendezVous || ['rdv', 'rendezVous', 'evenement'].includes(block.categorie) ||
       (block.iconOverride === '📌' && block.aClasser)) personal.push({ ...appointment, color: color || '#993556' })
@@ -803,6 +803,7 @@ export function mountPlanningWorkspace(container, bridge) {
       button(detail, 'Ajouter au planning', () => book(block))
       return
     }
+    if (block.clientName) addAppleReminder(detail, block.clientName, day, block.start)
     if (block.children) {
       detail.open = openRoutines.has(day)
       heading.onclick = () => {

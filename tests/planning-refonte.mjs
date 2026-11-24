@@ -114,7 +114,7 @@ test('la machine déclenche un bloc de linge après le cycle ou une proposition 
   assert.equal(late.pending['linge-etendre'], '2026-11-25')
 })
 
-test('le bouton Rappels transmet le titre et l’heure de la sous-tâche à Raccourcis', t => {
+test('le bouton Rappels transmet le titre et l’heure des sous-tâches et rendez-vous Planity', t => {
   t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 24, 14) })
   const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
   globalThis.document = dom.window.document
@@ -125,7 +125,9 @@ test('le bouton Rappels transmet le titre et l’heure de la sous-tâche à Racc
   }))
   const root = document.querySelector('main')
   mountPlanningWorkspace(root, {
-    uid: 'reminder-test', journal: () => ({}), planning: () => [],
+    uid: 'reminder-test', journal: () => ({}), planning: day => day === '2026-11-24' ? [
+      { source: 'planity', nom: 'Cliente Exemple — Remplissage', heureDebut: '14:30', heureFin: '15:00' },
+    ] : [],
     formations: () => [], sport: () => ({ label: 'Fessiers' }),
   })
   const urls = [...root.querySelectorAll('a')].filter(node => node.textContent === 'Mettre en rappel Apple').map(node => new URL(node.href))
@@ -135,6 +137,8 @@ test('le bouton Rappels transmet le titre et l’heure de la sous-tâche à Racc
   assert.equal(reminder.searchParams.get('name'), 'EMMA – Ajouter un rappel')
   assert.equal(reminder.searchParams.get('text'), title + '\n' + new Date(2026, 10, 24, 16).toISOString())
   assert.ok(urls.some(url => url.searchParams.get('text').startsWith('Mails\n')))
+  const client = urls.find(url => url.searchParams.get('text').startsWith('Cliente Exemple'))
+  assert.equal(client.searchParams.get('text'), 'Cliente Exemple\n' + new Date(2026, 10, 24, 14, 30).toISOString())
 })
 
 test('export avec formation journalière et changement de date après minuit', () => {
