@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const homeModule = import('./modules/day-planning-home.js?v=17');
-  const glowModule = import('./modules/day-planning-glow.js?v=16');
+  const glowModule = import('./modules/day-planning-glow.js?v=18');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
     const oldJournalDay = renderJAujourdhui;
@@ -407,7 +407,7 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
           if (!result || !Array.isArray(result.ingredients)) throw Error('Analyse illisible. Tu peux saisir les ingrédients à la main.');
           return nutritionIdea({...result,name:typeof result.name === 'string' && result.name.trim() ? result.name : text});
         },
-        back: renderGlowModule,
+        sport: renderGlowSport,
         async suggest(type) {
           const recipes = recettesDisponiblesPlanGlow().map(({id,nom,ingredients}) => ({id,nom,ingredients})).slice(0, 25);
           const recent = joursHistoriqueNutritionGlow().slice(0, 7).flatMap(day => day.repas)
@@ -431,6 +431,10 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
           afficherConsommationV2Glow();
         },
       });
+    };
+    renderGlowModule = function () {
+      if (DB.glow?.entrainement?.actif) return renderLecteurSeance();
+      return renderGlowNutrition();
     };
     renderPlanificationRepasGlow = () => renderGlowNutrition();
     assurerRappelsRepasJournal = () => {};

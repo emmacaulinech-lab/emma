@@ -148,5 +148,5 @@ export function mountNutritionAdvice(root, bridge) {
     result.scrollIntoView?.({ block: 'nearest' })
   })
   button(actions, 'Mon historique', () => { request++; bridge.history() })
-  button(actions, 'Retour à Glow', () => { request++; bridge.back() })
+  button(actions, '🏃 Sport', () => { request++; bridge.sport() })
 }

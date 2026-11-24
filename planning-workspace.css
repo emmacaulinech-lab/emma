@@ -246,3 +246,7 @@ dialog.day-workspace::backdrop {
 .nutrition-results form label, .nutrition-results textarea { display: block; width: 100%; }
 .nutrition-recipe summary { cursor: pointer; font-weight: 700; }
 .nutrition-recipe :is(ol, ul) { margin: .65rem 0 .65rem 1.3rem; }
+
+#module-glow :is([onclick*="renderGlowHydratation("], [onclick*="renderGlowSommeil("], [onclick*="renderGlowSoins("], [onclick*="renderGlowEvolution("], [onclick*="renderGlowDressing("]) {
+  display: none !important;
+}

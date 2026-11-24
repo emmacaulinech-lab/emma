@@ -2582,7 +2582,19 @@ async function loadAll() {
     // =====================================================
     // 1. ANCIEN DATA/MAIN = FILET DE SÉCURITÉ
     // =====================================================
-    const snap = await userRef.collection('data').doc('main').get();
+    const owner = userRef;
+    const modules = owner.collection('modules');
+    const [snap, comptaDoc, boutiqueDoc, formationsDoc, glowDoc, todosDoc, paramsDoc] =
+      await Promise.all([
+        owner.collection('data').doc('main').get(),
+        modules.doc('comptabilite').get(),
+        modules.doc('boutique').get(),
+        modules.doc('formations').get(),
+        modules.doc('glow').get(),
+        modules.doc('todos').get(),
+        owner.collection('settings').doc('params').get(),
+      ]);
+    if (userRef !== owner) return;
     const d = snap.exists ? snap.data() : {};
 
     if(d.caisse) DB.caisse = JSON.parse(d.caisse);
@@ -2655,10 +2667,6 @@ async function loadAll() {
     // 2. NOUVEAUX MODULES = PRIORITAIRES
     // =====================================================
 
-    const comptaDoc = await userRef
-      .collection('modules')
-      .doc('comptabilite')
-      .get();
 
     if(comptaDoc.exists){
       const c = comptaDoc.data();
@@ -2698,10 +2706,6 @@ async function loadAll() {
     }
 
 
-    const boutiqueDoc = await userRef
-      .collection('modules')
-      .doc('boutique')
-      .get();
 
     if(boutiqueDoc.exists && boutiqueDoc.data().data){
       const b = JSON.parse(boutiqueDoc.data().data);
@@ -2716,10 +2720,6 @@ async function loadAll() {
     }
 
 
-    const formationsDoc = await userRef
-      .collection('modules')
-      .doc('formations')
-      .get();
 
     if(formationsDoc.exists && formationsDoc.data().data){
       DB.formations = JSON.parse(
@@ -2728,10 +2728,6 @@ async function loadAll() {
     }
 
 
-    const glowDoc = await userRef
-      .collection('modules')
-      .doc('glow')
-      .get();
 
     if(glowDoc.exists){
       const g = glowDoc.data();
@@ -2758,10 +2754,6 @@ async function loadAll() {
     if(journalCharge) DB.journal = journalCharge;
 
 
-    const todosDoc = await userRef
-      .collection('modules')
-      .doc('todos')
-      .get();
 
     if(todosDoc.exists && todosDoc.data().data){
       DB.todos = JSON.parse(
@@ -2774,10 +2766,6 @@ async function loadAll() {
     // 3. PARAMÈTRES SÉPARÉS = PRIORITAIRES
     // =====================================================
 
-    const paramsDoc = await userRef
-      .collection('settings')
-      .doc('params')
-      .get();
 
     if(paramsDoc.exists){
       const {
@@ -2805,8 +2793,7 @@ async function loadAll() {
     // 5. AUTRES DONNÉES DÉJÀ STOCKÉES SÉPARÉMENT
     // =====================================================
 
-    await loadCV();
-    await loadFactures();
+    await Promise.all([loadCV(), loadFactures()]);
 
     if(agendaData){
       setTimeout(()=>{
@@ -17626,7 +17613,12 @@ function supprimerRecetteGlow(id){
     toast("Recette supprimée");
 }
 
-function navigationGlowSimple(active){return `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px"><button class="btn ${active==='accueil'?'bd':'bg'}" onclick="renderGlowModule()">✨ Accueil</button><button class="btn ${active==='eau'?'bd':'bg'}" onclick="renderGlowHydratation()">💧 Eau</button><button class="btn ${active==='nutrition'?'bd':'bg'}" onclick="renderGlowNutrition()">🍽️ Nutrition</button><button class="btn ${active==='sommeil'?'bd':'bg'}" onclick="renderGlowSommeil()">🌙 Sommeil</button><button class="btn ${active==='evolution'?'bd':'bg'}" onclick="renderGlowEvolution()">📈 Évolution</button><button class="btn ${active==='sport'?'bd':'bg'}" onclick="renderGlowSport()">🏃 Sport</button></div>`}
+function navigationGlowSimple(active){
+  return `<div class="day-workspace-actions" style="margin-bottom:18px">
+    <button class="btn ${active==='nutrition'?'bd':'bg'}" onclick="renderGlowNutrition()">🍽️ Nutrition</button>
+    <button class="btn ${active==='sport'?'bd':'bg'}" onclick="renderGlowSport()">🏃 Sport</button>
+  </div>`;
+}
 
 function renderGlowSommeil(){
   initialiserGlowDuJour();const heures=DB.glow.sommeil;
@@ -46014,7 +46006,6 @@ const filesSauvegardeExtensionsGlow = {};
 
 async function chargerExtensionsGlowSecurisees(){
   const destinations=[
-    ["glow_soins","glowSoins"],
     ["glow_nutrition","glowNutritionPlans"]
   ];
   for(const [documentId,cle] of destinations){
