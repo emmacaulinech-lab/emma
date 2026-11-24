@@ -6,6 +6,7 @@ import { due, firstSlot, homeTasks, suggestHome } from '../modules/day-planning-
 import { buildCalendar } from '../modules/day-planning-calendar.js'
 import { mountPlanningWorkspace } from '../modules/day-planning-home.js'
 import { mountNutritionAdvice, selectSport } from '../modules/day-planning-glow.js'
+import { makeCalendarHandler } from '../netlify/functions/calendrier-emma.mjs'
 
 test('routine de 70 minutes, réveil anticipé et coucher à cheval sur minuit', () => {
   const result = buildMorning({ firstAppointmentStart: 540, actualWake: 420 })
@@ -51,6 +52,48 @@ test('export avec formation journalière et changement de date après minuit', (
   assert.match(data, /DTSTART;VALUE=DATE:20261123\r\nDTEND;VALUE=DATE:20261124/)
   assert.match(data, /DTEND:20261124T010000/)
   assert.ok(data.includes('Soirée\\, perso'))
+})
+
+test('abonnement Apple : blocs regroupés et flux par couleur', async () => {
+  const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+  globalThis.document = dom.window.document
+  globalThis.localStorage = dom.window.localStorage
+  const date = new Date().toLocaleDateString('sv-SE')
+  const bookings = [
+    { room: 'Cuisine', start: 840, end: 860 },
+    { room: 'Cuisine', start: 860, end: 880 },
+    { room: 'Cuisine', start: 940, end: 950 },
+    { room: 'Chambre', start: 900, end: 920 },
+    { room: 'Salon', start: 905, end: 925 },
+  ].map((task, id) => ({ ...task, date, id: String(id), title: 'Sous-tâche de ménage' }))
+  localStorage.setItem('emma:planning-v1:calendar-test', JSON.stringify({ bookings, calendarKey: 'test' }))
+  let feed
+  mountPlanningWorkspace(document.querySelector('main'), {
+    uid: 'calendar-test', journal: () => ({}), sport: () => ({ label: 'Fessiers' }),
+    planning: day => day === date ? [{ heureDebut: '15:30', heureFin: '15:40', nom: 'Ongles', rendezVous: true }] : [],
+    formations: day => day === date ? [{ title: 'Formation', count: 2 }] : [],
+    calendarLink: (_, group) => 'webcal://localhost/calendar' + (group ? '?group=' + group : ''),
+    publishCalendar: async ({ calendar }) => { feed = calendar },
+  })
+  assert.equal((feed.match(/SUMMARY:Cuisine\r\n/g) || []).length, 1)
+  assert.match(feed, /T140000\r\nDTEND:\d{8}T144000\r\nSUMMARY:Cuisine/)
+  assert.match(feed, /T150000\r\nDTEND:\d{8}T152500\r\nSUMMARY:Maison/)
+  assert.match(feed, /SUMMARY:Ongles/)
+  assert.match(feed, /SUMMARY:Formation · 2 inscrites/)
+  assert.doesNotMatch(feed, /Maison ·|Sous-tâche de ménage/)
+  assert.equal(document.querySelector('a[href$="?group=cuisine"]').textContent, 'Cuisine')
+
+  const handler = makeCalendarHandler(() => ({ get: async () => ({ calendar: feed }) }))
+  const url = 'https://calendar.test/?key=' + 'a'.repeat(64)
+  const kitchen = await handler(new Request(url + '&group=cuisine'))
+  assert.equal(kitchen.status, 200)
+  const content = await kitchen.text()
+  assert.match(content, /X-WR-CALNAME:EMMA · Cuisine\r\nX-APPLE-CALENDAR-COLOR:#D98B6C/)
+  assert.deepEqual(content.match(/^SUMMARY:.*$/gm), ['SUMMARY:Cuisine'])
+  const work = await handler(new Request(url + '&group=travail'))
+  assert.deepEqual((await work.text()).match(/^SUMMARY:.*$/gm), ['SUMMARY:Formation · 2 inscrites'])
+  assert.equal(await (await handler(new Request(url))).text(), feed)
+  assert.equal((await handler(new Request(url + '&group=toString'))).status, 404)
 })
 
 test('accueil, ajout d’un rendez-vous et choix du repas', async () => {

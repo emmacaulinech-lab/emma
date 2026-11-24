@@ -80,7 +80,8 @@ function add(parent, tag, value) {
 }
 
 import { due, firstSlot, homeTasks, suggestHome } from './day-planning-quiz.js'
-import { buildCalendar } from './day-planning-calendar.js'
+import { buildCalendar } from './day-planning-calendar.js?v=28'
+import { calendarGroups, calendarRoomGroup } from './calendar-groups.mjs'
 
 function dateOffset(date, days) {
   const value = new Date(date + 'T12:00:00')
@@ -397,20 +398,40 @@ export function mountPlanningWorkspace(container, bridge) {
     for (let i = 0; i < count; i++) {
       const day = dateOffset(start, i)
       const { morning, evening, first, last, personal, bookings } = getSchedule(day)
-      const blocks = [
-        { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin' },
-        ...morning.blocks.filter(item => item.type === 'outbound').map(item => ({ ...item, title: 'Trajet vers le salon' })),
-        ...(first != null && last > first ? [{ start: first, end: last, title: 'Travail' }] : []),
-        ...evening.blocks.filter(item => ['return', 'evening-routine', 'dinner'].includes(item.type)).map(item => ({ ...item, title: labels[item.type] })),
+      const fixedBlocks = [
+        { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', calendarGroup: 'routines' },
+        ...morning.blocks.filter(item => item.type === 'outbound').map(item => ({ ...item, title: 'Trajet vers le salon', calendarGroup: 'trajets' })),
+        ...(first != null && last > first ? [{ start: first, end: last, title: 'Travail', calendarGroup: 'travail' }] : []),
+        ...evening.blocks.filter(item => ['return', 'evening-routine', 'dinner'].includes(item.type)).map(item => ({
+          ...item, title: labels[item.type],
+          calendarGroup: { return: 'trajets', 'evening-routine': 'routines', dinner: 'repas' }[item.type],
+        })),
         ...personal,
-        ...bookings.map(item => ({ ...item, title: item.room === 'Perso' ? item.title : 'Maison · ' + item.room })),
       ]
+      const house = bookings.filter(item => item.room && item.room !== 'Perso' &&
+        !fixedBlocks.some(block => item.start < block.end && item.end > block.start))
+      const personalTasks = bookings.filter(item => !item.room || item.room === 'Perso')
+      const roomBlocks = groupRoomBlocks([...fixedBlocks, ...house]).filter(block => block.room)
+      const houseBlocks = []
+      for (const block of roomBlocks) {
+        const lastBlock = houseBlocks.at(-1)
+        if (lastBlock && block.start < lastBlock.end) {
+          lastBlock.end = Math.max(lastBlock.end, block.end)
+          lastBlock.title = 'Maison'
+          lastBlock.calendarGroup = 'maison'
+          continue
+        }
+        houseBlocks.push({ start: block.start, end: block.end, title: block.room, calendarGroup: calendarRoomGroup(block.room) })
+      }
+      const blocks = [...fixedBlocks, ...personalTasks, ...houseBlocks]
       blocks.forEach((block, index) => events.push({
-        ...block, date: day, id: [bridge.uid, day, block.start, block.type || block.title, index].join('-'),
+        ...block, calendarGroup: block.calendarGroup || 'perso', date: day,
+        id: [bridge.uid, day, block.start, block.type || block.title, index].join('-'),
       }))
       bridge.formations(day).forEach(formation => events.push({
         date: day, id: [bridge.uid, day, formation.title].join('-'),
-        title: formation.title + ' · ' + formation.count + ' inscrite' + (formation.count === 1 ? '' : 's'), allDay: true,
+        title: formation.title + ' · ' + formation.count + ' inscrite' + (formation.count === 1 ? '' : 's'),
+        allDay: true, calendarGroup: 'travail',
       }))
     }
     return buildCalendar(events, stamp)
@@ -463,7 +484,17 @@ export function mountPlanningWorkspace(container, bridge) {
       const link = add(group, 'a', 'S’abonner dans Calendrier Apple')
       link.dataset.calendarLink = ''
       link.href = bridge.calendarLink(state.calendarKey)
-      button(group, 'Désactiver le lien', async () => {
+      const colors = add(group, 'details', '')
+      add(colors, 'summary', 'Abonnements par couleur')
+      add(colors, 'p', 'Ajoute les catégories que tu veux voir dans Calendrier Apple. Masque le calendrier EMMA complet dans Apple pour éviter les doublons.')
+      const list = add(colors, 'ul', '')
+      for (const [id, { title, color }] of Object.entries(calendarGroups)) {
+        const item = add(list, 'li', '')
+        item.style.color = color
+        const categoryLink = add(item, 'a', title)
+        categoryLink.href = bridge.calendarLink(state.calendarKey, id)
+      }
+      button(group, 'Désactiver les liens', async () => {
         if (publishing) return
         try {
           publishing = true
@@ -487,10 +518,14 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function scheduleBlocks({ morning, evening, clients, personal, robots, bookings }) {
-    const blocks = [
+    return groupRoomBlocks([
       { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
-    ].sort((a, b) => a.start - b.start)
+    ])
+  }
+
+  function groupRoomBlocks(blocks) {
+    blocks.sort((a, b) => a.start - b.start)
     const roomOf = item => {
       if (item.room && item.room !== 'Perso') return item.room
       if (item.type === 'kitchen') return 'Cuisine'
