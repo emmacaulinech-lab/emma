@@ -80,7 +80,7 @@ function add(parent, tag, value) {
   return node
 }
 
-import { due, firstSlot, homeTasks, suggestHome } from './day-planning-quiz.js'
+import { due, firstSlot, homeTasks, suggestHome } from './day-planning-quiz.js?v=30'
 import { buildCalendar } from './day-planning-calendar.js?v=28'
 import { calendarGroups, calendarRoomGroup } from './calendar-groups.mjs'
 
@@ -268,31 +268,47 @@ export function mountPlanningWorkspace(container, bridge) {
       const legacy = task.id === 'draps' ? /Changer draps/ : task.id === 'vasque' ? /Ranger la vasque/ : task.id === 'douche' ? /Nettoyer la douche complète/ : null
       const last = state.completed[task.id] || (legacy && alreadyDone(bridge.journal(), legacy))
       const deferred = state.days[day]?.skip?.includes(task.id)
-      return !deferred && due(task, last, day)
+      return !deferred && !isBooked(task.id, day) && due(task, last, day)
     })
   }
 
+  function isBooked(id, day) {
+    return state.completed[id] === day || state.bookings.some(item => item.id === id && item.date === day)
+  }
+
+  function hasUpcomingBooking(id) {
+    return state.bookings.some(item => item.id === id && !item.done && notYetDone(item) &&
+      !getSchedule(item.date).displaced.includes(item))
+  }
+
+  function missedTaskIds() {
+    const known = new Set(homeTasks.map(task => task.id))
+    return new Set(state.bookings.filter(item => !item.done && known.has(item.id) &&
+      item.date > (state.completed[item.id] || '') &&
+      (!notYetDone(item) || getSchedule(item.date).displaced.includes(item))).map(item => item.id))
+  }
+
   function makeProposals() {
-    for (const item of state.bookings) {
-      if (!item.done && (!notYetDone(item) || getSchedule(item.date).displaced.includes(item)) &&
-          homeTasks.some(task => task.id === item.id)) state.pending[item.id] ||= true
-    }
-    const tasks = Object.keys(state.pending).map(taskFor).filter(Boolean)
-      .filter(task => !state.bookings.some(item => item.id === task.id && !item.done && notYetDone(item) && !getSchedule(item.date).displaced.includes(item)))
+    const missed = missedTaskIds()
+    const tasks = [...new Set([...missed, ...Object.keys(state.pending)])].map(taskFor).filter(Boolean)
+      .filter(task => !hasUpcomingBooking(task.id))
     const priority = id => (rankedTasks.indexOf(id) + 1 || Number.MAX_SAFE_INTEGER)
-    tasks.sort((a, b) => priority(a.id) - priority(b.id))
+    tasks.sort((a, b) => Number(missed.has(b.id)) - Number(missed.has(a.id)) || priority(a.id) - priority(b.id))
     const anchor = state.quizStart || today
     const firstDay = anchor < today ? today : anchor
     const days = Array.from({ length: 7 }, (_, index) => dateOffset(firstDay, index))
       .filter(day => getDay(day).first != null || dayState(day).off)
-      .map(day => available(day, getSchedule(day)))
+      .map(day => ({
+        ...available(day, getSchedule(day)),
+        canBook: task => !isBooked(task.id, day) && !dayState(day).skip?.includes(task.id),
+      }))
     proposalTaskCount = tasks.length
     proposalDayCount = days.length
     proposals = suggestHome(tasks, days)
   }
 
   function book(task) {
-    state.bookings = state.bookings.filter(item => item.done || item.id !== task.id || (notYetDone(item) && !getSchedule(item.date).displaced.includes(item)))
+    if (isBooked(task.id, task.date) || hasUpcomingBooking(task.id)) { makeProposals(); render(); return }
     state.bookings.push({ ...task, done: false })
     save()
     makeProposals()
@@ -330,7 +346,7 @@ export function mountPlanningWorkspace(container, bridge) {
     const details = add(wrap, 'details', '')
     add(details, 'summary', 'Tu as remarqué autre chose ?')
     const checks = []
-    for (const task of homeTasks.filter(task => !signals.has(task.id))) {
+    for (const task of homeTasks.filter(task => !signals.has(task.id) && !isBooked(task.id, date))) {
       checks.push([task, input(details, task.room + ' · ' + taskFor(task.id).title, 'checkbox')])
     }
     add(wrap, 'p', 'Indique ce qui est à faire, puis choisis un créneau proposé.')
@@ -674,9 +690,12 @@ export function mountPlanningWorkspace(container, bridge) {
     function addRoutineCheck(parent, title) {
       const check = input(parent, title, 'checkbox')
       check.checked = Boolean(settings.checks?.[title])
+      const label = check.parentElement
+      label.classList.toggle('day-workspace-done', check.checked)
       check.onchange = () => {
         settings.checks ||= {}
         settings.checks[title] = check.checked
+        label.classList.toggle('day-workspace-done', check.checked)
         settings.checkTimes ||= {}
         const now = new Date()
         settings.checkTimes[title] = check.checked && day === today ? clock(now.getHours() * 60 + now.getMinutes()) : ''
@@ -686,6 +705,7 @@ export function mountPlanningWorkspace(container, bridge) {
     const detail = add(parent, 'details', '')
     if (nested) detail.open = true
     tint(detail, block)
+    detail.classList.toggle('day-workspace-done', Boolean(block.done))
     const name = (weekly || nested || block.routineReport ? block.title : block.room || block.title) || labels[block.type]
     const title = block.roomTasks ? name + ' · ' + block.roomTasks.length + ' tâches' : name
     const heading = add(detail, 'summary', '')
@@ -830,10 +850,11 @@ export function mountPlanningWorkspace(container, bridge) {
     add(panel, 'h3', 'Idées pour aujourd’hui')
     const quickTasks = ['surfaces-cuisine', 'chambre', 'entree', 'retouches', 'surfaces-salon']
     const dueIds = new Set(recurringSuggestions(today).map(task => task.id))
-    const choices = [...new Set([...Object.keys(state.pending), ...dueIds, ...quickTasks])]
-      .map(taskFor).filter(task => task && state.completed[task.id] !== today &&
+    const missed = missedTaskIds()
+    const choices = [...new Set([...missed, ...Object.keys(state.pending), ...dueIds, ...quickTasks])]
+      .map(taskFor).filter(task => task && !isBooked(task.id, today) &&
         !dayState(today).skip?.includes(task.id) &&
-        !state.bookings.some(booking => booking.id === task.id && !booking.done && notYetDone(booking)))
+        !hasUpcomingBooking(task.id))
       .map(task => ({ task, slot: nextHomeSlot(task.duration) }))
       .filter(candidate => candidate.slot)
       .slice(0, 3)
@@ -845,7 +866,7 @@ export function mountPlanningWorkspace(container, bridge) {
       tint(row, task)
       add(row, 'strong', task.room + ' · ' + task.title)
       add(row, 'small', interval(slot) + ' · ' + task.duration + ' min' +
-        (state.pending[task.id] || dueIds.has(task.id) ? '' : ' · Si besoin'))
+        (missed.has(task.id) ? ' · À reprendre en priorité' : state.pending[task.id] || dueIds.has(task.id) ? '' : ' · Si besoin'))
       button(row, 'Ajouter au planning', () => {
         const current = nextHomeSlot(task.duration)
         if (!current || current.start !== slot.start) { render(); return }
@@ -956,7 +977,7 @@ export function mountPlanningWorkspace(container, bridge) {
     if (morning.earlyWindow) {
       const task = taskFor(state.pending['lave-vaisselle'] ? 'lave-vaisselle' : 'linge')
       const slot = firstSlot([...personal, ...bookings], morning.earlyWindow.start, morning.earlyWindow.end, task.duration)
-      if (slot && settings.earlyDismissed !== true && !bookings.some(item => item.id === task.id && !item.done)) {
+      if (slot && settings.earlyDismissed !== true && !isBooked(task.id, date) && !hasUpcomingBooking(task.id)) {
         add(notices, 'p', interval(slot) + ' · ' + task.title)
         button(notices, 'Ajouter au planning', () => book({ ...task, ...slot, date }))
         button(notices, 'Garder le créneau libre', () => { settings.earlyDismissed = true; save(); render() })
@@ -971,6 +992,7 @@ export function mountPlanningWorkspace(container, bridge) {
       const slot = firstSlot([...personal, ...bookings, ...clients], Math.max(previous.end, earliest), next.start - 5, 10)
       if (!slot || settings.dismissedBreaks?.includes(next.start)) continue
       const task = { id: 'admin-break-' + next.start, room: 'Perso', title: 'Traiter un message ou envoyer un document', duration: 10, ...slot, date }
+      if (isBooked(task.id, date)) continue
       const suggestion = add(notices, 'details', '')
       add(suggestion, 'summary', interval(slot) + ' · Suggestion entre deux clientes')
       add(suggestion, 'p', task.title)
