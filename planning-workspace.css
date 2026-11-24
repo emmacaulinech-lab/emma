@@ -285,3 +285,13 @@ dialog.day-workspace::backdrop {
 #module-glow :is([onclick*="renderGlowHydratation("], [onclick*="renderGlowSommeil("], [onclick*="renderGlowSoins("], [onclick*="renderGlowEvolution("], [onclick*="renderGlowDressing("]) {
   display: none !important;
 }
+
+.day-workspace-room-tasks {
+  display: grid;
+  gap: .35rem;
+  margin: .25rem 0;
+}
+.day-workspace .day-workspace-room-tasks > details {
+  padding: .2rem .4rem;
+  min-height: 0;
+}

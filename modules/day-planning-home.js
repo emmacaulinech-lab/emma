@@ -153,6 +153,7 @@ export function mountPlanningWorkspace(container, bridge) {
   let controlsOpen = false
   let quizReady = false
   let viewMode = 'day'
+  const openRoomGroups = new Set()
   let saving = false
   let proposals = []
   let proposalTaskCount = 0
@@ -484,13 +485,34 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function scheduleBlocks({ morning, evening, clients, personal, robots, bookings }) {
-    return [
+    const blocks = [
       { start: morning.blocks[0].start, end: morning.blocks[2].end, title: 'Routine du matin', type: 'morning', children: morning.blocks.slice(0, 3) },
       ...morning.blocks.slice(3), ...clients, ...personal, ...evening.blocks, ...robots, ...bookings,
     ].sort((a, b) => a.start - b.start)
+    const grouped = []
+    const roomOf = item => {
+      if (item.room && item.room !== 'Perso') return item.room
+      if (item.type === 'kitchen') return 'Cuisine'
+      if (item.type === 'robot') return item.title.split(' · ')[1]
+      return null
+    }
+    for (const block of blocks) {
+      const room = roomOf(block)
+      const previous = grouped.at(-1)
+      if (!room || !previous || room !== roomOf(previous) || block.start - previous.end > 5) {
+        grouped.push(block)
+        continue
+      }
+      const tasks = [...(previous.roomTasks || [previous]), block]
+      grouped[grouped.length - 1] = {
+        type: 'room-group', room, title: room, start: previous.start, end: Math.max(previous.end, block.end),
+        roomTasks: tasks, done: tasks.every(task => task.done),
+      }
+    }
+    return grouped
   }
 
-  function renderScheduleBlock(parent, block, day, settings, weekly = false, proposed = false) {
+  function renderScheduleBlock(parent, block, day, settings, weekly = false, proposed = false, nested = false) {
     const sport = block.children ? bridge.sport(day) : null
     function addRoutineCheck(parent, title) {
       const check = input(parent, title, 'checkbox')
@@ -505,14 +527,27 @@ export function mountPlanningWorkspace(container, bridge) {
       }
     }
     const detail = add(parent, 'details', '')
+    if (nested) detail.open = true
     tint(detail, block)
-    const title = (weekly ? block.title : block.room || block.title) || labels[block.type]
+    const title = (weekly || nested ? block.title : block.room || block.title) || labels[block.type]
     const heading = add(detail, 'summary', '')
     if (weekly) {
       add(heading, 'small', interval(block) + (proposed ? ' · Proposé' : ''))
       add(heading, 'strong', title + (block.done ? ' ✓' : ''))
     } else {
       heading.textContent = title + (block.done ? ' ✓' : '')
+    }
+    if (block.roomTasks) {
+      const key = day + ':' + block.start + ':' + block.room
+      detail.open = openRoomGroups.has(key)
+      heading.onclick = () => {
+        if (!detail.open) openRoomGroups.add(key)
+        else openRoomGroups.delete(key)
+      }
+      const list = add(detail, 'div', '')
+      list.className = 'day-workspace-room-tasks'
+      for (const task of block.roomTasks) renderScheduleBlock(list, task, day, settings, weekly, false, true)
+      return
     }
     if (proposed) {
       if (block.detail) add(detail, 'p', block.detail)
@@ -530,7 +565,7 @@ export function mountPlanningWorkspace(container, bridge) {
       }
       if (day === today) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
     } else if (block.room) {
-      if (!weekly || block.detail) add(detail, 'p', weekly ? block.detail : block.title + (block.detail ? ' · ' + block.detail : ''))
+      if ((!weekly && !nested) || block.detail) add(detail, 'p', weekly || nested ? block.detail : block.title + (block.detail ? ' · ' + block.detail : ''))
       if (!block.done) button(detail, 'Fait', () => {
         block.done = true
         const now = new Date()
