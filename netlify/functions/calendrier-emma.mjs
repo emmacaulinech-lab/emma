@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { getStore } from '@netlify/blobs'
+import { calendarGroups, selectCalendarGroup } from '../../modules/calendar-groups.mjs'
 
 const project = 'emma-31a56'
 // Firebase's public web API key identifies the project in Identity Toolkit.
@@ -47,11 +48,13 @@ export function makeCalendarHandler(openStore, verify = authenticate) {
       const url = new URL(request.url)
       if (request.method === 'GET' || request.method === 'HEAD') {
         const key = url.searchParams.get('key')
-        if (!keyFormat.test(key || '')) return answer(404)
+        const group = url.searchParams.get('group')
+        if (!keyFormat.test(key || '') || (group !== null && !Object.hasOwn(calendarGroups, group))) return answer(404)
         const hash = createHash('sha256').update(key).digest('hex')
         const feed = await openStore(url).get(hash, { type: 'json' })
         if (!feed?.calendar) return answer(404)
-        return answer(200, request.method === 'HEAD' ? null : feed.calendar, { 'Content-Type': 'text/calendar; charset=utf-8' })
+        const calendar = group === null ? feed.calendar : selectCalendarGroup(feed.calendar, group)
+        return answer(200, request.method === 'HEAD' ? null : calendar, { 'Content-Type': 'text/calendar; charset=utf-8' })
       }
       if (request.method !== 'POST') return answer(405)
       if (origin && !headers['Access-Control-Allow-Origin']) return answer(403)
