@@ -1,4 +1,4 @@
-import { buildMorning, buildEvening } from './day-planning.js'
+import { buildMorning, buildEvening } from './day-planning.js?v=26'
 
 const labels = {
   admin: 'Mails et formations',
@@ -153,6 +153,7 @@ export function mountPlanningWorkspace(container, bridge) {
   let controlsOpen = false
   let quizReady = false
   let viewMode = 'day'
+  let freeTimeOpen = false
   const openRoomGroups = new Set()
   const openRoutines = new Set()
   let saving = false
@@ -761,6 +762,43 @@ export function mountPlanningWorkspace(container, bridge) {
     outside(schedule.filter(item => item.start >= end), 'Après minuit')
   }
 
+  function nextHomeSlot(duration) {
+    const now = new Date()
+    const minute = now.getHours() * 60 + now.getMinutes()
+    const bounds = available(today, getSchedule(today))
+    return firstSlot(bounds.occupied, minute, bounds.end, duration)
+  }
+
+  function renderFreeTime(root) {
+    const panel = add(root, 'section', '')
+    panel.className = 'day-workspace-free-time'
+    add(panel, 'h3', 'Idées pour aujourd’hui')
+    const quickTasks = ['surfaces-cuisine', 'chambre', 'entree', 'retouches', 'surfaces-salon']
+    const dueIds = new Set(recurringSuggestions(today).map(task => task.id))
+    const choices = [...new Set([...Object.keys(state.pending), ...dueIds, ...quickTasks])]
+      .map(taskFor).filter(task => task && state.completed[task.id] !== today &&
+        !dayState(today).skip?.includes(task.id) &&
+        !state.bookings.some(booking => booking.id === task.id && !booking.done && notYetDone(booking)))
+      .map(task => ({ task, slot: nextHomeSlot(task.duration) }))
+      .filter(candidate => candidate.slot)
+      .slice(0, 3)
+
+    if (!choices.length) add(panel, 'p', 'Aucune tâche proposée ne tient dans les créneaux libres restants aujourd’hui.')
+    for (const { task, slot } of choices) {
+      const row = add(panel, 'div', '')
+      row.className = 'day-workspace-free-task'
+      tint(row, task)
+      add(row, 'strong', task.room + ' · ' + task.title)
+      add(row, 'small', interval(slot) + ' · ' + task.duration + ' min' +
+        (state.pending[task.id] || dueIds.has(task.id) ? '' : ' · Si besoin'))
+      button(row, 'Ajouter au planning', () => {
+        const current = nextHomeSlot(task.duration)
+        if (!current || current.start !== slot.start) { render(); return }
+        book({ ...task, date: today, ...slot })
+      })
+    }
+  }
+
   function renderWeek(scrollLeft) {
     makeProposals()
     const selected = new Date(date + 'T12:00:00')
@@ -908,6 +946,14 @@ export function mountPlanningWorkspace(container, bridge) {
     })
     if (!quizOpen) quizButton.dataset.openQuiz = ''
     if (quizOpen) renderQuiz(controls)
+    if (date === today) {
+      const free = button(navigation, freeTimeOpen ? 'Fermer les suggestions' : 'J’ai du temps', () => {
+        freeTimeOpen = !freeTimeOpen
+        render()
+      })
+      free.setAttribute('aria-expanded', String(freeTimeOpen))
+      if (freeTimeOpen) renderFreeTime(container)
+    }
     const optionsButton = button(navigation, 'Options', () => {
       controls.open = !controls.open
       if (controls.open) controls.scrollIntoView?.({ block: 'nearest' })

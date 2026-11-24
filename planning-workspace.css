@@ -343,3 +343,13 @@ dialog.day-workspace::backdrop {
   opacity: .75;
 }
 .day-workspace-room-tasks summary strong { display: block; }
+
+.day-workspace-free-time,
+.day-workspace-free-task {
+  display: grid;
+  gap: .4rem;
+  border-radius: .8rem;
+  padding: .65rem;
+}
+.day-workspace-free-time { border: 1px solid var(--brd2, #e7dce6); }
+.day-workspace-free-task small { color: var(--mut, #665c69); }

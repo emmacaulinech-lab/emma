@@ -14,6 +14,12 @@ test('routine de 70 minutes, réveil anticipé et coucher à cheval sur minuit',
   assert.equal(buildEvening({ nextWake: 540 }).bedtime, 1500)
 })
 
+test('fin de travail tôt : le dîner reste à 20 h 30, ou plus tard si le retour est tardif', () => {
+  const dinner = end => buildEvening({ lastAppointmentEnd: end, nextWake: 540 }).blocks.find(block => block.type === 'dinner')
+  assert.equal(dinner(13 * 60 + 30).start, 20 * 60 + 30)
+  assert.equal(dinner(20 * 60).start, 21 * 60 + 30)
+})
+
 test('rendez-vous pendant le dîner et retour après un rendez-vous', () => {
   const personalAppointments = [{ start: 1220, end: 1270, arrivalHome: 1300 }]
   const options = { lastAppointmentEnd: 1140, nextWake: 440, personalAppointments }

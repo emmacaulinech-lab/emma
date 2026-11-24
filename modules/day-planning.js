@@ -34,7 +34,8 @@ export function buildEvening({
   const bedtime = nextWake == null ? null : 24 * 60 + nextWake - 8 * 60
   // An appointment may supply the actual planned arrival at home when a
   // stop after work changes the route. Otherwise use its end as a lower bound.
-  let dinnerStart = returnTrip ? returnTrip.end + 60 : 20 * 60 + 30
+  const usualDinner = 20 * 60 + 30
+  let dinnerStart = Math.max(usualDinner, returnTrip ? returnTrip.end + 60 : 0)
   let needsDinnerChoice = false
   for (const appointment of appointments) {
     if (appointment.end <= (lastAppointmentEnd ?? 0)) continue
