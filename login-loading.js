@@ -6,7 +6,11 @@
   const loadData = loadAll;
   const openSession = appliquerSessionEmma;
   const readJournal = EmmaJournalStorage.load;
-  const readPhotos = chargerPhotosJour;
+  const showPhotoHistory = ouvrirHistoriqueHumeurPhotos;
+  const capturePhoto = handlePhotoJourCapturee;
+  let captureInProgress = false;
+  let photoHistoryOwner;
+  let photoHistoryRead;
   let loadingPanel;
   let delay;
   let phase = "Connexion";
@@ -106,20 +110,45 @@
       if (EmmaJournalStorage.load === reuse) EmmaJournalStorage.load = previousLoad;
     }
   };
-  // Photos are optional on the home screen. Do not make opening EMMA wait
-  // for the whole photo history. Merge only untouched dates in this session.
-  chargerPhotosJour = async function () {
+  // Old Journal photos are loaded only when their archive is opened.
+  chargerPhotosJour = async function () {};
+
+  ouvrirHistoriqueHumeurPhotos = async function () {
     const owner = userRef;
-    if (!chargementInitialEnCours || !owner) return readPhotos.apply(this, arguments);
-    const previous = { ...DB.photosJour };
-    void owner.collection('photosParJour').get().then(snapshot => {
+    if (!owner) return;
+    if (photoHistoryOwner !== owner || !photoHistoryRead) {
+      photoHistoryOwner = owner;
+      photoHistoryRead = owner.collection('photosParJour').get();
+    }
+    try {
+      const snapshot = await photoHistoryRead;
       if (userRef !== owner) return;
-      const photos = { ...DB.photosJour };
+      DB.photosJour ||= {};
       snapshot.forEach(doc => {
-        if (photos[doc.id] === previous[doc.id]) photos[doc.id] = doc.data().entries || [];
+        DB.photosJour[doc.id] ??= doc.data().entries || [];
       });
-      DB.photosJour = photos;
-    }).catch(error => console.warn('Historique photo indisponible', error));
+      showPhotoHistory.apply(this, arguments);
+    } catch {
+      if (photoHistoryOwner === owner) photoHistoryRead = undefined;
+      if (userRef === owner) toast('Impossible de charger les anciennes photos. Réessaie.');
+    }
+  };
+
+  handlePhotoJourCapturee = async function (event) {
+    const owner = userRef;
+    if (!owner || !event.target.files[0] || captureInProgress) return;
+    captureInProgress = true;
+    const day = new Date().toISOString().split('T')[0];
+    try {
+      const snapshot = await owner.collection('photosParJour').doc(day).get({source:'server'});
+      if (userRef !== owner) return;
+      DB.photosJour ||= {};
+      DB.photosJour[day] = snapshot.exists ? snapshot.data().entries || [] : [];
+      await capturePhoto.call(this, event);
+    } catch {
+      if (userRef === owner) toast('Impossible de vérifier les photos du jour. Réessaie.');
+    } finally {
+      captureInProgress = false;
+    }
   };
 })();
-
