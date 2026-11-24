@@ -441,10 +441,6 @@ export function mountPlanningWorkspace(container, bridge) {
     add(group, 'summary', 'Calendrier Apple')
     add(group, 'p', 'L’export contient les 7 jours à partir de la date sélectionnée. Le fichier .ics est une copie du planning à importer dans Calendrier.')
     button(group, 'Télécharger le planning (.ics)', exportCalendar)
-    if (bridge.calendarPreview) {
-      add(group, 'p', 'L’abonnement automatique à Calendrier Apple reste à activer.')
-      return
-    }
     if (!state.calendarKey) {
       button(group, 'Créer un lien d’abonnement', async () => {
         const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, '0')).join('')
@@ -457,6 +453,7 @@ export function mountPlanningWorkspace(container, bridge) {
         container.querySelector('[data-calendar-link]')?.closest('details')?.setAttribute('open', '')
       })
     } else {
+      add(group, 'p', 'Ce lien donne accès à ton planning. Garde-le pour toi.')
       const link = add(group, 'a', 'S’abonner dans Calendrier Apple')
       link.dataset.calendarLink = ''
       link.href = bridge.calendarLink(state.calendarKey)
@@ -464,7 +461,7 @@ export function mountPlanningWorkspace(container, bridge) {
         if (publishing) return
         try {
           publishing = true
-          await bridge.publishCalendar({ revoke: true })
+          await bridge.publishCalendar({ key: state.calendarKey, revoke: true })
           delete state.calendarKey
           publishedCalendar = ''
           save()

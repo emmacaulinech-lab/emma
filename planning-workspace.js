@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=9');
+  const homeModule = import('./modules/day-planning-home.js?v=13');
   const glowModule = import('./modules/day-planning-glow.js?v=2');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -13,7 +13,9 @@
       if (document.getElementById('hubPage')?.style.display === 'flex' ||
           document.getElementById('module-journal')?.style.display === 'flex') renderHubPlanningMini();
     };
-    const calendarEndpoint = 'https://us-central1-emma-31a56.cloudfunctions.net/calendrierEmma';
+    const calendarHost = location.hostname.endsWith('--emmacaulinech.netlify.app')
+      ? location.origin : 'https://emmacaulinech.netlify.app';
+    const calendarEndpoint = calendarHost + '/.netlify/functions/calendrier-emma';
     const labels = { fessiers: 'Fessiers', taille: 'Gainage et abdos', posture: 'Posture', tapis: 'Marche sur tapis' };
 
     async function saveJournalAfter(change) {
@@ -251,7 +253,6 @@
         journal: () => DB.journal,
         planning: day => DB.journal.planning?.[day] || [],
         formations: trainingFor,
-        calendarPreview: location.hostname.startsWith("deploy-preview-"),
         calendarLink: key => calendarEndpoint.replace('https:', 'webcal:') + '?key=' + key,
         async publishCalendar(data) {
           if (currentUser?.uid !== uid) throw Error('Reconnecte-toi.');
