@@ -154,6 +154,7 @@ export function mountPlanningWorkspace(container, bridge) {
   let quizReady = false
   let viewMode = 'day'
   const openRoomGroups = new Set()
+  const openRoutines = new Set()
   let saving = false
   let proposals = []
   let proposalTaskCount = 0
@@ -512,6 +513,92 @@ export function mountPlanningWorkspace(container, bridge) {
     return grouped
   }
 
+  function renderRoutineTask(root, { day, settings, id, title, duration, sport, addCheck }) {
+    const row = add(root, 'div', '')
+    row.className = 'day-workspace-routine-task'
+    const override = settings.routineOverrides?.[id]
+    if (override) {
+      if (override.kind === 'replace') addCheck(row, override.title)
+      else if (override.kind === 'report') {
+        add(row, 'p', title + ' · Reporté au ' +
+          new Date(override.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) +
+          ' à ' + clock(override.start))
+      } else add(row, 'p', title + ' · Passé')
+      const moved = state.bookings.find(item => item.id === override.bookingId)
+      if (!moved?.done && !settings.checks?.[override.title]) {
+        button(row, 'Rétablir', () => {
+          if (moved) state.bookings = state.bookings.filter(item => item !== moved)
+          delete settings.routineOverrides[id]
+          save()
+          render()
+        })
+      }
+      return
+    }
+
+    addCheck(row, title)
+    const options = add(row, 'details', '')
+    add(options, 'summary', 'Options')
+    const status = add(options, 'p', '')
+    status.setAttribute('role', 'status')
+    const record = value => {
+      if (settings.checks?.[title]) {
+        status.textContent = 'Décoche cette étape avant de la modifier.'
+        return false
+      }
+      settings.routineOverrides ||= {}
+      settings.routineOverrides[id] = value
+      return true
+    }
+    const update = () => { save(); render() }
+    button(options, 'Passer cette étape', () => {
+      if (record({ kind: 'skip' })) update()
+    })
+
+    const report = add(options, 'details', '')
+    add(report, 'summary', 'Reporter')
+    const dateField = input(report, 'Jour du report', 'date', day < today ? today : day)
+    dateField.min = today
+    button(report, 'Trouver un créneau et reporter', () => {
+      const destination = dateField.value
+      if (!destination || destination < today) {
+        status.textContent = 'Choisis aujourd’hui ou une date à venir.'
+        return
+      }
+      const schedule = getSchedule(destination)
+      if (schedule.first == null && !schedule.settings.off) {
+        status.textContent = 'Renseigne les horaires de ce jour ou confirme un jour de repos dans le planning.'
+        return
+      }
+      const bounds = available(destination, schedule)
+      const slot = firstSlot(bounds.occupied, bounds.start, bounds.end, duration)
+      if (!slot) {
+        status.textContent = 'Aucun créneau libre assez long ce jour-là.'
+        return
+      }
+      const bookingId = 'routine-' + day + '-' + id
+      if (!record({kind:'report', date:destination, start:slot.start, bookingId})) return
+      state.bookings.push({
+        ...slot, id:bookingId, title, date:destination, room:'Perso', done:false,
+        routineReport:true, sport: sport || null,
+      })
+      update()
+    })
+
+    const replace = add(options, 'details', '')
+    add(replace, 'summary', 'Remplacer')
+    const replacement = input(replace, 'Nouvelle tâche', 'text')
+    replacement.maxLength = 120
+    button(replace, 'Remplacer dans ce créneau', () => {
+      const nextTitle = replacement.value.trim()
+      if (!nextTitle || nextTitle === title) {
+        status.textContent = 'Saisis une autre tâche.'
+        return
+      }
+      if (record({ kind:'replace', title:nextTitle })) update()
+    })
+  }
+
   function renderScheduleBlock(parent, block, day, settings, weekly = false, proposed = false, nested = false) {
     const sport = block.children ? bridge.sport(day) : null
     function addRoutineCheck(parent, title) {
@@ -529,7 +616,7 @@ export function mountPlanningWorkspace(container, bridge) {
     const detail = add(parent, 'details', '')
     if (nested) detail.open = true
     tint(detail, block)
-    const title = (weekly || nested ? block.title : block.room || block.title) || labels[block.type]
+    const title = (weekly || nested || block.routineReport ? block.title : block.room || block.title) || labels[block.type]
     const heading = add(detail, 'summary', '')
     if (weekly) {
       add(heading, 'small', interval(block) + (proposed ? ' · Proposé' : ''))
@@ -555,16 +642,29 @@ export function mountPlanningWorkspace(container, bridge) {
       return
     }
     if (block.children) {
+      detail.open = openRoutines.has(day)
+      heading.onclick = () => {
+        if (detail.open) openRoutines.delete(day)
+        else openRoutines.add(day)
+      }
       for (const child of block.children) {
         const row = add(detail, 'div', '')
         add(row, 'small', interval(child))
         const tasks = child.type === 'admin' ? ['Mails', 'Formations'] :
           child.type === 'sport' ? ['Séance de sport · ' + sport.label] :
           ['Douche du matin', 'Soins du matin', 'Maquillage']
-        for (const task of tasks) addRoutineCheck(row, task)
+        for (const [index, task] of tasks.entries()) {
+          const duration = Math.floor((child.end - child.start) * (index + 1) / tasks.length) -
+            Math.floor((child.end - child.start) * index / tasks.length)
+          renderRoutineTask(row, {day, settings, id:child.type + ':' + index, title:task,
+            duration, sport:child.type === 'sport' ? sport : null, addCheck:addRoutineCheck})
+        }
       }
-      if (day === today) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
+      if (day === today && !settings.routineOverrides?.['sport:0']) {
+        button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(sport))
+      }
     } else if (block.room) {
+      if (block.sport && day === today && !block.done) button(detail, 'Ouvrir la séance de sport', () => bridge.openSport(block.sport))
       if ((!weekly && !nested) || block.detail) add(detail, 'p', weekly || nested ? block.detail : block.title + (block.detail ? ' · ' + block.detail : ''))
       if (!block.done) button(detail, 'Fait', () => {
         block.done = true

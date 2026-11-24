@@ -295,3 +295,19 @@ dialog.day-workspace::backdrop {
   padding: .2rem .4rem;
   min-height: 0;
 }
+
+.day-workspace-routine-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: .35rem;
+}
+.day-workspace .day-workspace-routine-task details {
+  min-height: 0;
+  margin: .2rem 0;
+  padding: .2rem .45rem;
+}
+.day-workspace .day-workspace-routine-task details[open] {
+  grid-column: 1 / -1;
+  box-shadow: none;
+}
