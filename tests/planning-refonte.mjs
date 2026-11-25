@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom'
 import { buildMorning, buildEvening } from '../modules/day-planning.js'
 import { due, firstSlot, homeTasks, suggestHome } from '../modules/day-planning-quiz.js'
 import { buildCalendar } from '../modules/day-planning-calendar.js'
-import { mountPlanningWorkspace } from '../modules/day-planning-home.js'
+import { mountPlanningWorkspace, readDayAppointments } from '../modules/day-planning-home.js'
 import { completeNutritionQuantities, mountNutritionAdvice, selectSport } from '../modules/day-planning-glow.js'
 import { makeCalendarHandler } from '../netlify/functions/calendrier-emma.mjs'
 
@@ -181,6 +181,49 @@ test('export avec formation journalière et changement de date après minuit', (
   assert.match(data, /DTSTART;VALUE=DATE:20261123\r\nDTEND;VALUE=DATE:20261124/)
   assert.match(data, /DTEND:20261124T010000/)
   assert.ok(data.includes('Soirée\\, perso'))
+})
+
+test('une modification pendant la publication Apple est envoyée après le premier envoi', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 25, 12) })
+  const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+  globalThis.document = dom.window.document
+  globalThis.localStorage = dom.window.localStorage
+  localStorage.setItem('emma:planning-v1:publish-test', JSON.stringify({ calendarKey: 'test' }))
+  const bookings = []
+  const sent = []
+  let releaseFirst
+  const root = document.querySelector('main')
+  const workspace = mountPlanningWorkspace(root, {
+    uid: 'publish-test', journal: () => ({}), sport: () => ({ label: 'Fessiers' }),
+    planning: day => day === '2026-11-25' ? bookings : [], formations: () => [],
+    calendarLink: () => 'webcal://localhost/calendar',
+    async publishCalendar({ calendar }) {
+      sent.push(calendar)
+      if (sent.length === 1) await new Promise(resolve => { releaseFirst = resolve })
+    },
+  })
+  bookings.push({ nom: 'Rendez-vous après édition', heureDebut: '16:00', heureFin: '16:30', rendezVous: true })
+  workspace.refresh()
+  releaseFirst()
+  await new Promise(setImmediate)
+  assert.equal(sent.length, 2)
+  assert.doesNotMatch(sent[0], /Rendez-vous après édition/)
+  assert.match(sent[1], /Rendez-vous après édition/)
+  assert.match(root.querySelector('[data-emma-calendar-status]').textContent, /Planning publié/)
+  const refresh = [...root.querySelectorAll('button')].find(node => node.textContent === 'Actualiser le calendrier Apple')
+  await refresh.onclick()
+  assert.equal(sent.length, 3)
+  assert.equal(sent[2], sent[1])
+})
+
+test('réimporter la même cliente au même créneau conserve un seul bloc visible', () => {
+  const original = { source: 'planity', nom: 'Céline Exemple — Remplissage : 3 semaines', heureDebut: '14:30', heureFin: '16:00' }
+  const { clients } = readDayAppointments([
+    original,
+    { ...original, nom: 'celine exemple — Remplissage 3 semaines' },
+    { ...original, heureDebut: '17:00', heureFin: '18:30' },
+  ])
+  assert.deepEqual(clients.map(client => client.start), [870, 1020])
 })
 
 test('abonnement Apple : blocs regroupés et flux par couleur', async () => {
