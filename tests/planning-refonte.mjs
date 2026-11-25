@@ -79,6 +79,36 @@ test('le quiz ignore les tâches déjà prévues et replace en priorité un cré
   assert.match(newBlock.textContent, new RegExp(tomorrow + ' · 10:20'))
 })
 
+test('les draps faits hier restent absents du quiz et des créneaux avant trois jours', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 25, 11) })
+  const journal = { zones: [{ actions: [{ sousTaches: [{ nom: 'Changer les draps', dernierFait: '2026-11-24' }] }] }] }
+  for (const [saved, history] of [
+    [{ completed: { draps: '2026-11-24' } }, {}],
+    [{ completed: { draps: '2026-11-15' } }, journal],
+    [{ bookings: [{ id: 'draps', date: '2026-11-24', done: true }] }, {}],
+  ]) {
+    const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+    globalThis.document = dom.window.document
+    globalThis.localStorage = dom.window.localStorage
+    const offDays = ['2026-11-25', '2026-11-26', '2026-11-27']
+    localStorage.setItem('emma:planning-v1:recurring-test', JSON.stringify({
+      ...saved, pending: { draps: true }, days: Object.fromEntries(offDays.map(day => [day, { off: true }])),
+    }))
+    const root = document.querySelector('main')
+    mountPlanningWorkspace(root, {
+      uid: 'recurring-test', journal: () => history, planning: () => [],
+      formations: () => [], sport: () => ({ label: 'Fessiers' }),
+    })
+    const button = label => [...root.querySelectorAll('button')].find(node => node.textContent === label)
+    button('Préparer ma journée').click()
+    assert.doesNotMatch(root.textContent, /Changer les draps et les taies/)
+    await button('Voir les créneaux').onclick()
+    const proposal = [...root.querySelectorAll('details')].find(node =>
+      node.querySelector('p')?.textContent === 'Changer les draps et les taies')
+    assert.match(proposal.querySelector('summary').textContent, /^2026-11-27/)
+  }
+})
+
 test('la machine déclenche un bloc de linge après le cycle ou une proposition ultérieure', t => {
   t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 24, 14) })
   const build = (uid, machineStart, rows = []) => {
