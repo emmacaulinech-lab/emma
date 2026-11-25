@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=35');
+  const homeModule = import('./modules/day-planning-home.js?v=37');
   const glowModule = import('./modules/day-planning-glow.js?v=33');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -152,7 +152,7 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
               if (!check.checked) continue;
               const existing = journal.planning[row.date] || [];
               const name = row.nom.trim() + (row.prestation ? ' — ' + row.prestation : '');
-              if (existing.some(item => item.source === 'planity' && item.heureDebut === row.debut &&
+              if (existing.some(item => (item.source === 'planity' || item.typeElement === 'planity') && item.heureDebut === row.debut &&
                 item.heureFin === row.fin &&
                 normaliserNomRoutineEmma((item.customNom || item.nom || '').split(' — ')[0]) ===
                   normaliserNomRoutineEmma(row.nom))) continue;
