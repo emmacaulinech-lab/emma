@@ -80,6 +80,7 @@ function tint(node, block) {
 
 export function readDayAppointments(planning) {
   const clients = []
+  const clientSlots = new Set()
   const personal = []
   for (const block of planning) {
     const start = minutes(block.heureDebut)
@@ -89,7 +90,12 @@ export function readDayAppointments(planning) {
     const customColor = block.couleur || block.couleurOverride
     const color = /^#[0-9a-f]{6}$/i.test(customColor || '') ? customColor : null
     if (block.source === 'planity' || block.typeElement === 'planity') {
-      clients.push({ ...appointment, clientName: appointment.title.split(' — ')[0], color: color || '#E87A9A' })
+      const clientName = appointment.title.split(' — ')[0].trim()
+      const normalized = clientName.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ')
+      const slot = JSON.stringify([normalized, start, end])
+      if (clientSlots.has(slot)) continue
+      clientSlots.add(slot)
+      clients.push({ ...appointment, clientName, color: color || '#E87A9A' })
     }
     else if (block.rendezVous || ['rdv', 'rendezVous', 'evenement'].includes(block.categorie) ||
       (block.iconOverride === '📌' && block.aClasser)) personal.push({ ...appointment, color: color || '#993556' })
@@ -192,6 +198,7 @@ export function mountPlanningWorkspace(container, bridge) {
   let laundryNotice = ''
   let calendarStatus = ''
   let publishedCalendar = ''
+  let calendarPublication = null
   let publishing = false
   state.days ||= {}
   state.bookings ||= []
@@ -532,21 +539,43 @@ export function mountPlanningWorkspace(container, bridge) {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
-  async function publishCalendar(key = state.calendarKey) {
-    if (!key || publishing || !bridge.publishCalendar) return false
-    const content = calendarText(today, 14, new Date(today + 'T00:00:00Z'))
-    if (publishedCalendar === content && state.calendarKey === key) return true
-    publishing = true
-    try {
-      await bridge.publishCalendar({ key, calendar: content })
-      publishedCalendar = content
-      return true
-    } catch {
-      calendarStatus = 'Abonnement indisponible. Tu peux utiliser l’export .ics.'
-      return false
-    } finally {
-      publishing = false
+  function setCalendarStatus(message) {
+    calendarStatus = message
+    const status = container.querySelector('[data-emma-calendar-status]')
+    if (status) status.textContent = message
+  }
+
+  async function publishCalendar(key = state.calendarKey, force = false) {
+    if (!key || !bridge.publishCalendar || (bridge.isCurrent && !bridge.isCurrent())) return false
+    if (calendarPublication?.key === key) return calendarPublication.promise
+    if (publishing) return false
+    const snapshot = () => {
+      const day = new Date().toLocaleDateString('sv-SE')
+      return calendarText(day, 14, new Date(day + 'T00:00:00Z'))
     }
+    let content = snapshot()
+    if (!force && publishedCalendar === content && state.calendarKey === key) return true
+    publishing = true
+    const promise = (async () => {
+      try {
+        do {
+          await bridge.publishCalendar({ key, calendar: content })
+          publishedCalendar = content
+          content = snapshot()
+        } while (content !== publishedCalendar)
+        const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        setCalendarStatus('Planning publié par EMMA à ' + time + '. Actualise ensuite la liste des calendriers dans Apple.')
+        return true
+      } catch {
+        setCalendarStatus('EMMA n’a pas pu publier le planning. Réessaie avec « Actualiser le calendrier Apple ».')
+        return false
+      } finally {
+        publishing = false
+        calendarPublication = null
+      }
+    })()
+    calendarPublication = { key, promise }
+    return promise
   }
 
   function renderCalendar(root) {
@@ -567,24 +596,30 @@ export function mountPlanningWorkspace(container, bridge) {
     add(group, 'p', 'L’export contient les 7 jours à partir de la date sélectionnée. Le fichier .ics est une copie du planning à importer dans Calendrier.')
     button(group, 'Télécharger le planning (.ics)', exportCalendar)
     if (!state.calendarKey) {
+      add(group, 'p', 'Si tu as déjà un abonnement EMMA, actualise-le sur l’appareil qui a créé le lien.')
       button(group, 'Créer un lien d’abonnement', async () => {
         const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, '0')).join('')
         if (await publishCalendar(key)) {
           state.calendarKey = key
           save()
-          calendarStatus = ''
         }
         render()
         container.querySelector('[data-calendar-link]')?.closest('details')?.setAttribute('open', '')
       })
     } else {
       add(group, 'p', 'Ce lien donne accès à ton planning. Garde-le pour toi.')
+      const refresh = button(group, 'Actualiser le calendrier Apple', async () => {
+        refresh.disabled = true
+        setCalendarStatus('EMMA publie ton planning…')
+        await publishCalendar(state.calendarKey, true)
+        refresh.disabled = false
+      })
       const link = add(group, 'a', 'S’abonner dans Calendrier Apple')
       link.dataset.calendarLink = ''
       link.href = bridge.calendarLink(state.calendarKey)
       const colors = add(group, 'details', '')
       add(colors, 'summary', 'Abonnements par couleur')
-      add(colors, 'p', 'Ajoute les catégories que tu veux voir dans Calendrier Apple. Masque le calendrier EMMA complet dans Apple pour éviter les doublons.')
+      add(colors, 'p', 'Ajoute les catégories que tu veux voir dans Calendrier Apple. Chaque pièce a son propre calendrier. Masque le calendrier EMMA complet dans Apple si tu affiches les catégories séparément.')
       const list = add(colors, 'ul', '')
       for (const [id, { title, color }] of Object.entries(calendarGroups)) {
         const item = add(list, 'li', '')
@@ -609,10 +644,10 @@ export function mountPlanningWorkspace(container, bridge) {
         }
       })
     }
-    if (calendarStatus) {
-      group.open = true
-      add(group, 'p', calendarStatus)
-    }
+    const status = add(group, 'p', calendarStatus)
+    status.dataset.emmaCalendarStatus = ''
+    status.setAttribute('role', 'status')
+    if (calendarStatus && !state.calendarKey) group.open = true
   }
 
   function scheduleBlocks({ morning, evening, clients, personal, robots, bookings }) {
@@ -1142,6 +1177,6 @@ export function mountPlanningWorkspace(container, bridge) {
   void sync?.flush(true)
   return {
     refresh() { if (quizReady) makeProposals(); render(); void sync?.flush() },
-    sync() { void sync?.flush(true) },
+    sync() { void sync?.flush(true); if (state.calendarKey) void publishCalendar() },
   }
 }
