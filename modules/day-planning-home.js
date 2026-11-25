@@ -293,13 +293,22 @@ export function mountPlanningWorkspace(container, bridge) {
     return task
   }
 
+  function lastRecurringCompletion(id) {
+    const legacy = {
+      draps: /chang\w*.*draps/i,
+      vasque: /ranger.*vasque/i,
+      douche: /nettoyer.*douche complète/i,
+    }[id]
+    const dates = [state.completed[id], legacy && alreadyDone(bridge.journal(), legacy)]
+    for (const booking of state.bookings) {
+      if (booking.done && bookingTaskId(booking) === id) dates.push(booking.completedAt || booking.date)
+    }
+    return dates.filter(value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value))
+      .sort().at(-1)?.slice(0, 10)
+  }
+
   function recurringSuggestions(day) {
-    return homeTasks.filter(task => {
-      const legacy = task.id === 'draps' ? /Changer draps/ : task.id === 'vasque' ? /Ranger la vasque/ : task.id === 'douche' ? /Nettoyer la douche complète/ : null
-      const last = state.completed[task.id] || (legacy && alreadyDone(bridge.journal(), legacy))
-      const deferred = state.days[day]?.skip?.includes(task.id)
-      return !deferred && !isBooked(task.id, day) && due(task, last, day)
-    })
+    return homeTasks.filter(task => task.repeat && canBookOnDay(task, day))
   }
 
   function isBooked(id, day) {
@@ -323,7 +332,8 @@ export function mountPlanningWorkspace(container, bridge) {
   }
 
   function canBookOnDay(task, day) {
-    return (!task.notBefore || day >= task.notBefore) && !isBooked(task.id, day) && !dayState(day).skip?.includes(task.id)
+    return (!task.notBefore || day >= task.notBefore) && !isBooked(task.id, day) &&
+      !dayState(day).skip?.includes(task.id) && (!task.repeat || due(task, lastRecurringCompletion(task.id), day))
   }
 
   function makeProposals() {
