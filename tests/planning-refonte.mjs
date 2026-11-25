@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { JSDOM } from 'jsdom'
@@ -286,6 +288,42 @@ test('les quantités manquantes sont préremplies sans écraser celles indiquée
   assert.equal(items[1].quantite, '')
   await completeNutritionQuantities(result, estimate, item => item)
   assert.equal(calls, 1)
+})
+
+test('ouvrir la séance du jour remplace la durée de 30 minutes par 20', async () => {
+  const dom = new JSDOM('<div id="hubPage" style="display:flex"><div id="hub-modules-grid"><div id="hub-planning-wrap"><div id="hub-planning-mini"></div></div></div>')
+  const activite = { tempsDisponible: 30, tempsSportAuto: true }
+  const entrainement = { actif: false }
+  const noop = () => {}
+  const context = {
+    DB: { journal: {}, glow: { activite, entrainement } },
+    currentUser: { uid: 'test' }, userRef: { collection: () => ({ doc: () => ({}) }) },
+    document: dom.window.document, window: dom.window, location: { hostname: 'localhost' },
+    renderHubPlanningMini: noop, renderJAujourdhui: noop, renderJHistorique: noop,
+    renderGlowNutrition: noop, renderHistoriqueNutritionGlow: noop, syncAgendaVersJournal: noop,
+    ouvrirMaisonDepuisHub: noop, assurerRappelsRepasJournal: noop, appliquerRoutinesFixesEmma: noop,
+    actualiserPlanningAutomatiqueEmma: noop, renderGlowModule: noop, renderPlanificationRepasGlow: noop,
+    initialiserGlowDuJour: noop, goModule: noop, renderGlowSport: noop,
+    dateLocaleISO: () => '2026-11-25', bilanSportJourGlow: () => ({ minutes: 0 }),
+    historiqueSportV2Glow: () => [], materielAutoriseGlow: () => true, joursHistoriqueNutritionGlow: () => [],
+    testHome: { mountPlanningWorkspace: () => ({ refresh: noop, sync: noop }) },
+    testGlow: { selectSport },
+    console: { warn: (_, error) => { throw error } },
+  }
+  const source = readFileSync(new URL('../planning-workspace.js', import.meta.url), 'utf8')
+    .replace(/import\('\.\/modules\/day-planning-home\.js[^']*'\)/, 'Promise.resolve(testHome)')
+    .replace(/import\('\.\/modules\/day-planning-glow\.js[^']*'\)/, 'Promise.resolve(testGlow)')
+  runInNewContext(source, context)
+  await new Promise(setImmediate)
+  const open = [...context.document.querySelectorAll('button')].find(button => button.textContent === 'Ouvrir Sport')
+  open.click()
+  assert.equal(activite.tempsDisponible, 20)
+  assert.equal(activite.tempsSportAuto, false)
+  entrainement.actif = true
+  activite.tempsDisponible = 30
+  open.click()
+  assert.equal(activite.tempsDisponible, 30)
+  dom.window.close()
 })
 
 test('choix Sport et ouverture du repas réellement mangé', async () => {

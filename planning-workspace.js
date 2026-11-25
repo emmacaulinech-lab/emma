@@ -16,6 +16,7 @@
     const calendarHost = location.hostname.endsWith('--emmacaulinech.netlify.app')
       ? location.origin : 'https://emmacaulinech.netlify.app';
     const calendarEndpoint = calendarHost + '/.netlify/functions/calendrier-emma';
+    const plannedSportMinutes = 20;
     const labels = { fessiers: 'Fessiers', taille: 'Gainage et abdos', posture: 'Posture', tapis: 'Marche sur tapis' };
 
     async function saveJournalAfter(change) {
@@ -212,6 +213,11 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
         actionButton.onclick = action;
       };
       preview('Sport', 'refonte-sport-apercu', 'Ouvrir Sport', () => {
+        initialiserGlowDuJour();
+        if (!DB.glow.entrainement?.actif) {
+          DB.glow.activite.tempsSportAuto = false;
+          DB.glow.activite.tempsDisponible = plannedSportMinutes;
+        }
         goModule('glow');
         renderGlowSport();
       });
@@ -242,7 +248,7 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
         target.replaceChildren(heading, detail);
       };
       setPreview('refonte-sport-apercu', sportTitle,
-        workout.minutes > 0 ? workout.minutes + ' min réalisées' : (labels[goal] || 'Sport') + ' · 20 min');
+        workout.minutes > 0 ? workout.minutes + ' min réalisées' : (labels[goal] || 'Sport') + ' · ' + plannedSportMinutes + ' min');
       setPreview('refonte-nutrition-apercu', meals.length ? meals.length + ' repas renseigné' + (meals.length > 1 ? 's' : '') : 'Aucun repas renseigné aujourd’hui',
         dish ? 'Dernier repas : ' + dish : 'Des idées adaptées à tes goûts et à ton historique');
     }
@@ -331,13 +337,13 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
         openSport(sport) {
           if (DB.glow.entrainement?.actif) { goModule('glow'); renderGlowSport(); return; }
           if (sport.goal !== 'tapis') {
-            commencerSportPlanningAutoEmma({duree:20,data:{zones:[sport.goal]}}).catch(() => toast('Séance indisponible.'));
+            commencerSportPlanningAutoEmma({duree:plannedSportMinutes,data:{zones:[sport.goal]}}).catch(() => toast('Séance indisponible.'));
             return;
           }
           const custom = {
-            id:'tapis_' + dateLocaleISO(), nom:'Marche sur tapis', objectif:'tapis', duree:20,
+            id:'tapis_' + dateLocaleISO(), nom:'Marche sur tapis', objectif:'tapis', duree:plannedSportMinutes,
             exercices:[{exerciceId:'tapis_course_marche',tour:1}], tours:1,
-            planTempsPersonnalise:[{exerciceIndex:0,dureeSecondes:1200,reposSecondes:0}],
+            planTempsPersonnalise:[{exerciceIndex:0,dureeSecondes:plannedSportMinutes * 60,reposSecondes:0}],
           };
           glowSeancePreview=custom;
           goModule('glow');
