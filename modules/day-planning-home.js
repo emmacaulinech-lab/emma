@@ -80,21 +80,25 @@ function tint(node, block) {
 
 export function readDayAppointments(planning) {
   const clients = []
-  const clientSlots = new Set()
+  const clientSlots = new Map()
   const personal = []
   for (const block of planning) {
     const start = minutes(block.heureDebut)
     const end = minutes(block.heureFin)
     if (start == null || end == null || end <= start) continue
-    const appointment = { start, end, arrivalHome: minutes(block.arriveeMaison), title: block.customNom || block.nom || 'Rendez-vous' }
+    const appointment = { appointmentIds: block.id == null ? [] : [block.id], start, end, arrivalHome: minutes(block.arriveeMaison), title: block.customNom || block.nom || 'Rendez-vous' }
     const customColor = block.couleur || block.couleurOverride
     const color = /^#[0-9a-f]{6}$/i.test(customColor || '') ? customColor : null
     if (block.source === 'planity' || block.typeElement === 'planity') {
       const clientName = appointment.title.split(' — ')[0].trim()
       const normalized = clientName.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ')
       const slot = JSON.stringify([normalized, start, end])
-      if (clientSlots.has(slot)) continue
-      clientSlots.add(slot)
+      const existing = clientSlots.get(slot)
+      if (existing) {
+        existing.push(...appointment.appointmentIds)
+        continue
+      }
+      clientSlots.set(slot, appointment.appointmentIds)
       clients.push({ ...appointment, clientName, color: color || '#E87A9A' })
     }
     else if (block.rendezVous || ['rdv', 'rendezVous', 'evenement'].includes(block.categorie) ||
@@ -849,6 +853,24 @@ export function mountPlanningWorkspace(container, bridge) {
       return
     }
     if (block.clientName) addAppleReminder(detail, block.clientName, day, block.start)
+    if (!weekly && block.appointmentIds?.length && bridge.removeAppointment) {
+      const remove = button(detail, 'Supprimer le rendez-vous', async () => {
+        remove.disabled = true
+        error.hidden = true
+        try {
+          await bridge.removeAppointment(day, block.appointmentIds)
+          render()
+        } catch (failure) {
+          error.textContent = failure.message || 'Impossible de supprimer le rendez-vous.'
+          error.hidden = false
+          remove.disabled = false
+        }
+      })
+      remove.className = 'btn br bsm'
+      const error = add(detail, 'p', '')
+      error.setAttribute('role', 'alert')
+      error.hidden = true
+    }
     if (block.children) {
       detail.open = openRoutines.has(day)
       heading.onclick = () => {
