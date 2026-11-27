@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=37');
+  const homeModule = import('./modules/day-planning-home.js?v=38');
   const glowModule = import('./modules/day-planning-glow.js?v=33');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -310,6 +310,25 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
             'EMMA classe tes tâches Maison…');
           const known = new Set(tasks.map(item => item.id));
           return Array.isArray(result.order) ? [...new Set(result.order.filter(id => known.has(id)))] : [];
+        },
+        async removeAppointment(date, ids) {
+          await saveJournalAfter(() => {
+            const planning = DB.journal.planning;
+            const before = planning[date] || [];
+            const selected = new Set(ids);
+            const after = before.filter(block => !selected.has(block.id) || !estRendezVousPlanningEmma(block));
+            if (after.length === before.length) return () => {};
+            planning[date] = after;
+            return () => {
+              const current = planning[date] || [];
+              if (current === after) planning[date] = before;
+              else {
+                const currentIds = new Set(current.map(block => block.id));
+                const removed = before.filter(block => !after.includes(block) && !currentIds.has(block.id));
+                planning[date] = [...current, ...removed];
+              }
+            };
+          });
         },
         async addAppointment(date, details) {
           await saveJournalAfter(() => {
