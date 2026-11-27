@@ -900,7 +900,7 @@ glowExercices: [
   {
     id: "squat_sumo_leger",
     nom: "Squat sumo léger",
-    objectif: ["fessiers"],
+    objectif: [],
     type: "exercice",
     categorie: "fessiers",
     illustration: "squat_sumo_leger",
@@ -920,7 +920,7 @@ glowExercices: [
   {
     id: "squat_pulse",
     nom: "Squat pulses",
-    objectif: ["fessiers"],
+    objectif: [],
     type: "exercice",
     categorie: "fessiers",
     illustration: "squat_pulse",
@@ -940,7 +940,7 @@ glowExercices: [
   {
     id: "fente_arriere_courte",
     nom: "Fente arrière courte",
-    objectif: ["fessiers"],
+    objectif: [],
     type: "exercice",
     categorie: "fessiers",
     illustration: "fente_arriere_courte",
@@ -14759,7 +14759,7 @@ function exerciceSansMaterielGlow(exercice){
 }
 
 function signaturePreparationSportGlow(objectif,temps){
-    return JSON.stringify([objectif,temps,DB.glow.activite?.etatSport,DB.glow.activite?.niveau,[...(DB.glow.activite?.materielsChoisis||[])].sort(),dateLocaleISO(),historiqueSportV2Glow().map(e=>[e.realisationId,e.date,e.exercices]),recommanderProgrammeGlow().progression.map(p=>[p.id,p.minutes,p.charge])]);
+    return JSON.stringify([objectif,temps,/(^|,)fessiers(,|$)/.test(objectif) ? "fessiers-sans-squats-ni-fentes" : null,DB.glow.activite?.etatSport,DB.glow.activite?.niveau,[...(DB.glow.activite?.materielsChoisis||[])].sort(),dateLocaleISO(),historiqueSportV2Glow().map(e=>[e.realisationId,e.date,e.exercices]),recommanderProgrammeGlow().progression.map(p=>[p.id,p.minutes,p.charge])]);
 }
 
 function alternativesExerciceSportGlow(reference,seance){
