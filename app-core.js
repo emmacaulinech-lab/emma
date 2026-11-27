@@ -37919,6 +37919,11 @@ style="
 onclick="event.stopPropagation()"
 >
 
+    ${estRendezVousPlanningEmma(p) ? `
+        <button type="button" class="btn br bsm" data-rendez-vous-id="${echapperTexteRepasGlow(p.id)}"
+            onclick="supprimerRendezVousPlanningJournal(this.dataset.rendezVousId)">Supprimer le rendez-vous</button>
+    ` : ""}
+
     ${
     p.repasFixe
     ? `
@@ -38368,17 +38373,26 @@ function toggleSelectionBlocPlanningJournal(blocId){
     renderPlanningTimeline();
 }
 
-function supprimerBlocsSelectionnesJournal(){
-
-    if(!blocsSelectionnesJournal.size) return;
-
+function supprimerRendezVousPlanningJournal(id){
     const date = getJournalJour();
-    const planning = DB.journal.planning[date] || [];
+    const rendezVous = (DB.journal.planning[date] || []).find(bloc => String(bloc.id) === id);
+    if(!estRendezVousPlanningEmma(rendezVous)) return;
 
-    DB.journal.refusPlanningJour=DB.journal.refusPlanningJour||{};DB.journal.refusPlanningJour[date]=[...new Set([...(DB.journal.refusPlanningJour[date]||[]),...planning.filter(b=>blocsSelectionnesJournal.has(b.id)).map(clePlanningAutoEmma)])];
-    DB.journal.planning[date] = planning.filter(
-        bloc => !blocsSelectionnesJournal.has(bloc.id)
-    );
+    supprimerBlocsPlanningJournal(new Set([rendezVous.id]), date);
+    delete window['_blocOpen_'+rendezVous.id];
+}
+
+function supprimerBlocsSelectionnesJournal(){
+    supprimerBlocsPlanningJournal(blocsSelectionnesJournal, getJournalJour());
+}
+
+function supprimerBlocsPlanningJournal(ids, date){
+    if(!ids.size) return;
+
+    const planning = DB.journal.planning[date] || [];
+    const refus = DB.journal.refusPlanningJour ||= {};
+    refus[date] = [...new Set([...(refus[date] || []), ...planning.filter(bloc => ids.has(bloc.id)).map(clePlanningAutoEmma)])];
+    DB.journal.planning[date] = planning.filter(bloc => !ids.has(bloc.id));
 
     blocsSelectionnesJournal.clear();
     modeEditionPlanningJournal = false;
