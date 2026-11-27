@@ -14319,6 +14319,14 @@ async function quitterSeance(){
     renderGlowSport();
 }
 
+function libelleMaterielSportGlow(exercices){
+    const noms = {tapis:"Tapis de sol", tapis_course:"Tapis de course", elastique:"Élastique", elliptique:"Elliptique"};
+    const materiels = exercices.flatMap(exercice => exercice?.materiel || [])
+        .map(materiel => materiel === "élastique" ? "elastique" : materiel)
+        .filter(materiel => !["aucun", "sans matériel", "sans materiel"].includes(materiel));
+    return [...new Set(materiels)].map(materiel => noms[materiel] || materiel).join(", ") || "Sans matériel";
+}
+
 function renderLecteurSeance(){
 
     const entrainement = DB.glow.entrainement;
@@ -14334,13 +14342,12 @@ function renderLecteurSeance(){
         return;
     }
 
-    const reference =
-    seance.exercices[entrainement.exerciceIndex];
+    const estRepos = entrainement.enRepos || entrainement.phase === "repos";
+    const indexAffiche = entrainement.exerciceIndex + (estRepos ? 1 : 0);
+    const reference = seance.exercices[indexAffiche];
+    const exercice = reference ? getExerciceGlow(reference.exerciceId || reference.id) : null;
 
-const exercice =
-    getExerciceGlow(reference?.exerciceId);
-
-    if(!exercice){
+    if(!exercice && !estRepos){
         document.getElementById("glow-content").innerHTML = `
             <div style="padding:30px;text-align:center">
                 Exercice introuvable.
@@ -14350,7 +14357,7 @@ const exercice =
     }
 
    const illustrationData =
-    getIllustrationGlow(exercice.id);
+    exercice ? getIllustrationGlow(exercice.id) : {};
 
 const frames =
     illustrationData.frames || [];
@@ -14366,10 +14373,6 @@ const illustration =
         : illustrationData.image;
 
     const chrono = entrainement.chrono || 0;
-
-   const estRepos =
-    entrainement.enRepos ||
-    entrainement.phase === "repos";
 
     const minutes = String(
         Math.floor(chrono / 60)
@@ -14408,8 +14411,7 @@ const illustration =
                     color:var(--mut);
                     font-weight:700;
                 ">
-                    Exercice ${entrainement.exerciceIndex + 1}
-                    / ${seance.exercices.length}
+                    ${exercice ? `Exercice ${indexAffiche + 1} / ${seance.exercices.length}` : "Dernier repos"}
                 </div>
 
             </div>
@@ -14471,7 +14473,7 @@ const illustration =
                 text-align:center;
                 padding:0 20px;
             ">
-                ${estRepos ? "Temps de repos" : exercice.nom}
+                ${exercice?.nom || "Temps de repos"}
             </div>
         </div>
     `
@@ -14484,7 +14486,7 @@ const illustration =
                 font-size:32px;
                 margin-bottom:12px;
             ">
-                ${estRepos ? "Repos" : exercice.nom}
+                ${estRepos ? (exercice ? `À suivre · ${exercice.nom}` : "Dernier repos") : exercice.nom}
             </h2>
 
             <div style="
@@ -14494,9 +14496,10 @@ const illustration =
             ">
                 ${
     estRepos
-        ? "Respire, relâche les muscles et prépare-toi pour le prochain mouvement."
+        ? (exercice ? "Prépare-toi pour le prochain mouvement." : "Relâche les muscles avant de terminer.")
         : exercice.description || ""
 }
+                ${exercice ? `<div style="margin-top:8px"><strong>Matériel requis</strong> · ${echapperTexteRepasGlow(libelleMaterielSportGlow([exercice]))}</div>` : ""}
             </div>
 
             <div style="
@@ -14895,6 +14898,7 @@ function renderGlowSport(){
                 </div>
                 <div style="color:var(--mut);font-size:13px;line-height:1.55;margin:5px 0 17px">${contexte.raison}</div>
                 <div style="font-size:12px;margin-bottom:16px">${seance.tours||1} tours · ${seance.exercices?.length || 0} étapes · effort 40 s / repos 20 s · échauffement et retour au calme inclus</div><p style="font-size:12px;color:var(--mut)">Un mouvement repère pour progresser ; les autres varient selon tes dernières séances et les exercices compatibles.</p>
+                <p style="font-size:13px;margin:10px 0"><strong>Matériel requis</strong> · ${echapperTexteRepasGlow(libelleMaterielSportGlow((seance.exercices || []).map(ref => getExerciceGlow(ref.exerciceId || ref.id))))}</p>
                 <button class="btn bg" onclick="ouvrirResumeSeanceSportGlow()" style="margin-bottom:12px">Voir / modifier les exercices</button>
                 <button class="btn bd" onclick="commencerSeance('${seance.id}')" style="width:100%;justify-content:center;padding:13px">▶ Commencer ma séance</button>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
