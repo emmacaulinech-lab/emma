@@ -14176,9 +14176,42 @@ let glowSeancePreview = null;
 
 let glowTimer = null;
 
+let audioSportGlow;
+
+function activerAudioSportGlow(){
+    const AudioContextSport = window.AudioContext || window.webkitAudioContext;
+    if(!AudioContextSport) return;
+    try{
+        audioSportGlow ||= new AudioContextSport();
+        if(audioSportGlow.state !== "running") audioSportGlow.resume().catch(() => {});
+    }catch{
+        // Le minuteur reste utilisable si le navigateur bloque le son.
+    }
+}
+
+function jouerSignalSportGlow(repos){
+    const audio = audioSportGlow;
+    if(audio?.state !== "running") return;
+    const notes = repos ? [560, 400] : [520, 780];
+    notes.forEach((note, index) => {
+        const debut = audio.currentTime + index * 0.16;
+        const oscillateur = audio.createOscillator();
+        const volume = audio.createGain();
+        oscillateur.frequency.value = note;
+        volume.gain.setValueAtTime(0, debut);
+        volume.gain.linearRampToValueAtTime(0.12, debut + 0.02);
+        volume.gain.linearRampToValueAtTime(0, debut + 0.14);
+        oscillateur.connect(volume);
+        volume.connect(audio.destination);
+        oscillateur.start(debut);
+        oscillateur.stop(debut + 0.15);
+    });
+}
+
 function demarrerChronoGlow(){
 
     if(glowTimer) return;
+    activerAudioSportGlow();
 
     const entrainement = DB.glow.entrainement;
 
@@ -14218,6 +14251,7 @@ function demarrerChronoGlow(){
                 entrainement.enRepos = true;
                 entrainement.phase = "repos";
                 entrainement.chrono = repos;
+                jouerSignalSportGlow(true);
 
                 renderLecteurSeance();
 
@@ -21228,6 +21262,7 @@ function exerciceGlowSuivant(demarrageAutomatique = false,ignore=false){
         renderLecteurSeance();
 
         if(demarrageAutomatique){
+            jouerSignalSportGlow(false);
 
             setTimeout(() => {
                 demarrerChronoGlow();
