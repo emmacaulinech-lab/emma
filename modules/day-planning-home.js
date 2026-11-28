@@ -295,7 +295,7 @@ export function mountPlanningWorkspace(container, bridge) {
       if (state.completed[id]) return
       for (let day = earliest < today ? today : earliest; day <= deadline; day = dateOffset(day, 1)) {
         const bounds = available(day, getSchedule(day))
-        const occupied = [...bounds.occupied, ...items.filter(item => item.date === day)]
+        const occupied = [...bounds.occupied, ...items.filter(item => item.date === day && Number.isFinite(item.end))]
         const slot = firstSlot(occupied, Math.max(getDay(day).morning.blocks[2].end, day === earliest ? firstStart : 0), bounds.end, duration)
         if (!slot) continue
         items.push({id, title, date:day, ...slot, room:'Admin'})
