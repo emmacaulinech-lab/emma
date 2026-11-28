@@ -289,6 +289,64 @@ export function mountPlanningWorkspace(container, bridge) {
     return { date: day, start, end, occupied, works: first != null }
   }
 
+  function adminSchedule() {
+    const items = []
+    const addTask = (id, title, earliest, deadline, duration, firstStart = 0) => {
+      if (state.completed[id]) return
+      for (let day = earliest < today ? today : earliest; day <= deadline; day = dateOffset(day, 1)) {
+        const bounds = available(day, getSchedule(day))
+        const occupied = [...bounds.occupied, ...items.filter(item => item.date === day)]
+        const slot = firstSlot(occupied, Math.max(getDay(day).morning.blocks[2].end, day === earliest ? firstStart : 0), bounds.end, duration)
+        if (!slot) continue
+        items.push({id, title, date:day, ...slot, room:'Admin'})
+        return
+      }
+      // Keep the deadline visible even if there is no slot before it.
+      if (deadline >= today) items.push({id, title, date:deadline, room:'Admin', urgent:true})
+    }
+    for (let offset = 0; offset < 32; offset++) {
+      const day = dateOffset(today, offset)
+      if (day.endsWith('-15')) addTask('redevances-' + day, 'Factures de redevance', day, day, 30)
+      const deadline = dateOffset(day, -2)
+      if (deadline >= today) {
+        for (const formation of bridge.trainingStarts?.(day) || []) {
+          addTask('kit-' + day + '-' + formation.title, 'Préparer ' + (formation.count === 1 ? 'le kit' : 'les kits') +
+            ' · ' + formation.title, dateOffset(deadline, -7), deadline, 20)
+        }
+      }
+    }
+    for (const [day, settings] of Object.entries(state.days)) {
+      if (!settings.videos) continue
+      for (const client of getDay(day).clients) {
+        const id = videoId(day, client)
+        if (!settings.videos[id]) continue
+        if (day >= today && !state.completed[id]) {
+          items.push({id, title:'Filmer la pose · ' + client.clientName, date:day, start:client.start, filming:true})
+        }
+        addTask(id + '-montage', 'Monter et publier · ' + client.clientName, day,
+          dateOffset(day < today ? today : day, 7), 30, client.end)
+      }
+    }
+    return items
+  }
+
+  function videoId(day, client) {
+    return 'video-' + day + '-' + client.start + '-' + client.clientName
+  }
+
+  function renderAdmin(root, day, items) {
+    const tasks = items.filter(item => item.date === day && !item.filming)
+    if (!tasks.length) return
+    const panel = add(root, 'details', '')
+    tint(panel, { color:'#668FB5' })
+    add(panel, 'summary', 'Admin · ' + tasks.length + ' tâche' + (tasks.length === 1 ? '' : 's'))
+    for (const task of tasks) {
+      const row = add(panel, 'div', '')
+      add(row, 'p', (task.urgent ? 'À placer aujourd’hui · ' : interval(task) + ' · ') + task.title)
+      button(row, 'Fait', () => { state.completed[task.id] = today; save(); render() })
+    }
+  }
+
   function taskFor(id) {
     if (id === hangLaundryId || (id === 'linge' && state.laundry % 4 === 1)) {
       return {
@@ -356,12 +414,14 @@ export function mountPlanningWorkspace(container, bridge) {
     tasks.sort((a, b) => Number(missed.has(b.id)) - Number(missed.has(a.id)) || priority(a.id) - priority(b.id))
     const anchor = state.quizStart || today
     const firstDay = anchor < today ? today : anchor
+    const admin = adminSchedule()
     const days = Array.from({ length: 7 }, (_, index) => dateOffset(firstDay, index))
       .filter(day => getDay(day).first != null || dayState(day).off)
-      .map(day => ({
-        ...available(day, getSchedule(day)),
-        canBook: task => canBookOnDay(task, day),
-      }))
+      .map(day => {
+        const bounds = available(day, getSchedule(day))
+        bounds.occupied.push(...admin.filter(item => item.date === day && Number.isFinite(item.end)))
+        return { ...bounds, canBook: task => canBookOnDay(task, day) }
+      })
     proposalTaskCount = tasks.length
     proposalDayCount = days.length
     proposals = suggestHome(tasks, days)
@@ -853,6 +913,20 @@ export function mountPlanningWorkspace(container, bridge) {
       return
     }
     if (block.clientName) addAppleReminder(detail, block.clientName, day, block.start)
+    if (block.clientName) {
+      const id = videoId(day, block)
+      const selected = input(detail, 'Vidéo à prévoir', 'checkbox')
+      selected.checked = Boolean(settings.videos?.[id])
+      selected.onchange = () => {
+        settings.videos ||= {}
+        settings.videos[id] = selected.checked
+        save()
+        render()
+      }
+      if (selected.checked && !state.completed[id]) {
+        button(detail, 'Pose filmée', () => { state.completed[id] = today; save(); render() })
+      } else if (selected.checked) add(detail, 'small', 'Pose filmée ✓')
+    }
     if (!weekly && block.appointmentIds?.length && bridge.removeAppointment) {
       const remove = button(detail, 'Supprimer le rendez-vous', async () => {
         remove.disabled = true
@@ -1189,9 +1263,12 @@ export function mountPlanningWorkspace(container, bridge) {
     })
     optionsButton.setAttribute('aria-controls', 'emma-day-options')
     controls.id = 'emma-day-options'
+    const admin = adminSchedule()
+    renderAdmin(container, date, admin)
     renderDayTimeline(container, scheduleBlocks({ morning, evening, clients, personal, robots, bookings }), date, settings)
     if (notices.childElementCount) container.append(notices)
     container.append(controls)
+    bridge.syncAdminNotifications?.(admin)
     if (state.calendarKey) void publishCalendar()
   }
 
