@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const homeModule = import('./modules/day-planning-home.js?v=38');
+  const homeModule = import('./modules/day-planning-home.js?v=39');
   const glowModule = import('./modules/day-planning-glow.js?v=33');
   Promise.all([homeModule, glowModule]).then(([home, glow]) => {
     const oldPlanning = renderHubPlanningMini;
@@ -19,6 +19,64 @@
     const plannedSportMinutes = 20;
     const labels = { fessiers: 'Fessiers', taille: 'Gainage et abdos', posture: 'Posture', tapis: 'Marche sur tapis' };
 
+    const legacyNotificationSync = typeof synchroniserNotificationsPlanningEmma === 'function'
+      ? synchroniserNotificationsPlanningEmma : null;
+    let adminNotificationOwner;
+    let adminNotifications = [];
+    let adminNotificationSignature = '';
+    let adminNotificationQueue = Promise.resolve();
+
+    function syncAdminNotifications(items, force = false) {
+      const user = currentUser;
+      const owner = userRef;
+      if (!user || !owner || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      if (adminNotificationOwner !== owner) {
+        adminNotificationOwner = owner;
+        adminNotificationSignature = '';
+      }
+      adminNotifications = items;
+      const payload = JSON.stringify(items);
+      if (!force && payload === adminNotificationSignature) return;
+      adminNotificationSignature = payload;
+      adminNotificationQueue = adminNotificationQueue.catch(() => {}).then(async () => {
+        if (currentUser !== user || userRef !== owner) return;
+        const now = new Date();
+        const today = dateLocaleISO(now);
+        const minute = now.getHours() * 60 + now.getMinutes();
+        const store = owner.firestore;
+        const collection = store.collection('emma_taches_notifications');
+        const previous = await collection.where('userId', '==', user.uid)
+          .where('source', '==', 'planning_admin').get();
+        if (currentUser !== user || userRef !== owner) return;
+        const known = new Map(previous.docs.map(doc => [doc.id, doc]));
+        const batch = store.batch();
+        for (const task of items) {
+          const start = task.urgent ? (task.date === today ? Math.min(Math.max(minute + 2, 540), 1439) : 540) : task.start;
+          if (task.date < today || (task.date === today && start <= minute) || !Number.isFinite(start)) continue;
+          const id = user.uid + '_admin_' + encodeURIComponent(task.id);
+          const old = known.get(id);
+          known.delete(id);
+          if (old?.data().envoyeeAt || old?.data().envoiEnCoursAt) continue;
+          const heure = String(Math.floor(start / 60)).padStart(2, '0') + ':' + String(start % 60).padStart(2, '0');
+          batch.set(collection.doc(id), {userId:user.uid, planningId:id, date:task.date, heure,
+            rappelMinutes:0, titre:'EMMA · Admin', message:task.title, categorie:'journal',
+            typeNotification:'admin', source:'planning_admin', url:'/emma/?module=journal'});
+        }
+        for (const doc of known.values()) {
+          if (!doc.data().envoyeeAt && !doc.data().envoiEnCoursAt) batch.delete(doc.ref);
+        }
+        await batch.commit();
+      }).catch(error => {
+        adminNotificationSignature = '';
+        console.warn('Notifications Admin indisponibles', error);
+      });
+    }
+
+    if (legacyNotificationSync) synchroniserNotificationsPlanningEmma = async (...args) => {
+      await legacyNotificationSync(...args);
+      if (adminNotificationOwner === userRef) syncAdminNotifications(adminNotifications, true);
+    };
+
     async function saveJournalAfter(change) {
       const ref = userRef;
       const undo = change();
@@ -31,12 +89,12 @@
       }
     }
 
-    function trainingFor(date) {
+    function trainingFor(date, startOnly = false) {
       const groups = new Map();
       for (const student of DB.formations?.etudiantes || []) {
         const start = dateSessionFormation(student.dateFormation);
         const end = dateSessionFormation(student.dateFinFormation) || start;
-        if (!start || date < start || date > end || student.archive === true ||
+        if (!start || (startOnly && date !== start) || date < start || date > end || student.archive === true ||
             /annul|aband/i.test(String(student.statut || ''))) continue;
         const title = getLabelFormation(student.formation) || 'Formation';
         groups.set(title, (groups.get(title) || 0) + 1);
@@ -290,6 +348,8 @@ Réponds uniquement par le tableau JSON exhaustif, trié par date et heure de d�
         journal: () => DB.journal,
         planning: day => DB.journal.planning?.[day] || [],
         formations: trainingFor,
+        trainingStarts: day => trainingFor(day, true),
+        syncAdminNotifications,
         calendarLink: (key, group) => calendarEndpoint.replace('https:', 'webcal:') + '?' +
           new URLSearchParams(group ? { key, group } : { key }),
         async publishCalendar(data) {
