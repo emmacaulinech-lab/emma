@@ -29,12 +29,13 @@
     function syncAdminNotifications(items, force = false) {
       const user = currentUser;
       const owner = userRef;
-      if (!user || !owner || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      if (!user || !owner) return;
       if (adminNotificationOwner !== owner) {
         adminNotificationOwner = owner;
         adminNotificationSignature = '';
       }
       adminNotifications = items;
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
       const payload = JSON.stringify(items);
       if (!force && payload === adminNotificationSignature) return;
       adminNotificationSignature = payload;
