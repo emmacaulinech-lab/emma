@@ -393,3 +393,29 @@ test('choix Sport et ouverture du repas réellement mangé', async () => {
   assert.match(root.querySelector('.nutrition-results').textContent, /Pancakes Skyr/)
 
 })
+
+test('le bloc Admin réunit redevance, kit et montage après le rendez-vous choisi', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 15, 7) })
+  const dom = new JSDOM('<main></main>', { url: 'http://localhost' })
+  globalThis.document = dom.window.document
+  globalThis.localStorage = dom.window.localStorage
+  let reminders
+  const root = document.querySelector('main')
+  mountPlanningWorkspace(root, {
+    uid: 'admin-test', journal: () => ({}), sport: () => ({ label: 'Fessiers' }), formations: () => [],
+    trainingStarts: day => day === '2026-11-17' ? [{ title: 'Formation test', count: 1 }] : [],
+    planning: day => day === '2026-11-15' ? [{ source: 'planity', nom: 'Cliente Test', heureDebut: '10:00', heureFin: '11:00' }] : [],
+    syncAdminNotifications: items => { reminders = items },
+  })
+  assert.match(root.textContent, /Factures de redevance/)
+  assert.match(root.textContent, /Préparer le kit/)
+  const select = [...root.querySelectorAll('label')].find(node => node.textContent.includes('Vidéo à prévoir')).querySelector('input')
+  select.checked = true
+  select.onchange()
+  assert.match(root.textContent, /Monter et publier · Cliente Test/)
+  assert.equal(reminders.find(item => item.filming).start, 600)
+  assert.ok(reminders.find(item => item.title.startsWith('Monter')).start >= 660)
+  root.querySelectorAll('button').forEach(button => { if (button.textContent === 'Pose filmée') button.click() })
+  assert.ok(!reminders.some(item => item.filming))
+  dom.window.close()
+})
